@@ -2,6 +2,7 @@
 # Interactive cVDPV emergence-group mapping app using ggplot + Shiny
 # Single display CRS: EPSG:4326
 # Basemap: Carto Light only
+library(plyr)
 library(tidyverse)
 library(dplyr)
 library(shiny)
@@ -941,7 +942,7 @@ ui <- fluidPage(
     "))
   ),
   
-  titlePanel(HTML("Horn of Africa cVDPV emergence-group mapping:<br>cVDPV emergence groups detecting in HoA, estimated transmission clusters and spread")),
+  titlePanel(HTML("Horn of Africa cVDPV emergence-group mapping:<br>cVDPV detected in Horn of Africa, with clusters and plausible transmission between clusters.")),
   
   sidebarLayout(
     sidebarPanel(
