@@ -225,18 +225,50 @@ make_emergence_meta <- function(df) {
     )
 }
 
-make_emergence_title <- function(selected_groups, meta_df) {
+make_emergence_title <- function(selected_groups,
+                                 meta_df,
+                                 wrap_width = 75) {
+  
   meta_sub <- meta_df %>%
-    filter(emergence_group_s %in% selected_groups) %>%
-    arrange(desc(latest_date), emergence_group_s)
+    dplyr::filter(emergence_group_s %in% selected_groups) %>%
+    dplyr::arrange(desc(latest_date), emergence_group_s)
+  
+  if (nrow(meta_sub) == 0) {
+    return("")
+  }
   
   parts <- ifelse(
     meta_sub$min_year == meta_sub$max_year,
-    paste0(meta_sub$emergence_group_s, ": ", meta_sub$min_year, "; N=", meta_sub$n),
-    paste0(meta_sub$emergence_group_s, ": ", meta_sub$min_year, "-", meta_sub$max_year, "; N=", meta_sub$n)
+    paste0(
+      meta_sub$emergence_group_s,
+      ": ",
+      meta_sub$min_year,
+      "; N=",
+      meta_sub$n
+    ),
+    paste0(
+      meta_sub$emergence_group_s,
+      ": ",
+      meta_sub$min_year,
+      "-",
+      meta_sub$max_year,
+      "; N=",
+      meta_sub$n
+    )
   )
   
-  paste(parts, collapse = " | ")
+  full_text <- paste(parts, collapse = " | ")
+  
+  # Insert line breaks cleanly
+  wrapped <- paste(
+    strwrap(
+      full_text,
+      width = wrap_width
+    ),
+    collapse = "\n"
+  )
+  
+  wrapped
 }
 
 make_group_palette <- function(groups) {
@@ -586,30 +618,30 @@ build_arrow_segments <- function(edges_df,
   )
 }
 
-make_min_extent_poly <- function(df, min_extent_countries) {
-  df_sub <- df %>%
-    filter(admin0official_name %in% min_extent_countries)
+make_min_extent_poly <- function(adm0,
+                                 min_extent_countries,
+                                 country_col = "adm0_sovrn") {
+  if (!country_col %in% names(adm0)) {
+    stop(paste0("Column '", country_col, "' not found in adm0."))
+  }
   
-  if (nrow(df_sub) > 0) {
-    out <- df_sub %>%
-      st_as_sf(coords = c("x", "y"), crs = 4326, remove = FALSE) %>%
-      group_by(admin0official_name) %>%
-      summarise(geometry = st_combine(geometry), .groups = "drop") %>%
-      mutate(geometry = st_convex_hull(geometry)) %>%
-      st_as_sf()
-  } else {
-    out <- df %>%
-      st_as_sf(coords = c("x", "y"), crs = 4326, remove = FALSE) %>%
-      summarise(geometry = st_combine(geometry)) %>%
-      mutate(geometry = st_convex_hull(geometry)) %>%
-      st_as_sf()
+  out <- adm0 %>%
+    dplyr::filter(.data[[country_col]] %in% min_extent_countries) %>%
+    sf::st_make_valid()
+  
+  if (nrow(out) == 0) {
+    stop("No matching countries found in adm0 for min_extent_countries.")
   }
   
   out
 }
 
-make_extent_bbox <- function(det_sub, cluster_poly_sub, label_df_sub,
-                             edges_sub, min_extent_poly, pad_deg = 3) {
+make_extent_bbox <- function(det_sub,
+                             cluster_poly_sub,
+                             label_df_sub,
+                             edges_sub,
+                             min_extent_poly,
+                             pad_deg = 3) {
   x_vals <- det_sub$x
   y_vals <- det_sub$y
   
@@ -629,7 +661,8 @@ make_extent_bbox <- function(det_sub, cluster_poly_sub, label_df_sub,
     y_vals <- c(y_vals, edges_sub$from_y, edges_sub$to_y)
   }
   
-  bb_min <- sf::st_bbox(min_extent_poly)
+  # Full extent of all required ADM0 countries
+  bb_min <- sf::st_bbox(sf::st_union(min_extent_poly))
   x_vals <- c(x_vals, unname(bb_min["xmin"]), unname(bb_min["xmax"]))
   y_vals <- c(y_vals, unname(bb_min["ymin"]), unname(bb_min["ymax"]))
   
@@ -1207,7 +1240,11 @@ server <- function(input, output, session) {
       need(nrow(pool_df) > 0, "No detections match the current surveillance type/date filters.")
     )
     
-    make_min_extent_poly(pool_df, min_extent_countries)
+    min_extent_poly <- make_min_extent_poly(
+      adm0 = adm0,
+      min_extent_countries = min_extent_countries,
+      country_col = "adm0_sovrn"
+    )
   }, ignoreInit = FALSE)
   
   processed <- eventReactive(input$update_plot, {
