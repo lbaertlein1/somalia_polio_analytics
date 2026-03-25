@@ -100,18 +100,78 @@ global_max_date <- max(data_clean$virus_date, na.rm = TRUE)
 # ============================================================
 # 3) HELPERS
 # ============================================================
-
+make_about_plot <- function(about_text) {
+  
+  ggplot() +
+    annotate(
+      "text",
+      x = 0,
+      y = 1,
+      label = about_text,
+      hjust = 0,
+      vjust = 1,
+      size = 3.0,
+      lineheight = 1.05
+    ) +
+    coord_cartesian(
+      xlim = c(0, 1),
+      ylim = c(0, 1),
+      expand = FALSE
+    ) +
+    theme_void()
+}
+make_download_layout <- function(title_text,
+                                 subtitle_text,
+                                 about_text,
+                                 map_plot,
+                                 epi_plot) {
+  title_plot <- ggplot() +
+    annotate(
+      "text",
+      x = 0,
+      y = 1,
+      label = title_text,
+      hjust = 0,
+      vjust = 1,
+      size = 6,
+      fontface = "bold"
+    ) +
+    annotate(
+      "text",
+      x = 0,
+      y = 0.2,
+      label = subtitle_text,
+      hjust = 0,
+      vjust = 1,
+      size = 3.5
+    ) +
+    coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), expand = FALSE) +
+    theme_void()
+  
+  about_plot <- make_about_plot(about_text)
+  
+  title_plot / about_plot / map_plot / epi_plot +
+    patchwork::plot_layout(heights = c(0.08, 0.12, 0.65, 0.15))
+}
 make_about_text <- function() {
+  
   paste(
     "This map uses cVDPV detections from the POLIS database, downloaded 2025-03-25.",
     "Data are restricted to cVDPV detections and to emergence groups with at least one detection in the Horn of Africa.",
     
+    "\n\n",
+    
     "Within each emergence group, detections are assigned to the same cluster when they fall within the selected maximum geographic distance and maximum time window.",
+    
+    "\n\n",
     
     "Arrows show inferred links between clusters within the same emergence group.",
     "For each later cluster, the most plausible earlier source cluster is identified using only timing and geographic proximity.",
-    "A prior cluster is treated as an ongoing possible source if the later cluster begins within the selected time window after the prior cluster's last detection.",
-    "If multiple prior clusters are eligible, the nearest one is selected.",
+    "A prior cluster is treated as an ongoing possible source if it began earlier than the later cluster and the later cluster's first detection occurs on or before the prior cluster's last detection plus the selected transmission window.",
+    "If multiple ongoing source clusters are eligible, the nearest one is selected.",
+    "If no eligible source cluster exists, no arrow is drawn.",
+    
+    "\n\n",
     
     "These arrows are heuristic and are based only on virus dates and geographic distance.",
     "They do not represent confirmed transmission pathways.",
@@ -312,66 +372,79 @@ build_clustered_data <- function(df,
       cy = st_coordinates(.)[, 2]
     )
   
-  assign_sources_one_group <- function(df_group, source_ongoing_days = 120) {
-    n <- nrow(df_group)
+  assign_sources_one_group <- function(cluster_group,
+                                       det_group,
+                                       source_ongoing_days = 120) {
+    n <- nrow(cluster_group)
+    
     if (n <= 1) return(tibble())
     
-    df_group <- df_group %>%
+    cluster_group <- cluster_group %>%
       arrange(first_date, cluster_id)
-    
-    min_first_date <- min(df_group$first_date, na.rm = TRUE)
-    coords <- df_group %>%
-      st_drop_geometry() %>%
-      dplyr::select(cx, cy) %>%
-      as.matrix()
-    
-    dist_mat_km <- get_distance_matrix_km(coords)
     
     edge_list <- vector("list", n)
     
     for (i in seq_len(n)) {
-      target <- df_group[i, ]
+      target <- cluster_group[i, ]
       
-      if (target$first_date == min_first_date) {
+      ongoing_candidates <- cluster_group %>%
+        filter(
+          cluster_id != target$cluster_id,
+          first_date < target$first_date,
+          target$first_date <= (last_date + lubridate::days(source_ongoing_days))
+        )
+      
+      if (nrow(ongoing_candidates) == 0) {
         edge_list[[i]] <- NULL
         next
       }
       
-      candidates <- df_group %>%
-        mutate(
-          dist_km = dist_mat_km[, i],
-          earlier_cluster =
-            cluster_id != target$cluster_id &
-            first_date < target$first_date,
-          ongoing_source =
-            earlier_cluster &
-            target$first_date <= (last_date + lubridate::days(source_ongoing_days))
-        )
+      target_coords <- det_group %>%
+        sf::st_drop_geometry() %>%
+        filter(cluster_id == target$cluster_id) %>%
+        dplyr::select(x, y) %>%
+        as.matrix()
       
-      ongoing_candidates <- candidates %>%
-        filter(ongoing_source) %>%
-        arrange(dist_km, first_date, desc(last_date), desc(n_detections), cluster_id)
+      if (nrow(target_coords) == 0) {
+        edge_list[[i]] <- NULL
+        next
+      }
       
-      if (nrow(ongoing_candidates) > 0) {
-        source <- ongoing_candidates %>% slice(1)
-      } else {
-        earlier_candidates <- candidates %>%
-          filter(earlier_cluster) %>%
-          arrange(dist_km, first_date, desc(last_date), desc(n_detections), cluster_id)
+      candidate_distances <- purrr::map_dfr(seq_len(nrow(ongoing_candidates)), function(j) {
+        candidate <- ongoing_candidates[j, ]
         
-        if (nrow(earlier_candidates) == 0) {
-          stop(
-            paste0(
-              "No valid source found for non-root cluster ",
-              target$cluster_id,
-              " in emergence group ",
-              target$emergence_group_s,
-              "."
-            )
-          )
+        source_coords <- det_group %>%
+          sf::st_drop_geometry() %>%
+          filter(cluster_id == candidate$cluster_id) %>%
+          dplyr::select(x, y) %>%
+          as.matrix()
+        
+        dist_km <- if (nrow(source_coords) == 0) {
+          Inf
+        } else {
+          min(
+            geosphere::distm(
+              source_coords,
+              target_coords,
+              fun = geosphere::distHaversine
+            ),
+            na.rm = TRUE
+          ) / 1000
         }
         
-        source <- earlier_candidates %>% slice(1)
+        candidate %>%
+          st_drop_geometry() %>%
+          mutate(dist_km = dist_km)
+      })
+      
+      candidate_distances <- candidate_distances %>%
+        arrange(dist_km, first_date, desc(last_date), desc(n_detections), cluster_id)
+      
+      source <- candidate_distances %>% slice(1)
+      
+      if (!is.finite(source$dist_km[1])) {
+        edge_list[[i]] <- NULL
+        next
       }
       
       edge_list[[i]] <- tibble(
@@ -381,16 +454,29 @@ build_clustered_data <- function(df,
         from_y            = source$cy,
         to_cluster_id     = target$cluster_id,
         to_x              = target$cx,
-        to_y              = target$cy
+        to_y              = target$cy,
+        min_dist_km       = source$dist_km
       )
     }
     
     bind_rows(edge_list)
   }
   
-  edges_df <- cluster_pts %>%
-    group_split(emergence_group_s) %>%
-    map_dfr(assign_sources_one_group, source_ongoing_days = source_ongoing_days)
+  edges_df <- purrr::map_dfr(
+    split(cluster_pts, cluster_pts$emergence_group_s),
+    function(cluster_group) {
+      grp <- unique(cluster_group$emergence_group_s)
+      
+      det_group <- det_clustered %>%
+        filter(emergence_group_s == grp)
+      
+      assign_sources_one_group(
+        cluster_group = cluster_group,
+        det_group = det_group,
+        source_ongoing_days = source_ongoing_days
+      )
+    }
+  )
   
   cluster_poly <- det_clustered %>%
     group_split(cluster_id) %>%
@@ -595,7 +681,7 @@ make_map_plot <- function(det_sub,
                           min_extent_poly,
                           label_mode = "cluster_summary",
                           group_palette,
-                          show_arrows = TRUE,
+                          map_display_mode = "clusters_arrows",
                           point_size = 1.8,
                           tile_zoom = 5) {
   bbox_vals <- make_extent_bbox(
@@ -608,7 +694,9 @@ make_map_plot <- function(det_sub,
   )
   
   carto_df <- get_cartolight_df(bbox_vals, zoom = tile_zoom)
-  arrows <- if (isTRUE(show_arrows)) {
+  show_arrows <- identical(map_display_mode, "clusters_arrows")
+  
+  arrows <- if (show_arrows) {
     build_arrow_segments(edges_sub)
   } else {
     list(shafts = tibble(), heads = tibble())
@@ -630,6 +718,10 @@ make_map_plot <- function(det_sub,
     ) %>%
     filter(!is.na(label_text))
   
+  if (identical(map_display_mode, "points_only")) {
+    cluster_label_plot <- cluster_label_plot[0, ]
+  }
+  
   det_label_plot <- det_sub %>%
     st_drop_geometry() %>%
     mutate(
@@ -645,7 +737,8 @@ make_map_plot <- function(det_sub,
     ggnewscale::new_scale_fill() +
     geom_sf(data = adm0, color = "black", fill = NA)
   
-  if (nrow(cluster_poly_sub) > 0) {
+  if (map_display_mode %in% c("clusters", "clusters_arrows") &&
+      nrow(cluster_poly_sub) > 0) {
     p <- p +
       geom_sf(
         data = cluster_poly_sub,
@@ -736,16 +829,16 @@ make_map_plot <- function(det_sub,
       )
   }
   
-  if ((identical(label_mode, "cluster_summary") || identical(label_mode, "cluster_years")) &&
+  if (map_display_mode %in% c("clusters", "clusters_arrows") &&
+      (identical(label_mode, "cluster_summary") || identical(label_mode, "cluster_years")) &&
       nrow(cluster_label_plot) > 0) {
     p <- p +
       ggrepel::geom_label_repel(
         data = cluster_label_plot,
         aes(x = lx, y = ly, label = label_text),
         size = 2.5,
-        fill = "white",
+        fill = scales::alpha("white", 0.7),
         color = "black",
-        alpha = 0.7,
         label.size = 0.25,
         point.padding = 0.2,
         box.padding = 0.25,
@@ -852,84 +945,7 @@ make_epicurve_plot <- function(df, group_palette, period_end_date) {
   }
 }
 
-save_combined_to_ppt <- function(title_text,
-                                 subtitle_text,
-                                 map_plot,
-                                 epi_plot,
-                                 about_text,
-                                 ppt_file,
-                                 png_file,
-                                 width = 13.333,
-                                 height = 7.5,
-                                 dpi = 300) {
-  
-  title_plot <- ggplot() +
-    annotate("text", x = 0, y = 1, label = title_text,
-             hjust = 0, vjust = 1, size = 6, fontface = "bold") +
-    annotate("text", x = 0, y = 0.2, label = subtitle_text,
-             hjust = 0, vjust = 1, size = 3.5) +
-    coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), expand = FALSE) +
-    theme_void()
-  
-  combined <- title_plot / map_plot / epi_plot +
-    plot_layout(heights = c(0.12, 0.60, 0.28))
-  
-  ggsave(
-    filename = png_file,
-    plot = combined,
-    width = width,
-    height = height,
-    units = "in",
-    dpi = dpi,
-    bg = "white",
-    limitsize = FALSE
-  )
-  
-  ppt <- read_pptx()
-  slide_dims <- slide_size(ppt)
-  
-  # Slide 1: Map + Epicurve
-  ppt <- ppt %>%
-    add_slide(layout = "Blank", master = "Office Theme") %>%
-    ph_with(
-      value = external_img(
-        png_file,
-        width = slide_dims$width,
-        height = slide_dims$height
-      ),
-      location = ph_location(
-        left = 0,
-        top = 0,
-        width = slide_dims$width,
-        height = slide_dims$height
-      )
-    )
-  
-  # Format About text with smaller font
-  about_paragraph <- officer::fpar(
-    officer::ftext(
-      about_text,
-      officer::fp_text(
-        font.size = 10
-      )
-    )
-  )
-  
-  # Slide 2: About text
-  ppt <- ppt %>%
-    add_slide(layout = "Title and Content", master = "Office Theme") %>%
-    ph_with(
-      value = "About",
-      location = ph_location_type(type = "title")
-    ) %>%
-    ph_with(
-      value = about_paragraph,
-      location = ph_location_type(type = "body")
-    )
-  
-  print(ppt, target = ppt_file)
-  invisible(ppt_file)
-}
+
 
 # ============================================================
 # 4) UI
@@ -952,6 +968,7 @@ ui <- fluidPage(
         "update_plot",
         "Update plot"
       ),
+      downloadButton("download_pdf", "Download current view"),
       
       tags$br(),
       tags$br(),
@@ -1023,22 +1040,31 @@ ui <- fluidPage(
         ),
         selected = "cluster_summary"
       ),
-      checkboxInput(
-        "show_arrows",
-        "Show inferred transmission between clusters",
-        value = TRUE
-      ),
-      
-      tags$hr(),
-      
-      downloadButton("download_ppt", "Download current slide to PPT")
+      radioButtons(
+        "map_display_mode",
+        "Display",
+        choices = c(
+          "Points only" = "points_only",
+          "Points + Clusters" = "clusters",
+          "Points + Clusters + Arrows" = "clusters_arrows"
+        ),
+        selected = "clusters_arrows",
+        inline = FALSE
+      )
     ),
     
     mainPanel(
       width = 9,
       wellPanel(
         h4("About"),
-        p(make_about_text())
+        div(
+          style = "
+      white-space: pre-wrap;
+      line-height: 1.25;
+      font-size: 13px;
+    ",
+          make_about_text()
+        )
       ),
       br(),
       plotOutput("map_plot", height = 700),
@@ -1062,7 +1088,7 @@ server <- function(input, output, session) {
       cluster_spatial_eps_km = input$cluster_spatial_eps_km,
       cluster_time_gap_days = input$cluster_time_gap_days,
       label_mode = input$label_mode,
-      show_arrows = input$show_arrows
+      map_display_mode = input$map_display_mode
     )
   }, ignoreInit = FALSE)
   
@@ -1119,9 +1145,7 @@ server <- function(input, output, session) {
     valid_rest <- intersect(current_rest, rest_meta$emergence_group_s)
     
     if (length(valid_somalia) == 0 && length(valid_rest) == 0) {
-      valid_somalia <- somalia_meta$emergence_group_s[
-        seq_len(min(3, nrow(somalia_meta)))
-      ]
+      valid_somalia <- somalia_meta$emergence_group_s
       valid_rest <- character(0)
     }
     
@@ -1225,7 +1249,7 @@ server <- function(input, output, session) {
       min_extent_poly = min_extent_poly_reactive(),
       label_mode = plot_args$label_mode,
       group_palette = current_palette(),
-      show_arrows = plot_args$show_arrows,
+      map_display_mode = plot_args$map_display_mode,
       tile_zoom = tile_zoom
     )
   }, ignoreInit = FALSE)
@@ -1253,14 +1277,11 @@ server <- function(input, output, session) {
     current_epi_plot()
   }, res = 110)
   
-  output$download_ppt <- downloadHandler(
+  output$download_pdf <- downloadHandler(
     filename = function() {
-      paste0("emergence_map_", format(Sys.Date(), "%Y%m%d"), ".pptx")
+      paste0("emergence_map_", Sys.Date(), ".pdf")
     },
     content = function(file) {
-      tmpdir <- tempdir()
-      png_file <- file.path(tmpdir, "current_slide.png")
-      
       plot_args <- plot_inputs()
       
       title_text <- make_emergence_title(
@@ -1283,17 +1304,23 @@ server <- function(input, output, session) {
         " days"
       )
       
-      save_combined_to_ppt(
+      combined_plot <- make_download_layout(
         title_text = title_text,
         subtitle_text = subtitle_text,
-        map_plot = current_map_plot(),
-        epi_plot = current_epi_plot(),
         about_text = make_about_text(),
-        ppt_file = file,
-        png_file = png_file,
-        width = 13.333,
-        height = 7.5,
-        dpi = 300
+        map_plot = current_map_plot(),
+        epi_plot = current_epi_plot()
+      )
+      
+      ggplot2::ggsave(
+        filename = file,
+        plot = combined_plot,
+        device = cairo_pdf,
+        width = 12,
+        height = 18,
+        units = "in",
+        bg = "white",
+        limitsize = FALSE
       )
     }
   )
