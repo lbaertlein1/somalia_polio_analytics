@@ -35,7 +35,7 @@ emergence_path <- "data/Viruses_Detailed_Dataset_may_contain_sensitive_data_25-0
 data_path      <- "data/Viruses_Detailed_Dataset_may_contain_sensitive_data_25-03-2026_13-29-40.xlsx"
 
 plot_crs  <- 4326
-tile_zoom <- 5
+tile_zoom <- 6
 
 min_extent_countries <- c("Somalia", "Djibouti", "Ethiopia", "Kenya")
 
@@ -928,13 +928,18 @@ make_epicurve_plot <- function(df, group_palette, period_end_date) {
         fill = list(n = 0)
       )
     
-    ggplot(epi_sum, aes(x = month, y = n, fill = admin0official_name)) +
-      geom_col() +
-      scale_x_date(
-        limits = c(min_month, max_month),
-        date_breaks = date_break_interval,
-        date_labels = "%Y-%m",
-        expand = c(0, 0)
+    epi_sum <- epi_sum %>%
+      dplyr::mutate(
+        month_f = factor(
+          format(month, "%Y-%m"),
+          levels = format(month_seq, "%Y-%m")
+        )
+      )
+    
+    ggplot(epi_sum, aes(x = month_f, y = n, fill = admin0official_name)) +
+      geom_col(
+        color = "black",
+        width = 1
       ) +
       labs(
         x = NULL,
@@ -956,14 +961,25 @@ make_epicurve_plot <- function(df, group_palette, period_end_date) {
         fill = list(n = 0)
       )
     
-    ggplot(epi_sum, aes(x = month, y = n, fill = emergence_group_s)) +
-      geom_col() +
-      scale_fill_manual(values = group_palette, name = "Emergence group") +
-      scale_x_date(
-        limits = c(min_month, max_month),
-        date_breaks = date_break_interval,
-        date_labels = "%Y-%m",
-        expand = c(0, 0)
+    epi_sum <- epi_sum %>%
+      dplyr::mutate(
+        month_f = factor(
+          format(month, "%Y-%m"),
+          levels = format(month_seq, "%Y-%m")
+        )
+      )
+    
+    ggplot(epi_sum, aes(x = month_f, y = n, fill = emergence_group_s)) +
+      geom_col(
+        color = "black",
+        width = 1
+      ) +
+      scale_fill_manual(
+        values = group_palette,
+        name = "Emergence group",
+        breaks = names(group_palette),
+        limits = names(group_palette),
+        drop = TRUE
       ) +
       labs(
         x = NULL,
@@ -1316,7 +1332,7 @@ server <- function(input, output, session) {
   
   output$download_pdf <- downloadHandler(
     filename = function() {
-      paste0("emergence_map_", Sys.Date(), ".pdf")
+      paste0("emergence_map_", Sys.Date(), ".zip")
     },
     content = function(file) {
       plot_args <- plot_inputs()
@@ -1341,16 +1357,38 @@ server <- function(input, output, session) {
         " days"
       )
       
+      map_plot <- current_map_plot()
+      epi_plot <- current_epi_plot()
+      
       combined_plot <- make_download_layout(
         title_text = title_text,
         subtitle_text = subtitle_text,
         about_text = make_about_text(),
-        map_plot = current_map_plot(),
-        epi_plot = current_epi_plot()
+        map_plot = map_plot,
+        epi_plot = epi_plot
       )
       
+      tmp_dir <- tempfile("emergence_download_")
+      dir.create(tmp_dir, recursive = TRUE)
+      
+      pdf_file <- file.path(
+        tmp_dir,
+        paste0("emergence_map_", Sys.Date(), ".pdf")
+      )
+      
+      map_png_file <- file.path(
+        tmp_dir,
+        paste0("map_plot_", Sys.Date(), ".png")
+      )
+      
+      epi_png_file <- file.path(
+        tmp_dir,
+        paste0("epi_plot_", Sys.Date(), ".png")
+      )
+      
+      # Combined PDF
       ggplot2::ggsave(
-        filename = file,
+        filename = pdf_file,
         plot = combined_plot,
         device = cairo_pdf,
         width = 12,
@@ -1358,6 +1396,45 @@ server <- function(input, output, session) {
         units = "in",
         bg = "white",
         limitsize = FALSE
+      )
+      
+      # High-quality map PNG
+      ggplot2::ggsave(
+        filename = map_png_file,
+        plot = map_plot,
+        device = "png",
+        width = 10,
+        height = 10,
+        units = "in",
+        dpi = 600,
+        bg = "white",
+        limitsize = FALSE
+      )
+      
+      # High-quality epi PNG
+      ggplot2::ggsave(
+        filename = epi_png_file,
+        plot = epi_plot,
+        device = "png",
+        width = 10,
+        height = 3,
+        units = "in",
+        dpi = 600,
+        bg = "white",
+        limitsize = FALSE
+      )
+      
+      old_wd <- getwd()
+      on.exit(setwd(old_wd), add = TRUE)
+      setwd(tmp_dir)
+      
+      utils::zip(
+        zipfile = file,
+        files = c(
+          basename(pdf_file),
+          basename(map_png_file),
+          basename(epi_png_file)
+        )
       )
     }
   )
