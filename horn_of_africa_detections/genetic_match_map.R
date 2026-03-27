@@ -109,7 +109,7 @@ get_cartolight_df_3857 <- function(bbox_vals, zoom = 6) {
   df
 }
 
-bbox_geo <- st_bbox(adm0_map)
+bbox_geo <- st_bbox(adm0_map %>% filter(adm0_name != "UGANDA"))
 carto_df_3857 <- get_cartolight_df_3857(bbox_geo, zoom = 6)
 
 # -----------------------------
@@ -542,7 +542,9 @@ virus_points <- virus_subset %>%
     admin0_clean = clean_admin(admin0),
     admin1_clean = clean_admin(admin1),
     adm1_key = paste(admin0_clean, admin1_clean, sep = " | ")
-  )
+  ) %>%
+  mutate(adm1_key = case_when(adm1_key == "ETHIOPIA | OROMIIA" ~ "ETHIOPIA | OROMIYA",
+                              TRUE ~ adm1_key)) 
 
 # -----------------------------
 # Build current ADM1 polygons with matching keys
@@ -685,19 +687,45 @@ flow_plot <- adm1_flows %>%
   ) %>%
   filter(seg_len > 0) %>%
   mutate(
-    # increase gap so line ends well before destination point
-    arrow_gap = 35000,
-    arrow_gap = pmin(arrow_gap, seg_len * 0.35),
+    base_gap = 35000,
+    
+    arrow_gap = case_when(
+      from_adm1_key == "SOMALIA | BANADIR" &
+        to_adm1_key == "KENYA | GARISSA" ~ base_gap * 1.8,
+      TRUE ~ base_gap
+    ),
+    
+    arrow_gap = pmin(arrow_gap, seg_len * 0.5),
+    
     xend_short = to_x - (dx / seg_len) * arrow_gap,
-    yend_short = to_y - (dy / seg_len) * arrow_gap
+    yend_short = to_y - (dy / seg_len) * arrow_gap,
+    
+    xend_short = case_when(
+      from_adm1_key == "SOMALIA | BANADIR" &
+        to_adm1_key == "KENYA | GARISSA" ~ xend_short,
+      TRUE ~ xend_short
+    ),
+    
+    yend_short = case_when(
+      from_adm1_key == "SOMALIA | BANADIR" &
+        to_adm1_key == "KENYA | GARISSA" ~ yend_short - 35000,
+      TRUE ~ yend_short
+    )
   ) %>%
   mutate(
-    pair_id = if_else(
-      from_adm1_key < to_adm1_key,
-      paste(from_adm1_key, to_adm1_key, sep = " || "),
-      paste(to_adm1_key, from_adm1_key, sep = " || ")
-    ),
-    curvature = if_else(from_adm1_key < to_adm1_key, 0.08, -0.08)
+    curvature = case_when(
+      from_adm1_key == "SOMALIA | BANADIR"   & to_adm1_key == "KENYA | GARISSA"  ~ -0.5,
+      from_adm1_key == "SOMALIA | BAY"       & to_adm1_key == "KENYA | GARISSA"  ~ 0,
+      from_adm1_key == "SOMALIA | LOWER SHABELLE"  & to_adm1_key == "KENYA | GARISSA"    ~ -0.5,
+      from_adm1_key == "KENYA | NAIROBI"     & to_adm1_key == "ETHIOPIA | SOMALI"  ~ -0.2,
+      from_adm1_key == "ETHIOPIA | SOMALI"   & to_adm1_key == "ETHIOPIA | OROMIYA"  ~ -0.2,
+      from_adm1_key == "ETHIOPIA | OROMIYA"  & to_adm1_key == "SOMALIA | BARI"     ~ -0.2,
+      from_adm1_key == "ETHIOPIA | OROMIYA"  & to_adm1_key == "SOMALIA | MIDDLE JUBA"    ~ -0.3,
+      from_adm1_key == "SOMALIA | BANADIR"  & to_adm1_key == "SOMALIA | GEDO"    ~ 0.5,
+      from_adm1_key == "SOMALIA | BAY"  & to_adm1_key == "SOMALIA | GEDO"    ~ -0.4,
+      from_adm1_key == "SOMALIA | BAY"  & to_adm1_key == "SOMALIA | BANADIR"    ~ -0.4,
+      TRUE ~ 0.08
+    )
   )
 
 # -----------------------------
@@ -716,6 +744,31 @@ adm1_centroids <- adm1_centroids %>%
   ) %>%
   mutate(detection_category = factor(detection_category, levels=c("1–2", "3–6", "7–19", "20+")))
 
+# -----------------------------
+# Build curve layers functionally
+# -----------------------------
+curve_layers <- flow_plot %>%
+  split(.$curvature) %>%
+  imap(~ geom_curve(
+    data = .x,
+    aes(
+      x = from_x,
+      y = from_y,
+      xend = xend_short,
+      yend = yend_short,
+      linewidth = flow_n
+    ),
+    curvature = as.numeric(.y),
+    color = "black",
+    alpha = 1,
+    lineend = "butt",
+    arrow = arrow(
+      length = unit(0.10, "inches"),
+      type = "closed"
+    ),
+    show.legend = FALSE
+  ))
+
 p_adm1_flow <- ggplot() +
   geom_raster(
     data = carto_df_3857,
@@ -724,38 +777,25 @@ p_adm1_flow <- ggplot() +
   scale_fill_identity() +
   ggnewscale::new_scale_fill() +
   geom_sf(
-    data = adm1_polygons %>% filter(adm0_name != "UGANDA") ,
+    data = adm1_polygons %>% filter(adm0_name != "UGANDA"),
     color = "grey70",
     fill = NA,
     linewidth = 0.25
   ) +
   geom_sf(
-    data = adm0_polygons %>% filter(adm0_name != "UGANDA") ,
+    data = adm0_polygons  %>% filter(adm0_name != "UGANDA"),
     fill = NA,
     color = "grey30",
-    linewidth = 0.8
-  ) +
-  geom_curve(
-    data = flow_plot,
-    aes(
-      x = from_x,
-      y = from_y,
-      xend = xend_short,
-      yend = yend_short,
-      linewidth = flow_n
-    ),
-    curvature = 0.12,           # was 0.3 — much sharper path
-    color = "black",
-    alpha = 1,                  # solid line reads sharper
-    lineend = "butt",           # sharper than "round"
-    linejoin = "mitre",         # crisper geometry
-    arrow = arrow(
-      length = unit(0.12, "inches"),  # slightly larger tip
-      type = "closed",                 # filled = sharper visually
-      ends = "last"
-    ),
-    show.legend = FALSE 
-  ) +
+    linewidth = 1
+  )
+
+# add all curvature-specific arrow layers
+for (layer in curve_layers) {
+  p_adm1_flow <- p_adm1_flow + layer
+}
+
+p_adm1_flow <- p_adm1_flow +
+  # invisible legend-only line layer
   geom_segment(
     data = flow_plot,
     aes(
@@ -770,7 +810,7 @@ p_adm1_flow <- ggplot() +
     show.legend = TRUE
   ) +
   scale_linewidth_continuous(
-    range = c(0.4, 3.2),
+    range = c(0.5, 3),
     breaks = c(1, 2, 3, 4),
     name = "Number of linked detections",
     guide = guide_legend(
@@ -794,7 +834,7 @@ p_adm1_flow <- ggplot() +
     fill = "firebrick",
     color = "black",
     stroke = 0.35,
-    alpha = 0.7
+    alpha = 0.9
   ) +
   scale_size_manual(
     values = c(
@@ -816,15 +856,10 @@ p_adm1_flow <- ggplot() +
     axis.text = element_blank(),
     axis.ticks = element_blank(),
     plot.subtitle = element_text(size = 9),
-    
     legend.position = c(0.98, 0.02),
     legend.justification = c(1, 0),
-    
-    # --- tighten spacing between legend components ---
-    legend.spacing.y = unit(0.15, "cm"),
-    legend.box.spacing = unit(0.1, "cm"),
-    legend.margin = margin(2, 2, 2, 2),
-    
+    legend.spacing.y = unit(0.1, "cm"),
+    legend.box.spacing = unit(0.05, "cm"),
     legend.background = element_rect(
       fill = "#D4DADC",
       color = "#D4DADC",
@@ -835,13 +870,13 @@ p_adm1_flow <- ggplot() +
     title = "Aggregated cVDPV2 detections of SOM-BAN-1 emergence group at the Admin-1 Level since 2023,\nwith arrows indicating number of linked detections from other Admin-1 areas.",
     subtitle = paste0(
       "Points show the number of human and environmental detections aggregated within each Admin-1 area. ",
-      "Arrows represent aggregated genetic linkages\namong 2023-present detections, ",
+      "Arrows represent aggregated genetic\nlinkages among 2023-present detections, ",
       "with arrow direction running from earlier to later virus detection dates and line width proportional\nto the number of linked pairs."
     ),
     caption = "Source: POLIS virus dataset and CDC genetic sequencing linkage data."
   )
 
-p_adm1_flow
+# p_adm1_flow
 
 ggsave(
   filename = "adm1_aggregated_flow_map.png",
@@ -855,3 +890,18 @@ ggsave(
 
 
 
+#Check for bidirectional pairs
+
+bidirectional_pairs <- adm1_flows %>%
+  inner_join(
+    adm1_flows,
+    by = c(
+      "from_adm1_key" = "to_adm1_key",
+      "to_adm1_key" = "from_adm1_key"
+    ),
+    suffix = c("_ab", "_ba")
+  ) %>%
+  filter(from_adm1_key < to_adm1_key)
+
+bidirectional_pairs
+nrow(bidirectional_pairs)
