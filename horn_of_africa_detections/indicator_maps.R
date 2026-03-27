@@ -15,8 +15,12 @@ library(ggnewscale)
 three_plus_dose_afp <- rio::import("data/Indicators_Detailed_Dataset_may_contain_sensitive_data_26-03-2026_02-17-45.xlsx")
 one_two_dose_afp    <- rio::import("data/Indicators_Detailed_Dataset_may_contain_sensitive_data_26-03-2026_02-16-49.xlsx")
 zero_dose_afp       <- rio::import("data/Indicators_Detailed_Dataset_may_contain_sensitive_data_26-03-2026_02-15-49.xlsx")
+genetic_match_data <- rio::import("data/sOM_BAN-1_2023_present_Demo.xlsx", which = "SOM-BAN-1 since 2023")
+
 
 human <- rio::import("data/Human_Detailed_Dataset_may_contain_sensitive_data_26-03-2026_01-26-33.xlsx")
+
+virus_data <- rio::import("data/Viruses_Detailed_Dataset_may_contain_sensitive_data_25-03-2026_13-29-40.xlsx")
 
 iom_data <- rio::import("data/IOM_DTM_ETT_SOM_Tracker_sinceFeb2025_w55.xlsx")
 
@@ -1018,4 +1022,185 @@ ggsave(
   dpi = 600,
   bg = "white"
 )
+
+
+
+
+## Genetic match
+
+genetic_match_data <- genetic_match_data %>%
+  janitor::clean_names()
+
+library(dplyr)
+library(stringr)
+
+epid_links <- genetic_match_data %>%
+  mutate(
+    closest_match_epid_clean = closest_match_epid_at_time_of_reporting %>%
+      str_trim() %>%
+      na_if("") %>%
+      na_if("confidential") %>%
+      str_extract("^[A-Z]{3}(?:-[A-Z0-9]+)+")
+  ) %>%
+  filter(!is.na(closest_match_epid_clean)) %>%
+  distinct(
+    epid,
+    closest_match_epid_clean
+  )
+
+linked_epids <- epid_links %>%
+  distinct(epid, closest_match_epid_clean) %>%
+  tidyr::pivot_longer(
+    cols = everything(),
+    values_to = "epid"
+  ) %>%
+  distinct(epid)
+
+
+virus_subset <- virus_data %>%
+  filter(
+    `VdpvEmergenceGroupCode` == "SOM-BAN-1" |
+      EPID %in% linked_epids$epid
+  )
+
+library(dplyr)
+library(tidyr)
+library(sf)
+library(ggplot2)
+
+# 1) clean point dataset for mapping
+virus_points <- virus_subset %>%
+  transmute(
+    EPID,
+    emergence_group = `VdpvEmergenceGroupCode`,
+    virus_date = as.Date(`Virus Date`),
+    surveillance_type = `Surveillance Type`,
+    lon = X,
+    lat = Y
+  ) %>%
+  filter(
+    !is.na(EPID),
+    !is.na(lon),
+    !is.na(lat)
+  ) %>%
+  distinct(EPID, .keep_all = TRUE)
+
+# 2) keep only links where both ends are in virus_subset
+epid_links_subset <- epid_links %>%
+  filter(
+    epid %in% virus_points$EPID,
+    closest_match_epid_clean %in% virus_points$EPID
+  ) %>%
+  distinct(epid, closest_match_epid_clean)
+
+# 3) join coordinates for origin and destination
+line_df <- epid_links_subset %>%
+  left_join(
+    virus_points %>%
+      select(EPID, origin_lon = lon, origin_lat = lat),
+    by = c("epid" = "EPID")
+  ) %>%
+  left_join(
+    virus_points %>%
+      select(EPID, dest_lon = lon, dest_lat = lat),
+    by = c("closest_match_epid_clean" = "EPID")
+  ) %>%
+  filter(
+    !is.na(origin_lon),
+    !is.na(origin_lat),
+    !is.na(dest_lon),
+    !is.na(dest_lat)
+  )
+
+library(dplyr)
+library(sf)
+library(ggplot2)
+library(grid)
+library(ggnewscale)
+
+# points as sf in lon/lat, then project to 3857
+virus_points_sf <- virus_points %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE) %>%
+  st_transform(3857)
+
+# extract projected x/y for plotting with geom_point
+virus_points_plot <- virus_points_sf %>%
+  mutate(
+    x = st_coordinates(.)[, 1],
+    y = st_coordinates(.)[, 2]
+  ) %>%
+  st_drop_geometry()
+
+# build sf lines in lon/lat, then project to 3857
+epid_lines_sf <- line_df %>%
+  rowwise() %>%
+  mutate(
+    geometry = st_sfc(
+      st_linestring(
+        matrix(
+          c(
+            origin_lon, origin_lat,
+            dest_lon,   dest_lat
+          ),
+          ncol = 2,
+          byrow = TRUE
+        )
+      ),
+      crs = 4326
+    )
+  ) %>%
+  st_as_sf() %>%
+  st_transform(3857)
+
+# extract projected coordinates for geom_segment with arrows
+line_plot <- epid_lines_sf %>%
+  mutate(
+    x = st_coordinates(st_startpoint(geometry))[, 1],
+    y = st_coordinates(st_startpoint(geometry))[, 2],
+    xend = st_coordinates(st_endpoint(geometry))[, 1],
+    yend = st_coordinates(st_endpoint(geometry))[, 2]
+  ) %>%
+  st_drop_geometry()
+
+ggplot() +
+  geom_raster(
+    data = carto_df_3857,
+    aes(x = x, y = y, fill = fill)
+  ) +
+  scale_fill_identity() +
+  ggnewscale::new_scale_fill() +
+  geom_sf(
+    data = adm1_afp_proj,
+    color = "grey50",
+    fill = NA,
+    linewidth = 0.25
+  ) +
+  geom_sf(
+    data = adm0_afp_proj,
+    fill = NA,
+    color = "black",
+    linewidth = 1
+  ) +
+  geom_segment(
+    data = line_plot,
+    aes(
+      x = x, y = y,
+      xend = xend, yend = yend
+    ),
+    linewidth = 0.4,
+    alpha = 0.5,
+    arrow = arrow(length = unit(0.08, "inches"))
+  ) +
+  geom_point(
+    data = virus_points_plot,
+    aes(x = x, y = y, shape = surveillance_type),
+    size = 2
+  ) +
+  coord_sf(crs = st_crs(3857)) +
+  labs(
+    title = "SOM-BAN-1 viruses and linked EPIDs",
+    subtitle = "Lines connect each EPID to its matched closest EPID",
+    shape = "Surveillance type"
+  ) +
+  theme_minimal(base_size = 11)
 
