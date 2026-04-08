@@ -12,13 +12,17 @@ library(DT)
 # User config
 # =========================================================
 
-districts_file <- "~/Github/somalia_polio_analytics/data/districts_shp.Rds"
+districts_file <- "districts_shp.Rds"
 
 # Set these to your actual WorldPop files
-worldpop_f_u1_file   <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_f_00_2025_CN_100m_R2024B_v1.tif"
-worldpop_m_u1_file   <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_m_00_2025_CN_100m_R2024B_v1.tif"
-worldpop_f_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_f_01_2025_CN_100m_R2024B_v1.tif"
-worldpop_m_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_m_01_2025_CN_100m_R2024B_v1.tif"
+# worldpop_f_u1_file   <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_f_00_2025_CN_100m_R2024B_v1.tif"
+# worldpop_m_u1_file   <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_m_00_2025_CN_100m_R2024B_v1.tif"
+# worldpop_f_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_f_01_2025_CN_100m_R2024B_v1.tif"
+# worldpop_m_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_m_01_2025_CN_100m_R2024B_v1.tif"
+
+worldpop_t_u1_file   <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_t_00_2025_CN_100m_R2024B_v1.tif"
+worldpop_t_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_t_01_2025_CN_100m_R2024B_v1.tif"
+
 
 default_grid_n <- 100
 n_start_dfas <- 5
@@ -51,6 +55,21 @@ pop_palette <- colorRampPalette(c(
 # Helpers
 # =========================================================
 
+calculate_grid_cell_population <- function(grid_sf, u5_rast) {
+  if (is.null(grid_sf) || nrow(grid_sf) == 0) return(numeric(0))
+  
+  grid_proj <- sf::st_transform(grid_sf, sf::st_crs(terra::crs(u5_rast)))
+  
+  vals <- exactextractr::exact_extract(
+    x = raster::raster(u5_rast),
+    y = grid_proj,
+    fun = "sum"
+  )
+  
+  vals[is.na(vals)] <- 0
+  as.numeric(vals)
+}
+
 safe_make_valid <- function(x) {
   tryCatch(st_make_valid(x), error = function(e) x)
 }
@@ -68,34 +87,26 @@ make_fill_colors <- function(active_dfa) {
   out
 }
 
-load_worldpop_u5_raster <- function(f_u1_file, m_u1_file, f_age1to4_file, m_age1to4_file) {
-  f_u1_path  <- path.expand(f_u1_file)
-  m_u1_path  <- path.expand(m_u1_file)
-  f_a14_path <- path.expand(f_age1to4_file)
-  m_a14_path <- path.expand(m_age1to4_file)
-
-  for (p in c(f_u1_path, m_u1_path, f_a14_path, m_a14_path)) {
+load_worldpop_u5_raster <- function(t_u1_file, t_age1to4_file) {
+  t_u1_path  <- path.expand(t_u1_file)
+  t_a14_path <- path.expand(t_age1to4_file)
+  
+  for (p in c(t_u1_path, t_a14_path)) {
     if (!file.exists(p)) stop(paste0("WorldPop raster not found: ", p))
   }
 
-  f_u1  <- terra::rast(f_u1_path)
-  m_u1  <- terra::rast(m_u1_path)
-  f_a14 <- terra::rast(f_a14_path)
-  m_a14 <- terra::rast(m_a14_path)
-
-  if (!terra::same.crs(f_u1, m_u1) ||
-      !terra::same.crs(f_u1, f_a14) ||
-      !terra::same.crs(f_u1, m_a14)) {
+  t_u1  <- terra::rast(t_u1_path)
+  t_a14 <- terra::rast(t_a14_path)
+  
+  if (!terra::same.crs(t_u1, t_a14)) {
     stop("WorldPop rasters do not share the same CRS.")
   }
 
-  if (nrow(f_u1) != nrow(m_u1) || ncol(f_u1) != ncol(m_u1) ||
-      nrow(f_u1) != nrow(f_a14) || ncol(f_u1) != ncol(f_a14) ||
-      nrow(f_u1) != nrow(m_a14) || ncol(f_u1) != ncol(m_a14)) {
+  if (nrow(t_u1) != nrow(t_a14) ) {
     stop("WorldPop rasters do not share the same dimensions.")
   }
 
-  u5 <- f_u1 + m_u1 + f_a14 + m_a14
+  u5 <- t_u1 + t_a14 
   names(u5) <- "u5_pop"
   u5
 }
@@ -361,12 +372,12 @@ if (length(missing_cols) > 0) {
 
 zone_choices <- sort(unique(as.character(stats::na.omit(districts_shp$zone_name))))
 
-u5_worldpop <- load_worldpop_u5_raster(
-  f_u1_file = worldpop_f_u1_file,
-  m_u1_file = worldpop_m_u1_file,
-  f_age1to4_file = worldpop_f_1to4_file,
-  m_age1to4_file = worldpop_m_1to4_file
-)
+# u5_worldpop <- load_worldpop_u5_raster(
+#   f_u1_file = worldpop_f_u1_file,
+#   m_u1_file = worldpop_m_u1_file,
+#   f_age1to4_file = worldpop_f_1to4_file,
+#   m_age1to4_file = worldpop_m_1to4_file
+# )
 
 # =========================================================
 # UI
@@ -1169,6 +1180,20 @@ server <- function(input, output, session) {
   current_fill_colors <- reactive({
     make_fill_colors(input$active_dfa)
   })
+  
+  u5_worldpop_rv <- reactiveVal(NULL)
+  
+  get_u5_worldpop <- function() {
+    if (is.null(u5_worldpop_rv())) {
+      u5_worldpop_rv(
+        load_worldpop_u5_raster(
+          t_u1_file = worldpop_t_u1_file,
+          t_age1to4_file = worldpop_t_1to4_file
+        )
+      )
+    }
+    u5_worldpop_rv()
+  }
 
   output$legend_ui <- renderUI({
     selected_name <- input$active_dfa %||% starter_dfa_names[1]
@@ -1243,52 +1268,45 @@ server <- function(input, output, session) {
   })
 
   recompute_population_table <- function(assignments) {
-    req(!is.null(rv$grid_sf), !is.null(rv$district_sf), length(assignments) == nrow(rv$grid_sf))
-
-    dfa_sf_for_pop <- tryCatch(
-      build_saved_dfa_sf(
-        grid_sf = rv$grid_sf,
-        assignments = assignments,
-        district_sf = rv$district_sf
-      ),
-      error = function(e) NULL
-    )
-
-    if (is.null(dfa_sf_for_pop) || nrow(dfa_sf_for_pop) == 0) {
-      rv$pop_table <- NULL
-      return(invisible(NULL))
-    }
-
-    dfa_pop <- estimate_u5_population(
-      polygons_sf = dfa_sf_for_pop,
-      u5_rast = u5_worldpop,
-      name_col = "dfa_name"
-    )
-
-    missing_classes <- setdiff(all_dfa_names, dfa_pop$area_name)
+    req(!is.null(rv$grid_sf), length(assignments) == nrow(rv$grid_sf))
+    req("u5_pop" %in% names(rv$grid_sf))
+    
+    df <- data.frame(
+      area_name = assignments,
+      est_u5_pop = rv$grid_sf$u5_pop,
+      stringsAsFactors = FALSE
+    ) |>
+      dplyr::group_by(area_name) |>
+      dplyr::summarise(est_u5_pop = round(sum(est_u5_pop, na.rm = TRUE), 0), .groups = "drop")
+    
+    missing_classes <- setdiff(all_dfa_names, df$area_name)
     if (length(missing_classes) > 0) {
-      dfa_pop <- bind_rows(
-        dfa_pop,
-        data.frame(area_name = missing_classes, est_u5_pop = 0, stringsAsFactors = FALSE)
+      df <- dplyr::bind_rows(
+        df,
+        data.frame(
+          area_name = missing_classes,
+          est_u5_pop = 0,
+          stringsAsFactors = FALSE
+        )
       )
     }
-
-    dfa_pop <- dfa_pop |>
-      mutate(area_name = factor(area_name, levels = all_dfa_names)) |>
-      arrange(area_name) |>
-      mutate(area_name = as.character(area_name))
-
-    district_tmp <- rv$district_sf |>
-      mutate(dfa_name = as.character(district_name))
-
-    district_pop <- estimate_u5_population(
-      polygons_sf = district_tmp,
-      u5_rast = u5_worldpop,
-      name_col = "dfa_name"
-    ) |>
-      mutate(area_name = "District overall")
-
-    rv$pop_table <- bind_rows(dfa_pop, district_pop)
+    
+    df <- df |>
+      dplyr::mutate(area_name = factor(area_name, levels = all_dfa_names)) |>
+      dplyr::arrange(area_name) |>
+      dplyr::mutate(area_name = as.character(area_name))
+    
+    district_total <- round(sum(rv$grid_sf$u5_pop, na.rm = TRUE), 0)
+    
+    rv$pop_table <- dplyr::bind_rows(
+      df,
+      data.frame(
+        area_name = "District overall",
+        est_u5_pop = district_total,
+        stringsAsFactors = FALSE
+      )
+    )
+    
     invisible(NULL)
   }
 
@@ -1463,11 +1481,13 @@ server <- function(input, output, session) {
     edge_list <- as.list(edge_flag)
     names(edge_list) <- as.character(grid_sf$cell_id)
 
-    pop_overlay_sf <- tryCatch(
-      make_population_overlay_sf(district_sf, u5_worldpop),
-      error = function(e) NULL
-    )
-
+    pop_overlay_sf <- NULL
+    if (isTRUE(input$show_pop_raster)) {
+      pop_overlay_sf <- tryCatch(
+        make_population_overlay_sf(district_sf, get_u5_worldpop()),
+        error = function(e) NULL
+      )
+    }
     list(
       district_sf = district_sf,
       grid_sf = grid_sf,
@@ -1485,6 +1505,13 @@ server <- function(input, output, session) {
 
     rv$district_sf <- sc$district_sf
     rv$grid_sf <- sc$grid_sf
+    if (!"u5_pop" %in% names(rv$grid_sf)) {
+      rv$grid_sf$u5_pop <- calculate_grid_cell_population(
+        rv$grid_sf,
+        get_u5_worldpop()
+      )
+    }
+    
     rv$initial_assignments <- sc$initial_assignments
     rv$current_assignments <- sc$initial_assignments
     rv$saved_dfa_sf <- NULL
