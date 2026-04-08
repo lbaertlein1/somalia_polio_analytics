@@ -42,7 +42,7 @@ special_fill_colors <- c(
 )
 
 pop_palette <- colorRampPalette(c(
-  "#ffffcc", "#c2e699", "#78c679", "#31a354", "#006837"
+  "#feebe2", "#fbb4b9", "#fbb4b9", "#c51b8a", "#7a0177"
 ))
 
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
@@ -386,159 +386,165 @@ ui <- fluidPage(
       crossorigin = ""
     ),
     tags$style(HTML("
-      html, body {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-      }
-      .container-fluid {
-        padding: 6px;
-      }
-      #app_row {
-        display: flex;
-        gap: 6px;
-        height: calc(100vh - 12px);
-      }
-      #leftbar {
-        width: 250px;
-        min-width: 250px;
-        background: #FAFAFA;
-        border: 1px solid #E6E6E6;
-        border-radius: 6px;
-        padding: 8px;
-        overflow-y: auto;
-      }
-      #mapwrap {
-        flex: 1;
-        min-width: 0;
-        position: relative;
-      }
-      #paint_map {
-        width: 100%;
-        height: 100%;
-        min-height: 700px;
-        border: 1px solid #E6E6E6;
-        border-radius: 6px;
-        background: #D9D9D9;
-      }
-      .leaflet-container {
-        background: #D9D9D9;
-      }
-      .mini-label {
-        font-size: 11px;
-        color: #666666;
-        margin-bottom: 3px;
-      }
-      .section-gap {
-        margin-top: 8px;
-      }
-      .slider-row {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        margin-bottom: 8px;
-      }
-      .slider-row .btn {
-        width: 30px;
-        min-width: 30px;
-        padding: 2px 0;
-        font-size: 12px;
-      }
-      .slider-wrap {
-        flex: 1;
-      }
-      .slider-wrap .form-group {
-        margin-bottom: 0;
-      }
-      .slider-wrap .irs-min,
-      .slider-wrap .irs-max,
-      .slider-wrap .irs-from,
-      .slider-wrap .irs-to,
-      .slider-wrap .irs-single,
-      .slider-wrap .irs-grid-text,
-      .slider-wrap .irs-grid-pol {
-        display: none !important;
-      }
-      .dataTables_wrapper {
-        font-size: 11px;
-      }
-      .dataTables_wrapper .dataTables_info,
-      .dataTables_wrapper .dataTables_paginate,
-      .dataTables_wrapper .dataTables_length,
-      .dataTables_wrapper .dataTables_filter {
-        display: none;
-      }
-      .btn {
-        padding: 3px 8px;
-        font-size: 12px;
-      }
-      .shiny-input-container {
-        margin-bottom: 6px;
-      }
-      .control-row {
-        display: flex;
-        gap: 6px;
-        margin-top: 6px;
-        margin-bottom: 6px;
-      }
-      .top-help {
-        display: flex;
-        justify-content: flex-end;
-        margin-bottom: 4px;
-      }
-      .modal-body {
-        font-size: 13px;
-        line-height: 1.45;
-      }
-      #map-inset {
-        position: absolute;
-        right: 10px;
-        bottom: 10px;
-        width: 280px;
-        background: rgba(255,255,255,0.94);
-        border: 1px solid #D9D9D9;
-        border-radius: 6px;
-        padding: 8px;
-        z-index: 1000;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.12);
-      }
-      .legend-box {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border: 1px solid #7F7F7F;
-        margin-right: 6px;
-        vertical-align: middle;
-      }
-      .legend-row {
-        font-size: 11px;
-        line-height: 1.35;
-        margin-bottom: 3px;
-      }
-      .legend-wrap {
-        margin-bottom: 6px;
-        padding-bottom: 6px;
-        border-bottom: 1px solid #E6E6E6;
-      }
-      .dfa-map-label {
-        background: rgba(255,255,255,0.92);
-        border: 1px solid #CCCCCC;
-        border-radius: 3px;
-        padding: 1px 4px;
-        color: #000000;
-        font-size: 10px;
-        white-space: nowrap;
-      }
-      .leaflet-tooltip.dfa-tooltip {
-        background: transparent;
-        border: none;
-        box-shadow: none;
-        padding: 0;
-      }
-      .leaflet-tooltip.dfa-tooltip:before {
-        display: none;
-      }
-    ")),
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .container-fluid {
+    padding: 6px;
+  }
+  #app_row {
+    display: flex;
+    gap: 6px;
+    height: calc(100vh - 12px);
+  }
+  #leftbar {
+    flex: 2;
+    min-width: 240px;
+    max-width: 340px;
+    background: #FAFAFA;
+    border: 1px solid #E6E6E6;
+    border-radius: 6px;
+    padding: 8px;
+    overflow-y: auto;
+  }
+  #mapwrap {
+    flex: 8;
+    min-width: 0;
+    position: relative;
+  }
+  #rightbar {
+    flex: 2;
+    min-width: 240px;
+    max-width: 340px;
+    background: rgba(255,255,255,0.96);
+    border: 1px solid #D9D9D9;
+    border-radius: 6px;
+    padding: 8px;
+    overflow-y: auto;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  }
+  #paint_map {
+    width: 100%;
+    height: 100%;
+    min-height: 700px;
+    border: 1px solid #E6E6E6;
+    border-radius: 6px;
+    background: #D9D9D9;
+  }
+  .leaflet-container {
+    background: #D9D9D9;
+  }
+  .mini-label {
+    font-size: 11px;
+    color: #666666;
+    margin-bottom: 3px;
+  }
+  .section-gap {
+    margin-top: 8px;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .slider-row .btn {
+    width: 30px;
+    min-width: 30px;
+    padding: 2px 0;
+    font-size: 12px;
+  }
+  .slider-wrap {
+    flex: 1;
+  }
+  .slider-wrap .form-group {
+    margin-bottom: 0;
+  }
+  .slider-wrap .irs-min,
+  .slider-wrap .irs-max,
+  .slider-wrap .irs-from,
+  .slider-wrap .irs-to,
+  .slider-wrap .irs-single,
+  .slider-wrap .irs-grid-text,
+  .slider-wrap .irs-grid-pol {
+    display: none !important;
+  }
+  .dataTables_wrapper {
+    font-size: 11px;
+  }
+  .dataTables_wrapper .dataTables_info,
+  .dataTables_wrapper .dataTables_paginate,
+  .dataTables_wrapper .dataTables_length,
+  .dataTables_wrapper .dataTables_filter {
+    display: none;
+  }
+  .btn {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+  .shiny-input-container {
+    margin-bottom: 6px;
+  }
+  .control-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    margin-bottom: 6px;
+  }
+  .top-help {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 4px;
+  }
+  .modal-body {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .legend-box {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 1px solid #7F7F7F;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .legend-row {
+    font-size: 11px;
+    line-height: 1.35;
+    margin-bottom: 3px;
+  }
+  .legend-wrap {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #E6E6E6;
+  }
+  .rightbar-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #333333;
+  }
+  .dfa-map-label {
+    background: rgba(255,255,255,0.92);
+    border: 1px solid #CCCCCC;
+    border-radius: 3px;
+    padding: 1px 4px;
+    color: #000000;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .leaflet-tooltip.dfa-tooltip {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+  .leaflet-tooltip.dfa-tooltip:before {
+    display: none;
+  }
+")),
     tags$script(HTML(" 
       window.paintApp = {
         map: null,
@@ -559,107 +565,117 @@ ui <- fluidPage(
         edgeCells: {},
         brushSize: 300,
         boundaryOnly: false,
+        baseLayers: {},
+        baseControl: null,
+        currentBaseLayer: null,
 
         currentBrushSize: function() {
           return window.paintApp.brushSize || 300;
         },
-
-        setSeedPoints: function(seedPoints) {
-          if (!window.paintApp.map) return;
-
-          if (window.paintApp.seedLayer) {
-            window.paintApp.map.removeLayer(window.paintApp.seedLayer);
-            window.paintApp.seedLayer = null;
-          }
-
-          if (!seedPoints || !Array.isArray(seedPoints) || seedPoints.length === 0) return;
-
-          window.paintApp.seedLayer = L.layerGroup();
-
-          seedPoints.forEach(function(pt) {
-            if (pt.lon == null || pt.lat == null) return;
-
-            var circle = L.circleMarker([pt.lat, pt.lon], {
-              radius: 4,
-              color: '#000000',
-              weight: 1,
-              opacity: 1,
-              fillColor: '#FFFFFF',
-              fillOpacity: 1,
-              interactive: false
-            });
-
-            circle.addTo(window.paintApp.seedLayer);
-
-            var marker = L.marker([pt.lat, pt.lon], { opacity: 0, interactive: false });
-            marker.bindTooltip(
-              '<div class=\"dfa-map-label\">' + pt.dfa_name + '</div>',
-              {
-                permanent: true,
-                direction: 'top',
-                offset: [0, -6],
-                className: 'dfa-tooltip'
-              }
-            );
-            marker.addTo(window.paintApp.seedLayer);
-          });
-
-          window.paintApp.seedLayer.addTo(window.paintApp.map);
-        },
-
         ensureMap: function() {
-          if (window.paintApp.map) return;
+  if (window.paintApp.map) return;
 
-          window.paintApp.map = L.map('paint_map', {
-            zoomSnap: 0.25,
-            preferCanvas: true
-          });
+  window.paintApp.map = L.map('paint_map', {
+    zoomSnap: 0.25,
+    preferCanvas: true
+  });
 
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 20,
-            attribution: '&copy; OpenStreetMap contributors'
-          }).addTo(window.paintApp.map);
+  var osm = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      maxZoom: 20,
+      attribution: '&copy; OpenStreetMap contributors'
+    }
+  );
 
-          window.paintApp.brushPreview = L.circle([0, 0], {
-            radius: window.paintApp.currentBrushSize(),
-            color: '#222222',
-            weight: 1,
-            opacity: 0.7,
-            fillOpacity: 0.05,
-            interactive: false
-          });
+  var esriImagery = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {
+      maxZoom: 20,
+      attribution: 'Tiles &copy; Esri'
+    }
+  );
 
-          window.paintApp.map.on('mousemove', function(e) {
-            if (window.paintApp.brushPreview) {
-              window.paintApp.brushPreview.setLatLng(e.latlng);
-              window.paintApp.brushPreview.setRadius(window.paintApp.currentBrushSize());
-              if (!window.paintApp.map.hasLayer(window.paintApp.brushPreview)) {
-                window.paintApp.brushPreview.addTo(window.paintApp.map);
-              }
-            }
+  var cartoLight = L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    {
+      maxZoom: 20,
+      subdomains: 'abcd',
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    }
+  );
 
-            if (window.paintApp.isPainting) {
-              window.paintApp.paintAtLatLng(e.latlng);
-            }
-          });
+  var topo = L.tileLayer(
+    'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    {
+      maxZoom: 17,
+      attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap'
+    }
+  );
 
-          window.paintApp.map.on('mousedown', function(e) {
-            if (!window.paintApp.gridLayer) return;
-            window.paintApp.isPainting = true;
-            window.paintApp.map.dragging.disable();
-            window.paintApp.paintAtLatLng(e.latlng);
-          });
+  window.paintApp.baseLayers = {
+    'OpenStreetMap': osm,
+    'ESRI Satellite': esriImagery,
+    'CARTO Light': cartoLight,
+    'Topo': topo
+  };
 
-          document.addEventListener('mouseup', function() {
-            if (window.paintApp.isPainting) {
-              window.paintApp.isPainting = false;
-              window.paintApp.map.dragging.enable();
-            }
-          });
+  window.paintApp.currentBaseLayer = osm;
+  window.paintApp.currentBaseLayer.addTo(window.paintApp.map);
 
-          setTimeout(function() { window.paintApp.map.invalidateSize(); }, 300);
-          setTimeout(function() { window.paintApp.map.invalidateSize(); }, 900);
-        },
+  window.paintApp.baseControl = L.control.layers(
+    window.paintApp.baseLayers,
+    null,
+    {
+      collapsed: true,
+      position: 'topright'
+    }
+  ).addTo(window.paintApp.map);
+
+  window.paintApp.brushPreview = L.circle([0, 0], {
+    radius: window.paintApp.currentBrushSize(),
+    color: '#222222',
+    weight: 1,
+    opacity: 0.7,
+    fillOpacity: 0.05,
+    interactive: false
+  });
+
+  window.paintApp.map.on('baselayerchange', function(e) {
+    window.paintApp.currentBaseLayer = e.layer;
+  });
+
+  window.paintApp.map.on('mousemove', function(e) {
+    if (window.paintApp.brushPreview) {
+      window.paintApp.brushPreview.setLatLng(e.latlng);
+      window.paintApp.brushPreview.setRadius(window.paintApp.currentBrushSize());
+      if (!window.paintApp.map.hasLayer(window.paintApp.brushPreview)) {
+        window.paintApp.brushPreview.addTo(window.paintApp.map);
+      }
+    }
+
+    if (window.paintApp.isPainting) {
+      window.paintApp.paintAtLatLng(e.latlng);
+    }
+  });
+
+  window.paintApp.map.on('mousedown', function(e) {
+    if (!window.paintApp.gridLayer) return;
+    window.paintApp.isPainting = true;
+    window.paintApp.map.dragging.disable();
+    window.paintApp.paintAtLatLng(e.latlng);
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (window.paintApp.isPainting) {
+      window.paintApp.isPainting = false;
+      window.paintApp.map.dragging.enable();
+    }
+  });
+
+  setTimeout(function() { window.paintApp.map.invalidateSize(); }, 300);
+  setTimeout(function() { window.paintApp.map.invalidateSize(); }, 900);
+},
 
         isBoundaryCell: function(id) {
           id = String(id);
@@ -693,22 +709,46 @@ ui <- fluidPage(
         styleForFeature: function(feature) {
           var id = String(feature.properties.cell_id);
           var dfa = window.paintApp.assignments[id];
+        
           var fillColor = window.paintApp.fillForDfa(dfa);
+        
           var isBoundary = window.paintApp.isBoundaryCell(id);
-          var fillOpacity = 0.30;
-
+        
+          var isSelectedBoundary =
+            isBoundary &&
+            dfa === window.paintApp.activeDfa;
+        
+          var fillOpacity;
+        
           if (window.paintApp.boundaryOnly) {
-            fillOpacity = 0.0;
-          } else if (isBoundary) {
-            fillOpacity = 0.85;
+        
+            if (isSelectedBoundary) {
+              fillOpacity = 0.9;
+            } else {
+              fillOpacity = 0.0;
+            }
+        
+          } else {
+        
+            if (isSelectedBoundary) {
+              fillOpacity = 0.85;
+            } else {
+              fillOpacity = 0.3;
+            }
+        
           }
-
+        
           return {
-            stroke: isBoundary,
+            stroke: isSelectedBoundary,
+        
             color: window.paintApp.borderColorForDfa(dfa),
-            weight: isBoundary ? 0.8 : 0,
-            opacity: isBoundary ? 1.0 : 0.0,
+        
+            weight: isSelectedBoundary ? 0.8 : 0,
+        
+            opacity: isSelectedBoundary ? 1.0 : 0.0,
+        
             fillColor: fillColor,
+        
             fillOpacity: fillOpacity
           };
         },
@@ -872,6 +912,36 @@ ui <- fluidPage(
           if (window.paintApp.brushPreview) {
             window.paintApp.brushPreview.setRadius(window.paintApp.brushSize);
           }
+          
+          if (msg.seedPoints && Array.isArray(msg.seedPoints)) {
+  window.paintApp.seedLayer = L.layerGroup();
+
+  msg.seedPoints.forEach(function(pt) {
+    if (pt.lon == null || pt.lat == null) return;
+
+    L.circleMarker([pt.lat, pt.lon], {
+      radius: 4,
+      color: '#000000',
+      weight: 1,
+      opacity: 1,
+      fillColor: '#FFFFFF',
+      fillOpacity: 1,
+      interactive: false
+    })
+    .bindTooltip(
+      '<div class=\"dfa-map-label\">' + pt.dfa_name + '</div>',
+      {
+        permanent: true,
+        direction: 'top',
+        offset: [0, -6],
+        className: 'dfa-tooltip'
+      }
+    )
+    .addTo(window.paintApp.seedLayer);
+  });
+
+  window.paintApp.seedLayer.addTo(window.paintApp.map);
+}
 
           var districtGeo = (typeof msg.districtGeojson === 'string') ? JSON.parse(msg.districtGeojson) : msg.districtGeojson;
           var gridGeo = (typeof msg.gridGeojson === 'string') ? JSON.parse(msg.gridGeojson) : msg.gridGeojson;
@@ -916,10 +986,6 @@ ui <- fluidPage(
               });
             }
           }).addTo(window.paintApp.map);
-
-          if (msg.seedPoints) {
-            window.paintApp.setSeedPoints(msg.seedPoints);
-          }
 
           if (msg.savedGeojson) {
             var savedGeo = (typeof msg.savedGeojson === 'string') ? JSON.parse(msg.savedGeojson) : msg.savedGeojson;
@@ -1043,37 +1109,35 @@ ui <- fluidPage(
       selectInput("district_select", NULL, choices = NULL),
       div(class = "section-gap mini-label", "Edit DFA"),
       selectInput("active_dfa", NULL, choices = all_dfa_names, selected = starter_dfa_names[1]),
-      div(class = "section-gap mini-label", "Grid"),
-      div(
-        class = "slider-row",
-        actionButton("grid_minus", "-", width = "30px"),
-        div(class = "slider-wrap", sliderInput("grid_n_ui", NULL, min = 100, max = 200, value = default_grid_n, step = 5, width = "100%")),
-        actionButton("grid_plus", "+", width = "30px")
-      ),
-      div(class = "mini-label", "Brush"),
+      div(class = "mini-label", "Brush Size:"),
       div(
         class = "slider-row",
         actionButton("brush_minus", "-", width = "30px"),
-        div(class = "slider-wrap", sliderInput("brush_m_ui", NULL, min = min_brush_m, max = max_brush_m, value = 300, step = brush_step_m, width = "100%")),
+        div(
+          class = "slider-wrap",
+          sliderInput(
+            "brush_m_ui", NULL,
+            min = min_brush_m, max = max_brush_m,
+            value = 300, step = brush_step_m, width = "100%"
+          )
+        ),
         actionButton("brush_plus", "+", width = "30px")
       ),
-      checkboxInput("show_pop_raster", "Population raster", value = show_pop_default),
+      checkboxInput("show_pop_raster", "Show WorldPop U5 Population", value = show_pop_default),
       checkboxInput("boundary_only", "Boundaries only", value = boundary_only_default),
-      div(class = "control-row", actionButton("reset_btn", "Reset"), actionButton("save_btn", "Save"))
+      div(class = "control-row",
+          actionButton("reset_btn", "Reset"),
+          actionButton("save_btn", "Save"))
     ),
     div(
       id = "mapwrap",
-      tags$div(id = "paint_map"),
-      div(
-        id = "map-inset",
-        uiOutput("legend_ui"),
-        div(
-          style = "display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;",
-          tags$div(class = "mini-label", style = "margin-bottom:0;", "Child population"),
-          actionButton("estimate_pop_btn", "↻", width = "34px", title = "Refresh")
-        ),
-        DTOutput("pop_table")
-      )
+      tags$div(id = "paint_map")
+    ),
+    div(
+      id = "rightbar",
+      div(class = "rightbar-title", "Legend and population"),
+      uiOutput("legend_ui"),
+      DTOutput("pop_table")
     )
   )
 )
@@ -1109,10 +1173,14 @@ server <- function(input, output, session) {
   output$legend_ui <- renderUI({
     selected_name <- input$active_dfa %||% starter_dfa_names[1]
     show_selected <- !(selected_name %in% c("Inaccessible", "Unpopulated"))
-
+    
+    raster_cols <- pop_palette(5)
+    raster_labels <- c("Low", "", "", "", "High")
+    
     tagList(
       div(
         class = "legend-wrap",
+        
         if (show_selected) {
           div(
             class = "legend-row",
@@ -1120,6 +1188,7 @@ server <- function(input, output, session) {
             tags$span(selected_name)
           )
         },
+        
         div(
           class = "legend-row",
           tags$span(class = "legend-box", style = paste0("background:", nonselected_fill_color, ";")),
@@ -1127,14 +1196,48 @@ server <- function(input, output, session) {
         ),
         div(
           class = "legend-row",
-          tags$span(class = "legend-box", style = paste0("background:", special_fill_colors[["Inaccessible"]], "; border-color:", special_fill_colors[["Inaccessible"]], ";")),
+          tags$span(
+            class = "legend-box",
+            style = paste0(
+              "background:", special_fill_colors[["Inaccessible"]],
+              "; border-color:", special_fill_colors[["Inaccessible"]], ";"
+            )
+          ),
           tags$span("Inaccessible")
         ),
         div(
           class = "legend-row",
           tags$span(class = "legend-box", style = "background:#FFFFFF;"),
           tags$span("Unpopulated")
-        )
+        ),
+        
+        if (isTRUE(input$show_pop_raster)) {
+          tagList(
+            tags$div(
+              style = "height:6px;"
+            ),
+            tags$div(
+              class = "mini-label",
+              style = "margin-bottom:4px;",
+              "WorldPop U5 Population"
+            ),
+            tags$div(
+              style = "display:flex; gap:0; margin-bottom:3px;",
+              lapply(raster_cols, function(clr) {
+                tags$div(
+                  style = paste0(
+                    "flex:1; height:10px; background:", clr,
+                    "; border-top:1px solid #999999; border-bottom:1px solid #999999;"
+                  )
+                )
+              })
+            ),
+            tags$div(
+              style = "display:flex; justify-content:space-between; font-size:10px; color:#666666;",
+              lapply(raster_labels, function(lbl) tags$span(lbl))
+            )
+          )
+        }
       )
     )
   })
@@ -1283,15 +1386,6 @@ server <- function(input, output, session) {
 
     updateSliderInput(
       session,
-      "grid_n_ui",
-      min = db$grid_limits$min,
-      max = db$grid_limits$max,
-      value = db$grid_limits$value,
-      step = db$grid_limits$step
-    )
-
-    updateSliderInput(
-      session,
       "brush_m_ui",
       min = db$brush_limits$min,
       max = db$brush_limits$max,
@@ -1299,18 +1393,6 @@ server <- function(input, output, session) {
       step = db$brush_limits$step
     )
   }, ignoreInit = FALSE)
-
-  observeEvent(input$grid_minus, {
-    gl <- rv$grid_limits
-    req(!is.null(gl), !is.null(input$grid_n_ui))
-    updateSliderInput(session, "grid_n_ui", value = clamp_num(input$grid_n_ui - gl$step, gl$min, gl$max))
-  })
-
-  observeEvent(input$grid_plus, {
-    gl <- rv$grid_limits
-    req(!is.null(gl), !is.null(input$grid_n_ui))
-    updateSliderInput(session, "grid_n_ui", value = clamp_num(input$grid_n_ui + gl$step, gl$min, gl$max))
-  })
 
   observeEvent(input$brush_minus, {
     bl <- rv$brush_limits
@@ -1337,12 +1419,12 @@ server <- function(input, output, session) {
   }, ignoreInit = TRUE)
 
   selected_scene <- reactive({
-    req(input$district_select, input$grid_n_ui)
+    req(input$district_select)
 
     db <- district_base()
     district_sf <- db$district_sf
 
-    grid_info <- make_paint_grid(district_sf, grid_n = input$grid_n_ui)
+    grid_info <- make_paint_grid(district_sf, grid_n = db$grid_limits$value)
     grid_sf <- grid_info$grid_sf
     req(nrow(grid_sf) > 0)
 
@@ -1354,9 +1436,9 @@ server <- function(input, output, session) {
       n_dfa = n_start_dfas,
       seed = district_seed
     )
-
+    
     initial_assignments <- as.character(start_info$assignments)
-
+    
     seed_pts <- sf::st_transform(start_info$seeds_sf, 4326)
     seed_coords <- sf::st_coordinates(seed_pts)
     seed_points_df <- data.frame(
@@ -1464,11 +1546,6 @@ server <- function(input, output, session) {
     session$sendCustomMessage("paint_request_assignments", list())
   })
 
-  observeEvent(input$estimate_pop_btn, {
-    pending_action("refresh")
-    session$sendCustomMessage("paint_request_assignments", list())
-  })
-
   observeEvent(input$reset_btn, {
     req(!is.null(rv$initial_assignments))
 
@@ -1569,7 +1646,7 @@ server <- function(input, output, session) {
       rv$pop_table |>
         rename(
           Area = area_name,
-          `Estimated U5 population` = est_u5_pop
+          `WorldPop U5 Population` = est_u5_pop
         ),
       options = list(dom = "t", paging = FALSE, ordering = FALSE, autoWidth = TRUE, searching = FALSE),
       rownames = FALSE
