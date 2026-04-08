@@ -1,0 +1,7 @@
+"facility_idx","facility_id","facility_name","facility_type","district_name","area_km2","pop_total","u5_total","u5_pct","max_travel_cost","flag"
+1,"HF_0001","Danyile HF-1","Health Centre","Danyile",17.0105458181315,NA,NA,NA,4221.17189880907,"no population data"
+2,"HF_0002","Danyile HF-2","Primary Health Unit","Danyile",10.0448237172073,NA,NA,NA,4831.90081693923,"no population data"
+3,"HF_0003","Danyile HF-3","Health Centre","Danyile",17.3339089718838,NA,NA,NA,4405.50023613754,"no population data"
+4,"HF_0004","Danyile HF-4","MCH","Danyile",4.83696764679596,NA,NA,NA,2555.82057462421,"no population data"
+5,"HF_0005","Danyile HF-5","Health Centre","Danyile",21.5678785958923,NA,NA,NA,4902.16172285345,"no population data"
+6,"HF_0006","Danyile HF-6","MCH","Danyile",5.39219306268372,NA,NA,NA,2555.82057462421,"no population data"

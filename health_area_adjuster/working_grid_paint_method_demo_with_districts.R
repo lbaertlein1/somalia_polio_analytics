@@ -1,0 +1,1580 @@
+library(shiny)
+library(sf)
+library(dplyr)
+library(jsonlite)
+library(geojsonsf)
+library(terra)
+library(exactextractr)
+library(raster)
+library(DT)
+
+# =========================================================
+# User config
+# =========================================================
+
+districts_file <- "~/Github/somalia_polio_analytics/data/districts_shp.Rds"
+
+# Set these to your actual WorldPop files
+worldpop_f_u1_file   <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_f_00_2025_CN_100m_R2024B_v1.tif"
+worldpop_m_u1_file   <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_m_00_2025_CN_100m_R2024B_v1.tif"
+worldpop_f_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_f_01_2025_CN_100m_R2024B_v1.tif"
+worldpop_m_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_m_01_2025_CN_100m_R2024B_v1.tif"
+
+default_grid_n <- 100
+n_start_dfas <- 5
+
+min_brush_m <- 50
+max_brush_m <- 10000
+brush_step_m <- 50
+
+show_pop_default <- FALSE
+boundary_only_default <- FALSE
+
+starter_dfa_names <- paste("DFA", seq_len(n_start_dfas))
+extra_dfa_names <- c("Inaccessible", "Unpopulated")
+all_dfa_names <- c(starter_dfa_names, extra_dfa_names)
+
+selected_fill_color <- "#FFD400"
+nonselected_fill_color <- "#757575"
+special_fill_colors <- c(
+  "Inaccessible" = "#D7301F",
+  "Unpopulated" = "#FFFFFF"
+)
+
+pop_palette <- colorRampPalette(c(
+  "#ffffcc", "#c2e699", "#78c679", "#31a354", "#006837"
+))
+
+`%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
+
+# =========================================================
+# Helpers
+# =========================================================
+
+safe_make_valid <- function(x) {
+  tryCatch(st_make_valid(x), error = function(e) x)
+}
+
+as_geojson_text <- function(x) {
+  geojsonsf::sf_geojson(x)
+}
+
+make_fill_colors <- function(active_dfa) {
+  out <- setNames(rep(nonselected_fill_color, length(all_dfa_names)), all_dfa_names)
+  out[names(special_fill_colors)] <- special_fill_colors
+  if (!is.null(active_dfa) && active_dfa %in% starter_dfa_names) {
+    out[active_dfa] <- selected_fill_color
+  }
+  out
+}
+
+load_worldpop_u5_raster <- function(f_u1_file, m_u1_file, f_age1to4_file, m_age1to4_file) {
+  f_u1_path  <- path.expand(f_u1_file)
+  m_u1_path  <- path.expand(m_u1_file)
+  f_a14_path <- path.expand(f_age1to4_file)
+  m_a14_path <- path.expand(m_age1to4_file)
+
+  for (p in c(f_u1_path, m_u1_path, f_a14_path, m_a14_path)) {
+    if (!file.exists(p)) stop(paste0("WorldPop raster not found: ", p))
+  }
+
+  f_u1  <- terra::rast(f_u1_path)
+  m_u1  <- terra::rast(m_u1_path)
+  f_a14 <- terra::rast(f_a14_path)
+  m_a14 <- terra::rast(m_a14_path)
+
+  if (!terra::same.crs(f_u1, m_u1) ||
+      !terra::same.crs(f_u1, f_a14) ||
+      !terra::same.crs(f_u1, m_a14)) {
+    stop("WorldPop rasters do not share the same CRS.")
+  }
+
+  if (nrow(f_u1) != nrow(m_u1) || ncol(f_u1) != ncol(m_u1) ||
+      nrow(f_u1) != nrow(f_a14) || ncol(f_u1) != ncol(f_a14) ||
+      nrow(f_u1) != nrow(m_a14) || ncol(f_u1) != ncol(m_a14)) {
+    stop("WorldPop rasters do not share the same dimensions.")
+  }
+
+  u5 <- f_u1 + m_u1 + f_a14 + m_a14
+  names(u5) <- "u5_pop"
+  u5
+}
+
+estimate_u5_population <- function(polygons_sf, u5_rast, name_col = "dfa_name") {
+  if (is.null(polygons_sf) || nrow(polygons_sf) == 0) return(data.frame())
+
+  polys <- sf::st_transform(polygons_sf, sf::st_crs(terra::crs(u5_rast)))
+  vals <- exactextractr::exact_extract(
+    x = raster::raster(u5_rast),
+    y = polys,
+    fun = "sum"
+  )
+
+  data.frame(
+    area_name = as.character(polys[[name_col]]),
+    est_u5_pop = round(vals, 0),
+    stringsAsFactors = FALSE
+  )
+}
+
+make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 120) {
+  district_vect <- terra::vect(sf::st_transform(district_sf, terra::crs(u5_rast)))
+  r_crop <- terra::crop(u5_rast, district_vect, snap = "out")
+  r_mask <- terra::mask(r_crop, district_vect)
+
+  vals0 <- terra::values(r_mask)
+  if (all(is.na(vals0))) return(NULL)
+
+  factor_x <- max(1, ceiling(ncol(r_mask) / max_dim_cells))
+  factor_y <- max(1, ceiling(nrow(r_mask) / max_dim_cells))
+  fact <- max(factor_x, factor_y)
+
+  r_small <- terra::aggregate(r_mask, fact = fact, fun = mean, na.rm = TRUE)
+  p <- terra::as.polygons(r_small, na.rm = TRUE)
+  names(p) <- "pop_u5"
+
+  pop_sf <- sf::st_as_sf(p)
+  pop_sf <- sf::st_transform(pop_sf, 4326)
+  pop_sf <- safe_make_valid(pop_sf)
+
+  vals <- pop_sf$pop_u5
+  vals_non_na <- vals[is.finite(vals) & !is.na(vals)]
+  if (length(vals_non_na) == 0) return(NULL)
+
+  breaks <- unique(stats::quantile(vals_non_na, probs = seq(0, 1, length.out = 6), na.rm = TRUE))
+  if (length(breaks) < 2) {
+    breaks <- c(min(vals_non_na, na.rm = TRUE), max(vals_non_na, na.rm = TRUE) + 1e-9)
+  }
+
+  cols <- pop_palette(max(1, length(breaks) - 1))
+  idx <- cut(vals, breaks = breaks, include.lowest = TRUE, labels = FALSE)
+
+  fill_color <- rep("#000000", length(vals))
+  ok <- !is.na(idx)
+  fill_color[ok] <- cols[idx[ok]]
+
+  pop_sf$fill_color <- fill_color
+  pop_sf
+}
+
+make_paint_grid <- function(district_sf, grid_n = 150) {
+  district_sf <- safe_make_valid(district_sf)
+  district_3857 <- st_transform(district_sf, 3857)
+
+  bbox <- st_bbox(district_3857)
+  width_m <- bbox$xmax - bbox$xmin
+  height_m <- bbox$ymax - bbox$ymin
+  max_dim <- max(width_m, height_m)
+
+  cellsize <- max_dim / grid_n
+
+  raw_grid <- st_make_grid(
+    district_3857,
+    cellsize = cellsize,
+    what = "polygons",
+    square = TRUE
+  )
+
+  grid_sf <- st_sf(
+    cell_id = seq_along(raw_grid),
+    geometry = raw_grid,
+    crs = st_crs(district_3857)
+  )
+
+  cent_3857 <- suppressWarnings(st_centroid(grid_sf))
+  inside <- lengths(st_within(cent_3857, district_3857)) > 0
+
+  grid_sf <- grid_sf |>
+    filter(inside) |>
+    mutate(cell_id = seq_len(n()))
+
+  cent_wgs84 <- st_transform(cent_3857[inside, ], 4326)
+  coords <- st_coordinates(cent_wgs84)
+
+  grid_sf <- st_transform(grid_sf, 4326)
+  grid_sf$centroid_lon <- coords[, 1]
+  grid_sf$centroid_lat <- coords[, 2]
+
+  list(
+    grid_sf = grid_sf,
+    max_dim_m = as.numeric(max_dim)
+  )
+}
+
+make_start_assignment <- function(grid_sf, district_sf, n_dfa = 5, seed = 1) {
+  set.seed(seed)
+
+  pts <- st_sample(district_sf, size = n_dfa, exact = TRUE)
+
+  pts_sf <- st_sf(
+    dfa_name = paste("DFA", seq_len(n_dfa)),
+    geometry = pts,
+    crs = st_crs(district_sf)
+  )
+
+  cent <- suppressWarnings(st_centroid(grid_sf))
+  idx <- st_nearest_feature(cent, pts_sf)
+
+  list(
+    assignments = as.character(pts_sf$dfa_name[idx]),
+    seeds_sf = pts_sf
+  )
+}
+
+build_dfa_polygons_from_assignments <- function(grid_sf, assignments, district_sf) {
+  stopifnot(length(assignments) == nrow(grid_sf))
+
+  out <- grid_sf |>
+    mutate(dfa_name = assignments) |>
+    dplyr::select(cell_id, centroid_lon, centroid_lat, dfa_name, geometry) |>
+    group_by(dfa_name) |>
+    summarise(geometry = st_union(geometry), .groups = "drop")
+
+  out <- safe_make_valid(out)
+  out <- suppressWarnings(st_intersection(out, district_sf))
+  out <- safe_make_valid(out)
+  out$geometry <- st_cast(out$geometry, "MULTIPOLYGON", warn = FALSE)
+
+  out |>
+    dplyr::select(dfa_name, geometry)
+}
+
+build_saved_dfa_sf <- function(grid_sf, assignments, district_sf) {
+  build_dfa_polygons_from_assignments(
+    grid_sf = grid_sf,
+    assignments = assignments,
+    district_sf = district_sf
+  )
+}
+
+make_dfa_label_points <- function(dfa_sf) {
+  if (is.null(dfa_sf) || nrow(dfa_sf) == 0) return(NULL)
+
+  pts <- suppressWarnings(st_point_on_surface(dfa_sf))
+  coords <- st_coordinates(pts)
+
+  data.frame(
+    dfa_name = dfa_sf$dfa_name,
+    lon = coords[, 1],
+    lat = coords[, 2],
+    stringsAsFactors = FALSE
+  )
+}
+
+clamp_num <- function(x, lo, hi) {
+  max(lo, min(hi, x))
+}
+
+round_to_step <- function(x, step) {
+  round(x / step) * step
+}
+
+calc_grid_limits <- function(max_dim_m) {
+  min_n_raw <- clamp_num(max_dim_m / 350, 100, 200)
+  max_n_raw <- clamp_num(max_dim_m / 120, 100, 200)
+
+  min_n <- floor(min_n_raw)
+  max_n <- ceiling(max_n_raw)
+
+  if (max_n <= min_n) {
+    max_n <- min_n + 20
+  }
+
+  range_n <- max_n - min_n
+  step_n <- round(range_n * 0.10)
+  step_n <- clamp_num(step_n, 2, 25)
+
+  if (step_n <= 5) {
+    step_n <- 1
+  } else if (step_n <= 10) {
+    step_n <- 2
+  } else if (step_n <= 20) {
+    step_n <- 5
+  } else {
+    step_n <- 10
+  }
+
+  default_n <- round((min_n + max_n) / 2)
+
+  list(
+    min = as.integer(min_n),
+    max = as.integer(max_n),
+    value = as.integer(default_n),
+    step = as.integer(step_n)
+  )
+}
+
+calc_brush_limits <- function(max_dim_m) {
+  min_b <- round_to_step(clamp_num(max_dim_m * 0.02, 50, 10000), brush_step_m)
+  max_b <- round_to_step(clamp_num(max_dim_m * 0.18, 50, 10000), brush_step_m)
+
+  if (max_b <= min_b) {
+    max_b <- clamp_num(min_b + brush_step_m, 50, 10000)
+  }
+
+  default_b <- round_to_step((min_b + max_b) / 2, brush_step_m)
+  default_b <- clamp_num(default_b, min_b, max_b)
+
+  list(
+    min = as.integer(min_b),
+    max = as.integer(max_b),
+    value = as.integer(default_b),
+    step = as.integer(brush_step_m)
+  )
+}
+
+calc_district_max_dim <- function(district_sf) {
+  district_3857 <- st_transform(safe_make_valid(district_sf), 3857)
+  bbox <- st_bbox(district_3857)
+  as.numeric(max(bbox$xmax - bbox$xmin, bbox$ymax - bbox$ymin))
+}
+
+# =========================================================
+# Load base data
+# =========================================================
+
+districts_path <- path.expand(districts_file)
+
+if (!file.exists(districts_path)) {
+  stop(
+    paste0(
+      "Could not find districts file:\n",
+      districts_file,
+      "\n\nCheck the path near the top of app.R."
+    )
+  )
+}
+
+districts_shp <- readRDS(districts_path)
+districts_shp <- safe_make_valid(districts_shp)
+
+required_cols <- c("zone_name", "region_name", "district_name")
+missing_cols <- setdiff(required_cols, names(districts_shp))
+if (length(missing_cols) > 0) {
+  stop(
+    paste0(
+      "districts_shp is missing required column(s): ",
+      paste(missing_cols, collapse = ", ")
+    )
+  )
+}
+
+zone_choices <- sort(unique(as.character(stats::na.omit(districts_shp$zone_name))))
+
+u5_worldpop <- load_worldpop_u5_raster(
+  f_u1_file = worldpop_f_u1_file,
+  m_u1_file = worldpop_m_u1_file,
+  f_age1to4_file = worldpop_f_1to4_file,
+  m_age1to4_file = worldpop_m_1to4_file
+)
+
+# =========================================================
+# UI
+# =========================================================
+
+ui <- fluidPage(
+  tags$head(
+    tags$link(
+      rel = "stylesheet",
+      href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+      integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=",
+      crossorigin = ""
+    ),
+    tags$script(
+      src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+      integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=",
+      crossorigin = ""
+    ),
+    tags$style(HTML("
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      .container-fluid {
+        padding: 6px;
+      }
+      #app_row {
+        display: flex;
+        gap: 6px;
+        height: calc(100vh - 12px);
+      }
+      #leftbar {
+        width: 250px;
+        min-width: 250px;
+        background: #FAFAFA;
+        border: 1px solid #E6E6E6;
+        border-radius: 6px;
+        padding: 8px;
+        overflow-y: auto;
+      }
+      #mapwrap {
+        flex: 1;
+        min-width: 0;
+        position: relative;
+      }
+      #paint_map {
+        width: 100%;
+        height: 100%;
+        min-height: 700px;
+        border: 1px solid #E6E6E6;
+        border-radius: 6px;
+        background: #D9D9D9;
+      }
+      .leaflet-container {
+        background: #D9D9D9;
+      }
+      .mini-label {
+        font-size: 11px;
+        color: #666666;
+        margin-bottom: 3px;
+      }
+      .section-gap {
+        margin-top: 8px;
+      }
+      .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+      .slider-row .btn {
+        width: 30px;
+        min-width: 30px;
+        padding: 2px 0;
+        font-size: 12px;
+      }
+      .slider-wrap {
+        flex: 1;
+      }
+      .slider-wrap .form-group {
+        margin-bottom: 0;
+      }
+      .slider-wrap .irs-min,
+      .slider-wrap .irs-max,
+      .slider-wrap .irs-from,
+      .slider-wrap .irs-to,
+      .slider-wrap .irs-single,
+      .slider-wrap .irs-grid-text,
+      .slider-wrap .irs-grid-pol {
+        display: none !important;
+      }
+      .dataTables_wrapper {
+        font-size: 11px;
+      }
+      .dataTables_wrapper .dataTables_info,
+      .dataTables_wrapper .dataTables_paginate,
+      .dataTables_wrapper .dataTables_length,
+      .dataTables_wrapper .dataTables_filter {
+        display: none;
+      }
+      .btn {
+        padding: 3px 8px;
+        font-size: 12px;
+      }
+      .shiny-input-container {
+        margin-bottom: 6px;
+      }
+      .control-row {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+        margin-bottom: 6px;
+      }
+      .top-help {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 4px;
+      }
+      .modal-body {
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      #map-inset {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        width: 280px;
+        background: rgba(255,255,255,0.94);
+        border: 1px solid #D9D9D9;
+        border-radius: 6px;
+        padding: 8px;
+        z-index: 1000;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.12);
+      }
+      .legend-box {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 1px solid #7F7F7F;
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+      .legend-row {
+        font-size: 11px;
+        line-height: 1.35;
+        margin-bottom: 3px;
+      }
+      .legend-wrap {
+        margin-bottom: 6px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #E6E6E6;
+      }
+      .dfa-map-label {
+        background: rgba(255,255,255,0.92);
+        border: 1px solid #CCCCCC;
+        border-radius: 3px;
+        padding: 1px 4px;
+        color: #000000;
+        font-size: 10px;
+        white-space: nowrap;
+      }
+      .leaflet-tooltip.dfa-tooltip {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+      }
+      .leaflet-tooltip.dfa-tooltip:before {
+        display: none;
+      }
+    ")),
+    tags$script(HTML(" 
+      window.paintApp = {
+        map: null,
+        districtLayer: null,
+        popLayer: null,
+        gridLayer: null,
+        savedLayer: null,
+        seedLayer: null,
+        brushPreview: null,
+        isPainting: false,
+        assignments: {},
+        initialAssignments: {},
+        dfaColors: {},
+        activeDfa: null,
+        cellLayers: {},
+        centroids: {},
+        neighbors: {},
+        edgeCells: {},
+        brushSize: 300,
+        boundaryOnly: false,
+
+        currentBrushSize: function() {
+          return window.paintApp.brushSize || 300;
+        },
+
+        setSeedPoints: function(seedPoints) {
+          if (!window.paintApp.map) return;
+
+          if (window.paintApp.seedLayer) {
+            window.paintApp.map.removeLayer(window.paintApp.seedLayer);
+            window.paintApp.seedLayer = null;
+          }
+
+          if (!seedPoints || !Array.isArray(seedPoints) || seedPoints.length === 0) return;
+
+          window.paintApp.seedLayer = L.layerGroup();
+
+          seedPoints.forEach(function(pt) {
+            if (pt.lon == null || pt.lat == null) return;
+
+            var circle = L.circleMarker([pt.lat, pt.lon], {
+              radius: 4,
+              color: '#000000',
+              weight: 1,
+              opacity: 1,
+              fillColor: '#FFFFFF',
+              fillOpacity: 1,
+              interactive: false
+            });
+
+            circle.addTo(window.paintApp.seedLayer);
+
+            var marker = L.marker([pt.lat, pt.lon], { opacity: 0, interactive: false });
+            marker.bindTooltip(
+              '<div class=\"dfa-map-label\">' + pt.dfa_name + '</div>',
+              {
+                permanent: true,
+                direction: 'top',
+                offset: [0, -6],
+                className: 'dfa-tooltip'
+              }
+            );
+            marker.addTo(window.paintApp.seedLayer);
+          });
+
+          window.paintApp.seedLayer.addTo(window.paintApp.map);
+        },
+
+        ensureMap: function() {
+          if (window.paintApp.map) return;
+
+          window.paintApp.map = L.map('paint_map', {
+            zoomSnap: 0.25,
+            preferCanvas: true
+          });
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 20,
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(window.paintApp.map);
+
+          window.paintApp.brushPreview = L.circle([0, 0], {
+            radius: window.paintApp.currentBrushSize(),
+            color: '#222222',
+            weight: 1,
+            opacity: 0.7,
+            fillOpacity: 0.05,
+            interactive: false
+          });
+
+          window.paintApp.map.on('mousemove', function(e) {
+            if (window.paintApp.brushPreview) {
+              window.paintApp.brushPreview.setLatLng(e.latlng);
+              window.paintApp.brushPreview.setRadius(window.paintApp.currentBrushSize());
+              if (!window.paintApp.map.hasLayer(window.paintApp.brushPreview)) {
+                window.paintApp.brushPreview.addTo(window.paintApp.map);
+              }
+            }
+
+            if (window.paintApp.isPainting) {
+              window.paintApp.paintAtLatLng(e.latlng);
+            }
+          });
+
+          window.paintApp.map.on('mousedown', function(e) {
+            if (!window.paintApp.gridLayer) return;
+            window.paintApp.isPainting = true;
+            window.paintApp.map.dragging.disable();
+            window.paintApp.paintAtLatLng(e.latlng);
+          });
+
+          document.addEventListener('mouseup', function() {
+            if (window.paintApp.isPainting) {
+              window.paintApp.isPainting = false;
+              window.paintApp.map.dragging.enable();
+            }
+          });
+
+          setTimeout(function() { window.paintApp.map.invalidateSize(); }, 300);
+          setTimeout(function() { window.paintApp.map.invalidateSize(); }, 900);
+        },
+
+        isBoundaryCell: function(id) {
+          id = String(id);
+          var myDfa = window.paintApp.assignments[id];
+          var nbrs = window.paintApp.neighbors[id] || [];
+          var touchesEdge = !!window.paintApp.edgeCells[id];
+
+          if (touchesEdge) return true;
+
+          for (var i = 0; i < nbrs.length; i++) {
+            var nbrId = String(nbrs[i]);
+            if (window.paintApp.assignments[nbrId] !== myDfa) {
+              return true;
+            }
+          }
+
+          return false;
+        },
+
+        fillForDfa: function(dfa) {
+          return window.paintApp.dfaColors[dfa] || '#757575';
+        },
+
+        borderColorForDfa: function(dfa) {
+          if (dfa === 'Inaccessible') return '#D7301F';
+          if (dfa === 'Unpopulated') return '#FFFFFF';
+          if (dfa === window.paintApp.activeDfa) return '#FFD400';
+          return '#000000';
+        },
+
+        styleForFeature: function(feature) {
+          var id = String(feature.properties.cell_id);
+          var dfa = window.paintApp.assignments[id];
+          var fillColor = window.paintApp.fillForDfa(dfa);
+          var isBoundary = window.paintApp.isBoundaryCell(id);
+          var fillOpacity = 0.30;
+
+          if (window.paintApp.boundaryOnly) {
+            fillOpacity = 0.0;
+          } else if (isBoundary) {
+            fillOpacity = 0.85;
+          }
+
+          return {
+            stroke: isBoundary,
+            color: window.paintApp.borderColorForDfa(dfa),
+            weight: isBoundary ? 0.8 : 0,
+            opacity: isBoundary ? 1.0 : 0.0,
+            fillColor: fillColor,
+            fillOpacity: fillOpacity
+          };
+        },
+
+        popStyleForFeature: function(feature) {
+          return {
+            stroke: false,
+            fillColor: feature.properties.fill_color || '#000000',
+            fillOpacity: 0.35
+          };
+        },
+
+        refreshCellsAndNeighbors: function(cellIds) {
+          var toUpdate = {};
+
+          for (var i = 0; i < cellIds.length; i++) {
+            var id = String(cellIds[i]);
+            toUpdate[id] = true;
+
+            var nbrs = window.paintApp.neighbors[id] || [];
+            for (var j = 0; j < nbrs.length; j++) {
+              toUpdate[String(nbrs[j])] = true;
+            }
+          }
+
+          Object.keys(toUpdate).forEach(function(id) {
+            if (window.paintApp.cellLayers[id]) {
+              window.paintApp.cellLayers[id].setStyle(
+                window.paintApp.styleForFeature(window.paintApp.cellLayers[id].feature)
+              );
+            }
+          });
+        },
+
+        paintCells: function(cellIds) {
+          var dfa = window.paintApp.activeDfa;
+          if (!dfa || !cellIds || cellIds.length === 0) return;
+
+          for (var i = 0; i < cellIds.length; i++) {
+            var id = String(cellIds[i]);
+            window.paintApp.assignments[id] = dfa;
+          }
+
+          window.paintApp.refreshCellsAndNeighbors(cellIds);
+        },
+
+        paintAtLatLng: function(latlng) {
+          if (!window.paintApp.gridLayer) return;
+
+          var brushSize = window.paintApp.currentBrushSize();
+          var touched = [];
+
+          for (var id in window.paintApp.centroids) {
+            var c = window.paintApp.centroids[id];
+            var d = window.paintApp.map.distance(
+              [latlng.lat, latlng.lng],
+              [c.lat, c.lng]
+            );
+            if (d <= brushSize) {
+              touched.push(id);
+            }
+          }
+
+          window.paintApp.paintCells(touched);
+        },
+
+        refreshAllStyles: function() {
+          if (!window.paintApp.gridLayer) return;
+          window.paintApp.gridLayer.eachLayer(function(layer) {
+            layer.setStyle(window.paintApp.styleForFeature(layer.feature));
+          });
+        },
+
+        clearScene: function() {
+          if (!window.paintApp.map) return;
+
+          if (window.paintApp.districtLayer) {
+            window.paintApp.map.removeLayer(window.paintApp.districtLayer);
+            window.paintApp.districtLayer = null;
+          }
+          if (window.paintApp.seedLayer) {
+            window.paintApp.map.removeLayer(window.paintApp.seedLayer);
+            window.paintApp.seedLayer = null;
+          }
+          if (window.paintApp.popLayer) {
+            window.paintApp.map.removeLayer(window.paintApp.popLayer);
+            window.paintApp.popLayer = null;
+          }
+          if (window.paintApp.gridLayer) {
+            window.paintApp.map.removeLayer(window.paintApp.gridLayer);
+            window.paintApp.gridLayer = null;
+          }
+          if (window.paintApp.savedLayer) {
+            window.paintApp.map.removeLayer(window.paintApp.savedLayer);
+            window.paintApp.savedLayer = null;
+          }
+
+          window.paintApp.cellLayers = {};
+          window.paintApp.centroids = {};
+          window.paintApp.neighbors = {};
+          window.paintApp.edgeCells = {};
+        },
+
+        setPopulationVisibility: function(showIt) {
+          if (!window.paintApp.map || !window.paintApp.popLayer) return;
+          if (showIt) {
+            if (!window.paintApp.map.hasLayer(window.paintApp.popLayer)) {
+              window.paintApp.popLayer.addTo(window.paintApp.map);
+            }
+          } else {
+            if (window.paintApp.map.hasLayer(window.paintApp.popLayer)) {
+              window.paintApp.map.removeLayer(window.paintApp.popLayer);
+            }
+          }
+        },
+
+        setBrushSize: function(v) {
+          window.paintApp.brushSize = v;
+          if (window.paintApp.brushPreview) {
+            window.paintApp.brushPreview.setRadius(v);
+          }
+        },
+
+        setBoundaryOnly: function(v) {
+          window.paintApp.boundaryOnly = !!v;
+          window.paintApp.refreshAllStyles();
+        },
+
+        setColorsAndActive: function(colorsObj, activeDfa) {
+          window.paintApp.dfaColors = colorsObj || {};
+          window.paintApp.activeDfa = activeDfa || null;
+          window.paintApp.refreshAllStyles();
+
+          if (window.paintApp.savedLayer) {
+            window.paintApp.savedLayer.eachLayer(function(layer) {
+              var nm = layer.feature.properties && layer.feature.properties.dfa_name;
+              layer.setStyle({
+                color: window.paintApp.borderColorForDfa(nm),
+                weight: 2.5,
+                opacity: 1,
+                dashArray: null,
+                fill: false
+              });
+            });
+          }
+        },
+
+        loadScene: function(msg) {
+          window.paintApp.ensureMap();
+          window.paintApp.clearScene();
+
+          window.paintApp.initialAssignments = JSON.parse(JSON.stringify(msg.initialAssignments));
+          window.paintApp.assignments = JSON.parse(JSON.stringify(msg.initialAssignments));
+          window.paintApp.dfaColors = msg.dfaColors || {};
+          window.paintApp.activeDfa = msg.activeDfa || null;
+          window.paintApp.neighbors = msg.neighbors || {};
+          window.paintApp.edgeCells = msg.edgeCells || {};
+          window.paintApp.brushSize = msg.brushSize || window.paintApp.brushSize;
+          window.paintApp.boundaryOnly = !!msg.boundaryOnly;
+
+          if (window.paintApp.brushPreview) {
+            window.paintApp.brushPreview.setRadius(window.paintApp.brushSize);
+          }
+
+          var districtGeo = (typeof msg.districtGeojson === 'string') ? JSON.parse(msg.districtGeojson) : msg.districtGeojson;
+          var gridGeo = (typeof msg.gridGeojson === 'string') ? JSON.parse(msg.gridGeojson) : msg.gridGeojson;
+
+          window.paintApp.districtLayer = L.geoJSON(districtGeo, {
+            style: {
+              color: '#000000',
+              weight: 2,
+              fill: false,
+              opacity: 1
+            }
+          }).addTo(window.paintApp.map);
+
+          if (msg.popGeojson) {
+            var popGeo = (typeof msg.popGeojson === 'string') ? JSON.parse(msg.popGeojson) : msg.popGeojson;
+            window.paintApp.popLayer = L.geoJSON(popGeo, {
+              style: function(feature) {
+                return window.paintApp.popStyleForFeature(feature);
+              },
+              interactive: false
+            });
+
+            if (msg.showPop) {
+              window.paintApp.popLayer.addTo(window.paintApp.map);
+            }
+          }
+
+          window.paintApp.gridLayer = L.geoJSON(gridGeo, {
+            style: function(feature) {
+              return window.paintApp.styleForFeature(feature);
+            },
+            onEachFeature: function(feature, layer) {
+              var id = String(feature.properties.cell_id);
+              window.paintApp.cellLayers[id] = layer;
+              window.paintApp.centroids[id] = {
+                lng: feature.properties.centroid_lon,
+                lat: feature.properties.centroid_lat
+              };
+
+              layer.on('click', function(e) {
+                window.paintApp.paintAtLatLng(e.latlng);
+              });
+            }
+          }).addTo(window.paintApp.map);
+
+          if (msg.seedPoints) {
+            window.paintApp.setSeedPoints(msg.seedPoints);
+          }
+
+          if (msg.savedGeojson) {
+            var savedGeo = (typeof msg.savedGeojson === 'string') ? JSON.parse(msg.savedGeojson) : msg.savedGeojson;
+
+            window.paintApp.savedLayer = L.geoJSON(savedGeo, {
+              style: function(feature) {
+                var nm = feature.properties && feature.properties.dfa_name;
+                return {
+                  color: window.paintApp.borderColorForDfa(nm),
+                  weight: 2.5,
+                  opacity: 1,
+                  dashArray: null,
+                  fill: false
+                };
+              }
+            }).addTo(window.paintApp.map);
+          }
+
+          window.paintApp.map.fitBounds(window.paintApp.districtLayer.getBounds(), { padding: [10, 10] });
+          setTimeout(function() { window.paintApp.map.invalidateSize(); }, 150);
+
+          Shiny.setInputValue('paint_map_ready', Date.now(), { priority: 'event' });
+        },
+
+        resetAssignments: function() {
+          window.paintApp.assignments = JSON.parse(JSON.stringify(window.paintApp.initialAssignments));
+          window.paintApp.refreshAllStyles();
+
+          if (window.paintApp.savedLayer) {
+            window.paintApp.map.removeLayer(window.paintApp.savedLayer);
+            window.paintApp.savedLayer = null;
+          }
+        },
+
+        emitAssignments: function() {
+          Shiny.setInputValue(
+            'paint_assignments',
+            { assignments: window.paintApp.assignments, nonce: Date.now() },
+            { priority: 'event' }
+          );
+        },
+
+        showSaved: function(geojsonText) {
+          if (!window.paintApp.map) return;
+
+          if (window.paintApp.savedLayer) {
+            window.paintApp.map.removeLayer(window.paintApp.savedLayer);
+            window.paintApp.savedLayer = null;
+          }
+
+          if (!geojsonText) return;
+
+          var gj = (typeof geojsonText === 'string') ? JSON.parse(geojsonText) : geojsonText;
+
+          window.paintApp.savedLayer = L.geoJSON(gj, {
+            style: function(feature) {
+              var nm = feature.properties && feature.properties.dfa_name;
+              return {
+                color: window.paintApp.borderColorForDfa(nm),
+                weight: 2.5,
+                opacity: 1,
+                dashArray: null,
+                fill: false
+              };
+            }
+          }).addTo(window.paintApp.map);
+        }
+      };
+
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+          window.paintApp.ensureMap();
+        }, 100);
+      });
+
+      if (window.Shiny) {
+        Shiny.addCustomMessageHandler('paint_load_scene', function(msg) {
+          window.paintApp.loadScene(msg);
+        });
+
+        Shiny.addCustomMessageHandler('paint_reset', function(msg) {
+          window.paintApp.resetAssignments();
+        });
+
+        Shiny.addCustomMessageHandler('paint_request_assignments', function(msg) {
+          window.paintApp.emitAssignments();
+        });
+
+        Shiny.addCustomMessageHandler('paint_show_saved', function(msg) {
+          window.paintApp.showSaved(msg.geojson);
+        });
+
+        Shiny.addCustomMessageHandler('paint_toggle_population', function(msg) {
+          window.paintApp.setPopulationVisibility(!!msg.show);
+        });
+
+        Shiny.addCustomMessageHandler('paint_set_brush', function(msg) {
+          window.paintApp.setBrushSize(msg.value);
+        });
+
+        Shiny.addCustomMessageHandler('paint_set_boundary_only', function(msg) {
+          window.paintApp.setBoundaryOnly(msg.value);
+        });
+
+        Shiny.addCustomMessageHandler('paint_set_colors', function(msg) {
+          window.paintApp.setColorsAndActive(msg.colors, msg.activeDfa);
+        });
+      }
+    "))
+  ),
+  div(
+    id = "app_row",
+    div(
+      id = "leftbar",
+      div(class = "top-help", actionButton("help_btn", "?", width = "34px")),
+      div(class = "mini-label", "Zone"),
+      selectInput("zone_select", NULL, choices = zone_choices, selected = zone_choices[1]),
+      div(class = "mini-label", "Region"),
+      selectInput("region_select", NULL, choices = NULL),
+      div(class = "mini-label", "District"),
+      selectInput("district_select", NULL, choices = NULL),
+      div(class = "section-gap mini-label", "Edit DFA"),
+      selectInput("active_dfa", NULL, choices = all_dfa_names, selected = starter_dfa_names[1]),
+      div(class = "section-gap mini-label", "Grid"),
+      div(
+        class = "slider-row",
+        actionButton("grid_minus", "-", width = "30px"),
+        div(class = "slider-wrap", sliderInput("grid_n_ui", NULL, min = 100, max = 200, value = default_grid_n, step = 5, width = "100%")),
+        actionButton("grid_plus", "+", width = "30px")
+      ),
+      div(class = "mini-label", "Brush"),
+      div(
+        class = "slider-row",
+        actionButton("brush_minus", "-", width = "30px"),
+        div(class = "slider-wrap", sliderInput("brush_m_ui", NULL, min = min_brush_m, max = max_brush_m, value = 300, step = brush_step_m, width = "100%")),
+        actionButton("brush_plus", "+", width = "30px")
+      ),
+      checkboxInput("show_pop_raster", "Population raster", value = show_pop_default),
+      checkboxInput("boundary_only", "Boundaries only", value = boundary_only_default),
+      div(class = "control-row", actionButton("reset_btn", "Reset"), actionButton("save_btn", "Save"))
+    ),
+    div(
+      id = "mapwrap",
+      tags$div(id = "paint_map"),
+      div(
+        id = "map-inset",
+        uiOutput("legend_ui"),
+        div(
+          style = "display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;",
+          tags$div(class = "mini-label", style = "margin-bottom:0;", "Child population"),
+          actionButton("estimate_pop_btn", "↻", width = "34px", title = "Refresh")
+        ),
+        DTOutput("pop_table")
+      )
+    )
+  )
+)
+
+# =========================================================
+# Server
+# =========================================================
+
+server <- function(input, output, session) {
+  pending_action <- reactiveVal(NULL)
+
+  rv <- reactiveValues(
+    district_sf = NULL,
+    district_base_sf = NULL,
+    grid_sf = NULL,
+    initial_assignments = NULL,
+    current_assignments = NULL,
+    saved_dfa_sf = NULL,
+    neighbors_list = NULL,
+    edge_list = NULL,
+    pop_overlay_sf = NULL,
+    pop_table = NULL,
+    max_dim_m = NULL,
+    grid_limits = NULL,
+    brush_limits = NULL,
+    seed_points = NULL
+  )
+
+  current_fill_colors <- reactive({
+    make_fill_colors(input$active_dfa)
+  })
+
+  output$legend_ui <- renderUI({
+    selected_name <- input$active_dfa %||% starter_dfa_names[1]
+    show_selected <- !(selected_name %in% c("Inaccessible", "Unpopulated"))
+
+    tagList(
+      div(
+        class = "legend-wrap",
+        if (show_selected) {
+          div(
+            class = "legend-row",
+            tags$span(class = "legend-box", style = paste0("background:", selected_fill_color, ";")),
+            tags$span(selected_name)
+          )
+        },
+        div(
+          class = "legend-row",
+          tags$span(class = "legend-box", style = paste0("background:", nonselected_fill_color, ";")),
+          tags$span("Other DFAs")
+        ),
+        div(
+          class = "legend-row",
+          tags$span(class = "legend-box", style = paste0("background:", special_fill_colors[["Inaccessible"]], "; border-color:", special_fill_colors[["Inaccessible"]], ";")),
+          tags$span("Inaccessible")
+        ),
+        div(
+          class = "legend-row",
+          tags$span(class = "legend-box", style = "background:#FFFFFF;"),
+          tags$span("Unpopulated")
+        )
+      )
+    )
+  })
+
+  recompute_population_table <- function(assignments) {
+    req(!is.null(rv$grid_sf), !is.null(rv$district_sf), length(assignments) == nrow(rv$grid_sf))
+
+    dfa_sf_for_pop <- tryCatch(
+      build_saved_dfa_sf(
+        grid_sf = rv$grid_sf,
+        assignments = assignments,
+        district_sf = rv$district_sf
+      ),
+      error = function(e) NULL
+    )
+
+    if (is.null(dfa_sf_for_pop) || nrow(dfa_sf_for_pop) == 0) {
+      rv$pop_table <- NULL
+      return(invisible(NULL))
+    }
+
+    dfa_pop <- estimate_u5_population(
+      polygons_sf = dfa_sf_for_pop,
+      u5_rast = u5_worldpop,
+      name_col = "dfa_name"
+    )
+
+    missing_classes <- setdiff(all_dfa_names, dfa_pop$area_name)
+    if (length(missing_classes) > 0) {
+      dfa_pop <- bind_rows(
+        dfa_pop,
+        data.frame(area_name = missing_classes, est_u5_pop = 0, stringsAsFactors = FALSE)
+      )
+    }
+
+    dfa_pop <- dfa_pop |>
+      mutate(area_name = factor(area_name, levels = all_dfa_names)) |>
+      arrange(area_name) |>
+      mutate(area_name = as.character(area_name))
+
+    district_tmp <- rv$district_sf |>
+      mutate(dfa_name = as.character(district_name))
+
+    district_pop <- estimate_u5_population(
+      polygons_sf = district_tmp,
+      u5_rast = u5_worldpop,
+      name_col = "dfa_name"
+    ) |>
+      mutate(area_name = "District overall")
+
+    rv$pop_table <- bind_rows(dfa_pop, district_pop)
+    invisible(NULL)
+  }
+
+  observeEvent(input$help_btn, {
+    showModal(
+      modalDialog(
+        title = "Help",
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        HTML(
+          paste0(
+            "<ol>",
+            "<li>Select Zone, Region, and District.</li>",
+            "<li>Select the DFA to edit from the dropdown.</li>",
+            "<li>Adjust grid and brush size using the sliders or the +/- buttons.</li>",
+            "<li>Paint directly on the map.</li>",
+            "<li>Population raster toggles the WorldPop under-5 surface.</li>",
+            "<li>Boundaries only hides non-boundary cell fills.</li>",
+            "<li>The refresh button recalculates child population from the current painted areas, even if you have not saved.</li>",
+            "<li>Save converts the current painted DFAs to multipolygons.</li>",
+            "</ol>",
+            "<p><b>Colors</b><br>",
+            "Selected DFA is yellow. Other starter DFAs are grey. Inaccessible is red. Unpopulated is white. Non-selected DFA boundaries are black.</p>"
+          )
+        )
+      )
+    )
+  })
+
+  observeEvent(input$zone_select, {
+    req(input$zone_select)
+    regions <- districts_shp |>
+      filter(zone_name == input$zone_select) |>
+      pull(region_name) |>
+      as.character() |>
+      unique() |>
+      sort()
+    updateSelectInput(session, "region_select", choices = regions, selected = regions[1])
+  }, ignoreInit = FALSE)
+
+  observeEvent(list(input$zone_select, input$region_select), {
+    req(input$zone_select, input$region_select)
+    dists <- districts_shp |>
+      filter(zone_name == input$zone_select, region_name == input$region_select) |>
+      pull(district_name) |>
+      as.character() |>
+      unique() |>
+      sort()
+    updateSelectInput(session, "district_select", choices = dists, selected = dists[1])
+  }, ignoreInit = FALSE)
+
+  district_base <- reactive({
+    req(input$zone_select, input$region_select, input$district_select)
+
+    district_sf <- districts_shp |>
+      filter(
+        zone_name == input$zone_select,
+        region_name == input$region_select,
+        district_name == input$district_select
+      ) |>
+      dplyr::select(admin_id, district_name, region_id, region_name, zone_id, zone_name, geometry)
+
+    req(nrow(district_sf) >= 1)
+
+    district_sf <- district_sf |>
+      summarise(
+        admin_id = dplyr::first(admin_id),
+        district_name = dplyr::first(district_name),
+        region_id = dplyr::first(region_id),
+        region_name = dplyr::first(region_name),
+        zone_id = dplyr::first(zone_id),
+        zone_name = dplyr::first(zone_name),
+        geometry = st_union(geometry),
+        .groups = "drop"
+      ) |>
+      st_as_sf()
+
+    district_sf <- safe_make_valid(district_sf)
+    max_dim_m <- calc_district_max_dim(district_sf)
+
+    list(
+      district_sf = district_sf,
+      max_dim_m = max_dim_m,
+      grid_limits = calc_grid_limits(max_dim_m),
+      brush_limits = calc_brush_limits(max_dim_m)
+    )
+  })
+
+  observeEvent(district_base(), {
+    db <- district_base()
+
+    rv$district_base_sf <- db$district_sf
+    rv$grid_limits <- db$grid_limits
+    rv$brush_limits <- db$brush_limits
+
+    updateSliderInput(
+      session,
+      "grid_n_ui",
+      min = db$grid_limits$min,
+      max = db$grid_limits$max,
+      value = db$grid_limits$value,
+      step = db$grid_limits$step
+    )
+
+    updateSliderInput(
+      session,
+      "brush_m_ui",
+      min = db$brush_limits$min,
+      max = db$brush_limits$max,
+      value = db$brush_limits$value,
+      step = db$brush_limits$step
+    )
+  }, ignoreInit = FALSE)
+
+  observeEvent(input$grid_minus, {
+    gl <- rv$grid_limits
+    req(!is.null(gl), !is.null(input$grid_n_ui))
+    updateSliderInput(session, "grid_n_ui", value = clamp_num(input$grid_n_ui - gl$step, gl$min, gl$max))
+  })
+
+  observeEvent(input$grid_plus, {
+    gl <- rv$grid_limits
+    req(!is.null(gl), !is.null(input$grid_n_ui))
+    updateSliderInput(session, "grid_n_ui", value = clamp_num(input$grid_n_ui + gl$step, gl$min, gl$max))
+  })
+
+  observeEvent(input$brush_minus, {
+    bl <- rv$brush_limits
+    req(!is.null(bl), !is.null(input$brush_m_ui))
+    updateSliderInput(session, "brush_m_ui", value = clamp_num(input$brush_m_ui - bl$step, bl$min, bl$max))
+  })
+
+  observeEvent(input$brush_plus, {
+    bl <- rv$brush_limits
+    req(!is.null(bl), !is.null(input$brush_m_ui))
+    updateSliderInput(session, "brush_m_ui", value = clamp_num(input$brush_m_ui + bl$step, bl$min, bl$max))
+  })
+
+  observeEvent(input$brush_m_ui, {
+    session$sendCustomMessage("paint_set_brush", list(value = input$brush_m_ui))
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$boundary_only, {
+    session$sendCustomMessage("paint_set_boundary_only", list(value = isTRUE(input$boundary_only)))
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$show_pop_raster, {
+    session$sendCustomMessage("paint_toggle_population", list(show = isTRUE(input$show_pop_raster)))
+  }, ignoreInit = TRUE)
+
+  selected_scene <- reactive({
+    req(input$district_select, input$grid_n_ui)
+
+    db <- district_base()
+    district_sf <- db$district_sf
+
+    grid_info <- make_paint_grid(district_sf, grid_n = input$grid_n_ui)
+    grid_sf <- grid_info$grid_sf
+    req(nrow(grid_sf) > 0)
+
+    district_seed <- sum(utf8ToInt(input$district_select))
+
+    start_info <- make_start_assignment(
+      grid_sf = grid_sf,
+      district_sf = district_sf,
+      n_dfa = n_start_dfas,
+      seed = district_seed
+    )
+
+    initial_assignments <- as.character(start_info$assignments)
+
+    seed_pts <- sf::st_transform(start_info$seeds_sf, 4326)
+    seed_coords <- sf::st_coordinates(seed_pts)
+    seed_points_df <- data.frame(
+      dfa_name = seed_pts$dfa_name,
+      lon = seed_coords[, 1],
+      lat = seed_coords[, 2],
+      stringsAsFactors = FALSE
+    )
+
+    touch_list <- st_touches(grid_sf)
+    neighbors_list <- lapply(touch_list, as.integer)
+    names(neighbors_list) <- as.character(grid_sf$cell_id)
+
+    grid_sf_3857 <- st_transform(grid_sf, 3857)
+    district_3857 <- st_transform(district_sf, 3857)
+    cell_bbox <- st_bbox(grid_sf_3857[1, ])
+    cell_w <- as.numeric(cell_bbox["xmax"] - cell_bbox["xmin"])
+    cell_h <- as.numeric(cell_bbox["ymax"] - cell_bbox["ymin"])
+    edge_buffer <- max(cell_w, cell_h) * 0.05
+    district_boundary_3857 <- st_boundary(district_3857) |> st_buffer(edge_buffer)
+    edge_flag <- lengths(st_intersects(grid_sf_3857, district_boundary_3857)) > 0
+    edge_list <- as.list(edge_flag)
+    names(edge_list) <- as.character(grid_sf$cell_id)
+
+    pop_overlay_sf <- tryCatch(
+      make_population_overlay_sf(district_sf, u5_worldpop),
+      error = function(e) NULL
+    )
+
+    list(
+      district_sf = district_sf,
+      grid_sf = grid_sf,
+      initial_assignments = initial_assignments,
+      neighbors_list = neighbors_list,
+      edge_list = edge_list,
+      pop_overlay_sf = pop_overlay_sf,
+      max_dim_m = grid_info$max_dim_m,
+      seed_points = seed_points_df
+    )
+  })
+
+  observeEvent(selected_scene(), {
+    sc <- selected_scene()
+
+    rv$district_sf <- sc$district_sf
+    rv$grid_sf <- sc$grid_sf
+    rv$initial_assignments <- sc$initial_assignments
+    rv$current_assignments <- sc$initial_assignments
+    rv$saved_dfa_sf <- NULL
+    rv$neighbors_list <- sc$neighbors_list
+    rv$edge_list <- sc$edge_list
+    rv$pop_overlay_sf <- sc$pop_overlay_sf
+    rv$pop_table <- NULL
+    rv$max_dim_m <- sc$max_dim_m
+    rv$seed_points <- sc$seed_points
+
+    if (!is.null(rv$brush_limits)) {
+      updateSliderInput(
+        session,
+        "brush_m_ui",
+        min = rv$brush_limits$min,
+        max = rv$brush_limits$max,
+        value = rv$brush_limits$value,
+        step = rv$brush_limits$step
+      )
+    }
+
+    init_named <- setNames(as.list(sc$initial_assignments), as.character(sc$grid_sf$cell_id))
+
+    pop_geojson <- NULL
+    if (!is.null(sc$pop_overlay_sf) && nrow(sc$pop_overlay_sf) > 0) {
+      pop_geojson <- as_geojson_text(sc$pop_overlay_sf)
+    }
+
+    initial_saved_sf <- build_saved_dfa_sf(
+      grid_sf = sc$grid_sf,
+      assignments = sc$initial_assignments,
+      district_sf = sc$district_sf
+    )
+
+    session$sendCustomMessage(
+      "paint_load_scene",
+      list(
+        districtGeojson = as_geojson_text(sc$district_sf),
+        gridGeojson = as_geojson_text(sc$grid_sf),
+        popGeojson = pop_geojson,
+        showPop = isTRUE(input$show_pop_raster),
+        initialAssignments = init_named,
+        dfaColors = as.list(current_fill_colors()),
+        activeDfa = input$active_dfa,
+        neighbors = sc$neighbors_list,
+        edgeCells = sc$edge_list,
+        brushSize = input$brush_m_ui,
+        boundaryOnly = isTRUE(input$boundary_only),
+        seedPoints = sc$seed_points,
+        savedGeojson = as_geojson_text(initial_saved_sf)
+      )
+    )
+
+    recompute_population_table(sc$initial_assignments)
+  }, ignoreInit = FALSE)
+
+  observeEvent(input$save_btn, {
+    pending_action("save")
+    session$sendCustomMessage("paint_request_assignments", list())
+  })
+
+  observeEvent(input$estimate_pop_btn, {
+    pending_action("refresh")
+    session$sendCustomMessage("paint_request_assignments", list())
+  })
+
+  observeEvent(input$reset_btn, {
+    req(!is.null(rv$initial_assignments))
+
+    rv$current_assignments <- rv$initial_assignments
+    rv$saved_dfa_sf <- NULL
+    pending_action(NULL)
+
+    session$sendCustomMessage("paint_reset", list())
+    session$sendCustomMessage(
+      "paint_set_colors",
+      list(
+        colors = as.list(current_fill_colors()),
+        activeDfa = input$active_dfa
+      )
+    )
+
+    recompute_population_table(rv$initial_assignments)
+  })
+
+  observeEvent(input$paint_assignments, {
+    payload <- input$paint_assignments
+    req(!is.null(payload$assignments))
+    req(!is.null(rv$grid_sf), !is.null(rv$district_sf), !is.null(rv$initial_assignments))
+
+    js_assignments <- payload$assignments
+
+    ordered_assignments <- vapply(
+      as.character(rv$grid_sf$cell_id),
+      function(id) {
+        val <- js_assignments[[id]]
+        if (is.null(val) || !nzchar(val)) {
+          rv$initial_assignments[as.integer(id)]
+        } else {
+          as.character(val)
+        }
+      },
+      character(1)
+    )
+
+    rv$current_assignments <- ordered_assignments
+
+    act <- pending_action()
+
+    if (identical(act, "save")) {
+      saved <- tryCatch(
+        build_saved_dfa_sf(
+          grid_sf = rv$grid_sf,
+          assignments = ordered_assignments,
+          district_sf = rv$district_sf
+        ),
+        error = function(e) e
+      )
+
+      if (inherits(saved, "error")) {
+        showNotification(paste("Save failed:", saved$message), type = "error", duration = 8)
+        pending_action(NULL)
+        return()
+      }
+
+      rv$saved_dfa_sf <- saved
+      session$sendCustomMessage("paint_show_saved", list(geojson = as_geojson_text(saved)))
+    }
+
+    if (identical(act, "save") || identical(act, "refresh")) {
+      recompute_population_table(ordered_assignments)
+    }
+
+    pending_action(NULL)
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$active_dfa, {
+    req(!is.null(rv$current_assignments), !is.null(rv$grid_sf), !is.null(rv$district_sf))
+
+    session$sendCustomMessage(
+      "paint_set_colors",
+      list(
+        colors = as.list(current_fill_colors()),
+        activeDfa = input$active_dfa
+      )
+    )
+
+    pending_action("save")
+    session$sendCustomMessage("paint_request_assignments", list())
+  }, ignoreInit = TRUE)
+
+  output$pop_table <- renderDT({
+    if (is.null(rv$pop_table) || nrow(rv$pop_table) == 0) {
+      return(
+        datatable(
+          data.frame(Area = character(0), `Estimated U5 population` = numeric(0)),
+          options = list(dom = "t", paging = FALSE, ordering = FALSE, searching = FALSE),
+          rownames = FALSE
+        )
+      )
+    }
+
+    datatable(
+      rv$pop_table |>
+        rename(
+          Area = area_name,
+          `Estimated U5 population` = est_u5_pop
+        ),
+      options = list(dom = "t", paging = FALSE, ordering = FALSE, autoWidth = TRUE, searching = FALSE),
+      rownames = FALSE
+    )
+  })
+}
+
+shinyApp(ui, server)

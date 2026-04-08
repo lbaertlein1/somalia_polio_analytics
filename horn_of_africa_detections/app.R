@@ -100,51 +100,21 @@ global_max_date <- max(data_clean$virus_date, na.rm = TRUE)
 # ============================================================
 # 3) HELPERS
 # ============================================================
+
 make_about_plot <- function(about_text) {
-  
   ggplot() +
-    annotate(
-      "text",
-      x = 0,
-      y = 1,
-      label = about_text,
-      hjust = 0,
-      vjust = 1,
-      size = 3.0,
-      lineheight = 1.05
-    ) +
-    coord_cartesian(
-      xlim = c(0, 1),
-      ylim = c(0, 1),
-      expand = FALSE
-    ) +
+    annotate("text", x = 0, y = 1, label = about_text,
+             hjust = 0, vjust = 1, size = 3.0, lineheight = 1.05) +
+    coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), expand = FALSE) +
     theme_void()
 }
-make_download_layout <- function(title_text,
-                                 subtitle_text,
-                                 about_text,
-                                 map_plot,
-                                 epi_plot) {
+
+make_download_layout <- function(title_text, subtitle_text, about_text, map_plot, epi_plot) {
   title_plot <- ggplot() +
-    annotate(
-      "text",
-      x = 0,
-      y = 1,
-      label = title_text,
-      hjust = 0,
-      vjust = 1,
-      size = 6,
-      fontface = "bold"
-    ) +
-    annotate(
-      "text",
-      x = 0,
-      y = 0.2,
-      label = subtitle_text,
-      hjust = 0,
-      vjust = 1,
-      size = 3.5
-    ) +
+    annotate("text", x = 0, y = 1, label = title_text,
+             hjust = 0, vjust = 1, size = 6, fontface = "bold") +
+    annotate("text", x = 0, y = 0.2, label = subtitle_text,
+             hjust = 0, vjust = 1, size = 3.5) +
     coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), expand = FALSE) +
     theme_void()
   
@@ -153,56 +123,43 @@ make_download_layout <- function(title_text,
   title_plot / about_plot / map_plot / epi_plot +
     patchwork::plot_layout(heights = c(0.08, 0.12, 0.65, 0.15))
 }
+
 make_about_text <- function() {
-  
   paste(
     "This map uses cVDPV detections from the POLIS database, downloaded 2025-03-25.",
     "Data are restricted to cVDPV detections and to emergence groups with at least one detection in the Horn of Africa.",
-    
     "\n\n",
-    
     "Within each emergence group, detections are assigned to the same cluster when they fall within the selected maximum geographic distance and maximum time window.",
-    
     "\n\n",
-    
     "Arrows show inferred links between clusters within the same emergence group.",
     "For each later cluster, the most plausible earlier source cluster is identified using only timing and geographic proximity.",
     "A prior cluster is treated as an ongoing possible source if it began earlier than the later cluster and the later cluster's first detection occurs on or before the prior cluster's last detection plus the selected transmission window.",
     "If multiple ongoing source clusters are eligible, the nearest one is selected.",
     "If no eligible source cluster exists, no arrow is drawn.",
-    
     "\n\n",
-    
     "These arrows are heuristic and are based only on virus dates and geographic distance.",
     "They do not represent confirmed transmission pathways.",
-    
     sep = " "
   )
 }
 
 make_emergence_meta <- function(df) {
   if (nrow(df) == 0) {
-    return(
-      tibble(
-        emergence_group_s = character(0),
-        min_year = integer(0),
-        max_year = integer(0),
-        latest_date = as.Date(character(0)),
-        n = integer(0),
-        detected_in_somalia = logical(0),
-        display_label = character(0)
-      )
-    )
+    return(tibble(
+      emergence_group_s = character(0), min_year = integer(0), max_year = integer(0),
+      latest_date = as.Date(character(0)), n = integer(0),
+      detected_in_somalia = logical(0), display_label = character(0)
+    ))
   }
   
   meta_years <- df %>%
     mutate(year = lubridate::year(virus_date)) %>%
     group_by(emergence_group_s) %>%
     summarise(
-      min_year = min(year, na.rm = TRUE),
-      max_year = max(year, na.rm = TRUE),
+      min_year    = min(year, na.rm = TRUE),
+      max_year    = max(year, na.rm = TRUE),
       latest_date = max(virus_date, na.rm = TRUE),
-      n = n(),
+      n           = n(),
       .groups = "drop"
     )
   
@@ -225,77 +182,82 @@ make_emergence_meta <- function(df) {
     )
 }
 
-make_emergence_title <- function(selected_groups,
-                                 meta_df,
-                                 wrap_width = 75) {
-  
+make_emergence_title <- function(selected_groups, meta_df, wrap_width = 75) {
   meta_sub <- meta_df %>%
     dplyr::filter(emergence_group_s %in% selected_groups) %>%
     dplyr::arrange(desc(latest_date), emergence_group_s)
   
-  if (nrow(meta_sub) == 0) {
-    return("")
-  }
+  if (nrow(meta_sub) == 0) return("")
   
   parts <- ifelse(
     meta_sub$min_year == meta_sub$max_year,
-    paste0(
-      meta_sub$emergence_group_s,
-      ": ",
-      meta_sub$min_year,
-      "; N=",
-      meta_sub$n
-    ),
-    paste0(
-      meta_sub$emergence_group_s,
-      ": ",
-      meta_sub$min_year,
-      "-",
-      meta_sub$max_year,
-      "; N=",
-      meta_sub$n
-    )
+    paste0(meta_sub$emergence_group_s, ": ", meta_sub$min_year, "; N=", meta_sub$n),
+    paste0(meta_sub$emergence_group_s, ": ", meta_sub$min_year, "-", meta_sub$max_year, "; N=", meta_sub$n)
   )
   
   full_text <- paste(parts, collapse = " | ")
-  
-  # Insert line breaks cleanly
-  wrapped <- paste(
-    strwrap(
-      full_text,
-      width = wrap_width
-    ),
-    collapse = "\n"
-  )
-  
-  wrapped
+  paste(strwrap(full_text, width = wrap_width), collapse = "\n")
 }
+
+# ============================================================
+# PALETTES
+# ============================================================
+
+.GROUP_PALETTE_POOL <- c(
+  "#E41A1C",  #  1 red
+  "#377EB8",  #  2 blue
+  "#4DAF4A",  #  3 green
+  "#FF7F00",  #  4 orange
+  "#984EA3",  #  5 purple
+  "#A65628",  #  6 brown
+  "#F781BF",  #  7 pink
+  "#1B9E77",  #  8 teal
+  "#D95F02",  #  9 dark orange
+  "#7570B3",  # 10 slate blue
+  "#E7298A",  # 11 magenta
+  "#66A61E",  # 12 olive green
+  "#E6AB02",  # 13 gold
+  "#666666",  # 14 mid grey
+  "#A6CEE3",  # 15 light blue
+  "#B2DF8A",  # 16 light green
+  "#FDBF6F",  # 17 peach
+  "#CAB2D6",  # 18 lavender
+  "#FFFF33",  # 19 yellow
+  "#B15928"   # 20 sienna
+)
 
 make_group_palette <- function(groups) {
   groups <- sort(unique(groups))
-  pal <- hue_pal()(length(groups))
-  names(pal) <- groups
-  pal
+  stats::setNames(rep_len(.GROUP_PALETTE_POOL, length(groups)), groups)
+}
+
+# Country palette uses the same pool, assigned alphabetically —
+# identical logic in map and epicurve guarantees matching colors.
+make_country_palette <- function(countries) {
+  countries <- sort(unique(countries))
+  stats::setNames(rep_len(.GROUP_PALETTE_POOL, length(countries)), countries)
 }
 
 make_darker_palette <- function(pal, amount = 0.35) {
   colorspace::darken(pal, amount)
 }
 
+# ============================================================
+# CLUSTERING / GEOMETRY HELPERS
+# ============================================================
+
 make_cluster_label_text <- function(first_date, last_date, n_detections, mode) {
   if (identical(mode, "cluster_summary")) {
     if (n_detections == 1) {
       format(first_date, "%Y-%m-%d")
     } else {
-      paste0(
-        "First: ", format(first_date, "%Y-%m-%d"), "\n",
-        "Last: ", format(last_date, "%Y-%m-%d"), "\n",
-        "N: ", n_detections
-      )
+      paste0("First: ", format(first_date, "%Y-%m-%d"), "\n",
+             "Last: ",  format(last_date,  "%Y-%m-%d"), "\n",
+             "N: ", n_detections)
     }
   } else if (identical(mode, "cluster_years")) {
     y1 <- format(first_date, "%Y")
-    y2 <- format(last_date, "%Y")
+    y2 <- format(last_date,  "%Y")
     if (y1 == y2) y1 else paste0(y1, "-", y2)
   } else {
     NA_character_
@@ -304,78 +266,47 @@ make_cluster_label_text <- function(first_date, last_date, n_detections, mode) {
 
 get_distance_matrix_km <- function(coords) {
   coords <- as.matrix(coords)
-  
-  if (!is.numeric(coords)) {
-    stop("Coordinates must be numeric.")
-  }
-  
-  if (ncol(coords) != 2) {
-    stop("Points matrix must have exactly 2 columns (x/y or lon/lat).")
-  }
-  
-  if (nrow(coords) == 0) {
-    stop("No points available to compute distance matrix.")
-  }
-  
-  geosphere::distm(
-    coords,
-    fun = geosphere::distHaversine
-  ) / 1000
+  if (!is.numeric(coords)) stop("Coordinates must be numeric.")
+  if (ncol(coords) != 2)   stop("Points matrix must have exactly 2 columns (x/y or lon/lat).")
+  if (nrow(coords) == 0)   stop("No points available to compute distance matrix.")
+  geosphere::distm(coords, fun = geosphere::distHaversine) / 1000
 }
 
 cluster_one_group <- function(df_group, spatial_eps_km, time_gap_days) {
   n <- nrow(df_group)
-  
   if (n == 0) return(df_group[0, ])
   if (n == 1) return(df_group %>% mutate(cluster_num = 1L))
   
-  coords <- df_group |>
-    sf::st_drop_geometry() |>
-    dplyr::select(x, y) |>
-    as.matrix()
-  
+  coords <- df_group |> sf::st_drop_geometry() |> dplyr::select(x, y) |> as.matrix()
   dist_mat_km <- get_distance_matrix_km(coords)
   
   time_mat_days <- abs(outer(
-    df_group$virus_date,
-    df_group$virus_date,
+    df_group$virus_date, df_group$virus_date,
     function(a, b) as.numeric(a - b)
   ))
   
   adj <- (dist_mat_km <= spatial_eps_km) & (time_mat_days <= time_gap_days)
   diag(adj) <- FALSE
   
-  g <- igraph::graph_from_adjacency_matrix(adj, mode = "undirected", diag = FALSE)
+  g     <- igraph::graph_from_adjacency_matrix(adj, mode = "undirected", diag = FALSE)
   comps <- igraph::components(g)$membership
   
-  df_group %>%
-    mutate(cluster_num = comps)
+  df_group %>% mutate(cluster_num = comps)
 }
 
-build_clustered_data <- function(df,
-                                 spatial_eps_km,
-                                 time_gap_days,
-                                 source_ongoing_days) {
+build_clustered_data <- function(df, spatial_eps_km, time_gap_days, source_ongoing_days) {
   if (nrow(df) == 0) {
     return(list(
-      det_clustered = st_sf(),
-      cluster_pts = st_sf(),
-      cluster_poly = st_sf(),
-      cluster_labels = tibble(),
-      edges_df = tibble()
+      det_clustered  = st_sf(), cluster_pts = st_sf(),
+      cluster_poly   = st_sf(), cluster_labels = tibble(), edges_df = tibble()
     ))
   }
   
-  det_sf <- df %>%
-    st_as_sf(coords = c("x", "y"), crs = 4326, remove = FALSE)
+  det_sf <- df %>% st_as_sf(coords = c("x", "y"), crs = 4326, remove = FALSE)
   
   det_clustered <- det_sf %>%
     group_split(emergence_group_s) %>%
-    map_dfr(
-      cluster_one_group,
-      spatial_eps_km = spatial_eps_km,
-      time_gap_days = time_gap_days
-    ) %>%
+    map_dfr(cluster_one_group, spatial_eps_km = spatial_eps_km, time_gap_days = time_gap_days) %>%
     st_as_sf() %>%
     group_by(emergence_group_s) %>%
     mutate(cluster_id = paste0(emergence_group_s, "__C", dense_rank(cluster_num))) %>%
@@ -394,26 +325,14 @@ build_clustered_data <- function(df,
       .groups = "drop"
     )
   
-  cluster_pts <- st_as_sf(
-    cluster_summary,
-    coords = c("mean_x", "mean_y"),
-    crs = 4326
-  ) %>%
-    mutate(
-      cx = st_coordinates(.)[, 1],
-      cy = st_coordinates(.)[, 2]
-    )
+  cluster_pts <- st_as_sf(cluster_summary, coords = c("mean_x", "mean_y"), crs = 4326) %>%
+    mutate(cx = st_coordinates(.)[, 1], cy = st_coordinates(.)[, 2])
   
-  assign_sources_one_group <- function(cluster_group,
-                                       det_group,
-                                       source_ongoing_days = 120) {
+  assign_sources_one_group <- function(cluster_group, det_group, source_ongoing_days = 120) {
     n <- nrow(cluster_group)
-    
     if (n <= 1) return(tibble())
     
-    cluster_group <- cluster_group %>%
-      arrange(first_date, cluster_id)
-    
+    cluster_group <- cluster_group %>% arrange(first_date, cluster_id)
     edge_list <- vector("list", n)
     
     for (i in seq_len(n)) {
@@ -426,116 +345,66 @@ build_clustered_data <- function(df,
           target$first_date <= (last_date + lubridate::days(source_ongoing_days))
         )
       
-      if (nrow(ongoing_candidates) == 0) {
-        edge_list[[i]] <- NULL
-        next
-      }
+      if (nrow(ongoing_candidates) == 0) { edge_list[[i]] <- NULL; next }
       
-      target_coords <- det_group %>%
-        sf::st_drop_geometry() %>%
+      target_coords <- det_group %>% sf::st_drop_geometry() %>%
         filter(cluster_id == target$cluster_id) %>%
-        dplyr::select(x, y) %>%
-        as.matrix()
+        dplyr::select(x, y) %>% as.matrix()
       
-      if (nrow(target_coords) == 0) {
-        edge_list[[i]] <- NULL
-        next
-      }
+      if (nrow(target_coords) == 0) { edge_list[[i]] <- NULL; next }
       
       candidate_distances <- purrr::map_dfr(seq_len(nrow(ongoing_candidates)), function(j) {
-        candidate <- ongoing_candidates[j, ]
-        
-        source_coords <- det_group %>%
-          sf::st_drop_geometry() %>%
+        candidate     <- ongoing_candidates[j, ]
+        source_coords <- det_group %>% sf::st_drop_geometry() %>%
           filter(cluster_id == candidate$cluster_id) %>%
-          dplyr::select(x, y) %>%
-          as.matrix()
+          dplyr::select(x, y) %>% as.matrix()
         
-        dist_km <- if (nrow(source_coords) == 0) {
-          Inf
-        } else {
-          min(
-            geosphere::distm(
-              source_coords,
-              target_coords,
-              fun = geosphere::distHaversine
-            ),
-            na.rm = TRUE
-          ) / 1000
+        dist_km <- if (nrow(source_coords) == 0) Inf else {
+          min(geosphere::distm(source_coords, target_coords,
+                               fun = geosphere::distHaversine), na.rm = TRUE) / 1000
         }
-        
-        candidate %>%
-          st_drop_geometry() %>%
-          mutate(dist_km = dist_km)
+        candidate %>% st_drop_geometry() %>% mutate(dist_km = dist_km)
       })
       
       candidate_distances <- candidate_distances %>%
         arrange(dist_km, first_date, desc(last_date), desc(n_detections), cluster_id)
       
       source <- candidate_distances %>% slice(1)
-      
-      if (!is.finite(source$dist_km[1])) {
-        edge_list[[i]] <- NULL
-        next
-      }
+      if (!is.finite(source$dist_km[1])) { edge_list[[i]] <- NULL; next }
       
       edge_list[[i]] <- tibble(
         emergence_group_s = target$emergence_group_s,
         from_cluster_id   = source$cluster_id,
-        from_x            = source$cx,
-        from_y            = source$cy,
-        to_cluster_id     = target$cluster_id,
-        to_x              = target$cx,
-        to_y              = target$cy,
-        min_dist_km       = source$dist_km
+        from_x = source$cx, from_y = source$cy,
+        to_cluster_id = target$cluster_id,
+        to_x = target$cx, to_y = target$cy,
+        min_dist_km = source$dist_km
       )
     }
-    
     bind_rows(edge_list)
   }
   
   edges_df <- purrr::map_dfr(
     split(cluster_pts, cluster_pts$emergence_group_s),
     function(cluster_group) {
-      grp <- unique(cluster_group$emergence_group_s)
-      
-      det_group <- det_clustered %>%
-        filter(emergence_group_s == grp)
-      
-      assign_sources_one_group(
-        cluster_group = cluster_group,
-        det_group = det_group,
-        source_ongoing_days = source_ongoing_days
-      )
+      grp       <- unique(cluster_group$emergence_group_s)
+      det_group <- det_clustered %>% filter(emergence_group_s == grp)
+      assign_sources_one_group(cluster_group = cluster_group, det_group = det_group,
+                               source_ongoing_days = source_ongoing_days)
     }
   )
   
   cluster_poly <- det_clustered %>%
     group_split(cluster_id) %>%
     map_dfr(function(g) {
-      n_det <- nrow(g)
+      n_det    <- nrow(g)
       first_dt <- min(g$virus_date, na.rm = TRUE)
       last_dt  <- max(g$virus_date, na.rm = TRUE)
-      
-      buffer_km <- case_when(
-        n_det == 1 ~ 0,
-        n_det > 1 ~ 30
-      )
-      
+      buffer_km     <- case_when(n_det == 1 ~ 0, n_det > 1 ~ 30)
       geom_combined <- st_combine(g$geometry)
-      
-      cluster_geom <- if (n_det == 1) {
-        geom_combined
-      } else {
-        st_convex_hull(geom_combined)
-      }
-      
-      if (buffer_km > 0) {
-        cluster_geom <- st_buffer(cluster_geom, dist = buffer_km * 1000)
-      }
-      
+      cluster_geom  <- if (n_det == 1) geom_combined else st_convex_hull(geom_combined)
+      if (buffer_km > 0) cluster_geom <- st_buffer(cluster_geom, dist = buffer_km * 1000)
       cluster_geom <- st_make_valid(cluster_geom)
-      
       st_sf(
         emergence_group_s = g$emergence_group_s[1],
         cluster_id        = g$cluster_id[1],
@@ -550,162 +419,95 @@ build_clustered_data <- function(df,
   cluster_labels <- cluster_poly %>%
     mutate(label_geom = st_point_on_surface(geometry)) %>%
     st_set_geometry("label_geom") %>%
-    mutate(
-      lx = st_coordinates(.)[, 1],
-      ly = st_coordinates(.)[, 2]
-    ) %>%
+    mutate(lx = st_coordinates(.)[, 1], ly = st_coordinates(.)[, 2]) %>%
     st_drop_geometry()
   
   list(
-    det_clustered = det_clustered,
-    cluster_pts = cluster_pts,
-    cluster_poly = cluster_poly,
-    cluster_labels = cluster_labels,
-    edges_df = edges_df
+    det_clustered  = det_clustered, cluster_pts = cluster_pts,
+    cluster_poly   = cluster_poly,  cluster_labels = cluster_labels, edges_df = edges_df
   )
 }
 
-build_arrow_segments <- function(edges_df,
-                                 head_length_km = 40,
-                                 head_angle_deg = 25) {
-  if (nrow(edges_df) == 0) {
-    return(list(shafts = tibble(), heads = tibble()))
-  }
+build_arrow_segments <- function(edges_df, head_length_km = 40, head_angle_deg = 25) {
+  if (nrow(edges_df) == 0) return(list(shafts = tibble(), heads = tibble()))
   
   make_one <- function(x1, y1, x2, y2, grp) {
     len_m <- geosphere::distHaversine(c(x1, y1), c(x2, y2))
     if (len_m == 0) return(NULL)
     
-    shaft <- tibble(
-      emergence_group_s = grp,
-      x = x1, y = y1,
-      xend = x2, yend = y2
-    )
-    
+    shaft      <- tibble(emergence_group_s = grp, x = x1, y = y1, xend = x2, yend = y2)
     head_len_m <- min(head_length_km * 1000, len_m * 0.25)
-    bearing <- geosphere::bearing(c(x1, y1), c(x2, y2))
-    
-    b1 <- bearing + 180 - head_angle_deg
-    b2 <- bearing + 180 + head_angle_deg
-    
-    h1 <- geosphere::destPoint(c(x2, y2), b1, head_len_m)
-    h2 <- geosphere::destPoint(c(x2, y2), b2, head_len_m)
+    bearing    <- geosphere::bearing(c(x1, y1), c(x2, y2))
+    h1 <- geosphere::destPoint(c(x2, y2), bearing + 180 - head_angle_deg, head_len_m)
+    h2 <- geosphere::destPoint(c(x2, y2), bearing + 180 + head_angle_deg, head_len_m)
     
     heads <- tibble(
       emergence_group_s = grp,
-      x = c(x2, x2),
-      y = c(y2, y2),
-      xend = c(h1[1], h2[1]),
-      yend = c(h1[2], h2[2])
+      x    = c(x2, x2), y    = c(y2, y2),
+      xend = c(h1[1], h2[1]), yend = c(h1[2], h2[2])
     )
-    
     list(shaft = shaft, heads = heads)
   }
   
   pieces <- pmap(
     list(edges_df$from_x, edges_df$from_y, edges_df$to_x, edges_df$to_y, edges_df$emergence_group_s),
     make_one
-  ) %>%
-    compact()
+  ) %>% compact()
   
-  if (length(pieces) == 0) {
-    return(list(shafts = tibble(), heads = tibble()))
-  }
-  
-  list(
-    shafts = bind_rows(map(pieces, "shaft")),
-    heads  = bind_rows(map(pieces, "heads"))
-  )
+  if (length(pieces) == 0) return(list(shafts = tibble(), heads = tibble()))
+  list(shafts = bind_rows(map(pieces, "shaft")), heads = bind_rows(map(pieces, "heads")))
 }
 
-make_min_extent_poly <- function(adm0,
-                                 min_extent_countries,
-                                 country_col = "adm0_sovrn") {
-  if (!country_col %in% names(adm0)) {
-    stop(paste0("Column '", country_col, "' not found in adm0."))
-  }
-  
-  out <- adm0 %>%
-    dplyr::filter(.data[[country_col]] %in% min_extent_countries) %>%
-    sf::st_make_valid()
-  
-  if (nrow(out) == 0) {
-    stop("No matching countries found in adm0 for min_extent_countries.")
-  }
-  
+make_min_extent_poly <- function(adm0, min_extent_countries, country_col = "adm0_sovrn") {
+  if (!country_col %in% names(adm0)) stop(paste0("Column '", country_col, "' not found in adm0."))
+  out <- adm0 %>% dplyr::filter(.data[[country_col]] %in% min_extent_countries) %>% sf::st_make_valid()
+  if (nrow(out) == 0) stop("No matching countries found in adm0 for min_extent_countries.")
   out
 }
 
-make_extent_bbox <- function(det_sub,
-                             cluster_poly_sub,
-                             label_df_sub,
-                             edges_sub,
-                             min_extent_poly,
-                             pad_deg = 3) {
+make_extent_bbox <- function(det_sub, cluster_poly_sub, label_df_sub,
+                             edges_sub, min_extent_poly, pad_deg = 3) {
   x_vals <- det_sub$x
   y_vals <- det_sub$y
   
   if (nrow(cluster_poly_sub) > 0) {
     bb_poly <- sf::st_bbox(cluster_poly_sub)
-    x_vals <- c(x_vals, unname(bb_poly["xmin"]), unname(bb_poly["xmax"]))
-    y_vals <- c(y_vals, unname(bb_poly["ymin"]), unname(bb_poly["ymax"]))
+    x_vals  <- c(x_vals, unname(bb_poly["xmin"]), unname(bb_poly["xmax"]))
+    y_vals  <- c(y_vals, unname(bb_poly["ymin"]), unname(bb_poly["ymax"]))
   }
-  
   if (nrow(label_df_sub) > 0) {
-    x_vals <- c(x_vals, label_df_sub$lx)
-    y_vals <- c(y_vals, label_df_sub$ly)
+    x_vals <- c(x_vals, label_df_sub$lx); y_vals <- c(y_vals, label_df_sub$ly)
   }
-  
   if (nrow(edges_sub) > 0) {
     x_vals <- c(x_vals, edges_sub$from_x, edges_sub$to_x)
     y_vals <- c(y_vals, edges_sub$from_y, edges_sub$to_y)
   }
   
-  # Full extent of all required ADM0 countries
   bb_min <- sf::st_bbox(sf::st_union(min_extent_poly))
   x_vals <- c(x_vals, unname(bb_min["xmin"]), unname(bb_min["xmax"]))
   y_vals <- c(y_vals, unname(bb_min["ymin"]), unname(bb_min["ymax"]))
   
   list(
-    xmin = min(x_vals, na.rm = TRUE) - pad_deg,
-    xmax = max(x_vals, na.rm = TRUE) + pad_deg,
-    ymin = min(y_vals, na.rm = TRUE) - pad_deg,
-    ymax = max(y_vals, na.rm = TRUE) + pad_deg
+    xmin = min(x_vals, na.rm = TRUE) - pad_deg, xmax = max(x_vals, na.rm = TRUE) + pad_deg,
+    ymin = min(y_vals, na.rm = TRUE) - pad_deg, ymax = max(y_vals, na.rm = TRUE) + pad_deg
   )
 }
 
 get_cartolight_df <- function(bbox_vals, zoom = 5) {
-  bb <- raster::extent(
-    bbox_vals$xmin,
-    bbox_vals$xmax,
-    bbox_vals$ymin,
-    bbox_vals$ymax
-  )
-  
-  r <- rosm::osm.raster(
-    x = bb,
-    zoom = zoom,
-    type = "cartolight",
-    crop = TRUE,
-    projection = sp::CRS("EPSG:4326")
-  )
-  
-  df <- raster::as.data.frame(r, xy = TRUE)
-  
+  bb <- raster::extent(bbox_vals$xmin, bbox_vals$xmax, bbox_vals$ymin, bbox_vals$ymax)
+  r  <- rosm::osm.raster(x = bb, zoom = zoom, type = "cartolight",
+                         crop = TRUE, projection = sp::CRS("EPSG:4326"))
+  df        <- raster::as.data.frame(r, xy = TRUE)
   band_cols <- setdiff(names(df), c("x", "y"))
-  if (length(band_cols) < 3) {
-    stop("Basemap raster did not return at least 3 color bands.")
-  }
-  
+  if (length(band_cols) < 3) stop("Basemap raster did not return at least 3 color bands.")
   names(df)[match(band_cols[1:3], names(df))] <- c("red", "green", "blue")
-  
-  df$fill <- grDevices::rgb(
-    df$red, df$green, df$blue,
-    maxColorValue = 255
-  )
-  
+  df$fill <- grDevices::rgb(df$red, df$green, df$blue, maxColorValue = 255)
   df
 }
+
+# ============================================================
+# MAP PLOT
+# ============================================================
 
 make_map_plot <- function(det_sub,
                           cluster_poly_sub,
@@ -714,32 +516,26 @@ make_map_plot <- function(det_sub,
                           min_extent_poly,
                           label_mode = "cluster_summary",
                           group_palette,
+                          country_palette = NULL,
+                          palette_mode = "group",
                           map_display_mode = "clusters_arrows",
                           point_size = 1.8,
                           tile_zoom = 5) {
+  
   bbox_vals <- make_extent_bbox(
-    det_sub = det_sub,
-    cluster_poly_sub = cluster_poly_sub,
-    label_df_sub = cluster_labels_sub,
-    edges_sub = edges_sub,
-    min_extent_poly = min_extent_poly,
-    pad_deg = 3
+    det_sub = det_sub, cluster_poly_sub = cluster_poly_sub,
+    label_df_sub = cluster_labels_sub, edges_sub = edges_sub,
+    min_extent_poly = min_extent_poly, pad_deg = 3
   )
   
-  carto_df <- get_cartolight_df(bbox_vals, zoom = tile_zoom)
+  carto_df    <- get_cartolight_df(bbox_vals, zoom = tile_zoom)
   show_arrows <- identical(map_display_mode, "clusters_arrows")
-  
-  arrows <- if (show_arrows) {
-    build_arrow_segments(edges_sub)
-  } else {
-    list(shafts = tibble(), heads = tibble())
-  }
+  arrows      <- if (show_arrows) build_arrow_segments(edges_sub) else list(shafts = tibble(), heads = tibble())
   
   cluster_label_plot <- cluster_labels_sub %>%
     dplyr::select(-any_of(c("first_date", "last_date", "n_detections"))) %>%
     left_join(
-      cluster_poly_sub %>%
-        st_drop_geometry() %>%
+      cluster_poly_sub %>% st_drop_geometry() %>%
         transmute(cluster_id, first_date, last_date, n_detections),
       by = "cluster_id"
     ) %>%
@@ -751,35 +547,23 @@ make_map_plot <- function(det_sub,
     ) %>%
     filter(!is.na(label_text))
   
-  if (identical(map_display_mode, "points_only")) {
-    cluster_label_plot <- cluster_label_plot[0, ]
-  }
+  if (identical(map_display_mode, "points_only")) cluster_label_plot <- cluster_label_plot[0, ]
   
-  det_label_plot <- det_sub %>%
-    st_drop_geometry() %>%
-    mutate(
-      det_label = format(virus_date, "%Y-%m-%d")
-    )
+  det_label_plot <- det_sub %>% st_drop_geometry() %>%
+    mutate(det_label = format(virus_date, "%Y-%m-%d"))
   
   p <- ggplot() +
-    geom_raster(
-      data = carto_df,
-      aes(x = x, y = y, fill = fill)
-    ) +
+    geom_raster(data = carto_df, aes(x = x, y = y, fill = fill)) +
     scale_fill_identity() +
     ggnewscale::new_scale_fill() +
     geom_sf(data = adm0, color = "black", fill = NA)
   
-  if (map_display_mode %in% c("clusters", "clusters_arrows") &&
-      nrow(cluster_poly_sub) > 0) {
+  if (map_display_mode %in% c("clusters", "clusters_arrows") && nrow(cluster_poly_sub) > 0) {
     p <- p +
       geom_sf(
         data = cluster_poly_sub,
         aes(fill = emergence_group_s, color = emergence_group_s),
-        alpha = 0.18,
-        linewidth = 0.6,
-        show.legend = FALSE,
-        inherit.aes = FALSE
+        alpha = 0.18, linewidth = 0.6, show.legend = FALSE, inherit.aes = FALSE
       )
   }
   
@@ -787,78 +571,59 @@ make_map_plot <- function(det_sub,
   
   if (nrow(arrows$shafts) > 0 || nrow(arrows$heads) > 0) {
     p <- p + ggnewscale::new_scale_color()
-    
     if (nrow(arrows$shafts) > 0) {
-      p <- p +
-        geom_segment(
-          data = arrows$shafts,
-          aes(
-            x = x,
-            y = y,
-            xend = xend,
-            yend = yend,
-            color = emergence_group_s
-          ),
-          linewidth = 0.7,
-          inherit.aes = FALSE
-        )
-    }
-    
-    if (nrow(arrows$heads) > 0) {
-      p <- p +
-        geom_segment(
-          data = arrows$heads,
-          aes(
-            x = x,
-            y = y,
-            xend = xend,
-            yend = yend,
-            color = emergence_group_s
-          ),
-          linewidth = 0.7,
-          inherit.aes = FALSE
-        )
-    }
-    
-    p <- p +
-      scale_color_manual(
-        values = arrow_palette,
-        guide = "none"
+      p <- p + geom_segment(
+        data = arrows$shafts,
+        aes(x = x, y = y, xend = xend, yend = yend, color = emergence_group_s),
+        linewidth = 0.7, inherit.aes = FALSE
       )
-    
+    }
+    if (nrow(arrows$heads) > 0) {
+      p <- p + geom_segment(
+        data = arrows$heads,
+        aes(x = x, y = y, xend = xend, yend = yend, color = emergence_group_s),
+        linewidth = 0.7, inherit.aes = FALSE
+      )
+    }
+    p <- p + scale_color_manual(values = arrow_palette, guide = "none")
     p <- p + ggnewscale::new_scale_color()
   }
   
-  p <- p +
-    geom_sf(
-      data = det_sub,
-      aes(color = emergence_group_s, shape = surveillance_type),
-      size = point_size,
-      alpha = 0.95,
-      inherit.aes = FALSE
-    ) +
-    scale_shape_manual(
-      values = shape_values,
-      breaks = intersect(names(shape_values), unique(det_sub$surveillance_type)),
-      drop = FALSE,
-      name = "Surveillance type"
-    )
+  # Points colored by country (single group) or emergence group (multiple groups)
+  if (identical(palette_mode, "country") && !is.null(country_palette)) {
+    p <- p +
+      geom_sf(
+        data = det_sub,
+        aes(color = admin0official_name, shape = surveillance_type),
+        size = point_size, alpha = 0.95, inherit.aes = FALSE
+      ) +
+      scale_color_manual(values = country_palette, name = "Country") +
+      scale_shape_manual(
+        values = shape_values,
+        breaks = intersect(names(shape_values), unique(det_sub$surveillance_type)),
+        drop = FALSE, name = "Surveillance type"
+      )
+  } else {
+    p <- p +
+      geom_sf(
+        data = det_sub,
+        aes(color = emergence_group_s, shape = surveillance_type),
+        size = point_size, alpha = 0.95, inherit.aes = FALSE
+      ) +
+      scale_shape_manual(
+        values = shape_values,
+        breaks = intersect(names(shape_values), unique(det_sub$surveillance_type)),
+        drop = FALSE, name = "Surveillance type"
+      )
+  }
   
   if (identical(label_mode, "all_detection_dates") && nrow(det_label_plot) > 0) {
     p <- p +
       ggrepel::geom_label_repel(
-        data = det_label_plot,
-        aes(x = x, y = y, label = det_label),
-        size = 2.2,
-        fill = "white",
-        color = "black",
-        alpha = 0.7,
-        label.size = 0.2,
-        point.padding = 0.15,
-        box.padding = 0.2,
-        min.segment.length = 0,
-        max.overlaps = Inf,
-        seed = 123
+        data = det_label_plot, aes(x = x, y = y, label = det_label),
+        size = 2.2, fill = "white", color = "black", alpha = 0.7,
+        label.size = 0.2, point.padding = 0.15, box.padding = 0.2,
+        min.segment.length = 0, max.overlaps = Inf, seed = 123
       )
   }
   
@@ -867,145 +632,98 @@ make_map_plot <- function(det_sub,
       nrow(cluster_label_plot) > 0) {
     p <- p +
       ggrepel::geom_label_repel(
-        data = cluster_label_plot,
-        aes(x = lx, y = ly, label = label_text),
-        size = 2.5,
-        fill = scales::alpha("white", 0.7),
-        color = "black",
-        label.size = 0.25,
-        point.padding = 0.2,
-        box.padding = 0.25,
-        min.segment.length = 0,
-        max.overlaps = Inf,
-        lineheight = 0.95,
-        seed = 123
+        data = cluster_label_plot, aes(x = lx, y = ly, label = label_text),
+        size = 2.5, fill = scales::alpha("white", 0.7), color = "black",
+        label.size = 0.25, point.padding = 0.2, box.padding = 0.25,
+        min.segment.length = 0, max.overlaps = Inf, lineheight = 0.95, seed = 123
       )
   }
   
+  if (identical(palette_mode, "country") && !is.null(country_palette)) {
+    p <- p + scale_fill_manual(values = country_palette, guide = "none")
+  } else {
+    p <- p +
+      scale_color_manual(values = group_palette, name = "Emergence group") +
+      scale_fill_manual(values = group_palette, guide = "none")
+  }
+  
   p +
-    scale_color_manual(values = group_palette, name = "Emergence group") +
-    scale_fill_manual(values = group_palette, guide = "none") +
     coord_sf(
       xlim = c(bbox_vals$xmin, bbox_vals$xmax),
       ylim = c(bbox_vals$ymin, bbox_vals$ymax),
-      expand = FALSE,
-      crs = st_crs(4326)
+      expand = FALSE, crs = st_crs(4326)
     ) +
     labs(x = NULL, y = NULL) +
     theme_minimal(base_size = 11) +
     theme(
-      panel.grid = element_blank(),
-      axis.text = element_blank(),
-      axis.title = element_blank(),
-      axis.ticks = element_blank(),
-      legend.position = "right",
-      plot.margin = margin(4, 4, 4, 4)
+      panel.grid = element_blank(), axis.text = element_blank(),
+      axis.title = element_blank(), axis.ticks = element_blank(),
+      legend.position = "right", plot.margin = margin(4, 4, 4, 4)
     )
 }
 
-make_epicurve_plot <- function(df, group_palette, period_end_date) {
-  epi_df <- df %>%
-    mutate(month = lubridate::floor_date(virus_date, "month"))
+# ============================================================
+# EPICURVE
+# ============================================================
+
+make_epicurve_plot <- function(df, group_palette, country_palette = NULL,
+                               palette_mode = "group", period_end_date) {
   
+  epi_df    <- df %>% mutate(month = lubridate::floor_date(virus_date, "month"))
   min_month <- min(epi_df$month, na.rm = TRUE)
   max_month <- lubridate::floor_date(as.Date(period_end_date), "month")
-  
   month_seq <- seq.Date(min_month, max_month, by = "month")
-  n_months <- length(month_seq)
+  n_months  <- length(month_seq)
   
-  date_break_interval <- dplyr::case_when(
-    n_months <= 12 ~ "1 month",
-    n_months <= 24 ~ "2 months",
-    TRUE ~ "6 months"
-  )
+  # Dynamic x-axis: show every 1, 2, or 6 months depending on span
+  break_every  <- dplyr::case_when(n_months <= 12 ~ 1L, n_months <= 24 ~ 2L, TRUE ~ 6L)
+  all_levels   <- format(month_seq, "%Y-%m")
+  show_breaks  <- all_levels[seq(1, length(all_levels), by = break_every)]
   
-  if (length(unique(df$emergence_group_s)) == 1) {
+  if (identical(palette_mode, "country") && !is.null(country_palette)) {
+    
     epi_sum <- epi_df %>%
       count(month, admin0official_name, name = "n") %>%
-      tidyr::complete(
-        month = month_seq,
-        admin0official_name,
-        fill = list(n = 0)
-      )
-    
-    epi_sum <- epi_sum %>%
-      dplyr::mutate(
-        month_f = factor(
-          format(month, "%Y-%m"),
-          levels = format(month_seq, "%Y-%m")
-        )
-      )
+      tidyr::complete(month = month_seq, admin0official_name, fill = list(n = 0)) %>%
+      dplyr::mutate(month_f = factor(format(month, "%Y-%m"), levels = all_levels))
     
     ggplot(epi_sum, aes(x = month_f, y = n, fill = admin0official_name)) +
-      geom_col(
-        color = "black",
-        width = 1
-      ) +
+      geom_col(color = "black", width = 1) +
+      scale_fill_manual(values = country_palette, name = "Country") +
+      scale_x_discrete(breaks = show_breaks) +
       labs(
-        x = NULL,
-        y = "Detections",
-        fill = "Country",
-        title = "Monthly detections by country"
+        x = NULL, y = "Detections",
+        title = paste0("Monthly detections by country (", unique(df$emergence_group_s), ")")
       ) +
       theme_minimal(base_size = 11) +
-      theme(
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        plot.title = element_text(face = "bold")
-      )
+      theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(face = "bold"))
+    
   } else {
+    
     epi_sum <- epi_df %>%
       count(month, emergence_group_s, name = "n") %>%
-      tidyr::complete(
-        month = month_seq,
-        emergence_group_s,
-        fill = list(n = 0)
-      )
-    
-    epi_sum <- epi_sum %>%
-      dplyr::mutate(
-        month_f = factor(
-          format(month, "%Y-%m"),
-          levels = format(month_seq, "%Y-%m")
-        )
-      )
+      tidyr::complete(month = month_seq, emergence_group_s, fill = list(n = 0)) %>%
+      dplyr::mutate(month_f = factor(format(month, "%Y-%m"), levels = all_levels))
     
     ggplot(epi_sum, aes(x = month_f, y = n, fill = emergence_group_s)) +
-      geom_col(
-        color = "black",
-        width = 1
-      ) +
+      geom_col(color = "black", width = 1) +
       scale_fill_manual(
-        values = group_palette,
-        name = "Emergence group",
-        breaks = names(group_palette),
-        limits = names(group_palette),
-        drop = TRUE
+        values = group_palette, name = "Emergence group",
+        breaks = names(group_palette), limits = names(group_palette), drop = TRUE
       ) +
-      labs(
-        x = NULL,
-        y = "Detections",
-        title = "Monthly detections by emergence group"
-      ) +
+      scale_x_discrete(breaks = show_breaks) +
+      labs(x = NULL, y = "Detections", title = "Monthly detections by emergence group") +
       theme_minimal(base_size = 11) +
-      theme(
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        plot.title = element_text(face = "bold")
-      )
+      theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(face = "bold"))
   }
 }
-
-
 
 # ============================================================
 # 4) UI
 # ============================================================
 
 ui <- fluidPage(
-  tags$head(
-    tags$style(HTML("
-      .control-label { font-weight: 600; }
-    "))
-  ),
+  tags$head(tags$style(HTML(".control-label { font-weight: 600; }"))),
   
   titlePanel(HTML("Horn of Africa cVDPV emergence-group mapping:<br>cVDPV detected in Horn of Africa, with clusters and plausible transmission between clusters.")),
   
@@ -1013,88 +731,64 @@ ui <- fluidPage(
     sidebarPanel(
       width = 3,
       
-      actionButton(
-        "update_plot",
-        "Update plot"
-      ),
+      actionButton("update_plot", "Update plot"),
       downloadButton("download_pdf", "Download current view"),
       
-      tags$br(),
-      tags$br(),
+      tags$br(), tags$br(),
       
       dateRangeInput(
-        "time_period",
-        "Detection date range",
-        start = global_min_date,
-        end = global_max_date,
-        min = global_min_date,
-        max = global_max_date,
-        format = "yyyy-mm-dd",
-        separator = " to "
+        "time_period", "Detection date range",
+        start = global_min_date, end = global_max_date,
+        min   = global_min_date, max = global_max_date,
+        format = "yyyy-mm-dd", separator = " to "
       ),
       
       checkboxGroupInput(
-        "surveillance_types",
-        "Surveillance types",
-        choices = all_surveillance_types,
+        "surveillance_types", "Surveillance types",
+        choices  = all_surveillance_types,
         selected = intersect(c("AFP", "Environmental"), all_surveillance_types)
       ),
       
       sliderInput(
         "cluster_spatial_eps_km",
         "Maximum distance between detections within a cluster (km)",
-        min = 10,
-        max = 500,
-        value = 150,
-        step = 10
+        min = 10, max = 500, value = 150, step = 10
       ),
       
       sliderInput(
         "cluster_time_gap_days",
         "Maximum time window for clustering and transmission (days since last detection)",
-        min = 30,
-        max = 730,
-        value = 365,
-        step = 5
+        min = 30, max = 730, value = 365, step = 5
       ),
       
       tags$hr(),
       
       h4("Detected in Somalia"),
-      checkboxGroupInput(
-        "emergence_groups_somalia",
-        NULL,
-        choices = character(0),
-        selected = character(0)
-      ),
+      checkboxGroupInput("emergence_groups_somalia", NULL,
+                         choices = character(0), selected = character(0)),
       
       tags$hr(),
       
       h4("Detected only in rest of Horn of Africa"),
-      checkboxGroupInput(
-        "emergence_groups_rest",
-        NULL,
-        choices = character(0),
-        selected = character(0)
-      ),
+      checkboxGroupInput("emergence_groups_rest", NULL,
+                         choices = character(0), selected = character(0)),
       
       radioButtons(
-        "label_mode",
-        "Labels",
+        "label_mode", "Labels",
         choices = c(
-          "None" = "none",
+          "None"                = "none",
           "All detection dates" = "all_detection_dates",
-          "Cluster summary" = "cluster_summary",
-          "Cluster years" = "cluster_years"
+          "Cluster summary"     = "cluster_summary",
+          "Cluster years"       = "cluster_years"
         ),
         selected = "cluster_summary"
       ),
+      
       radioButtons(
-        "map_display_mode",
-        "Display",
+        "map_display_mode", "Display",
         choices = c(
-          "Points only" = "points_only",
-          "Points + Clusters" = "clusters",
+          "Points only"                = "points_only",
+          "Points + Clusters"          = "clusters",
           "Points + Clusters + Arrows" = "clusters_arrows"
         ),
         selected = "clusters_arrows",
@@ -1107,11 +801,7 @@ ui <- fluidPage(
       wellPanel(
         h4("About"),
         div(
-          style = "
-      white-space: pre-wrap;
-      line-height: 1.25;
-      font-size: 13px;
-    ",
+          style = "white-space: pre-wrap; line-height: 1.25; font-size: 13px;",
           make_about_text()
         )
       ),
@@ -1131,23 +821,21 @@ server <- function(input, output, session) {
   
   plot_inputs <- eventReactive(input$update_plot, {
     list(
-      time_period = input$time_period,
-      surveillance_types = input$surveillance_types,
-      emergence_groups = selected_emergence_groups(),
+      time_period            = input$time_period,
+      surveillance_types     = input$surveillance_types,
+      emergence_groups       = selected_emergence_groups(),
       cluster_spatial_eps_km = input$cluster_spatial_eps_km,
-      cluster_time_gap_days = input$cluster_time_gap_days,
-      label_mode = input$label_mode,
-      map_display_mode = input$map_display_mode
+      cluster_time_gap_days  = input$cluster_time_gap_days,
+      label_mode             = input$label_mode,
+      map_display_mode       = input$map_display_mode
     )
   }, ignoreInit = FALSE)
   
   choice_pool_df <- reactive({
-    
     validate(
       need(length(input$surveillance_types) > 0, "Select at least one surveillance type."),
-      need(length(input$time_period) == 2, "Select a valid date range.")
+      need(length(input$time_period) == 2,        "Select a valid date range.")
     )
-    
     data_clean %>%
       filter(
         surveillance_type %in% input$surveillance_types,
@@ -1156,83 +844,51 @@ server <- function(input, output, session) {
       )
   })
   
-  emergence_group_meta_reactive <- reactive({
-    make_emergence_meta(choice_pool_df())
-  })
-  
-  somalia_meta_reactive <- reactive({
-    emergence_group_meta_reactive() %>%
-      filter(detected_in_somalia)
-  })
-  
-  rest_meta_reactive <- reactive({
-    emergence_group_meta_reactive() %>%
-      filter(!detected_in_somalia)
-  })
+  emergence_group_meta_reactive <- reactive({ make_emergence_meta(choice_pool_df()) })
+  somalia_meta_reactive <- reactive({ emergence_group_meta_reactive() %>% filter(detected_in_somalia) })
+  rest_meta_reactive    <- reactive({ emergence_group_meta_reactive() %>% filter(!detected_in_somalia) })
   
   observe({
     somalia_meta <- somalia_meta_reactive()
-    rest_meta <- rest_meta_reactive()
+    rest_meta    <- rest_meta_reactive()
     
-    somalia_choices <- stats::setNames(
-      somalia_meta$emergence_group_s,
-      somalia_meta$display_label
-    )
-    
-    rest_choices <- stats::setNames(
-      rest_meta$emergence_group_s,
-      rest_meta$display_label
-    )
+    somalia_choices <- stats::setNames(somalia_meta$emergence_group_s, somalia_meta$display_label)
+    rest_choices    <- stats::setNames(rest_meta$emergence_group_s,    rest_meta$display_label)
     
     current_somalia <- input$emergence_groups_somalia
-    current_rest <- input$emergence_groups_rest
-    
+    current_rest    <- input$emergence_groups_rest
     if (is.null(current_somalia)) current_somalia <- character(0)
-    if (is.null(current_rest)) current_rest <- character(0)
+    if (is.null(current_rest))    current_rest    <- character(0)
     
     valid_somalia <- intersect(current_somalia, somalia_meta$emergence_group_s)
-    valid_rest <- intersect(current_rest, rest_meta$emergence_group_s)
+    valid_rest    <- intersect(current_rest,    rest_meta$emergence_group_s)
     
     if (length(valid_somalia) == 0 && length(valid_rest) == 0) {
       valid_somalia <- somalia_meta$emergence_group_s
-      valid_rest <- character(0)
+      valid_rest    <- character(0)
     }
     
-    updateCheckboxGroupInput(
-      session,
-      "emergence_groups_somalia",
-      choices = somalia_choices,
-      selected = valid_somalia
-    )
-    
-    updateCheckboxGroupInput(
-      session,
-      "emergence_groups_rest",
-      choices = rest_choices,
-      selected = valid_rest
-    )
+    updateCheckboxGroupInput(session, "emergence_groups_somalia",
+                             choices = somalia_choices, selected = valid_somalia)
+    updateCheckboxGroupInput(session, "emergence_groups_rest",
+                             choices = rest_choices,    selected = valid_rest)
   })
   
   selected_emergence_groups <- reactive({
-    
     somalia_sel <- input$emergence_groups_somalia
-    rest_sel <- input$emergence_groups_rest
-    
+    rest_sel    <- input$emergence_groups_rest
     if (is.null(somalia_sel)) somalia_sel <- character(0)
-    if (is.null(rest_sel)) rest_sel <- character(0)
-    
+    if (is.null(rest_sel))    rest_sel    <- character(0)
     unique(c(somalia_sel, rest_sel))
   })
   
   filtered_df <- eventReactive(input$update_plot, {
     plot_args <- plot_inputs()
-    
     validate(
       need(length(plot_args$surveillance_types) > 0, "Select at least one surveillance type."),
-      need(length(plot_args$emergence_groups) > 0, "Select at least one emergence group."),
-      need(length(plot_args$time_period) == 2, "Select a valid date range.")
+      need(length(plot_args$emergence_groups)   > 0, "Select at least one emergence group."),
+      need(length(plot_args$time_period) == 2,       "Select a valid date range.")
     )
-    
     data_clean %>%
       filter(
         surveillance_type %in% plot_args$surveillance_types,
@@ -1244,91 +900,83 @@ server <- function(input, output, session) {
   
   min_extent_poly_reactive <- eventReactive(input$update_plot, {
     plot_args <- plot_inputs()
-    
     pool_df <- data_clean %>%
       filter(
         surveillance_type %in% plot_args$surveillance_types,
         virus_date >= as.Date(plot_args$time_period[1]),
         virus_date <= as.Date(plot_args$time_period[2])
       )
-    
-    validate(
-      need(nrow(pool_df) > 0, "No detections match the current surveillance type/date filters.")
-    )
-    
-    min_extent_poly <- make_min_extent_poly(
-      adm0 = adm0,
-      min_extent_countries = min_extent_countries,
-      country_col = "adm0_sovrn"
-    )
+    validate(need(nrow(pool_df) > 0, "No detections match the current surveillance type/date filters."))
+    make_min_extent_poly(adm0 = adm0, min_extent_countries = min_extent_countries, country_col = "adm0_sovrn")
   }, ignoreInit = FALSE)
   
   processed <- eventReactive(input$update_plot, {
-    df <- filtered_df()
+    df        <- filtered_df()
     plot_args <- plot_inputs()
-    
     build_clustered_data(
       df = df,
-      spatial_eps_km = plot_args$cluster_spatial_eps_km,
-      time_gap_days = plot_args$cluster_time_gap_days,
+      spatial_eps_km      = plot_args$cluster_spatial_eps_km,
+      time_gap_days       = plot_args$cluster_time_gap_days,
       source_ongoing_days = plot_args$cluster_time_gap_days
     )
   }, ignoreInit = FALSE)
   
+  # Single source of truth for both palettes — computed once, shared by map and epicurve
   current_palette <- eventReactive(input$update_plot, {
     plot_args <- plot_inputs()
+    validate(need(length(plot_args$emergence_groups) > 0, "Select at least one emergence group."))
     
-    validate(
-      need(length(plot_args$emergence_groups) > 0, "Select at least one emergence group.")
-    )
+    group_pal <- make_group_palette(plot_args$emergence_groups)
+    df        <- filtered_df()
     
-    make_group_palette(plot_args$emergence_groups)
+    if (length(unique(df$emergence_group_s)) == 1) {
+      # country_palette derived from same pool with same alphabetical assignment
+      country_pal <- make_country_palette(sort(unique(df$admin0official_name)))
+      list(group = group_pal, country = country_pal, mode = "country")
+    } else {
+      list(group = group_pal, country = NULL, mode = "group")
+    }
   }, ignoreInit = FALSE)
   
   current_map_plot <- eventReactive(input$update_plot, {
-    df <- filtered_df()
-    proc <- processed()
+    df        <- filtered_df()
+    proc      <- processed()
     plot_args <- plot_inputs()
-    
-    validate(
-      need(nrow(df) > 0, "No detections match the current filters.")
-    )
+    pal       <- current_palette()
+    validate(need(nrow(df) > 0, "No detections match the current filters."))
     
     make_map_plot(
-      det_sub = proc$det_clustered,
-      cluster_poly_sub = proc$cluster_poly,
+      det_sub            = proc$det_clustered,
+      cluster_poly_sub   = proc$cluster_poly,
       cluster_labels_sub = proc$cluster_labels,
-      edges_sub = proc$edges_df,
-      min_extent_poly = min_extent_poly_reactive(),
-      label_mode = plot_args$label_mode,
-      group_palette = current_palette(),
-      map_display_mode = plot_args$map_display_mode,
-      tile_zoom = tile_zoom
+      edges_sub          = proc$edges_df,
+      min_extent_poly    = min_extent_poly_reactive(),
+      label_mode         = plot_args$label_mode,
+      group_palette      = pal$group,
+      country_palette    = pal$country,
+      palette_mode       = pal$mode,
+      map_display_mode   = plot_args$map_display_mode,
+      tile_zoom          = tile_zoom
     )
   }, ignoreInit = FALSE)
   
   current_epi_plot <- eventReactive(input$update_plot, {
-    df <- filtered_df()
+    df        <- filtered_df()
     plot_args <- plot_inputs()
-    
-    validate(
-      need(nrow(df) > 0, "No detections match the current filters.")
-    )
+    pal       <- current_palette()
+    validate(need(nrow(df) > 0, "No detections match the current filters."))
     
     make_epicurve_plot(
-      df = df,
-      group_palette = current_palette(),
+      df              = df,
+      group_palette   = pal$group,
+      country_palette = pal$country,
+      palette_mode    = pal$mode,
       period_end_date = plot_args$time_period[2]
     )
   }, ignoreInit = FALSE)
   
-  output$map_plot <- renderPlot({
-    current_map_plot()
-  }, res = 110)
-  
-  output$epicurve <- renderPlot({
-    current_epi_plot()
-  }, res = 110)
+  output$map_plot <- renderPlot({ current_map_plot() }, res = 110)
+  output$epicurve <- renderPlot({ current_epi_plot() }, res = 110)
   
   output$download_pdf <- downloadHandler(
     filename = function() {
@@ -1344,97 +992,57 @@ server <- function(input, output, session) {
       
       subtitle_text <- paste0(
         "Date range: ",
-        format(as.Date(plot_args$time_period[1]), "%Y-%m-%d"),
-        " to ",
+        format(as.Date(plot_args$time_period[1]), "%Y-%m-%d"), " to ",
         format(as.Date(plot_args$time_period[2]), "%Y-%m-%d"),
-        " | Surveillance types: ",
-        paste(plot_args$surveillance_types, collapse = ", "),
-        " | Maximum cluster distance: ",
-        plot_args$cluster_spatial_eps_km,
-        " km",
-        " | Maximum time window: ",
-        plot_args$cluster_time_gap_days,
-        " days"
+        " | Surveillance types: ", paste(plot_args$surveillance_types, collapse = ", "),
+        " | Maximum cluster distance: ", plot_args$cluster_spatial_eps_km, " km",
+        " | Maximum time window: ",      plot_args$cluster_time_gap_days,  " days"
       )
       
       map_plot <- current_map_plot()
       epi_plot <- current_epi_plot()
       
-      combined_plot <- make_download_layout(
-        title_text = title_text,
+      pdf_combined <- make_download_layout(
+        title_text    = title_text,
         subtitle_text = subtitle_text,
-        about_text = make_about_text(),
-        map_plot = map_plot,
-        epi_plot = epi_plot
+        about_text    = make_about_text(),
+        map_plot      = map_plot,
+        epi_plot      = epi_plot
       )
+      
+      halfslide_plot <- map_plot / epi_plot +
+        patchwork::plot_layout(heights = c(0.8, 0.2))
       
       tmp_dir <- tempfile("emergence_download_")
       dir.create(tmp_dir, recursive = TRUE)
       
-      pdf_file <- file.path(
-        tmp_dir,
-        paste0("emergence_map_", Sys.Date(), ".pdf")
-      )
+      pdf_file       <- file.path(tmp_dir, paste0("emergence_map_",       Sys.Date(), ".pdf"))
+      halfslide_file <- file.path(tmp_dir, paste0("emergence_halfslide_",  Sys.Date(), ".jpg"))
+      map_png_file   <- file.path(tmp_dir, paste0("map_plot_",             Sys.Date(), ".jpg"))
+      epi_png_file   <- file.path(tmp_dir, paste0("epi_plot_",             Sys.Date(), ".jpg"))
       
-      map_png_file <- file.path(
-        tmp_dir,
-        paste0("map_plot_", Sys.Date(), ".png")
-      )
+      ggplot2::ggsave(pdf_file,       pdf_combined,   device = "pdf",
+                      width = 12, height = 18, units = "in", bg = "white", limitsize = FALSE)
+      ggplot2::ggsave(halfslide_file, halfslide_plot,
+                      device = "jpeg", quality = 95,
+                      width = 6.25, height = 7.5, units = "in", dpi = 600,
+                      bg = "white", limitsize = FALSE)
       
-      epi_png_file <- file.path(
-        tmp_dir,
-        paste0("epi_plot_", Sys.Date(), ".png")
-      )
+      ggplot2::ggsave(map_png_file, map_plot,
+                      device = "jpeg", quality = 95,
+                      width = 10, height = 10, units = "in", dpi = 300,
+                      bg = "white", limitsize = FALSE)
       
-      # Combined PDF
-      ggplot2::ggsave(
-        filename = pdf_file,
-        plot = combined_plot,
-        device = cairo_pdf,
-        width = 12,
-        height = 18,
-        units = "in",
-        bg = "white",
-        limitsize = FALSE
-      )
+      ggplot2::ggsave(epi_png_file, epi_plot,
+                      device = "jpeg", quality = 95,
+                      width = 10, height = 3, units = "in", dpi = 300,
+                      bg = "white", limitsize = FALSE)
+      zip_files <- c(pdf_file, halfslide_file, map_png_file, epi_png_file)
       
-      # High-quality map PNG
-      ggplot2::ggsave(
-        filename = map_png_file,
-        plot = map_plot,
-        device = "png",
-        width = 10,
-        height = 10,
-        units = "in",
-        dpi = 600,
-        bg = "white",
-        limitsize = FALSE
-      )
-      
-      # High-quality epi PNG
-      ggplot2::ggsave(
-        filename = epi_png_file,
-        plot = epi_plot,
-        device = "png",
-        width = 10,
-        height = 3,
-        units = "in",
-        dpi = 600,
-        bg = "white",
-        limitsize = FALSE
-      )
-      
-      old_wd <- getwd()
-      on.exit(setwd(old_wd), add = TRUE)
-      setwd(tmp_dir)
-      
-      utils::zip(
+      zip::zip(
         zipfile = file,
-        files = c(
-          basename(pdf_file),
-          basename(map_png_file),
-          basename(epi_png_file)
-        )
+        files   = zip_files,
+        mode    = "cherry-pick"
       )
     }
   )

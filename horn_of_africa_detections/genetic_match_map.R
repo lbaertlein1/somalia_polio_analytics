@@ -27,7 +27,7 @@ virus_data <- rio::import(
 # -----------------------------
 # Read WHO geodatabase
 # -----------------------------
-gdb_path <- "C:/Users/wxf7/Downloads/WHO_POLIO_GLOBAL_GEODATABASE.gdb/WHO_POLIO_GLOBAL_GEODATABASE.gdb"
+gdb_path <- "C:/Users/epuser/Downloads/WHO_POLIO_GLOBAL_GEODATABASE.gdb/WHO_POLIO_GLOBAL_GEODATABASE.gdb"
 
 who_gdb_adm1_province <- sf::st_read(
   gdb_path,
@@ -544,7 +544,15 @@ virus_points <- virus_subset %>%
     adm1_key = paste(admin0_clean, admin1_clean, sep = " | ")
   ) %>%
   mutate(adm1_key = case_when(adm1_key == "ETHIOPIA | OROMIIA" ~ "ETHIOPIA | OROMIYA",
-                              TRUE ~ adm1_key)) 
+                              TRUE ~ adm1_key)) %>%
+  mutate(
+    adm1_key = case_when(
+      adm1_key == "ETHIOPIA | OROMIIA"      ~ "ETHIOPIA | OROMIYA",
+      adm1_key == "ETHIOPIA | SOUTH ETHIOPIA" ~ "ETHIOPIA | SNNP",
+      TRUE ~ adm1_key
+    )
+  )
+  
 
 # -----------------------------
 # Build current ADM1 polygons with matching keys

@@ -1,0 +1,9 @@
+"value","label","speed_factor"
+10,"Tree cover",0.5
+20,"Shrubland",0.8
+30,"Grassland",1
+40,"Cropland",0.9
+50,"Built-up",1.1
+60,"Bare/sparse",1
+80,"Water",0
+90,"Wetland",0.6
