@@ -561,29 +561,31 @@ ui <- fluidPage(
     overflow-y: auto;
   }
   #mapwrap {
-    flex: 8;
-    min-width: 0;
-    position: relative;
-  }
-  #rightbar {
-    flex: 2;
-    min-width: 240px;
-    max-width: 340px;
-    background: rgba(255,255,255,0.96);
-    border: 1px solid #D9D9D9;
-    border-radius: 6px;
-    padding: 8px;
-    overflow-y: auto;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-  }
-  #paint_map {
-    width: 100%;
-    height: 100%;
-    min-height: 700px;
-    border: 1px solid #E6E6E6;
-    border-radius: 6px;
-    background: #D9D9D9;
-  }
+  flex: 8;
+  min-width: 0;
+  position: relative;
+  height: 100%;
+}
+
+#paint_map {
+  width: 100%;
+  height: 100%;
+  min-height: 700px;
+  border: 1px solid #E6E6E6;
+  border-radius: 6px;
+  background: #D9D9D9;
+}
+
+#loading_overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(255,255,255,0.55);
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
   .leaflet-container {
     background: #D9D9D9;
   }
@@ -696,7 +698,20 @@ ui <- fluidPage(
     display: none;
   }
 ")),
-    tags$script(HTML(" 
+    tags$script(HTML("
+    Shiny.addCustomMessageHandler('show_loading', function(msg) {
+  var el = document.getElementById('loading_overlay');
+  if (el) {
+    el.style.display = 'flex';
+  }
+});
+
+Shiny.addCustomMessageHandler('hide_loading', function(msg) {
+  var el = document.getElementById('loading_overlay');
+  if (el) {
+    el.style.display = 'none';
+  }
+});
       window.paintApp = {
         map: null,
         districtLayer: null,
@@ -1305,7 +1320,23 @@ ui <- fluidPage(
     ),
     div(
       id = "mapwrap",
-      tags$div(id = "paint_map")
+      div(id = "paint_map"),
+      div(
+        id = "loading_overlay",
+        div(
+          style = "
+        background: rgba(255,255,255,0.96);
+        padding: 12px 18px;
+        border: 1px solid #D9D9D9;
+        border-radius: 6px;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+        font-size: 16px;
+        font-weight: 600;
+        color: #333333;
+      ",
+          "Loading district data..."
+        )
+      )
     ),
     div(
       id = "rightbar",
@@ -1360,6 +1391,18 @@ server <- function(input, output, session) {
     }
     u5_worldpop_rv()
   }
+  
+  observeEvent(input$district_select, {
+    session$sendCustomMessage("show_loading", list())
+  }, ignoreInit = TRUE)
+  
+  observeEvent(input$paint_map_ready, {
+    session$sendCustomMessage("hide_loading", list())
+  }, ignoreInit = TRUE)
+  
+  observe({
+    session$sendCustomMessage("show_loading", list())
+  })
 
   output$legend_ui <- renderUI({
     selected_name <- input$active_dfa %||% starter_dfa_names[1]
@@ -1467,7 +1510,7 @@ server <- function(input, output, session) {
     rv$pop_table <- dplyr::bind_rows(
       df,
       data.frame(
-        area_name = "District overall",
+        area_name = "District Total",
         est_u5_pop = district_total,
         stringsAsFactors = FALSE
       )
