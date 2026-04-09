@@ -101,17 +101,27 @@ Accurate Health Area boundaries are important because they support:
 </ul>
 
 <p>
-This tool is intended to be used collaboratively during a district planning meeting, typically lasting several hours.
+This tool is intended to be used collaboratively during a district planning meeting prior to health area microplanning.
 </p>
 
 <p>
-The boundaries finalized here will be used as the <b>foundation for microplanning</b>.
+The boundaries finalized here will be used as the <b>foundation for health area microplanning</b>.
 </p>
 
 <hr>
 
 <h3>How to use this tool</h3>
-
+<p>
+First, select a district in the left sidebar. Once loaded, select a health area to begin editing. Use the mouse to 'paint' areas according to which health area they belong to. 
+</p>
+<ul>
+<li>Left click to 'paint' which land belongs to the selected Health Area.</li>
+<li>To adjust the size of the 'paint brush', adjust the Brush Size slider on the left sidebar.</li>
+<li>Right click to move the map.</li>
+<li>Use the scroll-wheel to zoom in or out.</li>
+<li>When finished with a Health Area, simply select another or click 'Save'.</li>
+</ul>
+  
 <h4>Step 1. Mark Unpopulated areas</h4>
 
 <p>
@@ -580,7 +590,7 @@ ui <- fluidPage(
   display: none;
   position: absolute;
   inset: 0;
-  z-index: 2000;
+  z-index: 900;
   background: rgba(255,255,255,0.55);
   align-items: center;
   justify-content: center;
@@ -743,7 +753,8 @@ Shiny.addCustomMessageHandler('hide_loading', function(msg) {
 
   window.paintApp.map = L.map('paint_map', {
     zoomSnap: 0.25,
-    preferCanvas: true
+    preferCanvas: true,
+    dragging: false
   });
 
   var osm = L.tileLayer(
@@ -811,10 +822,21 @@ Shiny.addCustomMessageHandler('hide_loading', function(msg) {
     window.paintApp.currentBaseLayer = e.layer;
   });
 
+  var container = window.paintApp.map.getContainer();
+
+  window.paintApp.isPainting = false;
+  window.paintApp.isRightPanning = false;
+  window.paintApp.rightPanStart = null;
+
+  L.DomEvent.on(container, 'contextmenu', function(e) {
+    L.DomEvent.preventDefault(e);
+  });
+
   window.paintApp.map.on('mousemove', function(e) {
     if (window.paintApp.brushPreview) {
       window.paintApp.brushPreview.setLatLng(e.latlng);
       window.paintApp.brushPreview.setRadius(window.paintApp.currentBrushSize());
+
       if (!window.paintApp.map.hasLayer(window.paintApp.brushPreview)) {
         window.paintApp.brushPreview.addTo(window.paintApp.map);
       }
@@ -825,21 +847,64 @@ Shiny.addCustomMessageHandler('hide_loading', function(msg) {
     }
   });
 
-  window.paintApp.map.on('mousedown', function(e) {
-    if (!window.paintApp.gridLayer) return;
-    window.paintApp.isPainting = true;
-    window.paintApp.map.dragging.disable();
-    window.paintApp.paintAtLatLng(e.latlng);
-  });
+  L.DomEvent.on(container, 'mousedown', function(e) {
+    // left click = paint
+    if (e.button === 0) {
+      if (!window.paintApp.gridLayer) return;
 
-  document.addEventListener('mouseup', function() {
-    if (window.paintApp.isPainting) {
-      window.paintApp.isPainting = false;
-      window.paintApp.map.dragging.enable();
+      window.paintApp.isPainting = true;
+      window.paintApp.paintAtLatLng(
+        window.paintApp.map.mouseEventToLatLng(e)
+      );
+
+      L.DomEvent.preventDefault(e);
+      return;
+    }
+
+    // right click = start manual pan
+    if (e.button === 2) {
+      window.paintApp.isRightPanning = true;
+      window.paintApp.rightPanStart = {
+        x: e.clientX,
+        y: e.clientY
+      };
+
+      L.DomEvent.preventDefault(e);
+      return;
     }
   });
 
-  setTimeout(function() { window.paintApp.map.invalidateSize(); }, 300);
+  L.DomEvent.on(document, 'mousemove', function(e) {
+    if (!window.paintApp.isRightPanning) return;
+    if (!window.paintApp.rightPanStart) return;
+
+    var dx = e.clientX - window.paintApp.rightPanStart.x;
+    var dy = e.clientY - window.paintApp.rightPanStart.y;
+
+    window.paintApp.map.panBy([-dx, -dy], {
+      animate: false
+    });
+
+    window.paintApp.rightPanStart = {
+      x: e.clientX,
+      y: e.clientY
+    };
+
+    L.DomEvent.preventDefault(e);
+  });
+
+  L.DomEvent.on(document, 'mouseup', function(e) {
+    if (e.button === 0) {
+      window.paintApp.isPainting = false;
+    }
+
+    if (e.button === 2) {
+      window.paintApp.isRightPanning = false;
+      window.paintApp.rightPanStart = null;
+    }
+  });
+
+ setTimeout(function() { window.paintApp.map.invalidateSize(); }, 300);
   setTimeout(function() { window.paintApp.map.invalidateSize(); }, 900);
 },
 
