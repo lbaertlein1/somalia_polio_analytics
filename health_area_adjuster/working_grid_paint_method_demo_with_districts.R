@@ -20,8 +20,7 @@ districts_file <- "districts_shp.Rds"
 # worldpop_f_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_f_01_2025_CN_100m_R2024B_v1.tif"
 # worldpop_m_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_m_01_2025_CN_100m_R2024B_v1.tif"
 
-worldpop_t_u1_file   <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_t_00_2025_CN_100m_R2024B_v1.tif"
-worldpop_t_1to4_file <- "som_agesex_structures_2025_CN_100m_R2024B_v1/som_t_01_2025_CN_100m_R2024B_v1.tif"
+worldpop_t_u1_1to4_file   <- "som_u5_population_2025_100m.tif"
 
 
 default_grid_n <- 100
@@ -34,7 +33,7 @@ brush_step_m <- 50
 show_pop_default <- FALSE
 boundary_only_default <- FALSE
 
-starter_dfa_names <- paste("DFA", seq_len(n_start_dfas))
+starter_dfa_names <- paste("Health Area", seq_len(n_start_dfas))
 extra_dfa_names <- c("Inaccessible", "Unpopulated")
 all_dfa_names <- c(starter_dfa_names, extra_dfa_names)
 
@@ -54,6 +53,156 @@ pop_palette <- colorRampPalette(c(
 # =========================================================
 # Helpers
 # =========================================================
+
+show_help_modal <- function(session) {
+  showModal(
+    modalDialog(
+      title = "Health Area Boundary Review for Microplanning",
+      
+      div(
+        style = "
+          max-height: 75vh;
+          overflow-y: auto;
+          font-size: 14px;
+          line-height: 1.5;
+        ",
+        
+        HTML("
+<h3>About this tool</h3>
+
+<p>
+This tool is used to review and adjust <b>Health Area boundaries</b> before campaign microplanning.
+</p>
+
+<p>
+Health Areas were first created by national GIS teams using available data. These initial boundaries are provided as a starting point. District teams are asked to review and adjust the boundaries to reflect how the district will be covered in polio vaccination campaigns.
+</p>
+
+<p>
+A <b>Health Area</b> represents:
+</p>
+
+<ul>
+<li>The operational area covered during vaccination campaigns by vaccination teams supervised by a health center</li>
+<li>An area typically served by <b>5 to 6 vaccination teams</b></li>
+<li>An area targeting approximately <b>2,000 children</b></li>
+<li>Health areas should align as closely as possible with the population served by a health center</li>
+</ul>
+
+<p>
+Accurate Health Area boundaries are important because they support:
+</p>
+
+<ul>
+<li>Correct allocation of vaccination teams</li>
+<li>Manageable workloads and effective supervision</li>
+<li>Reliable population estimates</li>
+<li>Accountability for coverage and missed children</li>
+</ul>
+
+<p>
+This tool is intended to be used collaboratively during a district planning meeting, typically lasting several hours.
+</p>
+
+<p>
+The boundaries finalized here will be used as the <b>foundation for microplanning</b>.
+</p>
+
+<hr>
+
+<h3>How to use this tool</h3>
+
+<h4>Step 1. Mark Unpopulated areas</h4>
+
+<p>
+Begin by identifying areas where no people live.
+</p>
+
+<ul>
+<li>Desert or open land</li>
+<li>Water bodies</li>
+<li>Industrial or restricted land</li>
+<li>Other areas with no resident population</li>
+</ul>
+
+<p>
+Assign these areas to <b>Unpopulated</b>.
+</p>
+
+<h4>Step 2. Mark Inaccessible areas</h4>
+
+<p>
+Next, identify areas that vaccination teams cannot reach.
+</p>
+
+<ul>
+<li>Areas affected by insecurity</li>
+<li>Flooded areas</li>
+<li>Terrain that cannot be safely accessed</li>
+<li>Other areas where teams cannot operate</li>
+</ul>
+
+<p>
+Assign these areas to <b>Inaccessible</b>.
+</p>
+
+<h4>Step 3. Review and adjust Health Area boundaries</h4>
+
+<ul>
+<li>Follow recognizable features</li>
+<li>Ensure boundaries are easy for teams to understand</li>
+<li>Ensure vaccination team coverage and supervision are practical</li>
+</ul>
+
+<h4>Step 4. Ensure all areas are assigned</h4>
+
+<p>
+Every location must belong to exactly one category:
+</p>
+
+<ul>
+<li>A Health Area</li>
+<li>Inaccessible</li>
+<li>Unpopulated</li>
+</ul>
+
+<p>
+There must be no gaps and no overlaps.
+</p>
+
+<h4>Step 5. Submit the completed district</h4>
+
+<p>
+Submit the finalized boundaries so they can be used for microplanning.
+</p>
+
+<hr>
+
+<h3>Population estimates (WorldPop)</h3>
+
+<p>
+This tool uses <b>WorldPop population estimates</b> as the starting target population for each Health Area.
+</p>
+
+<p>
+District teams may adjust these estimates if needed.
+</p>
+
+<hr>
+
+<h3>Support</h3>
+
+<p>
+If you have questions or encounter problems while using this tool, contact the <b>national data team</b>.
+</p>
+")
+      ),
+      
+      easyClose = TRUE,
+      size = "l"
+    )
+  )
+}
 
 calculate_grid_cell_population <- function(grid_sf, u5_rast) {
   if (is.null(grid_sf) || nrow(grid_sf) == 0) return(numeric(0))
@@ -87,26 +236,17 @@ make_fill_colors <- function(active_dfa) {
   out
 }
 
-load_worldpop_u5_raster <- function(t_u1_file, t_age1to4_file) {
-  t_u1_path  <- path.expand(t_u1_file)
-  t_a14_path <- path.expand(t_age1to4_file)
+load_worldpop_u5_raster <- function(t_u1_1to4_file) {
+  t_path  <- path.expand(t_u1_1to4_file)
   
-  for (p in c(t_u1_path, t_a14_path)) {
+  for (p in c(t_path)) {
     if (!file.exists(p)) stop(paste0("WorldPop raster not found: ", p))
   }
 
-  t_u1  <- terra::rast(t_u1_path)
-  t_a14 <- terra::rast(t_a14_path)
+  t_u1_1to4  <- terra::rast(t_path)
   
-  if (!terra::same.crs(t_u1, t_a14)) {
-    stop("WorldPop rasters do not share the same CRS.")
-  }
 
-  if (nrow(t_u1) != nrow(t_a14) ) {
-    stop("WorldPop rasters do not share the same dimensions.")
-  }
-
-  u5 <- t_u1 + t_a14 
+  u5 <- t_u1_1to4
   names(u5) <- "u5_pop"
   u5
 }
@@ -218,7 +358,7 @@ make_start_assignment <- function(grid_sf, district_sf, n_dfa = 5, seed = 1) {
   pts <- st_sample(district_sf, size = n_dfa, exact = TRUE)
 
   pts_sf <- st_sf(
-    dfa_name = paste("DFA", seq_len(n_dfa)),
+    dfa_name = paste("Health Area", seq_len(n_dfa)),
     geometry = pts,
     crs = st_crs(district_sf)
   )
@@ -1111,14 +1251,37 @@ ui <- fluidPage(
     id = "app_row",
     div(
       id = "leftbar",
-      div(class = "top-help", actionButton("help_btn", "?", width = "34px")),
+      div(
+        class = "top-help",
+        style = "
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  ",
+        
+        div(
+          style = "
+      font-size: 16px;
+      font-weight: 600;
+      color: #333333;
+    ",
+          "Health Area Boundary Review for Microplanning"
+        ),
+        
+        actionButton(
+          "help_btn",
+          "?",
+          width = "32px"
+        )
+      ),
       div(class = "mini-label", "Zone"),
       selectInput("zone_select", NULL, choices = zone_choices, selected = zone_choices[1]),
       div(class = "mini-label", "Region"),
       selectInput("region_select", NULL, choices = NULL),
       div(class = "mini-label", "District"),
       selectInput("district_select", NULL, choices = NULL),
-      div(class = "section-gap mini-label", "Edit DFA"),
+      div(class = "section-gap mini-label", "Edit Health Area"),
       selectInput("active_dfa", NULL, choices = all_dfa_names, selected = starter_dfa_names[1]),
       div(class = "mini-label", "Brush Size:"),
       div(
@@ -1159,6 +1322,10 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   pending_action <- reactiveVal(NULL)
+  
+  observe({
+    show_help_modal(session)
+  })
 
   rv <- reactiveValues(
     district_sf = NULL,
@@ -1187,8 +1354,7 @@ server <- function(input, output, session) {
     if (is.null(u5_worldpop_rv())) {
       u5_worldpop_rv(
         load_worldpop_u5_raster(
-          t_u1_file = worldpop_t_u1_file,
-          t_age1to4_file = worldpop_t_1to4_file
+          t_u1_1to4_file = worldpop_t_u1_1to4_file
         )
       )
     }
@@ -1217,7 +1383,7 @@ server <- function(input, output, session) {
         div(
           class = "legend-row",
           tags$span(class = "legend-box", style = paste0("background:", nonselected_fill_color, ";")),
-          tags$span("Other DFAs")
+          tags$span("Other Health Areas")
         ),
         div(
           class = "legend-row",
@@ -1311,29 +1477,7 @@ server <- function(input, output, session) {
   }
 
   observeEvent(input$help_btn, {
-    showModal(
-      modalDialog(
-        title = "Help",
-        easyClose = TRUE,
-        footer = modalButton("Close"),
-        HTML(
-          paste0(
-            "<ol>",
-            "<li>Select Zone, Region, and District.</li>",
-            "<li>Select the DFA to edit from the dropdown.</li>",
-            "<li>Adjust grid and brush size using the sliders or the +/- buttons.</li>",
-            "<li>Paint directly on the map.</li>",
-            "<li>Population raster toggles the WorldPop under-5 surface.</li>",
-            "<li>Boundaries only hides non-boundary cell fills.</li>",
-            "<li>The refresh button recalculates child population from the current painted areas, even if you have not saved.</li>",
-            "<li>Save converts the current painted DFAs to multipolygons.</li>",
-            "</ol>",
-            "<p><b>Colors</b><br>",
-            "Selected DFA is yellow. Other starter DFAs are grey. Inaccessible is red. Unpopulated is white. Non-selected DFA boundaries are black.</p>"
-          )
-        )
-      )
-    )
+    show_help_modal(session)
   })
 
   observeEvent(input$zone_select, {
