@@ -8,6 +8,7 @@ library(exactextractr)
 library(raster)
 library(DT)
 library(rhandsontable)
+library(leaflet)
 
 districts_file <- 'data/districts_shp.Rds'
 worldpop_t_u1_1to4_file <- 'data/som_u5_population_2025_100m.tif'
@@ -45,6 +46,7 @@ if (!file.exists(districts_path)) {
 }
 
 districts_shp <- readRDS(districts_path)
+all_district_densities <- districts_shp$u5_pop_density_km2
 districts_shp <- safe_make_valid(districts_shp)
 
 required_cols <- c('zone_name', 'region_name', 'district_name')
