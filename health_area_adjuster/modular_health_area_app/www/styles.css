@@ -1,0 +1,270 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.container-fluid {
+  padding: 6px;
+}
+
+/* ===============================
+   Layout — support BOTH ID and class
+   =============================== */
+
+#app_row,
+.app-row {
+  display: flex;
+  gap: 6px;
+  height: calc(100vh - 12px);
+  min-height: 700px;
+}
+
+#leftbar,
+.app-leftbar {
+  flex: 2;
+  min-width: 240px;
+  max-width: 340px;
+  background: #FAFAFA;
+  border: 1px solid #E6E6E6;
+  border-radius: 6px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+#mapwrap,
+.app-mapwrap {
+  flex: 8;
+  min-width: 0;
+  position: relative;
+  height: 100%;
+}
+
+#rightbar,
+.app-rightbar {
+  flex: 2;
+  min-width: 240px;
+  max-width: 340px;
+  background: #FAFAFA;
+  border: 1px solid #E6E6E6;
+  border-radius: 6px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+/* ===============================
+   Map container
+   =============================== */
+
+[id$='paint_map'] {
+  width: 100%;
+  height: 100%;
+  min-height: 700px;
+  border: 1px solid #E6E6E6;
+  border-radius: 6px;
+  background: #D9D9D9;
+}
+
+/* Important for Leaflet resize reliability */
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #D9D9D9;
+}
+
+/* ===============================
+   Loading overlay
+   =============================== */
+
+[id$='loading_overlay'] {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  background: rgba(255,255,255,0.55);
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* When shown by JS */
+
+.loading-visible {
+  display: flex !important;
+}
+
+/* ===============================
+   Labels and small UI elements
+   =============================== */
+
+.mini-label {
+  font-size: 11px;
+  color: #666666;
+  margin-bottom: 3px;
+}
+
+.section-gap {
+  margin-top: 8px;
+}
+
+.control-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.top-help {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.rightbar-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #333333;
+}
+
+/* ===============================
+   Slider controls
+   =============================== */
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.slider-row .btn {
+  width: 30px;
+  min-width: 30px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.slider-wrap {
+  flex: 1;
+}
+
+.slider-wrap .form-group {
+  margin-bottom: 0;
+}
+
+/* Hide ion slider labels */
+
+.slider-wrap .irs-min,
+.slider-wrap .irs-max,
+.slider-wrap .irs-from,
+.slider-wrap .irs-to,
+.slider-wrap .irs-single,
+.slider-wrap .irs-grid-text,
+.slider-wrap .irs-grid-pol {
+  display: none !important;
+}
+
+/* ===============================
+   Data table
+   =============================== */
+
+.dataTables_wrapper {
+  font-size: 11px;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate,
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+  display: none;
+}
+
+/* ===============================
+   Buttons
+   =============================== */
+
+.btn {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.shiny-input-container {
+  margin-bottom: 6px;
+}
+
+/* ===============================
+   Legend
+   =============================== */
+
+.legend-box {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #7F7F7F;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.legend-row {
+  font-size: 11px;
+  line-height: 1.35;
+  margin-bottom: 3px;
+}
+
+.legend-wrap {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #E6E6E6;
+}
+
+/* ===============================
+   DFA label styling
+   =============================== */
+
+.dfa-map-label {
+  background: rgba(255,255,255,0.92);
+  border: 1px solid #CCCCCC;
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: #000000;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ===============================
+   Health facility tooltip
+   =============================== */
+
+.leaflet-tooltip.hf-tooltip {
+  background: #FFFFFF;
+  color: #000000;
+  border: 1px solid #333333;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: normal;
+  box-shadow: none;
+}
+
+.leaflet-tooltip.hf-tooltip.leaflet-tooltip-right:before {
+  border-right-color: #333333;
+}
+
+.leaflet-tooltip.hf-tooltip.leaflet-tooltip-left:before {
+  border-left-color: #333333;
+}
+
+.leaflet-tooltip.hf-tooltip.leaflet-tooltip-top:before {
+  border-top-color: #333333;
+}
+
+.leaflet-tooltip.hf-tooltip.leaflet-tooltip-bottom:before {
+  border-bottom-color: #333333;
+}
+
+.leaflet-tooltip.hf-tooltip:before {
+  width: 6px;
+  height: 6px;
+}

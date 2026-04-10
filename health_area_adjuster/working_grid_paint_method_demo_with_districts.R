@@ -252,10 +252,10 @@ load_worldpop_u5_raster <- function(t_u1_1to4_file) {
   for (p in c(t_path)) {
     if (!file.exists(p)) stop(paste0("WorldPop raster not found: ", p))
   }
-
+  
   t_u1_1to4  <- terra::rast(t_path)
   
-
+  
   u5 <- t_u1_1to4
   names(u5) <- "u5_pop"
   u5
@@ -263,14 +263,14 @@ load_worldpop_u5_raster <- function(t_u1_1to4_file) {
 
 estimate_u5_population <- function(polygons_sf, u5_rast, name_col = "dfa_name") {
   if (is.null(polygons_sf) || nrow(polygons_sf) == 0) return(data.frame())
-
+  
   polys <- sf::st_transform(polygons_sf, sf::st_crs(terra::crs(u5_rast)))
   vals <- exactextractr::exact_extract(
     x = raster::raster(u5_rast),
     y = polys,
     fun = "sum"
   )
-
+  
   data.frame(
     area_name = as.character(polys[[name_col]]),
     est_u5_pop = round(vals, 0),
@@ -282,38 +282,38 @@ make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 120
   district_vect <- terra::vect(sf::st_transform(district_sf, terra::crs(u5_rast)))
   r_crop <- terra::crop(u5_rast, district_vect, snap = "out")
   r_mask <- terra::mask(r_crop, district_vect)
-
+  
   vals0 <- terra::values(r_mask)
   if (all(is.na(vals0))) return(NULL)
-
+  
   factor_x <- max(1, ceiling(ncol(r_mask) / max_dim_cells))
   factor_y <- max(1, ceiling(nrow(r_mask) / max_dim_cells))
   fact <- max(factor_x, factor_y)
-
+  
   r_small <- terra::aggregate(r_mask, fact = fact, fun = mean, na.rm = TRUE)
   p <- terra::as.polygons(r_small, na.rm = TRUE)
   names(p) <- "pop_u5"
-
+  
   pop_sf <- sf::st_as_sf(p)
   pop_sf <- sf::st_transform(pop_sf, 4326)
   pop_sf <- safe_make_valid(pop_sf)
-
+  
   vals <- pop_sf$pop_u5
   vals_non_na <- vals[is.finite(vals) & !is.na(vals)]
   if (length(vals_non_na) == 0) return(NULL)
-
+  
   breaks <- unique(stats::quantile(vals_non_na, probs = seq(0, 1, length.out = 6), na.rm = TRUE))
   if (length(breaks) < 2) {
     breaks <- c(min(vals_non_na, na.rm = TRUE), max(vals_non_na, na.rm = TRUE) + 1e-9)
   }
-
+  
   cols <- pop_palette(max(1, length(breaks) - 1))
   idx <- cut(vals, breaks = breaks, include.lowest = TRUE, labels = FALSE)
-
+  
   fill_color <- rep("#000000", length(vals))
   ok <- !is.na(idx)
   fill_color[ok] <- cols[idx[ok]]
-
+  
   pop_sf$fill_color <- fill_color
   pop_sf
 }
@@ -321,41 +321,41 @@ make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 120
 make_paint_grid <- function(district_sf, grid_n = 150) {
   district_sf <- safe_make_valid(district_sf)
   district_3857 <- st_transform(district_sf, 3857)
-
+  
   bbox <- st_bbox(district_3857)
   width_m <- bbox$xmax - bbox$xmin
   height_m <- bbox$ymax - bbox$ymin
   max_dim <- max(width_m, height_m)
-
+  
   cellsize <- max_dim / grid_n
-
+  
   raw_grid <- st_make_grid(
     district_3857,
     cellsize = cellsize,
     what = "polygons",
     square = TRUE
   )
-
+  
   grid_sf <- st_sf(
     cell_id = seq_along(raw_grid),
     geometry = raw_grid,
     crs = st_crs(district_3857)
   )
-
+  
   cent_3857 <- suppressWarnings(st_centroid(grid_sf))
   inside <- lengths(st_within(cent_3857, district_3857)) > 0
-
+  
   grid_sf <- grid_sf |>
     filter(inside) |>
     mutate(cell_id = seq_len(n()))
-
+  
   cent_wgs84 <- st_transform(cent_3857[inside, ], 4326)
   coords <- st_coordinates(cent_wgs84)
-
+  
   grid_sf <- st_transform(grid_sf, 4326)
   grid_sf$centroid_lon <- coords[, 1]
   grid_sf$centroid_lat <- coords[, 2]
-
+  
   list(
     grid_sf = grid_sf,
     max_dim_m = as.numeric(max_dim)
@@ -364,18 +364,18 @@ make_paint_grid <- function(district_sf, grid_n = 150) {
 
 make_start_assignment <- function(grid_sf, district_sf, n_dfa = 5, seed = 1) {
   set.seed(seed)
-
+  
   pts <- st_sample(district_sf, size = n_dfa, exact = TRUE)
-
+  
   pts_sf <- st_sf(
     dfa_name = paste("Health Area", seq_len(n_dfa)),
     geometry = pts,
     crs = st_crs(district_sf)
   )
-
+  
   cent <- suppressWarnings(st_centroid(grid_sf))
   idx <- st_nearest_feature(cent, pts_sf)
-
+  
   list(
     assignments = as.character(pts_sf$dfa_name[idx]),
     seeds_sf = pts_sf
@@ -384,18 +384,18 @@ make_start_assignment <- function(grid_sf, district_sf, n_dfa = 5, seed = 1) {
 
 build_dfa_polygons_from_assignments <- function(grid_sf, assignments, district_sf) {
   stopifnot(length(assignments) == nrow(grid_sf))
-
+  
   out <- grid_sf |>
     mutate(dfa_name = assignments) |>
     dplyr::select(cell_id, centroid_lon, centroid_lat, dfa_name, geometry) |>
     group_by(dfa_name) |>
     summarise(geometry = st_union(geometry), .groups = "drop")
-
+  
   out <- safe_make_valid(out)
   out <- suppressWarnings(st_intersection(out, district_sf))
   out <- safe_make_valid(out)
   out$geometry <- st_cast(out$geometry, "MULTIPOLYGON", warn = FALSE)
-
+  
   out |>
     dplyr::select(dfa_name, geometry)
 }
@@ -410,10 +410,10 @@ build_saved_dfa_sf <- function(grid_sf, assignments, district_sf) {
 
 make_dfa_label_points <- function(dfa_sf) {
   if (is.null(dfa_sf) || nrow(dfa_sf) == 0) return(NULL)
-
+  
   pts <- suppressWarnings(st_point_on_surface(dfa_sf))
   coords <- st_coordinates(pts)
-
+  
   data.frame(
     dfa_name = dfa_sf$dfa_name,
     lon = coords[, 1],
@@ -433,18 +433,18 @@ round_to_step <- function(x, step) {
 calc_grid_limits <- function(max_dim_m) {
   min_n_raw <- clamp_num(max_dim_m / 350, 100, 200)
   max_n_raw <- clamp_num(max_dim_m / 120, 100, 200)
-
+  
   min_n <- floor(min_n_raw)
   max_n <- ceiling(max_n_raw)
-
+  
   if (max_n <= min_n) {
     max_n <- min_n + 20
   }
-
+  
   range_n <- max_n - min_n
   step_n <- round(range_n * 0.10)
   step_n <- clamp_num(step_n, 2, 25)
-
+  
   if (step_n <= 5) {
     step_n <- 1
   } else if (step_n <= 10) {
@@ -454,9 +454,9 @@ calc_grid_limits <- function(max_dim_m) {
   } else {
     step_n <- 10
   }
-
+  
   default_n <- round((min_n + max_n) / 2)
-
+  
   list(
     min = as.integer(min_n),
     max = as.integer(max_n),
@@ -468,14 +468,14 @@ calc_grid_limits <- function(max_dim_m) {
 calc_brush_limits <- function(max_dim_m) {
   min_b <- round_to_step(clamp_num(max_dim_m * 0.02, 50, 10000), brush_step_m)
   max_b <- round_to_step(clamp_num(max_dim_m * 0.18, 50, 10000), brush_step_m)
-
+  
   if (max_b <= min_b) {
     max_b <- clamp_num(min_b + brush_step_m, 50, 10000)
   }
-
+  
   default_b <- round_to_step((min_b + max_b) / 2, brush_step_m)
   default_b <- clamp_num(default_b, min_b, max_b)
-
+  
   list(
     min = as.integer(min_b),
     max = as.integer(max_b),
@@ -695,18 +695,47 @@ ui <- fluidPage(
     border-radius: 3px;
     padding: 1px 4px;
     color: #000000;
-    font-size: 10px;
+    font-size: 12px;
     white-space: nowrap;
   }
-  .leaflet-tooltip.dfa-tooltip {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    padding: 0;
-  }
-  .leaflet-tooltip.dfa-tooltip:before {
-    display: none;
-  }
+  /* Label box */
+
+.leaflet-tooltip.hf-tooltip {
+  background: #FFFFFF;
+  color: #000000;
+  border: 1px solid #333333;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: normal;
+  box-shadow: none;
+}
+
+/* Connector arrow (leader line) */
+
+.leaflet-tooltip.hf-tooltip.leaflet-tooltip-right:before {
+  border-right-color: #333333;
+}
+
+.leaflet-tooltip.hf-tooltip.leaflet-tooltip-left:before {
+  border-left-color: #333333;
+}
+
+.leaflet-tooltip.hf-tooltip.leaflet-tooltip-top:before {
+  border-top-color: #333333;
+}
+
+.leaflet-tooltip.hf-tooltip.leaflet-tooltip-bottom:before {
+  border-bottom-color: #333333;
+}
+
+/* Make connector thinner and cleaner */
+
+.leaflet-tooltip.hf-tooltip:before {
+  width: 6px;
+  height: 6px;
+}
+
 ")),
     tags$script(HTML("
     Shiny.addCustomMessageHandler('show_loading', function(msg) {
@@ -1053,6 +1082,58 @@ Shiny.addCustomMessageHandler('hide_loading', function(msg) {
           });
         },
 
+        clearSeedLayer: function() {
+          if (!window.paintApp.map) return;
+          if (window.paintApp.seedLayer) {
+            window.paintApp.map.removeLayer(window.paintApp.seedLayer);
+            window.paintApp.seedLayer = null;
+          }
+        },
+
+        bringSeedPointsToFront: function() {
+          if (!window.paintApp.seedLayer) return;
+          window.paintApp.seedLayer.eachLayer(function(layer) {
+            if (layer && layer.bringToFront) {
+              layer.bringToFront();
+            }
+          });
+        },
+
+        drawSeedPoints: function(seedPoints) {
+          window.paintApp.clearSeedLayer();
+
+          if (!window.paintApp.map) return;
+          if (!seedPoints || !Array.isArray(seedPoints) || seedPoints.length === 0) return;
+
+          window.paintApp.seedLayer = L.layerGroup();
+
+          seedPoints.forEach(function(pt) {
+            if (pt.lon == null || pt.lat == null) return;
+
+            var marker = L.circleMarker([pt.lat, pt.lon], {
+              radius: 4,
+              color: '#000000',
+              weight: 1,
+              opacity: 1,
+              fillColor: '#000000',
+              fillOpacity: 1,
+              interactive: false
+            });
+
+            marker.bindTooltip(String(pt.dfa_name || ''), {
+              permanent: true,
+              direction: 'right',
+              offset: [8, 0],
+              className: 'dfa-tooltip'
+            });
+
+            marker.addTo(window.paintApp.seedLayer);
+          });
+
+          window.paintApp.seedLayer.addTo(window.paintApp.map);
+          window.paintApp.bringSeedPointsToFront();
+        },
+
         clearScene: function() {
           if (!window.paintApp.map) return;
 
@@ -1094,6 +1175,7 @@ Shiny.addCustomMessageHandler('hide_loading', function(msg) {
               window.paintApp.map.removeLayer(window.paintApp.popLayer);
             }
           }
+          window.paintApp.bringSeedPointsToFront();
         },
 
         setBrushSize: function(v) {
@@ -1144,36 +1226,6 @@ Shiny.addCustomMessageHandler('hide_loading', function(msg) {
             window.paintApp.brushPreview.setRadius(window.paintApp.brushSize);
           }
           
-          if (msg.seedPoints && Array.isArray(msg.seedPoints)) {
-  window.paintApp.seedLayer = L.layerGroup();
-
-  msg.seedPoints.forEach(function(pt) {
-    if (pt.lon == null || pt.lat == null) return;
-
-    L.circleMarker([pt.lat, pt.lon], {
-      radius: 4,
-      color: '#000000',
-      weight: 1,
-      opacity: 1,
-      fillColor: '#FFFFFF',
-      fillOpacity: 1,
-      interactive: false
-    })
-    .bindTooltip(
-      '<div class=\"dfa-map-label\">' + pt.dfa_name + '</div>',
-      {
-        permanent: true,
-        direction: 'top',
-        offset: [0, -6],
-        className: 'dfa-tooltip'
-      }
-    )
-    .addTo(window.paintApp.seedLayer);
-  });
-
-  window.paintApp.seedLayer.addTo(window.paintApp.map);
-}
-
           var districtGeo = (typeof msg.districtGeojson === 'string') ? JSON.parse(msg.districtGeojson) : msg.districtGeojson;
           var gridGeo = (typeof msg.gridGeojson === 'string') ? JSON.parse(msg.gridGeojson) : msg.gridGeojson;
 
@@ -1235,8 +1287,14 @@ Shiny.addCustomMessageHandler('hide_loading', function(msg) {
             }).addTo(window.paintApp.map);
           }
 
+          window.paintApp.drawSeedPoints(msg.seedPoints || []);
+          window.paintApp.bringSeedPointsToFront();
+
           window.paintApp.map.fitBounds(window.paintApp.districtLayer.getBounds(), { padding: [10, 10] });
-          setTimeout(function() { window.paintApp.map.invalidateSize(); }, 150);
+          setTimeout(function() {
+            window.paintApp.map.invalidateSize();
+            window.paintApp.bringSeedPointsToFront();
+          }, 150);
 
           Shiny.setInputValue('paint_map_ready', Date.now(), { priority: 'event' });
         },
@@ -1267,7 +1325,10 @@ Shiny.addCustomMessageHandler('hide_loading', function(msg) {
             window.paintApp.savedLayer = null;
           }
 
-          if (!geojsonText) return;
+          if (!geojsonText) {
+            window.paintApp.bringSeedPointsToFront();
+            return;
+          }
 
           var gj = (typeof geojsonText === 'string') ? JSON.parse(geojsonText) : geojsonText;
 
@@ -1283,6 +1344,8 @@ Shiny.addCustomMessageHandler('hide_loading', function(msg) {
               };
             }
           }).addTo(window.paintApp.map);
+
+          window.paintApp.bringSeedPointsToFront();
         }
       };
 
@@ -1422,7 +1485,7 @@ server <- function(input, output, session) {
   observe({
     show_help_modal(session)
   })
-
+  
   rv <- reactiveValues(
     district_sf = NULL,
     district_base_sf = NULL,
@@ -1439,7 +1502,7 @@ server <- function(input, output, session) {
     brush_limits = NULL,
     seed_points = NULL
   )
-
+  
   current_fill_colors <- reactive({
     make_fill_colors(input$active_dfa)
   })
@@ -1468,7 +1531,7 @@ server <- function(input, output, session) {
   observe({
     session$sendCustomMessage("show_loading", list())
   })
-
+  
   output$legend_ui <- renderUI({
     selected_name <- input$active_dfa %||% starter_dfa_names[1]
     show_selected <- !(selected_name %in% c("Inaccessible", "Unpopulated"))
@@ -1540,7 +1603,7 @@ server <- function(input, output, session) {
       )
     )
   })
-
+  
   recompute_population_table <- function(assignments) {
     req(!is.null(rv$grid_sf), length(assignments) == nrow(rv$grid_sf))
     req("u5_pop" %in% names(rv$grid_sf))
@@ -1583,11 +1646,11 @@ server <- function(input, output, session) {
     
     invisible(NULL)
   }
-
+  
   observeEvent(input$help_btn, {
     show_help_modal(session)
   })
-
+  
   observeEvent(input$zone_select, {
     req(input$zone_select)
     regions <- districts_shp |>
@@ -1598,7 +1661,7 @@ server <- function(input, output, session) {
       sort()
     updateSelectInput(session, "region_select", choices = regions, selected = regions[1])
   }, ignoreInit = FALSE)
-
+  
   observeEvent(list(input$zone_select, input$region_select), {
     req(input$zone_select, input$region_select)
     dists <- districts_shp |>
@@ -1609,10 +1672,10 @@ server <- function(input, output, session) {
       sort()
     updateSelectInput(session, "district_select", choices = dists, selected = dists[1])
   }, ignoreInit = FALSE)
-
+  
   district_base <- reactive({
     req(input$zone_select, input$region_select, input$district_select)
-
+    
     district_sf <- districts_shp |>
       filter(
         zone_name == input$zone_select,
@@ -1620,9 +1683,9 @@ server <- function(input, output, session) {
         district_name == input$district_select
       ) |>
       dplyr::select(admin_id, district_name, region_id, region_name, zone_id, zone_name, geometry)
-
+    
     req(nrow(district_sf) >= 1)
-
+    
     district_sf <- district_sf |>
       summarise(
         admin_id = dplyr::first(admin_id),
@@ -1635,10 +1698,10 @@ server <- function(input, output, session) {
         .groups = "drop"
       ) |>
       st_as_sf()
-
+    
     district_sf <- safe_make_valid(district_sf)
     max_dim_m <- calc_district_max_dim(district_sf)
-
+    
     list(
       district_sf = district_sf,
       max_dim_m = max_dim_m,
@@ -1646,14 +1709,14 @@ server <- function(input, output, session) {
       brush_limits = calc_brush_limits(max_dim_m)
     )
   })
-
+  
   observeEvent(district_base(), {
     db <- district_base()
-
+    
     rv$district_base_sf <- db$district_sf
     rv$grid_limits <- db$grid_limits
     rv$brush_limits <- db$brush_limits
-
+    
     updateSliderInput(
       session,
       "brush_m_ui",
@@ -1663,43 +1726,43 @@ server <- function(input, output, session) {
       step = db$brush_limits$step
     )
   }, ignoreInit = FALSE)
-
+  
   observeEvent(input$brush_minus, {
     bl <- rv$brush_limits
     req(!is.null(bl), !is.null(input$brush_m_ui))
     updateSliderInput(session, "brush_m_ui", value = clamp_num(input$brush_m_ui - bl$step, bl$min, bl$max))
   })
-
+  
   observeEvent(input$brush_plus, {
     bl <- rv$brush_limits
     req(!is.null(bl), !is.null(input$brush_m_ui))
     updateSliderInput(session, "brush_m_ui", value = clamp_num(input$brush_m_ui + bl$step, bl$min, bl$max))
   })
-
+  
   observeEvent(input$brush_m_ui, {
     session$sendCustomMessage("paint_set_brush", list(value = input$brush_m_ui))
   }, ignoreInit = TRUE)
-
+  
   observeEvent(input$boundary_only, {
     session$sendCustomMessage("paint_set_boundary_only", list(value = isTRUE(input$boundary_only)))
   }, ignoreInit = TRUE)
-
+  
   observeEvent(input$show_pop_raster, {
     session$sendCustomMessage("paint_toggle_population", list(show = isTRUE(input$show_pop_raster)))
   }, ignoreInit = TRUE)
-
+  
   selected_scene <- reactive({
     req(input$district_select)
-
+    
     db <- district_base()
     district_sf <- db$district_sf
-
+    
     grid_info <- make_paint_grid(district_sf, grid_n = db$grid_limits$value)
     grid_sf <- grid_info$grid_sf
     req(nrow(grid_sf) > 0)
-
+    
     district_seed <- sum(utf8ToInt(input$district_select))
-
+    
     start_info <- make_start_assignment(
       grid_sf = grid_sf,
       district_sf = district_sf,
@@ -1717,11 +1780,18 @@ server <- function(input, output, session) {
       lat = seed_coords[, 2],
       stringsAsFactors = FALSE
     )
-
+    seed_points_list <- lapply(seq_len(nrow(seed_points_df)), function(i) {
+      list(
+        dfa_name = as.character(seed_points_df$dfa_name[i]),
+        lon = unname(seed_points_df$lon[i]),
+        lat = unname(seed_points_df$lat[i])
+      )
+    })
+    
     touch_list <- st_touches(grid_sf)
     neighbors_list <- lapply(touch_list, as.integer)
     names(neighbors_list) <- as.character(grid_sf$cell_id)
-
+    
     grid_sf_3857 <- st_transform(grid_sf, 3857)
     district_3857 <- st_transform(district_sf, 3857)
     cell_bbox <- st_bbox(grid_sf_3857[1, ])
@@ -1732,7 +1802,7 @@ server <- function(input, output, session) {
     edge_flag <- lengths(st_intersects(grid_sf_3857, district_boundary_3857)) > 0
     edge_list <- as.list(edge_flag)
     names(edge_list) <- as.character(grid_sf$cell_id)
-
+    
     pop_overlay_sf <- NULL
     if (isTRUE(input$show_pop_raster)) {
       pop_overlay_sf <- tryCatch(
@@ -1748,13 +1818,13 @@ server <- function(input, output, session) {
       edge_list = edge_list,
       pop_overlay_sf = pop_overlay_sf,
       max_dim_m = grid_info$max_dim_m,
-      seed_points = seed_points_df
+      seed_points = seed_points_list
     )
   })
-
+  
   observeEvent(selected_scene(), {
     sc <- selected_scene()
-
+    
     rv$district_sf <- sc$district_sf
     rv$grid_sf <- sc$grid_sf
     if (!"u5_pop" %in% names(rv$grid_sf)) {
@@ -1773,7 +1843,7 @@ server <- function(input, output, session) {
     rv$pop_table <- NULL
     rv$max_dim_m <- sc$max_dim_m
     rv$seed_points <- sc$seed_points
-
+    
     if (!is.null(rv$brush_limits)) {
       updateSliderInput(
         session,
@@ -1784,20 +1854,20 @@ server <- function(input, output, session) {
         step = rv$brush_limits$step
       )
     }
-
+    
     init_named <- setNames(as.list(sc$initial_assignments), as.character(sc$grid_sf$cell_id))
-
+    
     pop_geojson <- NULL
     if (!is.null(sc$pop_overlay_sf) && nrow(sc$pop_overlay_sf) > 0) {
       pop_geojson <- as_geojson_text(sc$pop_overlay_sf)
     }
-
+    
     initial_saved_sf <- build_saved_dfa_sf(
       grid_sf = sc$grid_sf,
       assignments = sc$initial_assignments,
       district_sf = sc$district_sf
     )
-
+    
     session$sendCustomMessage(
       "paint_load_scene",
       list(
@@ -1816,22 +1886,22 @@ server <- function(input, output, session) {
         savedGeojson = as_geojson_text(initial_saved_sf)
       )
     )
-
+    
     recompute_population_table(sc$initial_assignments)
   }, ignoreInit = FALSE)
-
+  
   observeEvent(input$save_btn, {
     pending_action("save")
     session$sendCustomMessage("paint_request_assignments", list())
   })
-
+  
   observeEvent(input$reset_btn, {
     req(!is.null(rv$initial_assignments))
-
+    
     rv$current_assignments <- rv$initial_assignments
     rv$saved_dfa_sf <- NULL
     pending_action(NULL)
-
+    
     session$sendCustomMessage("paint_reset", list())
     session$sendCustomMessage(
       "paint_set_colors",
@@ -1840,17 +1910,17 @@ server <- function(input, output, session) {
         activeDfa = input$active_dfa
       )
     )
-
+    
     recompute_population_table(rv$initial_assignments)
   })
-
+  
   observeEvent(input$paint_assignments, {
     payload <- input$paint_assignments
     req(!is.null(payload$assignments))
     req(!is.null(rv$grid_sf), !is.null(rv$district_sf), !is.null(rv$initial_assignments))
-
+    
     js_assignments <- payload$assignments
-
+    
     ordered_assignments <- vapply(
       as.character(rv$grid_sf$cell_id),
       function(id) {
@@ -1863,11 +1933,11 @@ server <- function(input, output, session) {
       },
       character(1)
     )
-
+    
     rv$current_assignments <- ordered_assignments
-
+    
     act <- pending_action()
-
+    
     if (identical(act, "save")) {
       saved <- tryCatch(
         build_saved_dfa_sf(
@@ -1877,27 +1947,27 @@ server <- function(input, output, session) {
         ),
         error = function(e) e
       )
-
+      
       if (inherits(saved, "error")) {
         showNotification(paste("Save failed:", saved$message), type = "error", duration = 8)
         pending_action(NULL)
         return()
       }
-
+      
       rv$saved_dfa_sf <- saved
       session$sendCustomMessage("paint_show_saved", list(geojson = as_geojson_text(saved)))
     }
-
+    
     if (identical(act, "save") || identical(act, "refresh")) {
       recompute_population_table(ordered_assignments)
     }
-
+    
     pending_action(NULL)
   }, ignoreInit = TRUE)
-
+  
   observeEvent(input$active_dfa, {
     req(!is.null(rv$current_assignments), !is.null(rv$grid_sf), !is.null(rv$district_sf))
-
+    
     session$sendCustomMessage(
       "paint_set_colors",
       list(
@@ -1905,11 +1975,11 @@ server <- function(input, output, session) {
         activeDfa = input$active_dfa
       )
     )
-
+    
     pending_action("save")
     session$sendCustomMessage("paint_request_assignments", list())
   }, ignoreInit = TRUE)
-
+  
   output$pop_table <- renderDT({
     if (is.null(rv$pop_table) || nrow(rv$pop_table) == 0) {
       return(
@@ -1920,7 +1990,7 @@ server <- function(input, output, session) {
         )
       )
     }
-
+    
     datatable(
       rv$pop_table |>
         rename(
