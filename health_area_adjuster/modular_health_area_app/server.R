@@ -1,6 +1,13 @@
 app_server <- function(input, output, session) {
   intro <- introTabServer('intro', districts_shp = districts_shp)
-  facilityTabServer('facility', district_name = intro$district)
+  
+  facility <- facilityTabServer(
+    'facility',
+    zone = intro$zone,
+    region = intro$region,
+    district = intro$district,
+    district_ready = intro$district_ready
+  )
   
   healthAreaTabServer(
     'health_area',

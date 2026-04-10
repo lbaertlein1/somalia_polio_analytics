@@ -58,6 +58,9 @@ if (length(missing_cols) > 0) {
 zone_choices <- sort(unique(as.character(stats::na.omit(districts_shp$zone_name))))
 
 source('tabs/intro/mod_intro_tab.R', local = TRUE)
+source('tabs/facility/facility_helpers.R', local = TRUE)
+source('tabs/facility/mod_facility_map.R', local = TRUE)
+source('tabs/facility/mod_facility_table.R', local = TRUE)
 source('tabs/facility/mod_facility_tab.R', local = TRUE)
 source('tabs/health_area/health_area_helpers.R', local = TRUE)
 source('tabs/health_area/mod_health_area_controls.R', local = TRUE)

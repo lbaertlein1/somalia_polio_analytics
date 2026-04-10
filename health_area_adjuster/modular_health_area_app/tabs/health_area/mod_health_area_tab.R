@@ -24,7 +24,16 @@ healthAreaTabUI <- function(id) {
   )
 }
 
-healthAreaTabServer <- function(id, zone, region, district, district_ready, active_tab) {
+healthAreaTabServer <- function(
+    id,
+    zone,
+    region,
+    district,
+    district_ready,
+    active_tab,
+    facility_data,
+    coordination_sites
+) {
   moduleServer(id, function(input, output, session) {
     controls <- healthAreaControlsServer('controls')
     map_mod <- healthAreaMapServer('map')
