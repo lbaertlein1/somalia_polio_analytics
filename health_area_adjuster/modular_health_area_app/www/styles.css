@@ -269,3 +269,111 @@ html, body {
   width: 6px;
   height: 6px;
 }
+
+.facility-rightbar {
+  min-width: 430px;
+  max-width: 560px;
+}
+
+table.dataTable tbody tr.selected,
+table.dataTable tbody th.selected,
+table.dataTable tbody td.selected {
+  background-color: #FFD400 !important;
+  color: #000000 !important;
+}
+
+.facility-rightbar .shiny-input-container {
+  margin-bottom: 0 !important;
+}
+
+.facility-rightbar .form-control {
+  font-size: 12px;
+  padding: 2px 6px;
+  height: 30px;
+}
+
+.facility-rightbar table.dataTable td {
+  vertical-align: top;
+}
+
+.selected-row {
+  background-color: #FFD400 !important;
+  color: #000000 !important;
+}
+
+.handsontable td {
+  font-size: 12px;
+}
+
+.handsontable th {
+  font-size: 12px;
+}
+
+/* Wider right sidebar ONLY for Facility tab */
+
+.facility-rightbar {
+  flex: 3;
+  min-width: 420px;
+  max-width: 620px;
+}
+
+
+/* Facility tab custom layout */
+
+.facility-layout {
+  display: flex;
+  gap: 6px;
+  height: calc(100vh - 12px);
+  min-height: 700px;
+}
+
+.facility-leftbar {
+  flex: 0 0 280px;
+  min-width: 260px;
+  max-width: 320px;
+  background: #FAFAFA;
+  border: 1px solid #E6E6E6;
+  border-radius: 6px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.facility-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.facility-mapwrap {
+  flex: 1 1 60%;
+  min-height: 420px;
+  position: relative;
+}
+
+.facility-tablewrap {
+  flex: 0 0 260px;
+  min-height: 220px;
+  background: #FAFAFA;
+  border: 1px solid #E6E6E6;
+  border-radius: 6px;
+  padding: 8px;
+  overflow: auto;
+}
+
+/* Make facility map fill its panel */
+[id$='facility_map'] {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  border: 1px solid #E6E6E6;
+  border-radius: 6px;
+  background: #D9D9D9;
+}
+
+/* Optional: keep table readable */
+.facility-tablewrap .handsontable td,
+.facility-tablewrap .handsontable th {
+  white-space: nowrap;
+}

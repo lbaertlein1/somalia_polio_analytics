@@ -2,41 +2,18 @@ facilityMapUI <- function(id) {
   ns <- NS(id)
   
   tagList(
-    leafletOutput(ns('facility_map'), width = '100%', height = '100%'),
     div(
-      id = ns('loading_overlay'),
-      div(
-        style = '
-          background: rgba(255,255,255,0.96);
-          padding: 12px 18px;
-          border: 1px solid #D9D9D9;
-          border-radius: 6px;
-          box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-          font-size: 16px;
-          font-weight: 600;
-          color: #333333;
-        ',
-        'Loading district data...'
-      )
+      style = 'position: relative; height: 100%;',
+      leafletOutput(ns('map'), width = '100%', height = '100%')
     )
   )
 }
 
 facilityMapServer <- function(id, district_sf, facility_data_r, selected_id_r, on_marker_drag) {
   moduleServer(id, function(input, output, session) {
-    
     ns <- session$ns
     
-    cat("facilityMapServer initialized\n")
-    
-    # ----------------------------
-    # Create map
-    # ----------------------------
-    
-    output$facility_map <- renderLeaflet({
-      
-      cat("renderLeaflet entered\n")
-      
+    output$map <- renderLeaflet({
       req(district_sf())
       req(nrow(district_sf()) > 0)
       
@@ -45,8 +22,27 @@ facilityMapServer <- function(id, district_sf, facility_data_r, selected_id_r, o
       leaflet::leaflet(
         options = leaflet::leafletOptions(zoomSnap = 0.25)
       ) |>
+        leaflet::addTiles(group = 'OpenStreetMap') |>
         leaflet::addProviderTiles(
-          leaflet::providers$OpenStreetMap
+          leaflet::providers$Esri.WorldImagery,
+          group = 'ESRI Satellite'
+        ) |>
+        leaflet::addProviderTiles(
+          leaflet::providers$CartoDB.Positron,
+          group = 'CARTO Light'
+        ) |>
+        leaflet::addProviderTiles(
+          leaflet::providers$OpenTopoMap,
+          group = 'Topo'
+        ) |>
+        leaflet::addLayersControl(
+          baseGroups = c(
+            'OpenStreetMap',
+            'ESRI Satellite',
+            'CARTO Light',
+            'Topo'
+          ),
+          options = leaflet::layersControlOptions(collapsed = TRUE)
         ) |>
         leaflet::fitBounds(
           lng1 = bbox[['xmin']],
@@ -55,68 +51,70 @@ facilityMapServer <- function(id, district_sf, facility_data_r, selected_id_r, o
           lat2 = bbox[['ymax']]
         )
     })
-    outputOptions(output, "facility_map", suspendWhenHidden = FALSE)
     
-    # ----------------------------
-    # Draw markers AFTER map exists
-    # ----------------------------
+    outputOptions(output, 'map', suspendWhenHidden = FALSE)
     
     observe({
+      req(district_sf())
       
+      district_geo <- sf::st_transform(district_sf(), 4326)
+      bbox <- sf::st_bbox(district_geo)
+      
+      leaflet::leafletProxy('map', session = session) |>
+        leaflet::clearGroup('district') |>
+        leaflet::addPolygons(
+          data = district_geo,
+          group = 'district',
+          color = '#333333',
+          weight = 2,
+          fill = FALSE,
+          opacity = 1
+        ) |>
+        leaflet::fitBounds(
+          lng1 = bbox[['xmin']],
+          lat1 = bbox[['ymin']],
+          lng2 = bbox[['xmax']],
+          lat2 = bbox[['ymax']]
+        )
+    })
+    
+    observe({
       df <- facility_data_r()
+      req(!is.null(df))
       
-      cat(
-        "facility marker observer rows:",
-        if (is.null(df)) "NULL" else nrow(df),
-        "\n"
-      )
-      
-      req(df)
-      req(nrow(df) > 0)
-      
-      proxy <- leaflet::leafletProxy(
-        "facility_map",
-        session = session
-      ) |>
+      proxy <- leaflet::leafletProxy('map', session = session) |>
         leaflet::clearMarkers()
+      
+      if (nrow(df) == 0) {
+        return()
+      }
       
       selected_id <- selected_id_r()
       
       for (i in seq_len(nrow(df))) {
-        
         row <- df[i, , drop = FALSE]
         
-        cat(
-          "adding marker:",
-          row$facility_id,
-          row$lon,
-          row$lat,
-          "\n"
-        )
-        
-        is_selected <-
-          !is.null(selected_id) &&
+        is_selected <- !is.null(selected_id) &&
           nzchar(selected_id) &&
-          identical(
-            as.character(row$facility_id[[1]]),
-            selected_id
-          )
+          identical(as.character(row$facility_id[[1]]), selected_id)
         
         icon_url <- if (is_selected) {
-          "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
-        } else if (identical(row$polio_sia_coordination_site[[1]], "Yes")) {
-          "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png"
+          'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png'
         } else {
-          "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"
+          'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-black.png'
         }
         
         marker_icon <- leaflet::makeIcon(
           iconUrl = icon_url,
-          shadowUrl = "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+          shadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
           iconWidth = 25,
           iconHeight = 41,
           iconAnchorX = 12,
-          iconAnchorY = 41
+          iconAnchorY = 41,
+          shadowWidth = 41,
+          shadowHeight = 41,
+          shadowAnchorX = 12,
+          shadowAnchorY = 41
         )
         
         proxy <- proxy |>
@@ -126,39 +124,36 @@ facilityMapServer <- function(id, district_sf, facility_data_r, selected_id_r, o
             layerId = row$facility_id[[1]],
             icon = marker_icon,
             options = leaflet::markerOptions(
-              draggable = TRUE
+              draggable = TRUE,
+              riseOnHover = TRUE
             ),
             label = row$facility_name[[1]],
             labelOptions = leaflet::labelOptions(
               noHide = TRUE,
-              direction = "right",
+              direction = 'right',
               offset = c(10, 0),
-              className = "hf-tooltip"
+              textsize = '11px',
+              className = 'hf-tooltip'
             )
           )
       }
-      
-      cat("all facility markers added\n")
-      
     })
     
-    # ----------------------------
-    # Drag handling
-    # ----------------------------
-    
-    observeEvent(input$facility_map_marker_dragend, {
-      
-      info <- input$facility_map_marker_dragend
-      
-      req(info$id)
+    observeEvent(input$map_marker_dragend, {
+      info <- input$map_marker_dragend
+      req(!is.null(info$id), !is.null(info$lat), !is.null(info$lng))
       
       on_marker_drag(
         facility_id = as.character(info$id),
         lat = as.numeric(info$lat),
         lon = as.numeric(info$lng)
       )
-      
     })
     
+    observeEvent(input$map_marker_click, {
+      info <- input$map_marker_click
+      req(!is.null(info$id))
+      selected_id_r(as.character(info$id))
+    })
   })
 }

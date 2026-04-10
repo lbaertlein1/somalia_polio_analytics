@@ -49,37 +49,44 @@ facilityTabUI <- function(id) {
     }, 400);
   });
 "))
-  tagList(
-    div(
-      id = ns('app_row'),
-      class = 'app-row',
+     tagList(
       div(
-        id = ns('leftbar'),
-        class = 'app-leftbar',
+        id = ns('app_row'),
+        class = 'facility-layout',
+        
         div(
-          class = 'rightbar-title',
-          'Health Facility Mapping'
+          id = ns('leftbar'),
+          class = 'facility-leftbar',
+          div(
+            class = 'rightbar-title',
+            'Health Facility Mapping'
+          ),
+          p('Review the preset health facility points for the selected district.'),
+          tags$ul(
+            tags$li('Drag each point to the correct location if needed.'),
+            tags$li('Edit the facility attributes in the table below.'),
+            tags$li('Only facilities marked Yes for SIA Coordination Site will be used in the Health Area Mapping tab.')
+          )
         ),
-        p('Review the preset health facility points for the selected district.'),
-        tags$ul(
-          tags$li('Drag each point to the correct location if needed.'),
-          tags$li('Edit the facility attributes in the table.'),
-          tags$li('Only facilities marked Yes for Polio SIA Coordination Site will be used in the Health Area Mapping tab.')
+        
+        div(
+          class = 'facility-main',
+          
+          div(
+            id = ns('mapwrap'),
+            class = 'facility-mapwrap',
+            facilityMapUI(ns('map'))
+          ),
+          
+          div(
+            id = ns('tablewrap'),
+            class = 'facility-tablewrap',
+            facilityTableUI(ns('table'))
+          )
         )
-      ),
-      div(
-        id = ns('mapwrap'),
-        class = 'app-mapwrap',
-        facilityMapUI(ns('map'))
-      ),
-      div(
-        id = ns('rightbar'),
-        class = 'app-rightbar',
-        facilityTableUI(ns('table'))
       )
     )
-  )
-}
+  }
 
 facilityTabServer <- function(id, zone, region, district, district_ready) {
   moduleServer(id, function(input, output, session) {
@@ -239,11 +246,37 @@ facilityTabServer <- function(id, zone, region, district, district_ready) {
       on_marker_drag = update_marker_position
     )
     
+    update_facility_data <- function(new_df) {
+      
+      req(
+        !is.null(rv$facility_sf),
+        nrow(rv$facility_sf) > 0
+      )
+      
+      rv$facility_sf <- rv$facility_sf |>
+        dplyr::left_join(
+          new_df,
+          by = "facility_id",
+          suffix = c("", ".new")
+        ) |>
+        dplyr::mutate(
+          facility_name = facility_name.new,
+          facility_type = facility_type.new,
+          operational = operational.new,
+          ri_services = ri_services.new,
+          polio_sia_coordination_site =
+            polio_sia_coordination_site.new
+        ) |>
+        dplyr::select(
+          -ends_with(".new")
+        )
+    }
+    
     facilityTableServer(
-      'table',
+      "table",
       facility_data_r = facility_data,
       selected_id_r = selected_id,
-      on_table_edit = update_table_value
+      on_data_change = update_facility_data
     )
     
     list(
