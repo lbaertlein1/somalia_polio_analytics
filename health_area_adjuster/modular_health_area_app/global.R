@@ -9,6 +9,7 @@ library(raster)
 library(DT)
 library(rhandsontable)
 library(leaflet)
+library(later)
 
 districts_file <- 'data/districts_shp.Rds'
 worldpop_t_u1_1to4_file <- 'data/som_u5_population_2025_100m.tif'
@@ -70,4 +71,5 @@ source('tabs/health_area/mod_health_area_controls.R', local = TRUE)
 source('tabs/health_area/mod_health_area_map.R', local = TRUE)
 source('tabs/health_area/mod_health_area_population.R', local = TRUE)
 source('tabs/health_area/mod_health_area_tab.R', local = TRUE)
+source('tabs/health_area/mod_initial_health_area_generation.R', local = TRUE)
 

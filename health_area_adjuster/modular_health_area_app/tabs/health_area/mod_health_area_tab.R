@@ -32,14 +32,38 @@ healthAreaTabServer <- function(
     district_ready,
     active_tab,
     facility_data,
-    coordination_sites
+    coordination_sites = NULL
 ) {
   moduleServer(id, function(input, output, session) {
     controls <- healthAreaControlsServer('controls')
     map_mod <- healthAreaMapServer('map')
     
+    normalize_dfa_names <- function(x) {
+      x <- unique(as.character(x))
+      x <- x[!is.na(x) & nzchar(x)]
+      c(setdiff(x, extra_dfa_names), extra_dfa_names)
+    }
+    
     pending_action <- reactiveVal(NULL)
     help_shown <- reactiveVal(FALSE)
+    
+    rv <- reactiveValues(
+      district_sf = NULL,
+      district_base_sf = NULL,
+      grid_sf = NULL,
+      initial_assignments = NULL,
+      current_assignments = NULL,
+      saved_dfa_sf = NULL,
+      neighbors_list = NULL,
+      edge_list = NULL,
+      pop_overlay_sf = NULL,
+      pop_table = NULL,
+      max_dim_m = NULL,
+      grid_limits = NULL,
+      brush_limits = NULL,
+      seed_points = NULL,
+      dfa_names = all_dfa_names
+    )
     
     observeEvent(controls$help_click(), {
       show_help_modal(session)
@@ -56,25 +80,11 @@ healthAreaTabServer <- function(
       }
     }, ignoreInit = TRUE)
     
-    rv <- reactiveValues(
-      district_sf = NULL,
-      district_base_sf = NULL,
-      grid_sf = NULL,
-      initial_assignments = NULL,
-      current_assignments = NULL,
-      saved_dfa_sf = NULL,
-      neighbors_list = NULL,
-      edge_list = NULL,
-      pop_overlay_sf = NULL,
-      pop_table = NULL,
-      max_dim_m = NULL,
-      grid_limits = NULL,
-      brush_limits = NULL,
-      seed_points = NULL
-    )
-    
     current_fill_colors <- reactive({
-      make_fill_colors(controls$active_dfa())
+      make_fill_colors(
+        active_dfa = controls$active_dfa(),
+        dfa_names = rv$dfa_names
+      )
     })
     
     healthAreaPopulationServer(
@@ -127,7 +137,9 @@ healthAreaTabServer <- function(
           .groups = 'drop'
         )
       
-      missing_classes <- setdiff(all_dfa_names, df$area_name)
+      current_names <- rv$dfa_names %||% all_dfa_names
+      
+      missing_classes <- setdiff(current_names, df$area_name)
       if (length(missing_classes) > 0) {
         df <- dplyr::bind_rows(
           df,
@@ -140,7 +152,7 @@ healthAreaTabServer <- function(
       }
       
       df <- df |>
-        dplyr::mutate(area_name = factor(area_name, levels = all_dfa_names)) |>
+        dplyr::mutate(area_name = factor(area_name, levels = current_names)) |>
         dplyr::arrange(area_name) |>
         dplyr::mutate(area_name = as.character(area_name))
       
@@ -249,115 +261,99 @@ healthAreaTabServer <- function(
       send_paint_message('paint_toggle_population', list(show = controls$show_pop_raster()))
     }, ignoreInit = TRUE)
     
+    facility_seed_sf <- reactive({
+      if (is.null(facility_data)) {
+        return(NULL)
+      }
+      
+      df <- facility_data()
+      if (is.null(df) || nrow(df) == 0) {
+        return(NULL)
+      }
+      
+      keep <- rep(TRUE, nrow(df))
+      
+      if ('polio_sia_coordination_site' %in% names(df)) {
+        keep <- keep & as.character(df$polio_sia_coordination_site) == 'Yes'
+      }
+      
+      if ('operational' %in% names(df)) {
+        keep <- keep & as.character(df$operational) == 'Operational'
+      }
+      
+      df <- df[keep, , drop = FALSE]
+      
+      if (nrow(df) == 0) {
+        return(NULL)
+      }
+      
+      req(all(c('lon', 'lat') %in% names(df)))
+      
+      sf::st_as_sf(
+        df,
+        coords = c('lon', 'lat'),
+        crs = 4326,
+        remove = FALSE
+      )
+    })
+    
+    initial_scene <- initialHealthAreaGenerationServer(
+      'initial_scene',
+      district_sf = reactive({
+        req(district_base())
+        district_base()$district_sf
+      }),
+      grid_n = reactive({
+        req(district_base())
+        district_base()$grid_limits$value
+      }),
+      n_dfa = n_start_dfas,
+      seed = reactive({
+        req(district())
+        sum(utf8ToInt(district()))
+      })(),
+      facility_seed_sf = facility_seed_sf,
+      facility_name_col = 'facility_name'
+    )
+    
     selected_scene <- reactive({
-      cat("selected_scene triggered\n")
+      cat('selected_scene triggered\n')
       
       req(isTRUE(district_ready()))
-      cat("passed district_ready\n")
-      
       req(zone(), region(), district())
-      cat("passed zone/region/district req\n")
-      cat("zone:", zone(), "\n")
-      cat("region:", region(), "\n")
-      cat("district:", district(), "\n")
       
-      db <- district_base()
-      cat("district_base returned\n")
-      cat("district rows:", nrow(db$district_sf), "\n")
+      sc <- initial_scene$scene()
       
-      district_sf <- db$district_sf
+      seed_df <- initial_scene$seed_points_df()
       
-      grid_info <- make_paint_grid(district_sf, grid_n = db$grid_limits$value)
-      cat("make_paint_grid returned\n")
-      
-      grid_sf <- grid_info$grid_sf
-      cat("grid rows:", nrow(grid_sf), "\n")
-      
-      req(nrow(grid_sf) > 0)
-      cat("passed grid row req\n")
-      
-      district_seed <- sum(utf8ToInt(district()))
-      cat("district_seed computed\n")
-      
-      start_info <- make_start_assignment(
-        grid_sf = grid_sf,
-        district_sf = district_sf,
-        n_dfa = n_start_dfas,
-        seed = district_seed
-      )
-      cat("make_start_assignment returned\n")
-      
-      initial_assignments <- as.character(start_info$assignments)
-      cat("initial assignments length:", length(initial_assignments), "\n")
-      
-      seed_pts <- sf::st_transform(start_info$seeds_sf, 4326)
-      cat("seed points transformed\n")
-      
-      seed_coords <- sf::st_coordinates(seed_pts)
-      cat("seed coords computed\n")
-      
-      seed_points_df <- data.frame(
-        dfa_name = seed_pts$dfa_name,
-        lon = seed_coords[, 1],
-        lat = seed_coords[, 2],
-        stringsAsFactors = FALSE
-      )
-      cat("seed_points_df built\n")
-      
-      seed_points_list <- lapply(seq_len(nrow(seed_points_df)), function(i) {
-        list(
-          dfa_name = as.character(seed_points_df$dfa_name[i]),
-          lon = unname(seed_points_df$lon[i]),
-          lat = unname(seed_points_df$lat[i])
-        )
-      })
-      cat("seed_points_list built\n")
-      
-      touch_list <- sf::st_touches(grid_sf)
-      cat("st_touches done\n")
-      
-      neighbors_list <- lapply(touch_list, as.integer)
-      names(neighbors_list) <- as.character(grid_sf$cell_id)
-      cat("neighbors_list built\n")
-      
-      grid_sf_3857 <- sf::st_transform(grid_sf, 3857)
-      district_3857 <- sf::st_transform(district_sf, 3857)
-      cat("transformed to 3857\n")
-      
-      cell_bbox <- sf::st_bbox(grid_sf_3857[1, ])
-      cell_w <- as.numeric(cell_bbox['xmax'] - cell_bbox['xmin'])
-      cell_h <- as.numeric(cell_bbox['ymax'] - cell_bbox['ymin'])
-      edge_buffer <- max(cell_w, cell_h) * 0.05
-      district_boundary_3857 <- sf::st_boundary(district_3857) |> sf::st_buffer(edge_buffer)
-      edge_flag <- lengths(sf::st_intersects(grid_sf_3857, district_boundary_3857)) > 0
-      cat("edge flags built\n")
-      
-      edge_list <- as.list(edge_flag)
-      names(edge_list) <- as.character(grid_sf$cell_id)
+      dynamic_dfa_names <- if (!is.null(seed_df) && nrow(seed_df) > 0 && 'dfa_name' %in% names(seed_df)) {
+        normalize_dfa_names(c(as.character(seed_df$dfa_name), extra_dfa_names))
+      } else {
+        normalize_dfa_names(c(unique(sc$initial_assignments), extra_dfa_names))
+      }
       
       pop_overlay_sf <- NULL
       if (isTRUE(controls$show_pop_raster())) {
-        cat("building population overlay\n")
+        cat('building population overlay\n')
         pop_overlay_sf <- tryCatch(
-          make_population_overlay_sf(district_sf, get_u5_worldpop()),
+          make_population_overlay_sf(sc$district_sf, get_u5_worldpop()),
           error = function(e) {
-            cat("population overlay error:", e$message, "\n")
+            cat('population overlay error:', e$message, '\n')
             NULL
           }
         )
       }
       
-      cat("selected_scene returning\n")
-      
       list(
-        district_sf = district_sf,
-        grid_sf = grid_sf,
-        initial_assignments = initial_assignments,
-        neighbors_list = neighbors_list,
-        edge_list = edge_list,
+        district_sf = sc$district_sf,
+        grid_sf = sc$grid_sf,
+        initial_assignments = sc$initial_assignments,
+        neighbors_list = sc$neighbors_list,
+        edge_list = sc$edge_list,
         pop_overlay_sf = pop_overlay_sf,
-        max_dim_m = grid_info$max_dim_m,
-        seed_points = seed_points_list
+        max_dim_m = sc$max_dim_m,
+        seed_points = sc$seed_points_list,
+        dfa_names = dynamic_dfa_names
       )
     })
     
@@ -408,9 +404,20 @@ healthAreaTabServer <- function(
     
     observeEvent(selected_scene(), {
       sc <- selected_scene()
+      rv$dfa_names <- sc$dfa_names
       
       rv$district_sf <- sc$district_sf
       rv$grid_sf <- sc$grid_sf
+      
+      selected_dfa <- controls$active_dfa()
+      if (is.null(selected_dfa) || !selected_dfa %in% rv$dfa_names) {
+        selected_dfa <- rv$dfa_names[[1]]
+      }
+      
+      controls$set_dfa_choices(
+        choices = rv$dfa_names,
+        selected = selected_dfa
+      )
       
       if (!'u5_pop' %in% names(rv$grid_sf)) {
         rv$grid_sf$u5_pop <- calculate_grid_cell_population(
@@ -461,6 +468,13 @@ healthAreaTabServer <- function(
     observeEvent(controls$reset_click(), {
       req(isTRUE(district_ready()), tab_active())
       req(!is.null(rv$initial_assignments))
+      req(!is.null(rv$dfa_names), length(rv$dfa_names) > 0)
+      
+      selected_dfa <- controls$active_dfa()
+      if (is.null(selected_dfa) || !selected_dfa %in% rv$dfa_names) {
+        selected_dfa <- rv$dfa_names[[1]]
+        controls$set_dfa_choices(rv$dfa_names, selected_dfa)
+      }
       
       rv$current_assignments <- rv$initial_assignments
       rv$saved_dfa_sf <- NULL
@@ -471,7 +485,7 @@ healthAreaTabServer <- function(
         'paint_set_colors',
         list(
           colors = as.list(current_fill_colors()),
-          activeDfa = controls$active_dfa()
+          activeDfa = selected_dfa
         )
       )
       

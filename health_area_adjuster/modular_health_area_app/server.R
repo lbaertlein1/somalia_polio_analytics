@@ -1,21 +1,24 @@
 app_server <- function(input, output, session) {
   intro <- introTabServer('intro', districts_shp = districts_shp)
+  submitted_facilities <- reactiveVal(NULL)
   
   facility <- facilityTabServer(
     'facility',
     zone = intro$zone,
     region = intro$region,
     district = intro$district,
-    district_ready = intro$district_ready
+    district_ready = intro$district_ready,
+    submitted_facilities = submitted_facilities
   )
   
   healthAreaTabServer(
-    'health_area',
+    "health_area",
     zone = intro$zone,
     region = intro$region,
     district = intro$district,
     district_ready = intro$district_ready,
-    active_tab = reactive(input$main_tabs)
+    active_tab = reactive(input$main_tabs),
+    facility_data = submitted_facilities
   )
 
   set_tab_enabled <- function(value, enabled, title = 'Select a District') {
@@ -40,4 +43,6 @@ app_server <- function(input, output, session) {
       showNotification('Select a district on the Introduction tab first.', type = 'message', duration = 3)
     }
   }, ignoreInit = TRUE)
+  
+  
 }

@@ -1,0 +1,119 @@
+"zone_name","region_name","district_name","friction_file","min_friction","max_friction","non_na_cells"
+"Somaliland","Sanag","Badhan","data/friction/district_standardized/somaliland__sanag__badhan__friction_100m.tif",0.5,1e+06,1711142
+"Somaliland","Sahil","Berbera","data/friction/district_standardized/somaliland__sahil__berbera__friction_100m.tif",0.5,1e+06,1017361
+"Somaliland","Awdal","Borama","data/friction/district_standardized/somaliland__awdal__borama__friction_100m.tif",0.754033148288727,1e+06,166863
+"Puntland","Nugal","Burtinle","data/friction/district_standardized/puntland__nugal__burtinle__friction_100m.tif",0.474999994039536,1e+06,241005
+"Somaliland","Sanag","El Afweyn","data/friction/district_standardized/somaliland__sanag__el_afweyn__friction_100m.tif",0.5,1e+06,875169
+"Somaliland","Sanag","Erigavo","data/friction/district_standardized/somaliland__sanag__erigavo__friction_100m.tif",0.5,1e+06,1049824
+"Puntland","Nugal","Eyl","data/friction/district_standardized/puntland__nugal__eyl__friction_100m.tif",0.5,1e+06,492081
+"Somaliland","Marodijeh","Gabiley","data/friction/district_standardized/somaliland__marodijeh__gabiley__friction_100m.tif",0.5,1e+06,327915
+"Puntland","Mudug","Goldogob","data/friction/district_standardized/puntland__mudug__goldogob__friction_100m.tif",0.5,1e+06,161892
+"Somaliland","Marodijeh","Hargeisa","data/friction/district_standardized/somaliland__marodijeh__hargeisa__friction_100m.tif",0.566023230552673,1e+06,887344
+"Galmudug State","South Mudug","Hobyo","data/friction/district_standardized/galmudug_state__south_mudug__hobyo__friction_100m.tif",0.5,1e+06,1576975
+"Somaliland","Sool","Hudun","data/friction/district_standardized/somaliland__sool__hudun__friction_100m.tif",0.5,1e+06,522757
+"Puntland","Mudug","Jariban","data/friction/district_standardized/puntland__mudug__jariban__friction_100m.tif",0.5,1e+06,1433909
+"Somaliland","Sool","Las Anod","data/friction/district_standardized/somaliland__sool__las_anod__friction_100m.tif",0.474999994039536,1e+06,1236424
+"Somaliland","Awdal","Lughaya","data/friction/district_standardized/somaliland__awdal__lughaya__friction_100m.tif",0.5,1e+06,331019
+"Somaliland","Sool","Taleh","data/friction/district_standardized/somaliland__sool__taleh__friction_100m.tif",0.474999994039536,1e+06,812289
+"Somaliland","Awdal","Zeila","data/friction/district_standardized/somaliland__awdal__zeila__friction_100m.tif",0.5,1e+06,406950
+"Puntland","Nugal","Dangoroyo","data/friction/district_standardized/puntland__nugal__dangoroyo__friction_100m.tif",0.474999994039536,1e+06,605765
+"Puntland","Nugal","Garowe","data/friction/district_standardized/puntland__nugal__garowe__friction_100m.tif",0.489832311868668,1e+06,778330
+"Galmudug State","South Mudug","Haradhere","data/friction/district_standardized/galmudug_state__south_mudug__haradhere__friction_100m.tif",0.515952050685883,1e+06,433061
+"Galmudug State","South Mudug","Galkayu South","data/friction/district_standardized/galmudug_state__south_mudug__galkayu_south__friction_100m.tif",0.5,1e+06,629309
+"Somaliland","Togdheer","Buhodle","data/friction/district_standardized/somaliland__togdheer__buhodle__friction_100m.tif",0.660750448703766,1e+06,519802
+"Somaliland","Togdheer","Aynabo","data/friction/district_standardized/somaliland__togdheer__aynabo__friction_100m.tif",0.5,1e+06,755423
+"Somaliland","Sahil","Sheikh","data/friction/district_standardized/somaliland__sahil__sheikh__friction_100m.tif",0.485738515853882,1e+06,354018
+"Somaliland","Togdheer","Odwayne","data/friction/district_standardized/somaliland__togdheer__odwayne__friction_100m.tif",0.496670335531235,1e+06,725088
+"South West State","Bay","Burhakaba","data/friction/district_standardized/south_west_state__bay__burhakaba__friction_100m.tif",0.479622572660446,1e+06,1247809
+"South West State","Lower Shabelle","Qoryoley","data/friction/district_standardized/south_west_state__lower_shabelle__qoryoley__friction_100m.tif",0.686344921588898,1e+06,154734
+"South West State","Lower Shabelle","Sablale","data/friction/district_standardized/south_west_state__lower_shabelle__sablale__friction_100m.tif",0.474999994039536,1e+06,173920
+"Jubaland State","Middle Juba","Buaale","data/friction/district_standardized/jubaland_state__middle_juba__buaale__friction_100m.tif",0.474999994039536,1e+06,265243
+"Jubaland State","Lower Juba","Afmadow","data/friction/district_standardized/jubaland_state__lower_juba__afmadow__friction_100m.tif",0.5,1e+06,1014470
+"Hir-Shabelle State","Hiran","Jalalaqsi","data/friction/district_standardized/hir_shabelle_state__hiran__jalalaqsi__friction_100m.tif",0.474999994039536,1e+06,283755
+"Hir-Shabelle State","Middle Shabelle","Adale","data/friction/district_standardized/hir_shabelle_state__middle_shabelle__adale__friction_100m.tif",0.53463339805603,1e+06,305576
+"South West State","Lower Shabelle","Wanleweyne","data/friction/district_standardized/south_west_state__lower_shabelle__wanleweyne__friction_100m.tif",0.699415147304535,1e+06,345773
+"South West State","Lower Shabelle","Kurtunwaarey","data/friction/district_standardized/south_west_state__lower_shabelle__kurtunwaarey__friction_100m.tif",0.474999994039536,1e+06,157383
+"South West State","Bay","Dinsoor","data/friction/district_standardized/south_west_state__bay__dinsoor__friction_100m.tif",0.5,1e+06,749813
+"South West State","Bay","Qansah Dheere","data/friction/district_standardized/south_west_state__bay__qansah_dheere__friction_100m.tif",0.5,1e+06,253284
+"Jubaland State","Gedo","Belet Hawa","data/friction/district_standardized/jubaland_state__gedo__belet_hawa__friction_100m.tif",0.5,1e+06,297459
+"Jubaland State","Gedo","El Wak","data/friction/district_standardized/jubaland_state__gedo__el_wak__friction_100m.tif",0.474999994039536,1e+06,718246
+"Jubaland State","Gedo","Bardera","data/friction/district_standardized/jubaland_state__gedo__bardera__friction_100m.tif",0.528842628002167,1e+06,884106
+"Jubaland State","Lower Juba","Badhadhe","data/friction/district_standardized/jubaland_state__lower_juba__badhadhe__friction_100m.tif",0.449999988079071,1e+06,327769
+"Galmudug State","Galgadud","Adado","data/friction/district_standardized/galmudug_state__galgadud__adado__friction_100m.tif",0.5,1e+06,647445
+"Jubaland State","Lower Juba","Kismayo","data/friction/district_standardized/jubaland_state__lower_juba__kismayo__friction_100m.tif",0.425000011920929,1e+06,528635
+"South West State","Lower Shabelle","Marka","data/friction/district_standardized/south_west_state__lower_shabelle__marka__friction_100m.tif",0.740985751152039,1e+06,128138
+"South West State","Lower Shabelle","Brava","data/friction/district_standardized/south_west_state__lower_shabelle__brava__friction_100m.tif",0.5,1e+06,211031
+"Jubaland State","Middle Juba","Jilib East","data/friction/district_standardized/jubaland_state__middle_juba__jilib_east__friction_100m.tif",0.474999994039536,1e+06,265630
+"Jubaland State","Lower Juba","Jamaame West","data/friction/district_standardized/jubaland_state__lower_juba__jamaame_west__friction_100m.tif",0.748628914356232,1e+06,124030
+"Jubaland State","Lower Juba","Jamaame East","data/friction/district_standardized/jubaland_state__lower_juba__jamaame_east__friction_100m.tif",0.5,1e+06,95077
+"Jubaland State","Middle Juba","Sakow","data/friction/district_standardized/jubaland_state__middle_juba__sakow__friction_100m.tif",0.5,1e+06,181863
+"Jubaland State","Middle Juba","Salagle","data/friction/district_standardized/jubaland_state__middle_juba__salagle__friction_100m.tif",0.474999994039536,1e+06,263655
+"Jubaland State","Gedo","Burdubo","data/friction/district_standardized/jubaland_state__gedo__burdubo__friction_100m.tif",0.683229863643646,1e+06,268870
+"South West State","Bay","Berdale","data/friction/district_standardized/south_west_state__bay__berdale__friction_100m.tif",0.5,1e+06,371003
+"South West State","Bay","Baidoa","data/friction/district_standardized/south_west_state__bay__baidoa__friction_100m.tif",0.474999994039536,1e+06,677971
+"South West State","Lower Shabelle","Afgoi","data/friction/district_standardized/south_west_state__lower_shabelle__afgoi__friction_100m.tif",0.817231357097626,1e+06,169606
+"Hir-Shabelle State","Middle Shabelle","Balad","data/friction/district_standardized/hir_shabelle_state__middle_shabelle__balad__friction_100m.tif",0.766236662864685,1e+06,222823
+"Hir-Shabelle State","Middle Shabelle","Warsheikh","data/friction/district_standardized/hir_shabelle_state__middle_shabelle__warsheikh__friction_100m.tif",0.709917545318604,5.99082899093628,149836
+"Hir-Shabelle State","Middle Shabelle","Jowhar","data/friction/district_standardized/hir_shabelle_state__middle_shabelle__jowhar__friction_100m.tif",0.474999994039536,1e+06,264227
+"Hir-Shabelle State","Middle Shabelle","Mahaday","data/friction/district_standardized/hir_shabelle_state__middle_shabelle__mahaday__friction_100m.tif",0.5,1e+06,309079
+"Hir-Shabelle State","Middle Shabelle","Runingod","data/friction/district_standardized/hir_shabelle_state__middle_shabelle__runingod__friction_100m.tif",0.5,5.99713897705078,107554
+"Hir-Shabelle State","Middle Shabelle","Aden Yabal","data/friction/district_standardized/hir_shabelle_state__middle_shabelle__aden_yabal__friction_100m.tif",0.474999994039536,1e+06,369018
+"Galmudug State","Galgadud","Elgaras","data/friction/district_standardized/galmudug_state__galgadud__elgaras__friction_100m.tif",0.474999994039536,1e+06,760095
+"Hir-Shabelle State","Hiran","Bulo Burti","data/friction/district_standardized/hir_shabelle_state__hiran__bulo_burti__friction_100m.tif",0.425000011920929,1e+06,656235
+"Hir-Shabelle State","Hiran","Mahas","data/friction/district_standardized/hir_shabelle_state__hiran__mahas__friction_100m.tif",0.449999988079071,1e+06,326431
+"Hir-Shabelle State","Hiran","Belet Weyne","data/friction/district_standardized/hir_shabelle_state__hiran__belet_weyne__friction_100m.tif",0.425000011920929,1e+06,890057
+"Hir-Shabelle State","Hiran","Mataban","data/friction/district_standardized/hir_shabelle_state__hiran__mataban__friction_100m.tif",0.5,1e+06,376798
+"Galmudug State","Galgadud","Guriel","data/friction/district_standardized/galmudug_state__galgadud__guriel__friction_100m.tif",0.730406165122986,1e+06,195609
+"Galmudug State","Galgadud","Dusamreb","data/friction/district_standardized/galmudug_state__galgadud__dusamreb__friction_100m.tif",0.5,1e+06,734540
+"Galmudug State","Galgadud","El Bur","data/friction/district_standardized/galmudug_state__galgadud__el_bur__friction_100m.tif",0.5,1e+06,450106
+"Galmudug State","Galgadud","Galad","data/friction/district_standardized/galmudug_state__galgadud__galad__friction_100m.tif",0.5,5.98512363433838,213099
+"Galmudug State","Galgadud","Galhareeri","data/friction/district_standardized/galmudug_state__galgadud__galhareeri__friction_100m.tif",0.5,1e+06,389549
+"Galmudug State","Galgadud","Abudwaq","data/friction/district_standardized/galmudug_state__galgadud__abudwaq__friction_100m.tif",0.5,1e+06,208741
+"Galmudug State","Galgadud","Balanbale","data/friction/district_standardized/galmudug_state__galgadud__balanbale__friction_100m.tif",0.5,1e+06,363681
+"Jubaland State","Gedo","Luuq","data/friction/district_standardized/jubaland_state__gedo__luuq__friction_100m.tif",0.679503858089447,1e+06,464093
+"Banadir","Banadir","Shangani","data/friction/district_standardized/banadir__banadir__shangani__friction_100m.tif",2.91799569129944,5.69999980926514,60
+"Banadir","Banadir","Hamar Jabjab","data/friction/district_standardized/banadir__banadir__hamar_jabjab__friction_100m.tif",2.89122152328491,5.9072093963623,215
+"Banadir","Banadir","Wardegly","data/friction/district_standardized/banadir__banadir__wardegly__friction_100m.tif",4.11605739593506,5.86003971099854,479
+"Banadir","Banadir","Yaqshid","data/friction/district_standardized/banadir__banadir__yaqshid__friction_100m.tif",3.49409532546997,5.88990259170532,5120
+"Banadir","Banadir","Heliwa","data/friction/district_standardized/banadir__banadir__heliwa__friction_100m.tif",1.68688631057739,5.94761848449707,7950
+"Banadir","Banadir","Karan","data/friction/district_standardized/banadir__banadir__karan__friction_100m.tif",3.49061369895935,5.98781061172485,1348
+"Banadir","Banadir","Kahda","data/friction/district_standardized/banadir__banadir__kahda__friction_100m.tif",3.37393808364868,5.97070264816284,2888
+"Banadir","Banadir","Danyile","data/friction/district_standardized/banadir__banadir__danyile__friction_100m.tif",3.8298442363739,5.96796798706055,7833
+"Banadir","Banadir","Shibis","data/friction/district_standardized/banadir__banadir__shibis__friction_100m.tif",4.31121492385864,5.69999980926514,104
+"Banadir","Banadir","Hodan","data/friction/district_standardized/banadir__banadir__hodan__friction_100m.tif",4.09235954284668,5.97838354110718,826
+"Banadir","Banadir","Abdul Aziz","data/friction/district_standardized/banadir__banadir__abdul_aziz__friction_100m.tif",2.57710289955139,5.94173574447632,242
+"Banadir","Banadir","Hawal Wadag","data/friction/district_standardized/banadir__banadir__hawal_wadag__friction_100m.tif",4.19718885421753,5.7165002822876,301
+"Banadir","Banadir","Madina","data/friction/district_standardized/banadir__banadir__madina__friction_100m.tif",3.54437899589539,1e+06,2786
+"Banadir","Banadir","Hamar Weyn","data/friction/district_standardized/banadir__banadir__hamar_weyn__friction_100m.tif",3.77188491821289,5.69751119613647,63
+"Banadir","Banadir","Bondere","data/friction/district_standardized/banadir__banadir__bondere__friction_100m.tif",3.96045327186584,5.74702930450439,159
+"Banadir","Banadir","Waberi","data/friction/district_standardized/banadir__banadir__waberi__friction_100m.tif",3.53716850280762,1e+06,699
+"Jubaland State","Lower Juba","Hagar","data/friction/district_standardized/jubaland_state__lower_juba__hagar__friction_100m.tif",0.474999994039536,1e+06,205671
+"Galmudug State","Galgadud","Galinsoor","data/friction/district_standardized/galmudug_state__galgadud__galinsoor__friction_100m.tif",0.5,1e+06,194484
+"Galmudug State","Galgadud","El Dhere","data/friction/district_standardized/galmudug_state__galgadud__el_dhere__friction_100m.tif",0.460109442472458,1e+06,270260
+"Somaliland","Marodijeh","Baligubadle","data/friction/district_standardized/somaliland__marodijeh__baligubadle__friction_100m.tif",0.687632739543915,1e+06,358802
+"Puntland","Bari","Alula","data/friction/district_standardized/puntland__bari__alula__friction_100m.tif",0.5,1e+06,191092
+"Puntland","Bari","Bargaal","data/friction/district_standardized/puntland__bari__bargaal__friction_100m.tif",0.5,1e+06,179969
+"Puntland","Bari","Bossaso","data/friction/district_standardized/puntland__bari__bossaso__friction_100m.tif",0.5,1e+06,376003
+"Puntland","Bari","Iskushuban","data/friction/district_standardized/puntland__bari__iskushuban__friction_100m.tif",0.474999994039536,1e+06,370438
+"Puntland","Bari","Qandala","data/friction/district_standardized/puntland__bari__qandala__friction_100m.tif",0.474999994039536,1e+06,360652
+"Puntland","Bari","Ufeyn","data/friction/district_standardized/puntland__bari__ufeyn__friction_100m.tif",0.5,82.5192108154297,163108
+"South West State","Bakol","Wajid","data/friction/district_standardized/south_west_state__bakol__wajid__friction_100m.tif",0.5,1e+06,344634
+"South West State","Bakol","Tiyeglo","data/friction/district_standardized/south_west_state__bakol__tiyeglo__friction_100m.tif",0.474999994039536,1e+06,401604
+"South West State","Bakol","Hudur","data/friction/district_standardized/south_west_state__bakol__hudur__friction_100m.tif",0.5,1e+06,420362
+"South West State","Bakol","Rabdure","data/friction/district_standardized/south_west_state__bakol__rabdure__friction_100m.tif",0.5,1e+06,243619
+"South West State","Bakol","El Barde","data/friction/district_standardized/south_west_state__bakol__el_barde__friction_100m.tif",0.5,1e+06,316114
+"Somaliland","Awdal","Baki","data/friction/district_standardized/somaliland__awdal__baki__friction_100m.tif",0.5,1e+06,191952
+"Somaliland","Togdheer","Burao","data/friction/district_standardized/somaliland__togdheer__burao__friction_100m.tif",0.5,1e+06,1361008
+"Puntland","Mudug","Galkayu North","data/friction/district_standardized/puntland__mudug__galkayu_north__friction_100m.tif",0.720775663852692,1e+06,409941
+"South West State","Lower Shabelle","Awdheegle","data/friction/district_standardized/south_west_state__lower_shabelle__awdheegle__friction_100m.tif",0.474999994039536,1e+06,264595
+"Banadir","Banadir","Dharkenly","data/friction/district_standardized/banadir__banadir__dharkenly__friction_100m.tif",3.14390063285828,5.961838722229,1835
+"Hir-Shabelle State","Middle Shabelle","Raga Elle","data/friction/district_standardized/hir_shabelle_state__middle_shabelle__raga_elle__friction_100m.tif",0.687448799610138,1e+06,86329
+"Jubaland State","Gedo","Garbaharey","data/friction/district_standardized/jubaland_state__gedo__garbaharey__friction_100m.tif",0.662010014057159,1e+06,353961
+"Jubaland State","Gedo","Dolo","data/friction/district_standardized/jubaland_state__gedo__dolo__friction_100m.tif",0.728314578533173,1e+06,36022
+"Puntland","Karkar","Bender Bayla","data/friction/district_standardized/puntland__karkar__bender_bayla__friction_100m.tif",0.5,1e+06,413756
+"Puntland","Karkar","Gardo","data/friction/district_standardized/puntland__karkar__gardo__friction_100m.tif",0.5,1e+06,567126
+"Puntland","Karkar","Hafun","data/friction/district_standardized/puntland__karkar__hafun__friction_100m.tif",0.474999994039536,1e+06,133070
+"Puntland","Karkar","Rako","data/friction/district_standardized/puntland__karkar__rako__friction_100m.tif",0.5,1e+06,147906
+"Puntland","Karkar","Waciya","data/friction/district_standardized/puntland__karkar__waciya__friction_100m.tif",0.5,1e+06,181864
+"Jubaland State","Gedo","Gedwein","data/friction/district_standardized/jubaland_state__gedo__gedwein__friction_100m.tif",0.578348577022552,1e+06,114228
+"Jubaland State","Lower Juba","Jilib West","data/friction/district_standardized/jubaland_state__lower_juba__jilib_west__friction_100m.tif",0.474999994039536,1e+06,62992

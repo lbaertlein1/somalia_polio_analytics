@@ -4,10 +4,37 @@ facilityMapUI <- function(id) {
   tagList(
     div(
       style = 'position: relative; height: 100%;',
+      
       leaflet::leafletOutput(
         ns('map'),
         width = '100%',
         height = '100%'
+      ),
+      
+      div(
+        id = ns('loading_overlay'),
+        style = "
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255,255,255,0.75);
+          z-index: 1000;
+        ",
+        div(
+          style = '
+            background: rgba(255,255,255,0.96);
+            padding: 12px 18px;
+            border: 1px solid #D9D9D9;
+            border-radius: 6px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+            font-size: 16px;
+            font-weight: 600;
+            color: #333333;
+          ',
+          'Loading district data...'
+        )
       )
     )
   )
@@ -28,6 +55,50 @@ facilityMapServer <- function(
   moduleServer(id, function(input, output, session) {
     
     ns <- session$ns
+    
+    # tracks whether the district identity has actually changed
+    last_district_key <- reactiveVal(NULL)
+    
+    show_loading <- function() {
+      session$sendCustomMessage(
+        'toggle_facility_loading',
+        list(
+          id = ns('loading_overlay'),
+          show = TRUE
+        )
+      )
+    }
+    
+    hide_loading <- function() {
+      session$sendCustomMessage(
+        'toggle_facility_loading',
+        list(
+          id = ns('loading_overlay'),
+          show = FALSE
+        )
+      )
+    }
+    
+    # --------------------------------------------------
+    # Show loading only when district identity changes
+    # --------------------------------------------------
+    
+    observe({
+      req(district_sf())
+      req(nrow(district_sf()) > 0)
+      
+      new_key <- paste0(
+        district_sf()$district_name[[1]],
+        '_',
+        district_sf()$admin_id[[1]]
+      )
+      
+      if (!identical(last_district_key(), new_key)) {
+        last_district_key(new_key)
+        cat('[facilityMap] NEW district detected -> show loading\n')
+        show_loading()
+      }
+    })
     
     # --------------------------------------------------
     # Helpers
@@ -82,56 +153,20 @@ facilityMapServer <- function(
     # Most dense = 1 km
     # --------------------------------------------------
     
-    get_allowed_distance_m <- function(
-    district_density,
-    all_densities
-    ) {
-      
+    get_allowed_distance_m <- function(district_density) {
       district_density <- suppressWarnings(as.numeric(district_density))
       if (length(district_density) == 0) {
         return(5000)
       }
       district_density <- district_density[1]
       
-      all_densities <- suppressWarnings(as.numeric(all_densities))
-      
-      if (length(all_densities) == 0) {
-        return(5000)
-      }
-      
-      all_densities <- all_densities[
-        is.finite(all_densities) &
-          !is.na(all_densities) &
-          all_densities > 0
-      ]
-      
-      if (is.na(district_density) || !is.finite(district_density) || district_density <= 0) {
-        return(5000)
-      }
-      
-      if (length(all_densities) < 2) {
-        return(5000)
-      }
-      
-      q30 <- suppressWarnings(as.numeric(stats::quantile(all_densities, 0.30, na.rm = TRUE, type = 7)))
-      q70 <- suppressWarnings(as.numeric(stats::quantile(all_densities, 0.70, na.rm = TRUE, type = 7)))
-      
-      print(q30)
-      print(q70)
-      
-      if (length(q30) == 0 || length(q70) == 0 || is.na(q30) || is.na(q70) || !is.finite(q30) || !is.finite(q70)) {
-        return(5000)
-      }
-      
-      if (district_density >= q70) {
+      if (district_density >= 10) {
         return(1000)
       }
-      
-      if (district_density <= q30) {
-        return(10000)
+      if (district_density >= 1) {
+        return(5000)
       }
-      
-      return(5000)
+      return(10000)
     }
     
     # --------------------------------------------------
@@ -149,14 +184,8 @@ facilityMapServer <- function(
       
       this_density <- suppressWarnings(as.numeric(district_geom$u5_pop_density_km2[[1]]))
       
-      density_vector <- all_district_densities
-      if (is.null(density_vector)) {
-        density_vector <- this_density
-      }
-      
       buffer_m <- get_allowed_distance_m(
-        district_density = this_density,
-        all_densities = density_vector
+        district_density = this_density
       )
       
       district_proj <- district_geom |>
@@ -252,6 +281,8 @@ facilityMapServer <- function(
           lng2 = bbox[['xmax']],
           lat2 = bbox[['ymax']]
         )
+      
+      cat('[facilityMap] district boundary drawn\n')
     })
     
     # --------------------------------------------------
@@ -281,21 +312,29 @@ facilityMapServer <- function(
     
     observe({
       df <- facility_data_r()
-      req(!is.null(df))
+      if (is.null(df)) {
+        cat('[facilityMap] facility_data_r is NULL\n')
+        return()
+      }
       
       proxy <- leaflet::leafletProxy('map', session = session) |>
         leaflet::clearMarkers()
       
-      if (nrow(df) == 0) {
-        return()
+      if (nrow(df) > 0) {
+        selected_id <- selected_id_r()
+        
+        for (i in seq_len(nrow(df))) {
+          row <- df[i, , drop = FALSE]
+          proxy <- add_one_marker(proxy, row, selected_id)
+        }
       }
       
-      selected_id <- selected_id_r()
+      cat('[facilityMap] markers drawn, n =', nrow(df), '\n')
       
-      for (i in seq_len(nrow(df))) {
-        row <- df[i, , drop = FALSE]
-        proxy <- add_one_marker(proxy, row, selected_id)
-      }
+      later::later(function() {
+        hide_loading()
+        cat('[facilityMap] loading overlay hidden\n')
+      }, delay = 0.3)
     })
     
     # --------------------------------------------------
@@ -417,5 +456,360 @@ facilityMapServer <- function(
       req(!is.null(info$id))
       selected_id_r(as.character(info$id))
     })
+  })
+}
+
+facilityTabUI <- function(id) {
+  ns <- NS(id)
+  
+  tags$script(HTML("
+  $(document).on('shown.bs.tab', 'a[data-toggle=\"tab\"]', function(e) {
+    setTimeout(function() {
+      $('.leaflet').each(function() {
+        var mapWidget = HTMLWidgets.find('#' + this.id);
+        if (mapWidget && mapWidget.getMap) {
+          var map = mapWidget.getMap();
+          if (map) {
+            map.invalidateSize();
+          }
+        }
+      });
+
+      if (window.paintApps) {
+        Object.keys(window.paintApps).forEach(function(k) {
+          var app = window.paintApps[k];
+          if (app && app.map) {
+            app.map.invalidateSize();
+          }
+        });
+      }
+
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
+
+    setTimeout(function() {
+      $('.leaflet').each(function() {
+        var mapWidget = HTMLWidgets.find('#' + this.id);
+        if (mapWidget && mapWidget.getMap) {
+          var map = mapWidget.getMap();
+          if (map) {
+            map.invalidateSize();
+          }
+        }
+      });
+
+      if (window.paintApps) {
+        Object.keys(window.paintApps).forEach(function(k) {
+          var app = window.paintApps[k];
+          if (app && app.map) {
+            app.map.invalidateSize();
+          }
+        });
+      }
+
+      window.dispatchEvent(new Event('resize'));
+    }, 400);
+  });
+"))
+  
+  tagList(
+    div(
+      id = ns('app_row'),
+      class = 'facility-layout',
+      
+      div(
+        id = ns('leftbar'),
+        class = 'facility-leftbar',
+        div(
+          class = 'rightbar-title',
+          'Health Facility Mapping'
+        ),
+        p('Review the preset health facility points for the selected district.'),
+        tags$ul(
+          tags$li('Drag each point to the correct location if needed.'),
+          tags$li('Edit the facility attributes in the table below.'),
+          tags$li('Only facilities marked Yes for SIA Coordination Site will be used in the Health Area Mapping tab.')
+        ),
+        actionButton(
+          ns('add_facility'),
+          'Add new facility',
+          icon = icon('plus'),
+          width = '100%'
+        ),
+        div(
+          style = 'margin-top: 8px; font-size: 12px; color: #666;',
+          'Click this button, then click the map to place the new facility.'
+        )
+      ),
+      
+      div(
+        class = 'facility-main',
+        
+        div(
+          id = ns('mapwrap'),
+          class = 'facility-mapwrap',
+          facilityMapUI(ns('map'))
+        ),
+        
+        div(
+          id = ns('tablewrap'),
+          class = 'facility-tablewrap',
+          facilityTableUI(ns('table'))
+        )
+      )
+    )
+  )
+}
+
+facilityTabServer <- function(id, zone, region, district, district_ready) {
+  moduleServer(id, function(input, output, session) {
+    rv <- reactiveValues(
+      facility_sf = NULL
+    )
+    
+    selected_id <- reactiveVal(NULL)
+    adding_facility <- reactiveVal(FALSE)
+    
+    district_base <- reactive({
+      req(isTRUE(district_ready()))
+      req(zone(), region(), district())
+      
+      district_sf <- districts_shp |>
+        dplyr::filter(
+          zone_name == zone(),
+          region_name == region(),
+          district_name == district()
+        ) |>
+        dplyr::select(
+          admin_id,
+          district_name,
+          region_id,
+          region_name,
+          zone_id,
+          zone_name,
+          u5_pop_density_km2,
+          geometry
+        )
+      
+      req(nrow(district_sf) >= 1)
+      
+      district_sf |>
+        dplyr::summarise(
+          admin_id = dplyr::first(admin_id),
+          district_name = dplyr::first(district_name),
+          region_id = dplyr::first(region_id),
+          region_name = dplyr::first(region_name),
+          zone_id = dplyr::first(zone_id),
+          zone_name = dplyr::first(zone_name),
+          u5_pop_density_km2 = dplyr::first(u5_pop_density_km2),
+          geometry = sf::st_union(geometry),
+          .groups = 'drop'
+        ) |>
+        sf::st_as_sf() |>
+        safe_make_valid()
+    })
+    
+    observeEvent(district(), {
+      req(isTRUE(district_ready()))
+      district_sf <- district_base()
+      
+      cat('facilityTabServer district changed:', district(), '\n')
+      cat('district_base rows:', nrow(district_sf), '\n')
+      
+      district_seed <- sum(utf8ToInt(district()))
+      
+      rv$facility_sf <- make_starter_facilities(
+        district_sf = district_sf,
+        district_name = district(),
+        n_facilities = n_start_dfas,
+        seed = district_seed
+      )
+      
+      cat('starter facilities created, rows:', nrow(rv$facility_sf), '\n')
+      cat('starter facility names:', paste(rv$facility_sf$facility_name, collapse = ', '), '\n')
+      cat(
+        'starter facility lon range:',
+        min(rv$facility_sf$lon), max(rv$facility_sf$lon), '\n'
+      )
+      cat(
+        'starter facility lat range:',
+        min(rv$facility_sf$lat), max(rv$facility_sf$lat), '\n'
+      )
+      
+      adding_facility(FALSE)
+      
+      if (!is.null(rv$facility_sf) && nrow(rv$facility_sf) > 0) {
+        selected_id(as.character(rv$facility_sf$facility_id[1]))
+      } else {
+        selected_id(NULL)
+      }
+    }, ignoreInit = FALSE)
+    
+    facility_data <- reactive({
+      cat('facility_data reactive called\n')
+      out <- facility_sf_to_df(rv$facility_sf)
+      cat('facility_data rows:', nrow(out), '\n')
+      out
+    })
+    
+    coordination_sites <- reactive({
+      df <- facility_data()
+      if (nrow(df) == 0) {
+        return(df)
+      }
+      
+      df |>
+        dplyr::filter(polio_sia_coordination_site == 'Yes')
+    })
+    
+    observeEvent(input$add_facility, {
+      adding_facility(TRUE)
+      showNotification(
+        'Click on the map to place the new facility.',
+        type = 'message',
+        duration = 3
+      )
+    })
+    
+    update_marker_position <- function(facility_id, lat, lon) {
+      req(!is.null(rv$facility_sf), nrow(rv$facility_sf) > 0)
+      
+      idx <- which(rv$facility_sf$facility_id == facility_id)
+      req(length(idx) == 1)
+      
+      rv$facility_sf$lon[idx] <- as.numeric(lon)
+      rv$facility_sf$lat[idx] <- as.numeric(lat)
+      
+      geom <- sf::st_sfc(
+        sf::st_point(c(as.numeric(lon), as.numeric(lat))),
+        crs = 4326
+      )
+      rv$facility_sf$geometry[idx] <- geom[[1]]
+    }
+    
+    add_new_facility <- function(lat, lon) {
+      req(!is.null(rv$facility_sf))
+      
+      new_id <- paste0(
+        'facility_',
+        format(Sys.time(), '%Y%m%d%H%M%S'),
+        '_',
+        sample(1000:9999, 1)
+      )
+      
+      existing_n <- nrow(rv$facility_sf)
+      
+      template_row <- rv$facility_sf[1, , drop = FALSE]
+      template_row$facility_id <- new_id
+      template_row$facility_name <- paste('New Facility', existing_n + 1)
+      template_row$facility_type <- 'Health Post'
+      template_row$operational <- 'Operational'
+      template_row$ri_services <- 'Yes'
+      template_row$polio_sia_coordination_site <- 'No'
+      template_row$lon <- as.numeric(lon)
+      template_row$lat <- as.numeric(lat)
+      template_row$geometry <- sf::st_sfc(
+        sf::st_point(c(as.numeric(lon), as.numeric(lat))),
+        crs = 4326
+      )
+      
+      rv$facility_sf <- rbind(rv$facility_sf, template_row)
+      
+      selected_id(as.character(new_id))
+      adding_facility(FALSE)
+      
+      showNotification(
+        'New facility added.',
+        type = 'message',
+        duration = 3
+      )
+    }
+    
+    update_table_value <- function(row, col, value) {
+      req(!is.null(rv$facility_sf), nrow(rv$facility_sf) >= row)
+      
+      df <- facility_sf_to_df(rv$facility_sf)
+      
+      editable_names <- c(
+        'facility_id',
+        'facility_name',
+        'operational',
+        'ri_services',
+        'facility_type',
+        'polio_sia_coordination_site',
+        'lon',
+        'lat'
+      )
+      
+      col_name <- editable_names[col + 1]
+      
+      if (col_name %in% c('facility_id', 'lon', 'lat')) {
+        return()
+      }
+      
+      if (col_name == 'operational') {
+        value <- if (value %in% c('Operational', 'Not Operational')) value else df[[col_name]][row]
+      }
+      
+      if (col_name == 'ri_services') {
+        value <- if (value %in% c('Yes', 'No')) value else df[[col_name]][row]
+      }
+      
+      if (col_name == 'facility_type') {
+        value <- if (value %in% c('Health Post', 'Health Center', 'Hospital')) value else df[[col_name]][row]
+      }
+      
+      if (col_name == 'polio_sia_coordination_site') {
+        value <- if (value %in% c('Yes', 'No')) value else df[[col_name]][row]
+      }
+      
+      df[[col_name]][row] <- value
+      rv$facility_sf <- facility_df_to_sf(df)
+    }
+    
+    facilityMapServer(
+      id = "map",
+      district_sf = district_base,
+      facility_data_r = facility_data,
+      selected_id_r = selected_id,
+      on_marker_drag = update_marker_position,
+      on_add_facility = add_new_facility,
+      adding_facility_r = adding_facility,
+      show_buffer = TRUE,
+      all_district_densities = all_district_densities
+    )
+    
+    update_facility_data <- function(new_df) {
+      req(!is.null(rv$facility_sf), nrow(rv$facility_sf) > 0)
+      
+      rv$facility_sf <- rv$facility_sf |>
+        dplyr::left_join(
+          new_df,
+          by = "facility_id",
+          suffix = c("", ".new")
+        ) |>
+        dplyr::mutate(
+          facility_name = facility_name.new,
+          facility_type = facility_type.new,
+          operational = operational.new,
+          ri_services = ri_services.new,
+          polio_sia_coordination_site = polio_sia_coordination_site.new
+        ) |>
+        dplyr::select(
+          -ends_with(".new")
+        )
+    }
+    
+    facilityTableServer(
+      "table",
+      facility_data_r = facility_data,
+      selected_id_r = selected_id,
+      on_data_change = update_facility_data
+    )
+    
+    list(
+      facility_data = facility_data,
+      coordination_sites = coordination_sites
+    )
   })
 }

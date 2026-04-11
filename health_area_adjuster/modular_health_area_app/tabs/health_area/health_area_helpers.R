@@ -219,12 +219,19 @@ as_geojson_text <- function(x) {
   geojsonsf::sf_geojson(x)
 }
 
-make_fill_colors <- function(active_dfa) {
-  out <- setNames(rep(nonselected_fill_color, length(all_dfa_names)), all_dfa_names)
-  out[names(special_fill_colors)] <- special_fill_colors
-  if (!is.null(active_dfa) && active_dfa %in% starter_dfa_names) {
+make_fill_colors <- function(active_dfa, dfa_names = all_dfa_names) {
+  dfa_names <- unique(as.character(dfa_names))
+  dfa_names <- c(setdiff(dfa_names, extra_dfa_names), extra_dfa_names)
+  
+  out <- setNames(rep(nonselected_fill_color, length(dfa_names)), dfa_names)
+  
+  special_present <- intersect(names(special_fill_colors), dfa_names)
+  out[special_present] <- special_fill_colors[special_present]
+  
+  if (!is.null(active_dfa) && active_dfa %in% dfa_names && !(active_dfa %in% extra_dfa_names)) {
     out[active_dfa] <- selected_fill_color
   }
+  
   out
 }
 

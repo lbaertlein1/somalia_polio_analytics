@@ -78,6 +78,12 @@ facilityTabUI <- function(id) {
         div(
           style = 'margin-top: 8px; font-size: 12px; color: #666;',
           'Click this button, then click the map to place the new facility.'
+        ),
+        actionButton(
+          ns("submit_facilities"),
+          "Submit Facility Locations",
+          class = "btn-primary",
+          width = "100%"
         )
       ),
       
@@ -100,7 +106,7 @@ facilityTabUI <- function(id) {
   )
 }
 
-facilityTabServer <- function(id, zone, region, district, district_ready) {
+facilityTabServer <- function(id, zone, region, district, district_ready, submitted_facilities) {
   moduleServer(id, function(input, output, session) {
     rv <- reactiveValues(
       facility_sf = NULL
@@ -157,12 +163,16 @@ facilityTabServer <- function(id, zone, region, district, district_ready) {
       
       district_seed <- sum(utf8ToInt(district()))
       
-      rv$facility_sf <- make_starter_facilities(
-        district_sf = district_sf,
-        district_name = district(),
-        n_facilities = n_start_dfas,
-        seed = district_seed
-      )
+      rv$facility_sf <- if (!is.null(rv$seed_points)) {
+        seed_points <- rv$seed_points
+      } else {
+        seed_points <- make_starter_facilities(
+          district_sf = district_sf,
+          district_name = district(),
+          n_facilities = n_start_dfas,
+          seed = district_seed
+        )
+      }
       
       cat('starter facilities created, rows:', nrow(rv$facility_sf), '\n')
       cat('starter facility names:', paste(rv$facility_sf$facility_name, collapse = ', '), '\n')
@@ -342,6 +352,42 @@ facilityTabServer <- function(id, zone, region, district, district_ready) {
       on_data_change = update_facility_data
     )
     
+    
+    observeEvent(input$submit_facilities, {
+      
+      df <- facility_sf_to_df(rv$facility_sf)
+      
+      seeds <- df |>
+        dplyr::filter(
+          !is.na(polio_sia_coordination_site),
+          !is.na(operational),
+          polio_sia_coordination_site == "Yes",
+          operational == "Operational"
+        )
+      
+      if (nrow(seeds) == 0) {
+        showNotification(
+          "At least one operational coordination site is required.",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+      
+      submitted_facilities(seeds)
+      
+      showNotification(
+        "Facility locations submitted successfully.",
+        type = "message",
+        duration = 3
+      )
+    })
+    editing_locked <- reactiveVal(FALSE)
+    observeEvent(input$submit_facilities, {
+      
+      editing_locked(TRUE)
+      
+    })
     list(
       facility_data = facility_data,
       coordination_sites = coordination_sites

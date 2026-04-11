@@ -1,4 +1,6 @@
 app_ui <- function() {
+  shinyjs::useShinyjs()
+  
   fluidPage(
     tags$head(
       tags$link(
@@ -12,8 +14,13 @@ app_ui <- function() {
         integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=',
         crossorigin = ''
       ),
-      tags$link(rel = 'stylesheet', type = 'text/css', href = 'styles.css'),
+      tags$link(
+        rel = 'stylesheet',
+        type = 'text/css',
+        href = 'styles.css'
+      ),
       tags$script(src = 'paint-app.js'),
+      
       tags$style(HTML("
         .nav-tabs li.disabled a {
           color: #999999 !important;
@@ -25,47 +32,58 @@ app_ui <- function() {
           background: #F2F2F2 !important;
         }
       ")),
+      
       tags$script(HTML("
-  $(document).on('shown.bs.tab', 'a[data-toggle=\"tab\"]', function(e) {
-    setTimeout(function() {
-      if (window.paintApps) {
-        Object.keys(window.paintApps).forEach(function(k) {
-          var app = window.paintApps[k];
-          if (app && app.map) {
-            app.map.invalidateSize();
-          }
+        Shiny.addCustomMessageHandler('toggle_facility_loading', function(x) {
+          var el = document.getElementById(x.id);
+          if (!el) return;
+          el.style.display = x.show ? 'flex' : 'none';
         });
-      }
-      window.dispatchEvent(new Event('resize'));
-    }, 100);
 
-    setTimeout(function() {
-      if (window.paintApps) {
-        Object.keys(window.paintApps).forEach(function(k) {
-          var app = window.paintApps[k];
-          if (app && app.map) {
-            app.map.invalidateSize();
-          }
+        $(document).on('shown.bs.tab', 'a[data-toggle=\"tab\"]', function(e) {
+          setTimeout(function() {
+            if (window.paintApps) {
+              Object.keys(window.paintApps).forEach(function(k) {
+                var app = window.paintApps[k];
+                if (app && app.map) {
+                  app.map.invalidateSize();
+                }
+              });
+            }
+            window.dispatchEvent(new Event('resize'));
+          }, 100);
+
+          setTimeout(function() {
+            if (window.paintApps) {
+              Object.keys(window.paintApps).forEach(function(k) {
+                var app = window.paintApps[k];
+                if (app && app.map) {
+                  app.map.invalidateSize();
+                }
+              });
+            }
+            window.dispatchEvent(new Event('resize'));
+          }, 400);
         });
-      }
-      window.dispatchEvent(new Event('resize'));
-    }, 400);
-  });
-"))
+      "))
     ),
+    
     tabsetPanel(
       id = 'main_tabs',
       type = 'tabs',
+      
       tabPanel(
         title = 'Introduction',
         value = 'tab_intro',
         introTabUI('intro', zone_choices = zone_choices)
       ),
+      
       tabPanel(
         title = 'Health Facility Mapping',
         value = 'tab_health_facility_mapping',
         facilityTabUI('facility')
       ),
+      
       tabPanel(
         title = 'Health Area Mapping',
         value = 'tab_health_area_mapping',

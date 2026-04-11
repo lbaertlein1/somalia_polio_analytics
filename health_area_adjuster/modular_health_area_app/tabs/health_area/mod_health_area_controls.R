@@ -1,6 +1,6 @@
 healthAreaControlsUI <- function(id) {
   ns <- NS(id)
-
+  
   tagList(
     div(
       class = 'top-help',
@@ -61,7 +61,20 @@ healthAreaControlsServer <- function(id) {
         step = brush_limits$step
       )
     }
-
+    
+    set_dfa_choices <- function(choices, selected = NULL) {
+      if (is.null(selected) || !selected %in% choices) {
+        selected <- choices[[1]]
+      }
+      
+      updateSelectInput(
+        session,
+        'active_dfa',
+        choices = choices,
+        selected = selected
+      )
+    }
+    
     list(
       active_dfa = reactive(input$active_dfa),
       brush_m = reactive(input$brush_m_ui),
@@ -72,7 +85,8 @@ healthAreaControlsServer <- function(id) {
       reset_click = reactive(input$reset_btn),
       brush_minus_click = reactive(input$brush_minus),
       brush_plus_click = reactive(input$brush_plus),
-      set_brush_limits = set_brush_limits
+      set_brush_limits = set_brush_limits,
+      set_dfa_choices = set_dfa_choices
     )
   })
 }
