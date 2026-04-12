@@ -404,19 +404,71 @@ make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 600
   pop_sf$fill_color <- fill_color
   pop_sf
 }
-make_friction_overlay_sf <- function(district_sf, friction_rast, max_dim_cells = 600) {
-  district_vect <- terra::vect(sf::st_transform(district_sf, terra::crs(friction_rast)))
+
+
+make_friction_overlay_sf <- function(
+    district_sf,
+    friction_rast,
+    max_dim_cells = 600
+) {
+  cat("\n--- make_friction_overlay_sf running ---\n")
+  
+  district_vect <- terra::vect(
+    sf::st_transform(district_sf, terra::crs(friction_rast))
+  )
+  
   r_crop <- terra::crop(friction_rast, district_vect, snap = "out")
   r_mask <- terra::mask(r_crop, district_vect)
   
   vals0 <- terra::values(r_mask)
-  if (all(is.na(vals0))) return(NULL)
+  vals0 <- vals0[is.finite(vals0) & !is.na(vals0)]
+  
+  if (length(vals0) == 0) return(NULL)
+  
+  cat("raw masked quantiles:\n")
+  print(quantile(vals0, probs = c(0, 0.50, 0.80, 0.93, 0.98, 1), na.rm = TRUE))
   
   factor_x <- max(1, ceiling(ncol(r_mask) / max_dim_cells))
   factor_y <- max(1, ceiling(nrow(r_mask) / max_dim_cells))
   fact <- max(factor_x, factor_y)
   
+  cat("aggregation fact:", fact, "\n")
+  
   r_small <- terra::aggregate(r_mask, fact = fact, fun = mean, na.rm = TRUE)
+  
+  vals_small <- terra::values(r_small)
+  vals_small <- vals_small[is.finite(vals_small) & !is.na(vals_small)]
+  
+  if (length(vals_small) == 0) return(NULL)
+  
+  cat("aggregated quantiles:\n")
+  print(quantile(vals_small, probs = c(0, 0.50, 0.80, 0.93, 0.98, 1), na.rm = TRUE))
+  
+  # Compute class breaks from raster cells, not polygons
+  breaks_raw <- c(
+    min(vals_small, na.rm = TRUE),
+    as.numeric(stats::quantile(vals_small, 0.50, na.rm = TRUE)),
+    as.numeric(stats::quantile(vals_small, 0.80, na.rm = TRUE)),
+    as.numeric(stats::quantile(vals_small, 0.93, na.rm = TRUE)),
+    as.numeric(stats::quantile(vals_small, 0.98, na.rm = TRUE)),
+    max(vals_small, na.rm = TRUE) + 1e-9
+  )
+  
+  # Ensure strictly increasing breaks
+  if (any(diff(breaks_raw) <= 0)) {
+    breaks_raw <- unique(breaks_raw)
+    if (length(breaks_raw) < 6) {
+      breaks_raw <- seq(
+        min(vals_small, na.rm = TRUE),
+        max(vals_small, na.rm = TRUE) + 1e-9,
+        length.out = 6
+      )
+    }
+  }
+  
+  cat("breaks used:\n")
+  print(breaks_raw)
+  
   p <- terra::as.polygons(r_small, na.rm = TRUE)
   names(p) <- "friction"
   
@@ -424,25 +476,36 @@ make_friction_overlay_sf <- function(district_sf, friction_rast, max_dim_cells =
   friction_sf <- sf::st_transform(friction_sf, 4326)
   friction_sf <- safe_make_valid(friction_sf)
   
-  vals <- friction_sf$friction
-  vals_non_na <- vals[is.finite(vals) & !is.na(vals)]
-  if (length(vals_non_na) == 0) return(NULL)
+  vals_poly <- friction_sf$friction
   
-  breaks <- unique(stats::quantile(vals_non_na, probs = seq(0, 1, length.out = 6), na.rm = TRUE))
-  if (length(breaks) < 2) {
-    breaks <- c(min(vals_non_na, na.rm = TRUE), max(vals_non_na, na.rm = TRUE) + 1e-9)
-  }
+  friction_cols <- viridis::viridis(
+    n = 5,
+    option = "viridis",
+    direction = 1
+  )
   
-  cols <- viridis::viridis(length(breaks) - 1)
-  idx <- cut(vals, breaks = breaks, include.lowest = TRUE, labels = FALSE)
+  idx <- cut(
+    vals_poly,
+    breaks = breaks_raw,
+    include.lowest = TRUE,
+    labels = FALSE
+  )
   
-  fill_color <- rep("#000000", length(vals))
+  cat("class counts:\n")
+  print(table(idx, useNA = "ifany"))
+  
+  fill_color <- rep("#000000", length(vals_poly))
   ok <- !is.na(idx)
-  fill_color[ok] <- cols[idx[ok]]
+  fill_color[ok] <- friction_cols[idx[ok]]
   
   friction_sf$fill_color <- fill_color
+  friction_sf$friction_class <- idx
+  
+  cat("friction polygons:", nrow(friction_sf), "\n")
+  
   friction_sf
 }
+
 write_raster_overlay_png <- function(
     rast,
     session,
