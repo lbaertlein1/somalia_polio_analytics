@@ -1,29 +1,3 @@
-healthAreaTabUI <- function(id) {
-  ns <- NS(id)
-  
-  tagList(
-    div(
-      id = ns('app_row'),
-      class = 'app-row',
-      div(
-        id = ns('leftbar'),
-        class = 'app-leftbar',
-        healthAreaControlsUI(ns('controls'))
-      ),
-      div(
-        id = ns('mapwrap'),
-        class = 'app-mapwrap',
-        healthAreaMapUI(ns('map'))
-      ),
-      div(
-        id = ns('rightbar'),
-        class = 'app-rightbar',
-        healthAreaPopulationUI(ns('population'))
-      )
-    )
-  )
-}
-
 healthAreaTabServer <- function(
     id,
     zone,
@@ -35,8 +9,8 @@ healthAreaTabServer <- function(
     coordination_sites = NULL
 ) {
   moduleServer(id, function(input, output, session) {
-    controls <- healthAreaControlsServer('controls')
-    map_mod <- healthAreaMapServer('map')
+    controls <- healthAreaControlsServer("controls")
+    map_mod <- healthAreaMapServer("map")
     
     normalize_dfa_names <- function(x) {
       x <- unique(as.character(x))
@@ -57,12 +31,14 @@ healthAreaTabServer <- function(
       neighbors_list = NULL,
       edge_list = NULL,
       pop_overlay_sf = NULL,
+      friction_overlay_sf = NULL,
       pop_table = NULL,
       max_dim_m = NULL,
       grid_limits = NULL,
       brush_limits = NULL,
       seed_points = NULL,
-      dfa_names = all_dfa_names
+      dfa_names = all_dfa_names,
+      friction_path = NULL
     )
     
     observeEvent(controls$help_click(), {
@@ -70,7 +46,7 @@ healthAreaTabServer <- function(
     })
     
     tab_active <- reactive({
-      identical(active_tab(), 'tab_health_area_mapping')
+      identical(active_tab(), "tab_health_area_mapping")
     })
     
     observeEvent(district_ready(), {
@@ -88,9 +64,10 @@ healthAreaTabServer <- function(
     })
     
     healthAreaPopulationServer(
-      'population',
+      "population",
       active_dfa = controls$active_dfa,
       show_pop_raster = controls$show_pop_raster,
+      show_friction_raster = controls$show_friction_raster,
       pop_table = reactive(rv$pop_table)
     )
     
@@ -124,7 +101,7 @@ healthAreaTabServer <- function(
     
     recompute_population_table <- function(assignments) {
       req(!is.null(rv$grid_sf), length(assignments) == nrow(rv$grid_sf))
-      req('u5_pop' %in% names(rv$grid_sf))
+      req("u5_pop" %in% names(rv$grid_sf))
       
       df <- data.frame(
         area_name = assignments,
@@ -134,7 +111,7 @@ healthAreaTabServer <- function(
         dplyr::group_by(area_name) |>
         dplyr::summarise(
           est_u5_pop = round(sum(est_u5_pop, na.rm = TRUE), 0),
-          .groups = 'drop'
+          .groups = "drop"
         )
       
       current_names <- rv$dfa_names %||% all_dfa_names
@@ -161,7 +138,7 @@ healthAreaTabServer <- function(
       rv$pop_table <- dplyr::bind_rows(
         df,
         data.frame(
-          area_name = 'District Total',
+          area_name = "District Total",
           est_u5_pop = district_total,
           stringsAsFactors = FALSE
         )
@@ -201,7 +178,7 @@ healthAreaTabServer <- function(
           zone_id = dplyr::first(zone_id),
           zone_name = dplyr::first(zone_name),
           geometry = sf::st_union(geometry),
-          .groups = 'drop'
+          .groups = "drop"
         ) |>
         sf::st_as_sf()
       
@@ -231,7 +208,7 @@ healthAreaTabServer <- function(
       req(!is.null(bl), !is.null(controls$brush_m()))
       updateSliderInput(
         session,
-        'controls-brush_m_ui',
+        "controls-brush_m_ui",
         value = clamp_num(controls$brush_m() - bl$step, bl$min, bl$max)
       )
     })
@@ -241,24 +218,38 @@ healthAreaTabServer <- function(
       req(!is.null(bl), !is.null(controls$brush_m()))
       updateSliderInput(
         session,
-        'controls-brush_m_ui',
+        "controls-brush_m_ui",
         value = clamp_num(controls$brush_m() + bl$step, bl$min, bl$max)
       )
     })
     
     observeEvent(controls$brush_m(), {
       req(tab_active(), isTRUE(district_ready()))
-      send_paint_message('paint_set_brush', list(value = controls$brush_m()))
+      send_paint_message("paint_set_brush", list(value = controls$brush_m()))
     }, ignoreInit = TRUE)
     
     observeEvent(controls$boundary_only(), {
       req(tab_active(), isTRUE(district_ready()))
-      send_paint_message('paint_set_boundary_only', list(value = controls$boundary_only()))
+      send_paint_message(
+        "paint_set_boundary_only",
+        list(value = controls$boundary_only())
+      )
     }, ignoreInit = TRUE)
     
     observeEvent(controls$show_pop_raster(), {
       req(tab_active(), isTRUE(district_ready()))
-      send_paint_message('paint_toggle_population', list(show = controls$show_pop_raster()))
+      send_paint_message(
+        "paint_toggle_population",
+        list(show = controls$show_pop_raster())
+      )
+    }, ignoreInit = TRUE)
+    
+    observeEvent(controls$show_friction_raster(), {
+      req(tab_active(), isTRUE(district_ready()))
+      send_paint_message(
+        "paint_toggle_friction",
+        list(show = controls$show_friction_raster())
+      )
     }, ignoreInit = TRUE)
     
     facility_seed_sf <- reactive({
@@ -273,12 +264,12 @@ healthAreaTabServer <- function(
       
       keep <- rep(TRUE, nrow(df))
       
-      if ('polio_sia_coordination_site' %in% names(df)) {
-        keep <- keep & as.character(df$polio_sia_coordination_site) == 'Yes'
+      if ("polio_sia_coordination_site" %in% names(df)) {
+        keep <- keep & as.character(df$polio_sia_coordination_site) == "Yes"
       }
       
-      if ('operational' %in% names(df)) {
-        keep <- keep & as.character(df$operational) == 'Operational'
+      if ("operational" %in% names(df)) {
+        keep <- keep & as.character(df$operational) == "Operational"
       }
       
       df <- df[keep, , drop = FALSE]
@@ -287,18 +278,18 @@ healthAreaTabServer <- function(
         return(NULL)
       }
       
-      req(all(c('lon', 'lat') %in% names(df)))
+      req(all(c("lon", "lat") %in% names(df)))
       
       sf::st_as_sf(
         df,
-        coords = c('lon', 'lat'),
+        coords = c("lon", "lat"),
         crs = 4326,
         remove = FALSE
       )
     })
     
     initial_scene <- initialHealthAreaGenerationServer(
-      'initial_scene',
+      "initial_scene",
       district_sf = reactive({
         req(district_base())
         district_base()$district_sf
@@ -313,20 +304,21 @@ healthAreaTabServer <- function(
         sum(utf8ToInt(district()))
       })(),
       facility_seed_sf = facility_seed_sf,
-      facility_name_col = 'facility_name'
+      facility_name_col = "facility_name"
     )
     
     selected_scene <- reactive({
-      cat('selected_scene triggered\n')
+      cat("selected_scene triggered\n")
       
       req(isTRUE(district_ready()))
       req(zone(), region(), district())
       
       sc <- initial_scene$scene()
-      
       seed_df <- initial_scene$seed_points_df()
       
-      dynamic_dfa_names <- if (!is.null(seed_df) && nrow(seed_df) > 0 && 'dfa_name' %in% names(seed_df)) {
+      dynamic_dfa_names <- if (!is.null(seed_df) &&
+                               nrow(seed_df) > 0 &&
+                               "dfa_name" %in% names(seed_df)) {
         normalize_dfa_names(c(as.character(seed_df$dfa_name), extra_dfa_names))
       } else {
         normalize_dfa_names(c(unique(sc$initial_assignments), extra_dfa_names))
@@ -334,14 +326,38 @@ healthAreaTabServer <- function(
       
       pop_overlay_sf <- NULL
       if (isTRUE(controls$show_pop_raster())) {
-        cat('building population overlay\n')
+        cat("building population overlay\n")
         pop_overlay_sf <- tryCatch(
-          make_population_overlay_sf(sc$district_sf, get_u5_worldpop()),
+          make_population_overlay_sf(
+            district_sf = sc$district_sf,
+            u5_rast = get_u5_worldpop()
+          ),
           error = function(e) {
-            cat('population overlay error:', e$message, '\n')
+            cat("population overlay error:", e$message, "\n")
             NULL
           }
         )
+      }
+      
+      friction_overlay_sf <- NULL
+      if (
+        isTRUE(controls$show_friction_raster()) &&
+        !is.null(sc$friction_path) &&
+        file.exists(sc$friction_path)
+      ) {
+        cat("building friction overlay\n")
+        
+        friction_overlay_sf <- tryCatch(
+          make_friction_overlay_sf(
+            district_sf = sc$district_sf,
+            friction_rast = terra::rast(sc$friction_path)
+          ),
+          error = function(e) {
+            cat("friction overlay error:", e$message, "\n")
+            NULL
+          }
+        )
+        cat("friction polygons:", nrow(friction_overlay_sf), "\n")
       }
       
       list(
@@ -351,6 +367,8 @@ healthAreaTabServer <- function(
         neighbors_list = sc$neighbors_list,
         edge_list = sc$edge_list,
         pop_overlay_sf = pop_overlay_sf,
+        friction_overlay_sf = friction_overlay_sf,
+        friction_path = sc$friction_path,
         max_dim_m = sc$max_dim_m,
         seed_points = sc$seed_points_list,
         dfa_names = dynamic_dfa_names
@@ -371,6 +389,12 @@ healthAreaTabServer <- function(
         pop_geojson <- as_geojson_text(rv$pop_overlay_sf)
       }
       
+      friction_geojson <- NULL
+      if (!is.null(rv$friction_overlay_sf) && nrow(rv$friction_overlay_sf) > 0) {
+        friction_geojson <- as_geojson_text(rv$friction_overlay_sf)
+      }
+      cat("friction geojson length:", nchar(friction_geojson), "\n")
+      
       saved_sf <- rv$saved_dfa_sf
       if (is.null(saved_sf)) {
         saved_sf <- build_saved_dfa_sf(
@@ -380,15 +404,17 @@ healthAreaTabServer <- function(
         )
       }
       
-      send_paint_message('show_loading')
+      send_paint_message("show_loading")
       
       send_paint_message(
-        'paint_load_scene',
+        "paint_load_scene",
         list(
           districtGeojson = as_geojson_text(rv$district_sf),
           gridGeojson = as_geojson_text(rv$grid_sf),
           popGeojson = pop_geojson,
+          frictionGeojson = friction_geojson,
           showPop = controls$show_pop_raster(),
+          showFriction = controls$show_friction_raster(),
           initialAssignments = init_named,
           dfaColors = as.list(current_fill_colors()),
           activeDfa = controls$active_dfa(),
@@ -419,7 +445,7 @@ healthAreaTabServer <- function(
         selected = selected_dfa
       )
       
-      if (!'u5_pop' %in% names(rv$grid_sf)) {
+      if (!"u5_pop" %in% names(rv$grid_sf)) {
         rv$grid_sf$u5_pop <- calculate_grid_cell_population(
           rv$grid_sf,
           get_u5_worldpop()
@@ -432,13 +458,11 @@ healthAreaTabServer <- function(
       rv$neighbors_list <- sc$neighbors_list
       rv$edge_list <- sc$edge_list
       rv$pop_overlay_sf <- sc$pop_overlay_sf
+      rv$friction_overlay_sf <- sc$friction_overlay_sf
+      rv$friction_path <- sc$friction_path
       rv$pop_table <- NULL
       rv$max_dim_m <- sc$max_dim_m
       rv$seed_points <- sc$seed_points
-      
-      if (!is.null(rv$brush_limits)) {
-        controls$set_brush_limits(rv$brush_limits)
-      }
       
       recompute_population_table(sc$initial_assignments)
       
@@ -455,14 +479,14 @@ healthAreaTabServer <- function(
     
     observeEvent(map_mod$map_ready(), {
       if (tab_active()) {
-        send_paint_message('hide_loading')
+        send_paint_message("hide_loading")
       }
     }, ignoreInit = TRUE)
     
     observeEvent(controls$save_click(), {
       req(isTRUE(district_ready()), tab_active())
-      pending_action('save')
-      send_paint_message('paint_request_assignments')
+      pending_action("save")
+      send_paint_message("paint_request_assignments")
     })
     
     observeEvent(controls$reset_click(), {
@@ -480,9 +504,9 @@ healthAreaTabServer <- function(
       rv$saved_dfa_sf <- NULL
       pending_action(NULL)
       
-      send_paint_message('paint_reset')
+      send_paint_message("paint_reset")
       send_paint_message(
-        'paint_set_colors',
+        "paint_set_colors",
         list(
           colors = as.list(current_fill_colors()),
           activeDfa = selected_dfa
@@ -516,7 +540,7 @@ healthAreaTabServer <- function(
       
       act <- pending_action()
       
-      if (identical(act, 'save')) {
+      if (identical(act, "save")) {
         saved <- tryCatch(
           build_saved_dfa_sf(
             grid_sf = rv$grid_sf,
@@ -526,10 +550,10 @@ healthAreaTabServer <- function(
           error = function(e) e
         )
         
-        if (inherits(saved, 'error')) {
+        if (inherits(saved, "error")) {
           showNotification(
-            paste('Save failed:', saved$message),
-            type = 'error',
+            paste("Save failed:", saved$message),
+            type = "error",
             duration = 8
           )
           pending_action(NULL)
@@ -537,10 +561,13 @@ healthAreaTabServer <- function(
         }
         
         rv$saved_dfa_sf <- saved
-        send_paint_message('paint_show_saved', list(geojson = as_geojson_text(saved)))
+        send_paint_message(
+          "paint_show_saved",
+          list(geojson = as_geojson_text(saved))
+        )
       }
       
-      if (identical(act, 'save') || identical(act, 'refresh')) {
+      if (identical(act, "save") || identical(act, "refresh")) {
         recompute_population_table(ordered_assignments)
       }
       
@@ -552,19 +579,20 @@ healthAreaTabServer <- function(
       req(!is.null(rv$current_assignments), !is.null(rv$grid_sf), !is.null(rv$district_sf))
       
       send_paint_message(
-        'paint_set_colors',
+        "paint_set_colors",
         list(
           colors = as.list(current_fill_colors()),
           activeDfa = controls$active_dfa()
         )
       )
       
-      pending_action('save')
-      send_paint_message('paint_request_assignments')
+      pending_action("save")
+      send_paint_message("paint_request_assignments")
     }, ignoreInit = TRUE)
     
     list(
-      has_scene = reactive(!is.null(rv$grid_sf))
+      has_scene = reactive(!is.null(rv$grid_sf)),
+      friction_path = reactive(rv$friction_path)
     )
   })
 }

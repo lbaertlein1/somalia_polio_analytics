@@ -28,6 +28,7 @@
       map: null,
       districtLayer: null,
       popLayer: null,
+      frictionLayer: null,
       gridLayer: null,
       savedLayer: null,
       seedLayer: null,
@@ -235,6 +236,38 @@
         };
       },
 
+      frictionStyleForFeature: function(feature) {
+        return {
+          stroke: false,
+          fillColor: feature.properties.fill_color || '#000000',
+          fillOpacity: 0.35
+        };
+      },
+
+      clearFrictionLayer: function() {
+        if (!this.map) return;
+        if (this.frictionLayer) {
+          this.map.removeLayer(this.frictionLayer);
+          this.frictionLayer = null;
+        }
+      },
+
+      buildFrictionLayer: function(frictionGeojson) {
+        this.clearFrictionLayer();
+
+        if (!this.map || !frictionGeojson) return;
+
+        const frGeo =
+          (typeof frictionGeojson === 'string')
+            ? JSON.parse(frictionGeojson)
+            : frictionGeojson;
+
+        this.frictionLayer = L.geoJSON(frGeo, {
+          style: (feature) => this.frictionStyleForFeature(feature),
+          interactive: false
+        });
+      },
+
       refreshCellsAndNeighbors: function(cellIds) {
         const toUpdate = {};
         for (let i = 0; i < cellIds.length; i++) {
@@ -346,6 +379,10 @@
           this.map.removeLayer(this.popLayer);
           this.popLayer = null;
         }
+        if (this.frictionLayer) {
+          this.map.removeLayer(this.frictionLayer);
+          this.frictionLayer = null;
+        }
         if (this.gridLayer) {
           this.map.removeLayer(this.gridLayer);
           this.gridLayer = null;
@@ -367,6 +404,32 @@
           if (!this.map.hasLayer(this.popLayer)) this.popLayer.addTo(this.map);
         } else {
           if (this.map.hasLayer(this.popLayer)) this.map.removeLayer(this.popLayer);
+        }
+        this.bringSeedPointsToFront();
+      },
+
+      setFrictionVisibility: function(showIt) {
+        if (!this.map || !this.frictionLayer) return;
+
+        if (showIt) {
+          if (!this.map.hasLayer(this.frictionLayer)) {
+            this.frictionLayer.addTo(this.map);
+          }
+          if (this.frictionLayer.bringToBack) this.frictionLayer.bringToBack();
+        } else {
+          if (this.map.hasLayer(this.frictionLayer)) {
+            this.map.removeLayer(this.frictionLayer);
+          }
+        }
+
+        if (this.popLayer && this.map.hasLayer(this.popLayer) && this.popLayer.bringToFront) {
+          this.popLayer.bringToFront();
+        }
+        if (this.gridLayer && this.gridLayer.bringToFront) {
+          this.gridLayer.bringToFront();
+        }
+        if (this.savedLayer && this.savedLayer.bringToFront) {
+          this.savedLayer.bringToFront();
         }
         this.bringSeedPointsToFront();
       },
@@ -436,6 +499,13 @@
           if (msg.showPop) this.popLayer.addTo(this.map);
         }
 
+        if (msg.frictionGeojson) {
+          this.buildFrictionLayer(msg.frictionGeojson);
+          if (msg.showFriction) {
+            this.setFrictionVisibility(true);
+          }
+        }
+
         this.gridLayer = L.geoJSON(gridGeo, {
           style: (feature) => this.styleForFeature(feature),
           onEachFeature: (feature, layer) => {
@@ -465,12 +535,34 @@
           }).addTo(this.map);
         }
 
+        if (this.popLayer && msg.showPop && this.popLayer.bringToFront) {
+          this.popLayer.bringToFront();
+        }
+        if (this.gridLayer && this.gridLayer.bringToFront) {
+          this.gridLayer.bringToFront();
+        }
+        if (this.savedLayer && this.savedLayer.bringToFront) {
+          this.savedLayer.bringToFront();
+        }
+
         this.drawSeedPoints(msg.seedPoints || []);
         this.bringSeedPointsToFront();
         this.map.fitBounds(this.districtLayer.getBounds(), { padding: [10, 10] });
 
         setTimeout(() => {
           this.map.invalidateSize();
+          if (this.frictionLayer && msg.showFriction) {
+            this.setFrictionVisibility(true);
+          }
+          if (this.popLayer && msg.showPop && this.popLayer.bringToFront) {
+            this.popLayer.bringToFront();
+          }
+          if (this.gridLayer && this.gridLayer.bringToFront) {
+            this.gridLayer.bringToFront();
+          }
+          if (this.savedLayer && this.savedLayer.bringToFront) {
+            this.savedLayer.bringToFront();
+          }
           this.bringSeedPointsToFront();
         }, 150);
 
@@ -555,6 +647,10 @@
 
     Shiny.addCustomMessageHandler('paint_toggle_population', function(msg) {
       getApp(msg).setPopulationVisibility(!!msg.show);
+    });
+
+    Shiny.addCustomMessageHandler('paint_toggle_friction', function(msg) {
+      getApp(msg).setFrictionVisibility(!!msg.show);
     });
 
     Shiny.addCustomMessageHandler('paint_set_brush', function(msg) {

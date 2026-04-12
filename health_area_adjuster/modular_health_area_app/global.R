@@ -10,6 +10,7 @@ library(DT)
 library(rhandsontable)
 library(leaflet)
 library(later)
+library(viridis)
 
 districts_file <- 'data/districts_shp.Rds'
 worldpop_t_u1_1to4_file <- 'data/som_u5_population_2025_100m.tif'

@@ -5,119 +5,87 @@ initialHealthAreaGenerationServer <- function(
     n_dfa = 5,
     seed = 1,
     facility_seed_sf = reactive(NULL),
-    facility_name_col = NULL
+    facility_name_col = NULL,
+    barrier_lines_sf = reactive(NULL),
+    barrier_penalty = 1e6,
+    compactness_penalty = 0,
+    allow_diagonal = TRUE,
+    max_cost = Inf,
+    friction_dir = file.path(getwd(), "data", "friction", "district_standardized"),
+    friction_lookup_csv = file.path(
+      getwd(), "data", "friction", "district_standardized", "district_friction_index.csv"
+    )
 ) {
   moduleServer(id, function(input, output, session) {
-
+    
     safe_make_valid <- function(x) {
+      if (is.null(x)) return(x)
       sf::st_make_valid(x)
     }
-
+    
+    std_name <- function(x) {
+      x |>
+        tolower() |>
+        gsub("[^a-z0-9]+", "_", x = _) |>
+        gsub("^_+|_+$", "", x = _)
+    }
+    
     make_paint_grid <- function(district_sf, grid_n = 150) {
       district_sf <- safe_make_valid(district_sf)
       district_3857 <- sf::st_transform(district_sf, 3857)
-
+      
       bbox <- sf::st_bbox(district_3857)
       width_m <- bbox$xmax - bbox$xmin
       height_m <- bbox$ymax - bbox$ymin
       max_dim <- max(width_m, height_m)
-
+      
       cellsize <- max_dim / grid_n
-
+      
       raw_grid <- sf::st_make_grid(
         district_3857,
         cellsize = cellsize,
-        what = 'polygons',
+        what = "polygons",
         square = TRUE
       )
-
+      
       grid_sf <- sf::st_sf(
         cell_id = seq_along(raw_grid),
         geometry = raw_grid,
         crs = sf::st_crs(district_3857)
       )
-
+      
       cent_3857 <- suppressWarnings(sf::st_centroid(grid_sf))
       inside <- lengths(sf::st_within(cent_3857, district_3857)) > 0
-
+      
       grid_sf <- grid_sf |>
         dplyr::filter(inside) |>
         dplyr::mutate(cell_id = seq_len(dplyr::n()))
-
-      cent_wgs84 <- sf::st_transform(cent_3857[inside, ], 4326)
+      
+      cent_3857 <- cent_3857[inside, ]
+      cent_wgs84 <- sf::st_transform(cent_3857, 4326)
       coords <- sf::st_coordinates(cent_wgs84)
-
+      
       grid_sf <- sf::st_transform(grid_sf, 4326)
       grid_sf$centroid_lon <- coords[, 1]
       grid_sf$centroid_lat <- coords[, 2]
-
+      
       list(
         grid_sf = grid_sf,
         max_dim_m = as.numeric(max_dim)
       )
     }
-
-    make_start_assignment <- function(grid_sf, district_sf, n_dfa = 5, seed = 1) {
-      set.seed(seed)
-
-      pts <- sf::st_sample(district_sf, size = n_dfa, exact = TRUE)
-
-      pts_sf <- sf::st_sf(
-        dfa_name = paste('Health Area', seq_len(n_dfa)),
-        geometry = pts,
-        crs = sf::st_crs(district_sf)
-      )
-
-      cent <- suppressWarnings(sf::st_centroid(grid_sf))
-      idx <- sf::st_nearest_feature(cent, pts_sf)
-
-      list(
-        assignments = as.character(pts_sf$dfa_name[idx]),
-        seeds_sf = pts_sf
-      )
-    }
-
-    make_start_assignment_from_sites <- function(grid_sf, site_sf, name_col = NULL) {
-      stopifnot(!is.null(grid_sf), nrow(grid_sf) > 0)
-      stopifnot(!is.null(site_sf), nrow(site_sf) > 0)
-
-      site_sf <- sf::st_as_sf(site_sf)
-      site_sf <- sf::st_transform(site_sf, sf::st_crs(grid_sf))
-
-      if (is.null(name_col)) {
-        if ('dfa_name' %in% names(site_sf)) {
-          name_col <- 'dfa_name'
-        } else if ('facility_name' %in% names(site_sf)) {
-          name_col <- 'facility_name'
-        }
-      }
-
-      if (is.null(name_col)) {
-        site_sf$dfa_name <- paste('Health Area', seq_len(nrow(site_sf)))
-      } else {
-        site_sf$dfa_name <- as.character(site_sf[[name_col]])
-      }
-
-      cent <- suppressWarnings(sf::st_centroid(grid_sf))
-      idx <- sf::st_nearest_feature(cent, site_sf)
-
-      list(
-        assignments = as.character(site_sf$dfa_name[idx]),
-        seeds_sf = site_sf
-      )
-    }
-
+    
     build_seed_points_outputs <- function(seed_points_sf) {
       seed_pts <- sf::st_transform(seed_points_sf, 4326)
       seed_coords <- sf::st_coordinates(seed_pts)
-
+      
       seed_points_df <- data.frame(
         dfa_name = as.character(seed_pts$dfa_name),
         lon = seed_coords[, 1],
         lat = seed_coords[, 2],
         stringsAsFactors = FALSE
       )
-
+      
       seed_points_list <- lapply(seq_len(nrow(seed_points_df)), function(i) {
         list(
           dfa_name = seed_points_df$dfa_name[i],
@@ -125,71 +93,545 @@ initialHealthAreaGenerationServer <- function(
           lat = unname(seed_points_df$lat[i])
         )
       })
-
+      
       list(
         seed_points_sf = seed_pts,
         seed_points_df = seed_points_df,
         seed_points_list = seed_points_list
       )
     }
-
-    build_neighbors_list <- function(grid_sf) {
-      touch_list <- sf::st_touches(grid_sf)
+    
+    build_neighbors_list <- function(grid_sf, allow_diagonal = TRUE) {
+      grid_3857 <- sf::st_transform(grid_sf, 3857)
+      
+      if (isTRUE(allow_diagonal)) {
+        touch_list <- sf::st_touches(grid_3857)
+      } else {
+        touch_list <- sf::st_relate(
+          grid_3857,
+          grid_3857,
+          pattern = "F***1****"
+        )
+      }
+      
       neighbors_list <- lapply(touch_list, as.integer)
       names(neighbors_list) <- as.character(grid_sf$cell_id)
       neighbors_list
     }
-
+    
     build_edge_list <- function(grid_sf, district_sf) {
       grid_sf_3857 <- sf::st_transform(grid_sf, 3857)
       district_3857 <- sf::st_transform(district_sf, 3857)
-
+      
       cell_bbox <- sf::st_bbox(grid_sf_3857[1, ])
-      cell_w <- as.numeric(cell_bbox['xmax'] - cell_bbox['xmin'])
-      cell_h <- as.numeric(cell_bbox['ymax'] - cell_bbox['ymin'])
+      cell_w <- as.numeric(cell_bbox["xmax"] - cell_bbox["xmin"])
+      cell_h <- as.numeric(cell_bbox["ymax"] - cell_bbox["ymin"])
       edge_buffer <- max(cell_w, cell_h) * 0.05
-
+      
       district_boundary_3857 <- sf::st_boundary(district_3857) |>
         sf::st_buffer(edge_buffer)
-
+      
       edge_flag <- lengths(sf::st_intersects(grid_sf_3857, district_boundary_3857)) > 0
       edge_list <- as.list(edge_flag)
       names(edge_list) <- as.character(grid_sf$cell_id)
       edge_list
     }
-
+    
+    infer_admin_fields <- function(district_sf) {
+      nm <- names(district_sf)
+      nm_low <- tolower(nm)
+      
+      find_first <- function(candidates) {
+        hit <- nm[match(candidates, nm_low, nomatch = 0)]
+        hit <- hit[hit != ""]
+        if (length(hit) == 0) return(NA_character_)
+        hit[1]
+      }
+      
+      zone_field <- find_first(c(
+        "zone", "state", "admin1", "state_name", "zone_name"
+      ))
+      region_field <- find_first(c(
+        "region", "admin2", "region_name"
+      ))
+      district_field <- find_first(c(
+        "district", "admin3", "district_name"
+      ))
+      
+      list(
+        zone_field = zone_field,
+        region_field = region_field,
+        district_field = district_field
+      )
+    }
+    
+    get_district_friction_path <- function(district_sf, friction_dir, friction_lookup_csv = NULL) {
+      stopifnot(nrow(district_sf) == 1)
+      
+      fields <- infer_admin_fields(district_sf)
+      
+      if (any(is.na(unlist(fields)))) {
+        stop("Could not infer zone/region/district field names from district_sf.")
+      }
+      
+      zone_val <- std_name(as.character(district_sf[[fields$zone_field]][1]))
+      region_val <- std_name(as.character(district_sf[[fields$region_field]][1]))
+      district_val <- std_name(as.character(district_sf[[fields$district_field]][1]))
+      
+      direct_fname <- paste0(zone_val, "__", region_val, "__", district_val, "__friction_100m.tif")
+      direct_path <- file.path(friction_dir, direct_fname)
+      
+      if (file.exists(direct_path)) {
+        return(direct_path)
+      }
+      
+      if (!is.null(friction_lookup_csv) && file.exists(friction_lookup_csv)) {
+        idx <- tryCatch(
+          utils::read.csv(friction_lookup_csv, stringsAsFactors = FALSE),
+          error = function(e) NULL
+        )
+        
+        if (!is.null(idx) && nrow(idx) > 0) {
+          idx_names <- tolower(names(idx))
+          
+          zone_col <- names(idx)[match(c("zone", "state", "admin1"), idx_names, nomatch = 0)][1]
+          region_col <- names(idx)[match(c("region", "admin2"), idx_names, nomatch = 0)][1]
+          district_col <- names(idx)[match(c("district", "admin3"), idx_names, nomatch = 0)][1]
+          file_col <- names(idx)[match(c("file_name", "filename", "file", "path"), idx_names, nomatch = 0)][1]
+          
+          if (!any(is.na(c(zone_col, region_col, district_col, file_col)))) {
+            idx$zone_std <- std_name(idx[[zone_col]])
+            idx$region_std <- std_name(idx[[region_col]])
+            idx$district_std <- std_name(idx[[district_col]])
+            
+            hit <- idx |>
+              dplyr::filter(
+                .data$zone_std == zone_val,
+                .data$region_std == region_val,
+                .data$district_std == district_val
+              )
+            
+            if (nrow(hit) > 0) {
+              candidate <- hit[[file_col]][1]
+              
+              if (file.exists(candidate)) {
+                return(candidate)
+              }
+              
+              candidate2 <- file.path(friction_dir, basename(candidate))
+              if (file.exists(candidate2)) {
+                return(candidate2)
+              }
+            }
+          }
+        }
+      }
+      
+      tif_files <- list.files(friction_dir, pattern = "\\.tif$", full.names = TRUE)
+      
+      target_stub <- paste(zone_val, region_val, district_val, sep = "__")
+      hit <- tif_files[grepl(target_stub, basename(tif_files), fixed = TRUE)]
+      
+      if (length(hit) == 1) {
+        return(hit[1])
+      }
+      
+      if (length(hit) > 1) {
+        return(hit[1])
+      }
+      
+      stop(
+        paste0(
+          "No district friction raster found for: ",
+          zone_val, " / ", region_val, " / ", district_val
+        )
+      )
+    }
+    
+    extract_cell_friction_from_raster <- function(grid_sf, district_sf, friction_path) {
+      if (!file.exists(friction_path)) {
+        stop("Friction raster file does not exist: ", friction_path)
+      }
+      
+      r <- terra::rast(friction_path)
+      
+      grid_vect <- terra::vect(sf::st_transform(grid_sf, terra::crs(r)))
+      cent_vect <- terra::centroids(grid_vect)
+      
+      vals <- terra::extract(r, cent_vect)[, 2]
+      vals <- as.numeric(vals)
+      
+      if (all(is.na(vals))) {
+        stop("All extracted friction values are NA for raster: ", friction_path)
+      }
+      
+      # Fill NA values with median of available cells to avoid breaking propagation
+      if (anyNA(vals)) {
+        med <- stats::median(vals, na.rm = TRUE)
+        vals[is.na(vals)] <- med
+      }
+      
+      # Guard against zero/negative values
+      vals[!is.finite(vals)] <- stats::median(vals[is.finite(vals)], na.rm = TRUE)
+      vals[vals <= 0] <- min(vals[vals > 0], na.rm = TRUE)
+      
+      vals
+    }
+    
+    build_barrier_crossing_matrix <- function(grid_sf, neighbors_list, barrier_lines_sf) {
+      n <- nrow(grid_sf)
+      out <- vector("list", n)
+      names(out) <- as.character(grid_sf$cell_id)
+      
+      if (is.null(barrier_lines_sf) || nrow(barrier_lines_sf) == 0) {
+        for (i in seq_len(n)) {
+          out[[i]] <- integer(0)
+        }
+        return(out)
+      }
+      
+      grid_3857 <- sf::st_transform(grid_sf, 3857)
+      cent_3857 <- suppressWarnings(sf::st_centroid(grid_3857))
+      barrier_3857 <- safe_make_valid(sf::st_transform(barrier_lines_sf, 3857))
+      
+      for (i in seq_len(n)) {
+        nbrs <- neighbors_list[[as.character(grid_sf$cell_id[i])]]
+        
+        if (length(nbrs) == 0) {
+          out[[i]] <- integer(0)
+          next
+        }
+        
+        crossing_nbrs <- integer(0)
+        p1 <- sf::st_coordinates(cent_3857[i, ])
+        
+        for (j in nbrs) {
+          if (j <= i) next
+          
+          p2 <- sf::st_coordinates(cent_3857[j, ])
+          
+          seg <- sf::st_sfc(
+            sf::st_linestring(rbind(p1, p2)),
+            crs = sf::st_crs(cent_3857)
+          )
+          
+          crosses_barrier <- lengths(sf::st_intersects(seg, barrier_3857)) > 0
+          
+          if (isTRUE(crosses_barrier)) {
+            crossing_nbrs <- c(crossing_nbrs, j)
+          }
+        }
+        
+        out[[i]] <- crossing_nbrs
+      }
+      
+      for (i in seq_len(n)) {
+        nbrs <- out[[i]]
+        if (length(nbrs) == 0) next
+        for (j in nbrs) {
+          out[[j]] <- unique(c(out[[j]], i))
+        }
+      }
+      
+      out
+    }
+    
+    get_unique_seed_cells <- function(grid_sf, site_sf) {
+      grid_cent <- suppressWarnings(sf::st_centroid(grid_sf))
+      dist_mat <- sf::st_distance(site_sf, grid_cent)
+      dist_mat <- as.matrix(dist_mat)
+      
+      chosen <- integer(nrow(site_sf))
+      used <- integer(0)
+      
+      for (i in seq_len(nrow(site_sf))) {
+        ord <- order(dist_mat[i, ])
+        pick <- ord[which(!(ord %in% used))[1]]
+        
+        if (length(pick) == 0 || is.na(pick)) {
+          pick <- ord[1]
+        }
+        
+        chosen[i] <- pick
+        used <- c(used, pick)
+      }
+      
+      chosen
+    }
+    
+    make_random_sites <- function(district_sf, n_dfa = 5, seed = 1) {
+      set.seed(seed)
+      
+      pts <- sf::st_sample(district_sf, size = n_dfa, exact = TRUE)
+      
+      sf::st_sf(
+        dfa_name = paste("Health Area", seq_len(n_dfa)),
+        geometry = pts,
+        crs = sf::st_crs(district_sf)
+      )
+    }
+    
+    normalize_sites <- function(site_sf, grid_sf, name_col = NULL) {
+      stopifnot(!is.null(site_sf), nrow(site_sf) > 0)
+      
+      site_sf <- sf::st_as_sf(site_sf)
+      site_sf <- safe_make_valid(site_sf)
+      site_sf <- sf::st_transform(site_sf, sf::st_crs(grid_sf))
+      
+      if (is.null(name_col)) {
+        if ("dfa_name" %in% names(site_sf)) {
+          name_col <- "dfa_name"
+        } else if ("facility_name" %in% names(site_sf)) {
+          name_col <- "facility_name"
+        }
+      }
+      
+      if (is.null(name_col)) {
+        site_sf$dfa_name <- paste("Health Area", seq_len(nrow(site_sf)))
+      } else {
+        site_sf$dfa_name <- as.character(site_sf[[name_col]])
+      }
+      
+      site_sf
+    }
+    
+    propagate_assignments <- function(
+    grid_sf,
+    site_sf,
+    neighbors_list,
+    cell_friction,
+    barrier_crossing_list = NULL,
+    barrier_penalty = 0,
+    compactness_penalty = 0,
+    max_cost = Inf
+    ) {
+      stopifnot(nrow(grid_sf) > 0)
+      stopifnot(nrow(site_sf) > 0)
+      stopifnot(length(cell_friction) == nrow(grid_sf))
+      
+      n <- nrow(grid_sf)
+      
+      seed_cells <- get_unique_seed_cells(grid_sf, site_sf)
+      
+      owner <- rep(NA_character_, n)
+      best_cost <- rep(Inf, n)
+      visited <- rep(FALSE, n)
+      
+      queue_cell <- integer(0)
+      queue_cost <- numeric(0)
+      queue_owner <- character(0)
+      
+      for (i in seq_len(nrow(site_sf))) {
+        cell_i <- seed_cells[i]
+        owner_i <- as.character(site_sf$dfa_name[i])
+        
+        if (0 < best_cost[cell_i]) {
+          best_cost[cell_i] <- 0
+          owner[cell_i] <- owner_i
+          queue_cell <- c(queue_cell, cell_i)
+          queue_cost <- c(queue_cost, 0)
+          queue_owner <- c(queue_owner, owner_i)
+        }
+      }
+      
+      barrier_hit <- function(i, j) {
+        if (is.null(barrier_crossing_list)) return(FALSE)
+        j %in% barrier_crossing_list[[i]]
+      }
+      
+      while (length(queue_cell) > 0) {
+        k <- which.min(queue_cost)[1]
+        
+        cell_i <- queue_cell[k]
+        cost_i <- queue_cost[k]
+        owner_i <- queue_owner[k]
+        
+        queue_cell <- queue_cell[-k]
+        queue_cost <- queue_cost[-k]
+        queue_owner <- queue_owner[-k]
+        
+        if (visited[cell_i]) next
+        if (!isTRUE(all.equal(cost_i, best_cost[cell_i])) && cost_i > best_cost[cell_i]) next
+        
+        visited[cell_i] <- TRUE
+        
+        nbrs <- neighbors_list[[as.character(grid_sf$cell_id[cell_i])]]
+        if (length(nbrs) == 0) next
+        
+        for (nbr in nbrs) {
+          if (visited[nbr]) next
+          
+          edge_pen <- 0
+          if (barrier_hit(cell_i, nbr)) {
+            edge_pen <- edge_pen + barrier_penalty
+          }
+          
+          local_same_owner_n <- 0
+          nbrs2 <- neighbors_list[[as.character(grid_sf$cell_id[nbr])]]
+          if (length(nbrs2) > 0) {
+            local_same_owner_n <- sum(owner[nbrs2] == owner_i, na.rm = TRUE)
+          }
+          
+          shape_pen <- 0
+          if (compactness_penalty > 0 && local_same_owner_n < 2) {
+            shape_pen <- compactness_penalty
+          }
+          
+          move_cost <- ((cell_friction[cell_i] + cell_friction[nbr]) / 2) + edge_pen + shape_pen
+          new_cost <- best_cost[cell_i] + move_cost
+          
+          if (new_cost < best_cost[nbr] && new_cost <= max_cost) {
+            best_cost[nbr] <- new_cost
+            owner[nbr] <- owner_i
+            
+            queue_cell <- c(queue_cell, nbr)
+            queue_cost <- c(queue_cost, new_cost)
+            queue_owner <- c(queue_owner, owner_i)
+          }
+        }
+      }
+      
+      list(
+        assignments = owner,
+        cumulative_cost = best_cost,
+        seeds_sf = site_sf,
+        seed_cell_id = seed_cells
+      )
+    }
+    
+    make_start_assignment <- function(
+    grid_sf,
+    district_sf,
+    neighbors_list,
+    cell_friction,
+    barrier_crossing_list = NULL,
+    n_dfa = 5,
+    seed = 1,
+    barrier_penalty = 0,
+    compactness_penalty = 0,
+    max_cost = Inf
+    ) {
+      pts_sf <- make_random_sites(
+        district_sf = district_sf,
+        n_dfa = n_dfa,
+        seed = seed
+      )
+      
+      propagate_assignments(
+        grid_sf = grid_sf,
+        site_sf = pts_sf,
+        neighbors_list = neighbors_list,
+        cell_friction = cell_friction,
+        barrier_crossing_list = barrier_crossing_list,
+        barrier_penalty = barrier_penalty,
+        compactness_penalty = compactness_penalty,
+        max_cost = max_cost
+      )
+    }
+    
+    make_start_assignment_from_sites <- function(
+    grid_sf,
+    site_sf,
+    neighbors_list,
+    cell_friction,
+    barrier_crossing_list = NULL,
+    name_col = NULL,
+    barrier_penalty = 0,
+    compactness_penalty = 0,
+    max_cost = Inf
+    ) {
+      site_sf <- normalize_sites(
+        site_sf = site_sf,
+        grid_sf = grid_sf,
+        name_col = name_col
+      )
+      
+      propagate_assignments(
+        grid_sf = grid_sf,
+        site_sf = site_sf,
+        neighbors_list = neighbors_list,
+        cell_friction = cell_friction,
+        barrier_crossing_list = barrier_crossing_list,
+        barrier_penalty = barrier_penalty,
+        compactness_penalty = compactness_penalty,
+        max_cost = max_cost
+      )
+    }
+    
     scene <- reactive({
       req(district_sf())
       req(nrow(district_sf()) > 0)
       req(grid_n())
-
+      
       district_sf_value <- safe_make_valid(district_sf())
-
+      
       grid_info <- make_paint_grid(
         district_sf = district_sf_value,
         grid_n = grid_n()
       )
-
+      
       grid_sf_value <- grid_info$grid_sf
+      
+      neighbors_list_value <- build_neighbors_list(
+        grid_sf = grid_sf_value,
+        allow_diagonal = allow_diagonal
+      )
+      
+      friction_path_value <- get_district_friction_path(
+        district_sf = district_sf_value,
+        friction_dir = friction_dir,
+        friction_lookup_csv = friction_lookup_csv
+      )
+      
+      cell_friction_value <- extract_cell_friction_from_raster(
+        grid_sf = grid_sf_value,
+        district_sf = district_sf_value,
+        friction_path = friction_path_value
+      )
+      
+      barrier_sf_value <- barrier_lines_sf()
+      if (!is.null(barrier_sf_value) && nrow(barrier_sf_value) > 0) {
+        barrier_sf_value <- safe_make_valid(barrier_sf_value)
+        barrier_crossing_list_value <- build_barrier_crossing_matrix(
+          grid_sf = grid_sf_value,
+          neighbors_list = neighbors_list_value,
+          barrier_lines_sf = barrier_sf_value
+        )
+      } else {
+        barrier_crossing_list_value <- NULL
+      }
+      
       facility_sf_value <- facility_seed_sf()
-
+      
       if (!is.null(facility_sf_value) && nrow(facility_sf_value) > 0) {
         start_info <- make_start_assignment_from_sites(
           grid_sf = grid_sf_value,
           site_sf = facility_sf_value,
-          name_col = facility_name_col
+          neighbors_list = neighbors_list_value,
+          cell_friction = cell_friction_value,
+          barrier_crossing_list = barrier_crossing_list_value,
+          name_col = facility_name_col,
+          barrier_penalty = barrier_penalty,
+          compactness_penalty = compactness_penalty,
+          max_cost = max_cost
         )
       } else {
         start_info <- make_start_assignment(
           grid_sf = grid_sf_value,
           district_sf = district_sf_value,
+          neighbors_list = neighbors_list_value,
+          cell_friction = cell_friction_value,
+          barrier_crossing_list = barrier_crossing_list_value,
           n_dfa = n_dfa,
-          seed = seed
+          seed = seed,
+          barrier_penalty = barrier_penalty,
+          compactness_penalty = compactness_penalty,
+          max_cost = max_cost
         )
       }
-
+      
       seed_outputs <- build_seed_points_outputs(start_info$seeds_sf)
-
+      
       list(
         district_sf = district_sf_value,
         grid_sf = grid_sf_value,
@@ -197,12 +639,17 @@ initialHealthAreaGenerationServer <- function(
         seed_points_sf = seed_outputs$seed_points_sf,
         seed_points_df = seed_outputs$seed_points_df,
         seed_points_list = seed_outputs$seed_points_list,
-        neighbors_list = build_neighbors_list(grid_sf_value),
+        neighbors_list = neighbors_list_value,
         edge_list = build_edge_list(grid_sf_value, district_sf_value),
-        max_dim_m = grid_info$max_dim_m
+        max_dim_m = grid_info$max_dim_m,
+        cell_friction = cell_friction_value,
+        cumulative_cost = as.numeric(start_info$cumulative_cost),
+        seed_cell_id = as.integer(start_info$seed_cell_id),
+        barrier_crossing_list = barrier_crossing_list_value,
+        friction_path = friction_path_value
       )
     })
-
+    
     list(
       scene = scene,
       district_sf = reactive(scene()$district_sf),
@@ -213,7 +660,12 @@ initialHealthAreaGenerationServer <- function(
       seed_points_list = reactive(scene()$seed_points_list),
       neighbors_list = reactive(scene()$neighbors_list),
       edge_list = reactive(scene()$edge_list),
-      max_dim_m = reactive(scene()$max_dim_m)
+      max_dim_m = reactive(scene()$max_dim_m),
+      cell_friction = reactive(scene()$cell_friction),
+      cumulative_cost = reactive(scene()$cumulative_cost),
+      seed_cell_id = reactive(scene()$seed_cell_id),
+      barrier_crossing_list = reactive(scene()$barrier_crossing_list),
+      friction_path = reactive(scene()$friction_path)
     )
   })
 }

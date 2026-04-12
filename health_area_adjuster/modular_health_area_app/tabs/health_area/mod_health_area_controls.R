@@ -40,6 +40,11 @@ healthAreaControlsUI <- function(id) {
       actionButton(ns('brush_plus'), '+', width = '30px')
     ),
     checkboxInput(ns('show_pop_raster'), 'Show WorldPop U5 Population', value = show_pop_default),
+    checkboxInput(
+      inputId = ns("show_friction_raster"),
+      label = "Show Friction Surface",
+      value = FALSE
+    ),
     checkboxInput(ns('boundary_only'), 'Boundaries only', value = boundary_only_default),
     div(
       class = 'control-row',
@@ -79,6 +84,7 @@ healthAreaControlsServer <- function(id) {
       active_dfa = reactive(input$active_dfa),
       brush_m = reactive(input$brush_m_ui),
       show_pop_raster = reactive(isTRUE(input$show_pop_raster)),
+      show_friction_raster = reactive(input$show_friction_raster),
       boundary_only = reactive(isTRUE(input$boundary_only)),
       help_click = reactive(input$help_btn),
       save_click = reactive(input$save_btn),

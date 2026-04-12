@@ -1,10 +1,11 @@
 healthAreaMapUI <- function(id) {
   ns <- NS(id)
-
+  
   tagList(
-    div(id = ns('paint_map')),
+    div(id = ns("paint_map")),
+    
     div(
-      id = ns('loading_overlay'),
+      id = ns("loading_overlay"),
       div(
         style = '
           background: rgba(255,255,255,0.96);
@@ -27,10 +28,11 @@ healthAreaMapServer <- function(id) {
     list(
       map_ready = reactive(input$paint_map_ready),
       assignments = reactive(input$paint_assignments),
-      map_id = session$ns('paint_map'),
-      loading_overlay_id = session$ns('loading_overlay'),
-      ready_input_id = session$ns('paint_map_ready'),
-      assignments_input_id = session$ns('paint_assignments')
+      
+      map_id = session$ns("paint_map"),
+      loading_overlay_id = session$ns("loading_overlay"),
+      ready_input_id = session$ns("paint_map_ready"),
+      assignments_input_id = session$ns("paint_assignments")
     )
   })
 }

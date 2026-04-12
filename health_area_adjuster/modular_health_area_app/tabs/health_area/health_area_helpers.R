@@ -365,7 +365,7 @@ calculate_grid_cell_population <- function(grid_sf, u5_rast) {
   as.numeric(vals)
 }
 
-make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 120) {
+make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 600) {
   district_vect <- terra::vect(sf::st_transform(district_sf, terra::crs(u5_rast)))
   r_crop <- terra::crop(u5_rast, district_vect, snap = 'out')
   r_mask <- terra::mask(r_crop, district_vect)
@@ -403,4 +403,140 @@ make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 120
 
   pop_sf$fill_color <- fill_color
   pop_sf
+}
+make_friction_overlay_sf <- function(district_sf, friction_rast, max_dim_cells = 600) {
+  district_vect <- terra::vect(sf::st_transform(district_sf, terra::crs(friction_rast)))
+  r_crop <- terra::crop(friction_rast, district_vect, snap = "out")
+  r_mask <- terra::mask(r_crop, district_vect)
+  
+  vals0 <- terra::values(r_mask)
+  if (all(is.na(vals0))) return(NULL)
+  
+  factor_x <- max(1, ceiling(ncol(r_mask) / max_dim_cells))
+  factor_y <- max(1, ceiling(nrow(r_mask) / max_dim_cells))
+  fact <- max(factor_x, factor_y)
+  
+  r_small <- terra::aggregate(r_mask, fact = fact, fun = mean, na.rm = TRUE)
+  p <- terra::as.polygons(r_small, na.rm = TRUE)
+  names(p) <- "friction"
+  
+  friction_sf <- sf::st_as_sf(p)
+  friction_sf <- sf::st_transform(friction_sf, 4326)
+  friction_sf <- safe_make_valid(friction_sf)
+  
+  vals <- friction_sf$friction
+  vals_non_na <- vals[is.finite(vals) & !is.na(vals)]
+  if (length(vals_non_na) == 0) return(NULL)
+  
+  breaks <- unique(stats::quantile(vals_non_na, probs = seq(0, 1, length.out = 6), na.rm = TRUE))
+  if (length(breaks) < 2) {
+    breaks <- c(min(vals_non_na, na.rm = TRUE), max(vals_non_na, na.rm = TRUE) + 1e-9)
+  }
+  
+  cols <- viridis::viridis(length(breaks) - 1)
+  idx <- cut(vals, breaks = breaks, include.lowest = TRUE, labels = FALSE)
+  
+  fill_color <- rep("#000000", length(vals))
+  ok <- !is.na(idx)
+  fill_color[ok] <- cols[idx[ok]]
+  
+  friction_sf$fill_color <- fill_color
+  friction_sf
+}
+write_raster_overlay_png <- function(
+    rast,
+    session,
+    prefix = "raster_overlay",
+    palette = "viridis"
+) {
+  if (is.null(rast)) {
+    return(NULL)
+  }
+  
+  if (!inherits(rast, "SpatRaster")) {
+    stop("write_raster_overlay_png expects a SpatRaster")
+  }
+  
+  vals <- terra::values(rast, mat = FALSE)
+  vals <- vals[is.finite(vals) & !is.na(vals)]
+  
+  if (length(vals) == 0) {
+    return(NULL)
+  }
+  
+  lower <- min(vals, na.rm = TRUE)
+  upper <- max(vals, na.rm = TRUE)
+  
+  if (!is.finite(upper) || upper <= lower) {
+    upper <- lower + 1e-6
+  }
+  
+  pal_fun <- leaflet::colorNumeric(
+    palette = palette,
+    domain = c(lower, upper),
+    na.color = "transparent"
+  )
+  
+  m <- terra::as.matrix(rast, wide = TRUE)
+  
+  # flip rows so north is at the top in the PNG
+  m <- m[nrow(m):1, , drop = FALSE]
+  
+  hex_mat <- matrix(
+    pal_fun(as.vector(m)),
+    nrow = nrow(m),
+    ncol = ncol(m),
+    byrow = FALSE
+  )
+  
+  rgba <- grDevices::col2rgb(as.vector(hex_mat), alpha = TRUE) / 255
+  
+  img <- array(
+    0,
+    dim = c(nrow(hex_mat), ncol(hex_mat), 4)
+  )
+  
+  for (k in 1:4) {
+    img[, , k] <- matrix(
+      rgba[k, ],
+      nrow = nrow(hex_mat),
+      ncol = ncol(hex_mat),
+      byrow = FALSE
+    )
+  }
+  
+  tf <- tempfile(
+    pattern = paste0(prefix, "_"),
+    fileext = ".png"
+  )
+  
+  png::writePNG(img, target = tf)
+  
+  ext <- terra::ext(rast)
+  
+  bounds <- list(
+    xmin = as.numeric(ext$xmin),
+    ymin = as.numeric(ext$ymin),
+    xmax = as.numeric(ext$xmax),
+    ymax = as.numeric(ext$ymax)
+  )
+  
+  resource_prefix <- paste0(prefix, "_", session$token)
+  
+  shiny::addResourcePath(
+    prefix = resource_prefix,
+    directoryPath = dirname(tf)
+  )
+  
+  list(
+    url = paste0(
+      "/",
+      resource_prefix,
+      "/",
+      basename(tf)
+    ),
+    bounds = bounds,
+    lower = lower,
+    upper = upper
+  )
 }
