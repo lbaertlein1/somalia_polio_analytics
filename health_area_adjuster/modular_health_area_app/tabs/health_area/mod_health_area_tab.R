@@ -1,3 +1,29 @@
+healthAreaTabUI <- function(id) {
+  ns <- NS(id)
+  
+  tagList(
+    div(
+      id = ns('app_row'),
+      class = 'app-row',
+      div(
+        id = ns('leftbar'),
+        class = 'app-leftbar',
+        healthAreaControlsUI(ns('controls'))
+      ),
+      div(
+        id = ns('mapwrap'),
+        class = 'app-mapwrap',
+        healthAreaMapUI(ns('map'))
+      ),
+      div(
+        id = ns('rightbar'),
+        class = 'app-rightbar',
+        healthAreaPopulationUI(ns('population'))
+      )
+    )
+  )
+}
+
 healthAreaTabServer <- function(
     id,
     zone,
