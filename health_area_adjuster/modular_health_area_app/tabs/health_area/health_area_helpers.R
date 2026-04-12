@@ -317,12 +317,21 @@ build_dfa_polygons_from_assignments <- function(grid_sf, assignments, district_s
     dplyr::select(dfa_name, geometry)
 }
 
-build_saved_dfa_sf <- function(grid_sf, assignments, district_sf) {
-  build_dfa_polygons_from_assignments(
-    grid_sf = grid_sf,
-    assignments = assignments,
-    district_sf = district_sf
+
+smooth_dfa_boundaries <- function(dfa_sf, district_sf, iterations = 1) {
+  dfa_sf <- safe_make_valid(dfa_sf)
+  
+  dfa_sf <- rmapshaper::ms_smooth(
+    dfa_sf,
+    method = "chaikin",
+    iterations = iterations
   )
+  
+  dfa_sf <- suppressWarnings(sf::st_intersection(dfa_sf, district_sf))
+  dfa_sf <- safe_make_valid(dfa_sf)
+  dfa_sf$geometry <- sf::st_cast(dfa_sf$geometry, "MULTIPOLYGON", warn = FALSE)
+  
+  dfa_sf
 }
 
 make_dfa_label_points <- function(dfa_sf) {
@@ -365,7 +374,7 @@ calculate_grid_cell_population <- function(grid_sf, u5_rast) {
   as.numeric(vals)
 }
 
-make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 600) {
+make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 400) {
   district_vect <- terra::vect(sf::st_transform(district_sf, terra::crs(u5_rast)))
   r_crop <- terra::crop(u5_rast, district_vect, snap = 'out')
   r_mask <- terra::mask(r_crop, district_vect)
@@ -409,7 +418,7 @@ make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 600
 make_friction_overlay_sf <- function(
     district_sf,
     friction_rast,
-    max_dim_cells = 600
+    max_dim_cells = 400
 ) {
   cat("\n--- make_friction_overlay_sf running ---\n")
   
@@ -602,4 +611,145 @@ write_raster_overlay_png <- function(
     lower = lower,
     upper = upper
   )
+}
+
+
+
+build_saved_dfa_sf <- function(
+    grid_sf,
+    assignments,
+    district_sf,
+    outer_buffer_m = 500
+) {
+  # Original exact partition
+  raw <- build_dfa_polygons_from_assignments(
+    grid_sf = grid_sf,
+    assignments = assignments,
+    district_sf = district_sf
+  )
+  
+  raw <- safe_make_valid(raw)
+  district_sf <- safe_make_valid(district_sf)
+  
+  orig_crs <- sf::st_crs(raw)
+  
+  raw_proj <- sf::st_transform(raw, 3857)
+  district_proj <- sf::st_transform(district_sf, 3857)
+  
+  # Buffered areas, clipped to district
+  buffered <- suppressWarnings(
+    sf::st_intersection(
+      sf::st_buffer(raw_proj, dist = outer_buffer_m),
+      district_proj
+    )
+  )
+  buffered <- safe_make_valid(buffered)
+  
+  # Area not covered by original raw partition
+  fringe <- suppressWarnings(
+    sf::st_difference(
+      district_proj,
+      sf::st_union(raw_proj)
+    )
+  )
+  
+  # If no fringe, return raw
+  if (length(fringe) == 0 || all(sf::st_is_empty(fringe))) {
+    out <- raw_proj
+  } else {
+    fringe_sf <- sf::st_as_sf(fringe)
+    fringe_sf <- fringe_sf[!sf::st_is_empty(fringe_sf), , drop = FALSE]
+    
+    if (nrow(fringe_sf) == 0) {
+      out <- raw_proj
+    } else {
+      fringe_sf$piece_id <- seq_len(nrow(fringe_sf))
+      
+      # First try to label fringe by overlap with buffered areas
+      ov <- suppressWarnings(
+        sf::st_intersection(
+          fringe_sf,
+          buffered |>
+            dplyr::select(dfa_name)
+        )
+      )
+      ov <- safe_make_valid(ov)
+      
+      if (nrow(ov) > 0) {
+        ov$ov_area <- as.numeric(sf::st_area(ov))
+        
+        labels <- ov |>
+          sf::st_drop_geometry() |>
+          dplyr::group_by(piece_id) |>
+          dplyr::slice_max(ov_area, n = 1, with_ties = FALSE) |>
+          dplyr::ungroup() |>
+          dplyr::select(piece_id, dfa_name)
+        
+        fringe_sf <- fringe_sf |>
+          dplyr::left_join(labels, by = "piece_id")
+      } else {
+        fringe_sf$dfa_name <- NA_character_
+      }
+      
+      # Any unlabeled fringe gets assigned to nearest raw area
+      if (any(is.na(fringe_sf$dfa_name))) {
+        idx <- sf::st_nearest_feature(
+          sf::st_point_on_surface(fringe_sf[is.na(fringe_sf$dfa_name), ]),
+          raw_proj
+        )
+        fringe_sf$dfa_name[is.na(fringe_sf$dfa_name)] <- raw_proj$dfa_name[idx]
+      }
+      
+      out <- dplyr::bind_rows(
+        raw_proj |>
+          dplyr::select(dfa_name),
+        fringe_sf |>
+          dplyr::select(dfa_name)
+      ) |>
+        dplyr::group_by(dfa_name) |>
+        dplyr::summarise(do_union = TRUE, .groups = "drop")
+    }
+  }
+  
+  out <- safe_make_valid(out)
+  
+  # Final patch for any tiny residual holes
+  residual <- suppressWarnings(
+    sf::st_difference(
+      district_proj,
+      sf::st_union(out)
+    )
+  )
+  
+  if (!(length(residual) == 0 || all(sf::st_is_empty(residual)))) {
+    residual_sf <- sf::st_as_sf(residual)
+    residual_sf <- residual_sf[!sf::st_is_empty(residual_sf), , drop = FALSE]
+    
+    if (nrow(residual_sf) > 0) {
+      idx <- sf::st_nearest_feature(
+        sf::st_point_on_surface(residual_sf),
+        out
+      )
+      residual_sf$dfa_name <- out$dfa_name[idx]
+      
+      out <- dplyr::bind_rows(
+        out |>
+          dplyr::select(dfa_name),
+        residual_sf |>
+          dplyr::select(dfa_name)
+      ) |>
+        dplyr::group_by(dfa_name) |>
+        dplyr::summarise(do_union = TRUE, .groups = "drop")
+    }
+  }
+  
+  out <- safe_make_valid(out)
+  out <- suppressWarnings(sf::st_intersection(out, district_proj))
+  out <- safe_make_valid(out)
+  out <- sf::st_cast(out, "MULTIPOLYGON", warn = FALSE)
+  
+  out |>
+    dplyr::select(dfa_name) |>
+    dplyr::arrange(dfa_name) |>
+    sf::st_transform(orig_crs)
 }

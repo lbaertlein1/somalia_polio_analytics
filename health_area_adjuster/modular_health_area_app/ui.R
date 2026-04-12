@@ -73,19 +73,19 @@ app_ui <- function() {
       type = 'tabs',
       
       tabPanel(
-        title = 'Introduction',
+        title = '(1) Introduction',
         value = 'tab_intro',
         introTabUI('intro', zone_choices = zone_choices)
       ),
       
       tabPanel(
-        title = 'Health Facility Mapping',
+        title = '(2) Health Facility Mapping',
         value = 'tab_health_facility_mapping',
         facilityTabUI('facility')
       ),
       
       tabPanel(
-        title = 'Health Area Mapping',
+        title = '(3) Health Area Mapping',
         value = 'tab_health_area_mapping',
         healthAreaTabUI('health_area')
       )
