@@ -33,10 +33,10 @@ suppressPackageStartupMessages({
 
 cfg <- list(
   # Input national friction raster created by build_national_friction_surface.R
-  friction_file = "data/friction/somalia_friction_100m.tif",
+  friction_file = "C:/Users/epuser/Documents/Github/somalia_polio_analytics/health_area_adjuster/modular_health_area_app/data/friction/somalia_friction_100m.tif",
   
   # District shapefile object saved as RDS
-  districts_file = "data/districts_shp.Rds",
+  districts_file = "C:/Users/epuser/Documents/Github/somalia_polio_analytics/health_area_adjuster/modular_health_area_app/data/districts_shp.Rds",
   
   # Output folder
   output_dir = "C:/Users/epuser/Documents/Github/somalia_polio_analytics/health_area_adjuster/modular_health_area_app/data/friction/district_standardized",

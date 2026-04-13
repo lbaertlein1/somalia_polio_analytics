@@ -143,7 +143,6 @@ water_bodies <- osm_polys |>
   filter(
     (!is.na(natural) & natural %in% c("water", "wetland"))
   ) |>
-<<<<<<< HEAD
   mutate(
     water_class = case_when(
       
@@ -154,8 +153,6 @@ water_bodies <- osm_polys |>
       TRUE ~ "minor"
     )
   ) %>%
-=======
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
   st_make_valid()
 
 message("Water body rows: ", nrow(water_bodies))

@@ -5,7 +5,6 @@ initialHealthAreaGenerationServer <- function(
     n_dfa = 5,
     seed = 1,
     facility_seed_sf = reactive(NULL),
-<<<<<<< HEAD
     facility_name_col = NULL,
     barrier_lines_sf = reactive(NULL),
     barrier_penalty = 1e6,
@@ -35,25 +34,10 @@ initialHealthAreaGenerationServer <- function(
       district_sf <- safe_make_valid(district_sf)
       district_3857 <- sf::st_transform(district_sf, 3857)
       
-=======
-    facility_name_col = NULL
-) {
-  moduleServer(id, function(input, output, session) {
-
-    safe_make_valid <- function(x) {
-      sf::st_make_valid(x)
-    }
-
-    make_paint_grid <- function(district_sf, grid_n = 150) {
-      district_sf <- safe_make_valid(district_sf)
-      district_3857 <- sf::st_transform(district_sf, 3857)
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       bbox <- sf::st_bbox(district_3857)
       width_m <- bbox$xmax - bbox$xmin
       height_m <- bbox$ymax - bbox$ymin
       max_dim <- max(width_m, height_m)
-<<<<<<< HEAD
       
       cellsize <- max_dim / grid_n
       
@@ -64,24 +48,11 @@ initialHealthAreaGenerationServer <- function(
         square = TRUE
       )
       
-=======
-
-      cellsize <- max_dim / grid_n
-
-      raw_grid <- sf::st_make_grid(
-        district_3857,
-        cellsize = cellsize,
-        what = 'polygons',
-        square = TRUE
-      )
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       grid_sf <- sf::st_sf(
         cell_id = seq_along(raw_grid),
         geometry = raw_grid,
         crs = sf::st_crs(district_3857)
       )
-<<<<<<< HEAD
       
       cent_3857 <- suppressWarnings(sf::st_centroid(grid_sf))
       inside <- lengths(sf::st_within(cent_3857, district_3857)) > 0
@@ -98,102 +69,23 @@ initialHealthAreaGenerationServer <- function(
       grid_sf$centroid_lon <- coords[, 1]
       grid_sf$centroid_lat <- coords[, 2]
       
-=======
-
-      cent_3857 <- suppressWarnings(sf::st_centroid(grid_sf))
-      inside <- lengths(sf::st_within(cent_3857, district_3857)) > 0
-
-      grid_sf <- grid_sf |>
-        dplyr::filter(inside) |>
-        dplyr::mutate(cell_id = seq_len(dplyr::n()))
-
-      cent_wgs84 <- sf::st_transform(cent_3857[inside, ], 4326)
-      coords <- sf::st_coordinates(cent_wgs84)
-
-      grid_sf <- sf::st_transform(grid_sf, 4326)
-      grid_sf$centroid_lon <- coords[, 1]
-      grid_sf$centroid_lat <- coords[, 2]
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       list(
         grid_sf = grid_sf,
         max_dim_m = as.numeric(max_dim)
       )
     }
-<<<<<<< HEAD
     
     build_seed_points_outputs <- function(seed_points_sf) {
       seed_pts <- sf::st_transform(seed_points_sf, 4326)
       seed_coords <- sf::st_coordinates(seed_pts)
       
-=======
-
-    make_start_assignment <- function(grid_sf, district_sf, n_dfa = 5, seed = 1) {
-      set.seed(seed)
-
-      pts <- sf::st_sample(district_sf, size = n_dfa, exact = TRUE)
-
-      pts_sf <- sf::st_sf(
-        dfa_name = paste('Health Area', seq_len(n_dfa)),
-        geometry = pts,
-        crs = sf::st_crs(district_sf)
-      )
-
-      cent <- suppressWarnings(sf::st_centroid(grid_sf))
-      idx <- sf::st_nearest_feature(cent, pts_sf)
-
-      list(
-        assignments = as.character(pts_sf$dfa_name[idx]),
-        seeds_sf = pts_sf
-      )
-    }
-
-    make_start_assignment_from_sites <- function(grid_sf, site_sf, name_col = NULL) {
-      stopifnot(!is.null(grid_sf), nrow(grid_sf) > 0)
-      stopifnot(!is.null(site_sf), nrow(site_sf) > 0)
-
-      site_sf <- sf::st_as_sf(site_sf)
-      site_sf <- sf::st_transform(site_sf, sf::st_crs(grid_sf))
-
-      if (is.null(name_col)) {
-        if ('dfa_name' %in% names(site_sf)) {
-          name_col <- 'dfa_name'
-        } else if ('facility_name' %in% names(site_sf)) {
-          name_col <- 'facility_name'
-        }
-      }
-
-      if (is.null(name_col)) {
-        site_sf$dfa_name <- paste('Health Area', seq_len(nrow(site_sf)))
-      } else {
-        site_sf$dfa_name <- as.character(site_sf[[name_col]])
-      }
-
-      cent <- suppressWarnings(sf::st_centroid(grid_sf))
-      idx <- sf::st_nearest_feature(cent, site_sf)
-
-      list(
-        assignments = as.character(site_sf$dfa_name[idx]),
-        seeds_sf = site_sf
-      )
-    }
-
-    build_seed_points_outputs <- function(seed_points_sf) {
-      seed_pts <- sf::st_transform(seed_points_sf, 4326)
-      seed_coords <- sf::st_coordinates(seed_pts)
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       seed_points_df <- data.frame(
         dfa_name = as.character(seed_pts$dfa_name),
         lon = seed_coords[, 1],
         lat = seed_coords[, 2],
         stringsAsFactors = FALSE
       )
-<<<<<<< HEAD
       
-=======
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       seed_points_list <- lapply(seq_len(nrow(seed_points_df)), function(i) {
         list(
           dfa_name = seed_points_df$dfa_name[i],
@@ -201,18 +93,13 @@ initialHealthAreaGenerationServer <- function(
           lat = unname(seed_points_df$lat[i])
         )
       })
-<<<<<<< HEAD
       
-=======
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       list(
         seed_points_sf = seed_pts,
         seed_points_df = seed_points_df,
         seed_points_list = seed_points_list
       )
     }
-<<<<<<< HEAD
     
     build_neighbors_list <- function(grid_sf, allow_diagonal = TRUE) {
       grid_3857 <- sf::st_transform(grid_sf, 3857)
@@ -227,16 +114,10 @@ initialHealthAreaGenerationServer <- function(
         )
       }
       
-=======
-
-    build_neighbors_list <- function(grid_sf) {
-      touch_list <- sf::st_touches(grid_sf)
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       neighbors_list <- lapply(touch_list, as.integer)
       names(neighbors_list) <- as.character(grid_sf$cell_id)
       neighbors_list
     }
-<<<<<<< HEAD
     
     build_edge_list <- function(grid_sf, district_sf) {
       grid_sf_3857 <- sf::st_transform(grid_sf, 3857)
@@ -250,27 +131,11 @@ initialHealthAreaGenerationServer <- function(
       district_boundary_3857 <- sf::st_boundary(district_3857) |>
         sf::st_buffer(edge_buffer)
       
-=======
-
-    build_edge_list <- function(grid_sf, district_sf) {
-      grid_sf_3857 <- sf::st_transform(grid_sf, 3857)
-      district_3857 <- sf::st_transform(district_sf, 3857)
-
-      cell_bbox <- sf::st_bbox(grid_sf_3857[1, ])
-      cell_w <- as.numeric(cell_bbox['xmax'] - cell_bbox['xmin'])
-      cell_h <- as.numeric(cell_bbox['ymax'] - cell_bbox['ymin'])
-      edge_buffer <- max(cell_w, cell_h) * 0.05
-
-      district_boundary_3857 <- sf::st_boundary(district_3857) |>
-        sf::st_buffer(edge_buffer)
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       edge_flag <- lengths(sf::st_intersects(grid_sf_3857, district_boundary_3857)) > 0
       edge_list <- as.list(edge_flag)
       names(edge_list) <- as.character(grid_sf$cell_id)
       edge_list
     }
-<<<<<<< HEAD
     
     infer_admin_fields <- function(district_sf) {
       nm <- names(district_sf)
@@ -638,44 +503,23 @@ initialHealthAreaGenerationServer <- function(
     site_sf,
     neighbors_list,
     cell_friction,
-    cell_population,
-    target_pop = NULL,
     barrier_crossing_list = NULL,
     barrier_penalty = 0,
     compactness_penalty = 0,
     max_cost = Inf,
-    starter_rings = 1,
-    pop_under_penalty = 30,
-    pop_under_power = 2,
-    pop_over_penalty = 150,
-    pop_over_power = 2
+    starter_rings = 1
     ) {
       stopifnot(nrow(grid_sf) > 0)
       stopifnot(nrow(site_sf) > 0)
       stopifnot(length(cell_friction) == nrow(grid_sf))
-      stopifnot(length(cell_population) == nrow(grid_sf))
       
       n <- nrow(grid_sf)
-      
-      cell_population <- as.numeric(cell_population)
-      cell_population[!is.finite(cell_population)] <- 0
-      cell_population[cell_population < 0] <- 0
       
       seed_cells <- get_unique_seed_cells(grid_sf, site_sf)
       
       owner <- rep(NA_character_, n)
       best_cost <- rep(Inf, n)
       visited <- rep(FALSE, n)
-      
-      area_names <- unique(as.character(site_sf$dfa_name))
-      owner_pop <- stats::setNames(
-        rep(0, length(area_names)),
-        area_names
-      )
-      
-      if (is.null(target_pop) || !is.finite(target_pop) || target_pop <= 0) {
-        target_pop <- sum(cell_population, na.rm = TRUE) / length(area_names)
-      }
       
       queue_cell <- integer(0)
       queue_cost <- numeric(0)
@@ -684,22 +528,6 @@ initialHealthAreaGenerationServer <- function(
       barrier_hit <- function(i, j) {
         if (is.null(barrier_crossing_list)) return(FALSE)
         j %in% barrier_crossing_list[[i]]
-      }
-      
-      population_adjustment <- function(current_pop, target_pop) {
-        if (!is.finite(current_pop)) current_pop <- 0
-        if (!is.finite(target_pop) || target_pop <= 0) return(0)
-        
-        pop_ratio <- current_pop / target_pop
-        
-        if (pop_ratio <= 1) {
-          return(pop_under_penalty * (pop_ratio ^ pop_under_power))
-        } else {
-          return(
-            pop_under_penalty +
-              pop_over_penalty * ((pop_ratio - 1) ^ pop_over_power)
-          )
-        }
       }
       
       starter_cells_list <- expand_seed_starter_cells(
@@ -732,17 +560,9 @@ initialHealthAreaGenerationServer <- function(
         }
         
         for (cell_i in starter_cells) {
-          prev_owner <- owner[cell_i]
-          
-          if (!is.na(prev_owner) && prev_owner != owner_i) {
-            owner_pop[[prev_owner]] <- owner_pop[[prev_owner]] - cell_population[cell_i]
-          }
-          
-          if (is.infinite(best_cost[cell_i]) || 0 < best_cost[cell_i] || owner[cell_i] != owner_i) {
+          if (is.infinite(best_cost[cell_i]) || 0 < best_cost[cell_i]) {
             best_cost[cell_i] <- 0
             owner[cell_i] <- owner_i
-            owner_pop[[owner_i]] <- owner_pop[[owner_i]] + cell_population[cell_i]
-            
             queue_cell <- c(queue_cell, cell_i)
             queue_cost <- c(queue_cost, 0)
             queue_owner <- c(queue_owner, owner_i)
@@ -762,7 +582,6 @@ initialHealthAreaGenerationServer <- function(
         queue_owner <- queue_owner[-k]
         
         if (visited[cell_i]) next
-        if (owner[cell_i] != owner_i) next
         if (!isTRUE(all.equal(cost_i, best_cost[cell_i])) && cost_i > best_cost[cell_i]) next
         
         visited[cell_i] <- TRUE
@@ -770,14 +589,9 @@ initialHealthAreaGenerationServer <- function(
         nbrs <- neighbors_list[[as.character(grid_sf$cell_id[cell_i])]]
         if (length(nbrs) == 0) next
         
-        current_owner_pop <- owner_pop[[owner_i]]
-        pop_adjustment <- population_adjustment(
-          current_pop = current_owner_pop,
-          target_pop = target_pop
-        )
-        
         for (nbr in nbrs) {
           if (visited[nbr]) next
+          
           if (barrier_hit(cell_i, nbr)) next
           
           local_same_owner_n <- 0
@@ -791,27 +605,10 @@ initialHealthAreaGenerationServer <- function(
             shape_pen <- compactness_penalty
           }
           
-          move_cost <- ((cell_friction[cell_i] + cell_friction[nbr]) / 2) +
-            shape_pen +
-            pop_adjustment
-          
-          if (is.finite(barrier_penalty) && barrier_penalty > 0 && barrier_hit(cell_i, nbr)) {
-            move_cost <- move_cost + barrier_penalty
-          }
-          
+          move_cost <- ((cell_friction[cell_i] + cell_friction[nbr]) / 2) + shape_pen
           new_cost <- best_cost[cell_i] + move_cost
           
           if (new_cost < best_cost[nbr] && new_cost <= max_cost) {
-            prev_owner <- owner[nbr]
-            
-            if (!is.na(prev_owner) && prev_owner != owner_i) {
-              owner_pop[[prev_owner]] <- owner_pop[[prev_owner]] - cell_population[nbr]
-            }
-            
-            if (is.na(prev_owner) || prev_owner != owner_i) {
-              owner_pop[[owner_i]] <- owner_pop[[owner_i]] + cell_population[nbr]
-            }
-            
             best_cost[nbr] <- new_cost
             owner[nbr] <- owner_i
             
@@ -822,21 +619,11 @@ initialHealthAreaGenerationServer <- function(
         }
       }
       
-      area_population <- data.frame(
-        dfa_name = names(owner_pop),
-        assigned_pop = as.numeric(owner_pop),
-        target_pop = rep(target_pop, length(owner_pop)),
-        pop_ratio = as.numeric(owner_pop) / target_pop,
-        stringsAsFactors = FALSE
-      )
-      
       list(
         assignments = owner,
         cumulative_cost = best_cost,
         seeds_sf = site_sf,
-        seed_cell_id = seed_cells,
-        area_population = area_population,
-        target_pop = target_pop
+        seed_cell_id = seed_cells
       )
     }
     
@@ -845,8 +632,6 @@ initialHealthAreaGenerationServer <- function(
     district_sf,
     neighbors_list,
     cell_friction,
-    cell_population,
-    target_pop = NULL,
     barrier_crossing_list = NULL,
     n_dfa = 5,
     seed = 1,
@@ -866,8 +651,6 @@ initialHealthAreaGenerationServer <- function(
         site_sf = pts_sf,
         neighbors_list = neighbors_list,
         cell_friction = cell_friction,
-        cell_population = cell_population,
-        target_pop = target_pop,
         barrier_crossing_list = barrier_crossing_list,
         barrier_penalty = barrier_penalty,
         compactness_penalty = compactness_penalty,
@@ -882,8 +665,6 @@ initialHealthAreaGenerationServer <- function(
     site_sf,
     neighbors_list,
     cell_friction,
-    cell_population,
-    target_pop = NULL,
     cell_friction_raw = NULL,
     barrier_crossing_list = NULL,
     name_col = NULL,
@@ -912,8 +693,6 @@ initialHealthAreaGenerationServer <- function(
         site_sf = site_sf,
         neighbors_list = neighbors_list,
         cell_friction = cell_friction,
-        cell_population = cell_population,
-        target_pop = target_pop,
         barrier_crossing_list = barrier_crossing_list,
         barrier_penalty = barrier_penalty,
         compactness_penalty = compactness_penalty,
@@ -922,27 +701,17 @@ initialHealthAreaGenerationServer <- function(
       )
     }
     
-=======
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
     scene <- reactive({
       req(district_sf())
       req(nrow(district_sf()) > 0)
       req(grid_n())
-<<<<<<< HEAD
       
       district_sf_value <- safe_make_valid(district_sf())
       
-=======
-
-      district_sf_value <- safe_make_valid(district_sf())
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       grid_info <- make_paint_grid(
         district_sf = district_sf_value,
         grid_n = grid_n()
       )
-<<<<<<< HEAD
       
       grid_sf_value <- grid_info$grid_sf
       
@@ -972,202 +741,52 @@ initialHealthAreaGenerationServer <- function(
         power_high = 6
       )
       
-      # ----------------------------------------------------------
-      # NEW: compute population per grid cell
-      # ----------------------------------------------------------
-      
-      u5_rast <- load_worldpop_u5_raster(
-        t_u1_1to4_file = worldpop_t_u1_1to4_file
-      )
-      
-      grid_sf_value$u5_pop <- calculate_grid_cell_population(
-        grid_sf_value,
-        u5_rast
-      )
-      
-      # ----------------------------------------------------------
-      
       barrier_sf_value <- barrier_lines_sf()
-      
       if (!is.null(barrier_sf_value) && nrow(barrier_sf_value) > 0) {
-        
         barrier_sf_value <- safe_make_valid(barrier_sf_value)
-        
         barrier_crossing_list_value <- build_barrier_crossing_matrix(
           grid_sf = grid_sf_value,
           neighbors_list = neighbors_list_value,
           barrier_lines_sf = barrier_sf_value
         )
-        
       } else {
-        
         barrier_crossing_list_value <- NULL
-        
       }
       
       facility_sf_value <- facility_seed_sf()
       
-      # ----------------------------------------------------------
-      # NEW: compute target population
-      # ----------------------------------------------------------
-      
-      n_seed_areas <- if (
-        !is.null(facility_sf_value) &&
-        nrow(facility_sf_value) > 0
-      ) {
-        
-        nrow(facility_sf_value)
-        
-      } else {
-        
-        n_dfa
-        
-      }
-      
-      target_pop_value <-
-        sum(grid_sf_value$u5_pop, na.rm = TRUE) /
-        n_seed_areas
-      
-      # ----------------------------------------------------------
-      
-      if (
-        !is.null(facility_sf_value) &&
-        nrow(facility_sf_value) > 0
-      ) {
-        
-        start_info <- make_start_assignment_from_sites(
-          
-          grid_sf = grid_sf_value,
-          district_sf = district_sf_value,
-          site_sf = facility_sf_value,
-          
-          neighbors_list = neighbors_list_value,
-          
-          cell_friction = cell_friction_value,
-          
-          # NEW
-          cell_population = grid_sf_value$u5_pop,
-          target_pop = target_pop_value,
-          
-          barrier_crossing_list = barrier_crossing_list_value,
-          
-          name_col = facility_name_col,
-          
-          barrier_penalty = barrier_penalty,
-          compactness_penalty = compactness_penalty,
-          max_cost = max_cost,
-          
-          starter_rings = 2
-          
-        )
-        
-      } else {
-        
-        start_info <- make_start_assignment(
-          
-          grid_sf = grid_sf_value,
-          district_sf = district_sf_value,
-          
-          neighbors_list = neighbors_list_value,
-          
-          cell_friction = cell_friction_value,
-          
-          # NEW
-          cell_population = grid_sf_value$u5_pop,
-          target_pop = target_pop_value,
-          
-          barrier_crossing_list = barrier_crossing_list_value,
-          
-          n_dfa = n_dfa,
-          seed = seed,
-          
-          barrier_penalty = barrier_penalty,
-          compactness_penalty = compactness_penalty,
-          max_cost = max_cost,
-          
-          starter_rings = 2
-          
-        )
-        
-      }
-      
-      seed_outputs <- build_seed_points_outputs(
-        start_info$seeds_sf
-      )
-      
-      list(
-        
-        district_sf = district_sf_value,
-        
-        grid_sf = grid_sf_value,
-        
-        initial_assignments =
-          as.character(start_info$assignments),
-        
-        seed_points_sf =
-          seed_outputs$seed_points_sf,
-        
-        seed_points_df =
-          seed_outputs$seed_points_df,
-        
-        seed_points_list =
-          seed_outputs$seed_points_list,
-        
-        neighbors_list =
-          neighbors_list_value,
-        
-        edge_list =
-          build_edge_list(
-            grid_sf_value,
-            district_sf_value
-          ),
-        
-        max_dim_m =
-          grid_info$max_dim_m,
-        
-        cell_friction =
-          cell_friction_value,
-        
-        cell_friction_raw =
-          cell_friction_raw_value,
-        
-        cumulative_cost =
-          as.numeric(start_info$cumulative_cost),
-        
-        seed_cell_id =
-          as.integer(start_info$seed_cell_id),
-        
-        barrier_crossing_list =
-          barrier_crossing_list_value,
-        
-        friction_path =
-          friction_path_value
-        
-      )
-    })
-    
-=======
-
-      grid_sf_value <- grid_info$grid_sf
-      facility_sf_value <- facility_seed_sf()
-
       if (!is.null(facility_sf_value) && nrow(facility_sf_value) > 0) {
         start_info <- make_start_assignment_from_sites(
           grid_sf = grid_sf_value,
+          district_sf = district_sf_value,
           site_sf = facility_sf_value,
-          name_col = facility_name_col
+          neighbors_list = neighbors_list_value,
+          cell_friction = cell_friction_value,
+          barrier_crossing_list = barrier_crossing_list_value,
+          name_col = facility_name_col,
+          barrier_penalty = barrier_penalty,
+          compactness_penalty = compactness_penalty,
+          max_cost = max_cost,
+          starter_rings = 2
         )
       } else {
         start_info <- make_start_assignment(
           grid_sf = grid_sf_value,
           district_sf = district_sf_value,
+          neighbors_list = neighbors_list_value,
+          cell_friction = cell_friction_value,
+          barrier_crossing_list = barrier_crossing_list_value,
           n_dfa = n_dfa,
-          seed = seed
+          seed = seed,
+          barrier_penalty = barrier_penalty,
+          compactness_penalty = compactness_penalty,
+          max_cost = max_cost,
+          starter_rings = 2
         )
       }
-
+      
       seed_outputs <- build_seed_points_outputs(start_info$seeds_sf)
-
+      
       list(
         district_sf = district_sf_value,
         grid_sf = grid_sf_value,
@@ -1175,13 +794,18 @@ initialHealthAreaGenerationServer <- function(
         seed_points_sf = seed_outputs$seed_points_sf,
         seed_points_df = seed_outputs$seed_points_df,
         seed_points_list = seed_outputs$seed_points_list,
-        neighbors_list = build_neighbors_list(grid_sf_value),
+        neighbors_list = neighbors_list_value,
         edge_list = build_edge_list(grid_sf_value, district_sf_value),
-        max_dim_m = grid_info$max_dim_m
+        max_dim_m = grid_info$max_dim_m,
+        cell_friction = cell_friction_value,
+        cell_friction_raw = cell_friction_raw_value,
+        cumulative_cost = as.numeric(start_info$cumulative_cost),
+        seed_cell_id = as.integer(start_info$seed_cell_id),
+        barrier_crossing_list = barrier_crossing_list_value,
+        friction_path = friction_path_value
       )
     })
-
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
+    
     list(
       scene = scene,
       district_sf = reactive(scene()$district_sf),
@@ -1192,7 +816,6 @@ initialHealthAreaGenerationServer <- function(
       seed_points_list = reactive(scene()$seed_points_list),
       neighbors_list = reactive(scene()$neighbors_list),
       edge_list = reactive(scene()$edge_list),
-<<<<<<< HEAD
       max_dim_m = reactive(scene()$max_dim_m),
       cell_friction = reactive(scene()$cell_friction),
       cell_friction_raw = reactive(scene()$cell_friction_raw),
@@ -1201,11 +824,5 @@ initialHealthAreaGenerationServer <- function(
       barrier_crossing_list = reactive(scene()$barrier_crossing_list),
       friction_path = reactive(scene()$friction_path)
     )
-    })
-  }
-=======
-      max_dim_m = reactive(scene()$max_dim_m)
-    )
   })
 }
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
