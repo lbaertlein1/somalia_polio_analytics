@@ -143,6 +143,16 @@ water_bodies <- osm_polys |>
   filter(
     (!is.na(natural) & natural %in% c("water", "wetland"))
   ) |>
+  mutate(
+    water_class = case_when(
+      
+      natural == "water" ~ "major",
+      
+      natural == "wetland" ~ "minor",
+      
+      TRUE ~ "minor"
+    )
+  ) %>%
   st_make_valid()
 
 message("Water body rows: ", nrow(water_bodies))

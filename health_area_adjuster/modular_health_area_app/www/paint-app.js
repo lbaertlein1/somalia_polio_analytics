@@ -232,7 +232,7 @@
         return {
           stroke: false,
           fillColor: feature.properties.fill_color || '#000000',
-          fillOpacity: 0.35
+          fillOpacity: 0.5
         };
       },
 
@@ -240,7 +240,7 @@
         return {
           stroke: false,
           fillColor: feature.properties.fill_color || '#000000',
-          fillOpacity: 0.35
+          fillOpacity: 0.5
         };
       },
 

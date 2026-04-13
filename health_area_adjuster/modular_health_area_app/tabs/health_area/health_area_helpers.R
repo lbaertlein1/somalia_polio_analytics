@@ -156,20 +156,20 @@ If you have questions or encounter problems while using this tool, contact the <
 }
 
 calc_grid_limits <- function(max_dim_m) {
-  min_n_raw <- clamp_num(max_dim_m / 350, 100, 200)
-  max_n_raw <- clamp_num(max_dim_m / 120, 100, 200)
-
+  min_n_raw <- clamp_num(max_dim_m / 350, 100, 300)
+  max_n_raw <- clamp_num(max_dim_m / 120, 140, 350)
+  
   min_n <- floor(min_n_raw)
   max_n <- ceiling(max_n_raw)
-
+  
   if (max_n <= min_n) {
     max_n <- min_n + 20
   }
-
+  
   range_n <- max_n - min_n
   step_n <- round(range_n * 0.10)
-  step_n <- clamp_num(step_n, 2, 25)
-
+  step_n <- clamp_num(step_n, 2, 20)
+  
   if (step_n <= 5) {
     step_n <- 1
   } else if (step_n <= 10) {
@@ -179,9 +179,9 @@ calc_grid_limits <- function(max_dim_m) {
   } else {
     step_n <- 10
   }
-
-  default_n <- round((min_n + max_n) / 2)
-
+  
+  default_n <- round(min_n + 0.40 * (max_n - min_n))
+  
   list(
     min = as.integer(min_n),
     max = as.integer(max_n),
@@ -374,7 +374,7 @@ calculate_grid_cell_population <- function(grid_sf, u5_rast) {
   as.numeric(vals)
 }
 
-make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 400) {
+make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = Inf) {
   district_vect <- terra::vect(sf::st_transform(district_sf, terra::crs(u5_rast)))
   r_crop <- terra::crop(u5_rast, district_vect, snap = 'out')
   r_mask <- terra::mask(r_crop, district_vect)
@@ -418,7 +418,7 @@ make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = 400
 make_friction_overlay_sf <- function(
     district_sf,
     friction_rast,
-    max_dim_cells = 400
+    max_dim_cells = Inf
 ) {
   cat("\n--- make_friction_overlay_sf running ---\n")
   
@@ -443,7 +443,12 @@ make_friction_overlay_sf <- function(
   
   cat("aggregation fact:", fact, "\n")
   
-  r_small <- terra::aggregate(r_mask, fact = fact, fun = mean, na.rm = TRUE)
+  r_small <- terra::aggregate(
+    r_mask,
+    fact = fact,
+    fun = max,
+    na.rm = TRUE
+  )
   
   vals_small <- terra::values(r_small)
   vals_small <- vals_small[is.finite(vals_small) & !is.na(vals_small)]
@@ -453,165 +458,188 @@ make_friction_overlay_sf <- function(
   cat("aggregated quantiles:\n")
   print(quantile(vals_small, probs = c(0, 0.50, 0.80, 0.93, 0.98, 1), na.rm = TRUE))
   
-  # Compute class breaks from raster cells, not polygons
+  # Fixed breaks from the viewer that worked better
   breaks_raw <- c(
-    min(vals_small, na.rm = TRUE),
-    as.numeric(stats::quantile(vals_small, 0.50, na.rm = TRUE)),
-    as.numeric(stats::quantile(vals_small, 0.80, na.rm = TRUE)),
-    as.numeric(stats::quantile(vals_small, 0.93, na.rm = TRUE)),
-    as.numeric(stats::quantile(vals_small, 0.98, na.rm = TRUE)),
-    max(vals_small, na.rm = TRUE) + 1e-9
+    0,
+    0.000001,
+    0.05,
+    0.1,
+    0.2,
+    0.4,
+    0.6,
+    0.8,
+    0.999999,
+    1.000001
   )
   
-  # Ensure strictly increasing breaks
-  if (any(diff(breaks_raw) <= 0)) {
-    breaks_raw <- unique(breaks_raw)
-    if (length(breaks_raw) < 6) {
-      breaks_raw <- seq(
-        min(vals_small, na.rm = TRUE),
-        max(vals_small, na.rm = TRUE) + 1e-9,
-        length.out = 6
-      )
-    }
-  }
+  friction_cols <- c(
+    "#FFFFFF",  # 0
+    "#440154",
+    "#3B528B",
+    "#21918C",
+    "#5DC863",
+    "#FDE725",
+    "#FDB863",
+    "#E66101",
+    "#B2182B"   # 1 / impassable
+  )
+  
+  friction_labels <- c(
+    "0 (zero)",
+    "0–0.05",
+    "0.05–0.1",
+    "0.1–0.2",
+    "0.2–0.4",
+    "0.4–0.6",
+    "0.6–0.8",
+    "0.8–<1",
+    "1 (impassable)"
+  )
   
   cat("breaks used:\n")
   print(breaks_raw)
   
-  p <- terra::as.polygons(r_small, na.rm = TRUE)
-  names(p) <- "friction"
+  # --------------------------------------------------
+  # IMPORTANT: classify raster FIRST, polygonize SECOND
+  # --------------------------------------------------
+  m <- matrix(
+    c(
+      breaks_raw[-length(breaks_raw)],
+      breaks_raw[-1],
+      seq_len(length(breaks_raw) - 1)
+    ),
+    ncol = 3
+  )
+  
+  r_class <- terra::classify(
+    r_small,
+    rcl = m,
+    include.lowest = TRUE,
+    right = FALSE
+  )
+  
+  vals_class <- terra::values(r_class)
+  vals_class <- vals_class[is.finite(vals_class) & !is.na(vals_class)]
+  
+  cat("classified raster counts:\n")
+  print(table(vals_class, useNA = "ifany"))
+  
+  p <- terra::as.polygons(r_class, na.rm = TRUE)
+  names(p) <- "friction_class"
   
   friction_sf <- sf::st_as_sf(p)
   friction_sf <- sf::st_transform(friction_sf, 4326)
   friction_sf <- safe_make_valid(friction_sf)
   
-  vals_poly <- friction_sf$friction
+  idx <- as.integer(friction_sf$friction_class)
   
-  friction_cols <- viridis::viridis(
-    n = 5,
-    option = "viridis",
-    direction = 1
-  )
-  
-  idx <- cut(
-    vals_poly,
-    breaks = breaks_raw,
-    include.lowest = TRUE,
-    labels = FALSE
-  )
-  
-  cat("class counts:\n")
+  cat("polygon class counts:\n")
   print(table(idx, useNA = "ifany"))
   
-  fill_color <- rep("#000000", length(vals_poly))
-  ok <- !is.na(idx)
-  fill_color[ok] <- friction_cols[idx[ok]]
-  
-  friction_sf$fill_color <- fill_color
-  friction_sf$friction_class <- idx
+  friction_sf$fill_color <- friction_cols[idx]
+  friction_sf$friction_label <- friction_labels[idx]
   
   cat("friction polygons:", nrow(friction_sf), "\n")
   
   friction_sf
 }
-
-write_raster_overlay_png <- function(
-    rast,
-    session,
-    prefix = "raster_overlay",
-    palette = "viridis"
-) {
-  if (is.null(rast)) {
-    return(NULL)
-  }
-  
-  if (!inherits(rast, "SpatRaster")) {
-    stop("write_raster_overlay_png expects a SpatRaster")
-  }
-  
-  vals <- terra::values(rast, mat = FALSE)
-  vals <- vals[is.finite(vals) & !is.na(vals)]
-  
-  if (length(vals) == 0) {
-    return(NULL)
-  }
-  
-  lower <- min(vals, na.rm = TRUE)
-  upper <- max(vals, na.rm = TRUE)
-  
-  if (!is.finite(upper) || upper <= lower) {
-    upper <- lower + 1e-6
-  }
-  
-  pal_fun <- leaflet::colorNumeric(
-    palette = palette,
-    domain = c(lower, upper),
-    na.color = "transparent"
-  )
-  
-  m <- terra::as.matrix(rast, wide = TRUE)
-  
-  # flip rows so north is at the top in the PNG
-  m <- m[nrow(m):1, , drop = FALSE]
-  
-  hex_mat <- matrix(
-    pal_fun(as.vector(m)),
-    nrow = nrow(m),
-    ncol = ncol(m),
-    byrow = FALSE
-  )
-  
-  rgba <- grDevices::col2rgb(as.vector(hex_mat), alpha = TRUE) / 255
-  
-  img <- array(
-    0,
-    dim = c(nrow(hex_mat), ncol(hex_mat), 4)
-  )
-  
-  for (k in 1:4) {
-    img[, , k] <- matrix(
-      rgba[k, ],
-      nrow = nrow(hex_mat),
-      ncol = ncol(hex_mat),
-      byrow = FALSE
-    )
-  }
-  
-  tf <- tempfile(
-    pattern = paste0(prefix, "_"),
-    fileext = ".png"
-  )
-  
-  png::writePNG(img, target = tf)
-  
-  ext <- terra::ext(rast)
-  
-  bounds <- list(
-    xmin = as.numeric(ext$xmin),
-    ymin = as.numeric(ext$ymin),
-    xmax = as.numeric(ext$xmax),
-    ymax = as.numeric(ext$ymax)
-  )
-  
-  resource_prefix <- paste0(prefix, "_", session$token)
-  
-  shiny::addResourcePath(
-    prefix = resource_prefix,
-    directoryPath = dirname(tf)
-  )
-  
-  list(
-    url = paste0(
-      "/",
-      resource_prefix,
-      "/",
-      basename(tf)
-    ),
-    bounds = bounds,
-    lower = lower,
-    upper = upper
-  )
-}
+# write_raster_overlay_png <- function(
+#     rast,
+#     session,
+#     prefix = "raster_overlay",
+#     palette = "viridis"
+# ) {
+#   if (is.null(rast)) {
+#     return(NULL)
+#   }
+#   
+#   if (!inherits(rast, "SpatRaster")) {
+#     stop("write_raster_overlay_png expects a SpatRaster")
+#   }
+#   
+#   vals <- terra::values(rast, mat = FALSE)
+#   vals <- vals[is.finite(vals) & !is.na(vals)]
+#   
+#   if (length(vals) == 0) {
+#     return(NULL)
+#   }
+#   
+#   lower <- min(vals, na.rm = TRUE)
+#   upper <- max(vals, na.rm = TRUE)
+#   
+#   if (!is.finite(upper) || upper <= lower) {
+#     upper <- lower + 1e-6
+#   }
+#   
+#   pal_fun <- leaflet::colorNumeric(
+#     palette = palette,
+#     domain = c(lower, upper),
+#     na.color = "transparent"
+#   )
+#   
+#   m <- terra::as.matrix(rast, wide = TRUE)
+#   
+#   # flip rows so north is at the top in the PNG
+#   m <- m[nrow(m):1, , drop = FALSE]
+#   
+#   hex_mat <- matrix(
+#     pal_fun(as.vector(m)),
+#     nrow = nrow(m),
+#     ncol = ncol(m),
+#     byrow = FALSE
+#   )
+#   
+#   rgba <- grDevices::col2rgb(as.vector(hex_mat), alpha = TRUE) / 255
+#   
+#   img <- array(
+#     0,
+#     dim = c(nrow(hex_mat), ncol(hex_mat), 4)
+#   )
+#   
+#   for (k in 1:4) {
+#     img[, , k] <- matrix(
+#       rgba[k, ],
+#       nrow = nrow(hex_mat),
+#       ncol = ncol(hex_mat),
+#       byrow = FALSE
+#     )
+#   }
+#   
+#   tf <- tempfile(
+#     pattern = paste0(prefix, "_"),
+#     fileext = ".png"
+#   )
+#   
+#   png::writePNG(img, target = tf)
+#   
+#   ext <- terra::ext(rast)
+#   
+#   bounds <- list(
+#     xmin = as.numeric(ext$xmin),
+#     ymin = as.numeric(ext$ymin),
+#     xmax = as.numeric(ext$xmax),
+#     ymax = as.numeric(ext$ymax)
+#   )
+#   
+#   resource_prefix <- paste0(prefix, "_", session$token)
+#   
+#   shiny::addResourcePath(
+#     prefix = resource_prefix,
+#     directoryPath = dirname(tf)
+#   )
+#   
+#   list(
+#     url = paste0(
+#       "/",
+#       resource_prefix,
+#       "/",
+#       basename(tf)
+#     ),
+#     bounds = bounds,
+#     lower = lower,
+#     upper = upper
+#   )
+# }
 
 
 
