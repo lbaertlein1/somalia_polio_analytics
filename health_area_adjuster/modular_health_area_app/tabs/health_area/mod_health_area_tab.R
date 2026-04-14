@@ -44,12 +44,6 @@ healthAreaTabServer <- function(
       c(setdiff(x, extra_dfa_names), extra_dfa_names)
     }
     
-    normalize_dfa_names <- function(x) {
-      x <- unique(as.character(x))
-      x <- x[!is.na(x) & nzchar(x)]
-      c(setdiff(x, extra_dfa_names), extra_dfa_names)
-    }
-    
     pending_action <- reactiveVal(NULL)
     help_shown <- reactiveVal(FALSE)
     
@@ -63,21 +57,14 @@ healthAreaTabServer <- function(
       neighbors_list = NULL,
       edge_list = NULL,
       pop_overlay_sf = NULL,
-<<<<<<< HEAD
       friction_overlay_sf = NULL,
-=======
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       pop_table = NULL,
       max_dim_m = NULL,
       grid_limits = NULL,
       brush_limits = NULL,
       seed_points = NULL,
-<<<<<<< HEAD
       dfa_names = all_dfa_names,
       friction_path = NULL
-=======
-      dfa_names = all_dfa_names
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
     )
     
     observeEvent(controls$help_click(), {
@@ -85,11 +72,7 @@ healthAreaTabServer <- function(
     })
     
     tab_active <- reactive({
-<<<<<<< HEAD
       identical(active_tab(), "tab_health_area_mapping")
-=======
-      identical(active_tab(), 'tab_health_area_mapping')
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
     })
     
     observeEvent(district_ready(), {
@@ -287,7 +270,6 @@ healthAreaTabServer <- function(
       )
     }, ignoreInit = TRUE)
     
-<<<<<<< HEAD
     observeEvent(controls$show_friction_raster(), {
       req(tab_active(), isTRUE(district_ready()))
       send_paint_message(
@@ -296,8 +278,6 @@ healthAreaTabServer <- function(
       )
     }, ignoreInit = TRUE)
     
-=======
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
     facility_seed_sf <- reactive({
       if (is.null(facility_data)) {
         return(NULL)
@@ -310,21 +290,12 @@ healthAreaTabServer <- function(
       
       keep <- rep(TRUE, nrow(df))
       
-<<<<<<< HEAD
       if ("polio_sia_coordination_site" %in% names(df)) {
         keep <- keep & as.character(df$polio_sia_coordination_site) == "Yes"
       }
       
       if ("operational" %in% names(df)) {
         keep <- keep & as.character(df$operational) == "Operational"
-=======
-      if ('polio_sia_coordination_site' %in% names(df)) {
-        keep <- keep & as.character(df$polio_sia_coordination_site) == 'Yes'
-      }
-      
-      if ('operational' %in% names(df)) {
-        keep <- keep & as.character(df$operational) == 'Operational'
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       }
       
       df <- df[keep, , drop = FALSE]
@@ -333,30 +304,18 @@ healthAreaTabServer <- function(
         return(NULL)
       }
       
-<<<<<<< HEAD
       req(all(c("lon", "lat") %in% names(df)))
       
       sf::st_as_sf(
         df,
         coords = c("lon", "lat"),
-=======
-      req(all(c('lon', 'lat') %in% names(df)))
-      
-      sf::st_as_sf(
-        df,
-        coords = c('lon', 'lat'),
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
         crs = 4326,
         remove = FALSE
       )
     })
     
     initial_scene <- initialHealthAreaGenerationServer(
-<<<<<<< HEAD
       "initial_scene",
-=======
-      'initial_scene',
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       district_sf = reactive({
         req(district_base())
         district_base()$district_sf
@@ -371,32 +330,21 @@ healthAreaTabServer <- function(
         sum(utf8ToInt(district()))
       })(),
       facility_seed_sf = facility_seed_sf,
-<<<<<<< HEAD
       facility_name_col = "facility_name"
-=======
-      facility_name_col = 'facility_name'
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
     )
     
     selected_scene <- reactive({
-      cat('selected_scene triggered\n')
+      cat("selected_scene triggered\n")
       
       req(isTRUE(district_ready()))
       req(zone(), region(), district())
       
       sc <- initial_scene$scene()
-<<<<<<< HEAD
       seed_df <- initial_scene$seed_points_df()
       
       dynamic_dfa_names <- if (!is.null(seed_df) &&
                                nrow(seed_df) > 0 &&
                                "dfa_name" %in% names(seed_df)) {
-=======
-      
-      seed_df <- initial_scene$seed_points_df()
-      
-      dynamic_dfa_names <- if (!is.null(seed_df) && nrow(seed_df) > 0 && 'dfa_name' %in% names(seed_df)) {
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
         normalize_dfa_names(c(as.character(seed_df$dfa_name), extra_dfa_names))
       } else {
         normalize_dfa_names(c(unique(sc$initial_assignments), extra_dfa_names))
@@ -404,24 +352,19 @@ healthAreaTabServer <- function(
       
       pop_overlay_sf <- NULL
       if (isTRUE(controls$show_pop_raster())) {
-        cat('building population overlay\n')
+        cat("building population overlay\n")
         pop_overlay_sf <- tryCatch(
-<<<<<<< HEAD
           make_population_overlay_sf(
             district_sf = sc$district_sf,
             u5_rast = get_u5_worldpop()
           ),
-=======
-          make_population_overlay_sf(sc$district_sf, get_u5_worldpop()),
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
           error = function(e) {
-            cat('population overlay error:', e$message, '\n')
+            cat("population overlay error:", e$message, "\n")
             NULL
           }
         )
       }
       
-<<<<<<< HEAD
       friction_overlay_sf <- NULL
       if (
         isTRUE(controls$show_friction_raster()) &&
@@ -443,8 +386,6 @@ healthAreaTabServer <- function(
         cat("friction polygons:", nrow(friction_overlay_sf), "\n")
       }
       
-=======
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
       list(
         district_sf = sc$district_sf,
         grid_sf = sc$grid_sf,
@@ -452,11 +393,8 @@ healthAreaTabServer <- function(
         neighbors_list = sc$neighbors_list,
         edge_list = sc$edge_list,
         pop_overlay_sf = pop_overlay_sf,
-<<<<<<< HEAD
         friction_overlay_sf = friction_overlay_sf,
         friction_path = sc$friction_path,
-=======
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
         max_dim_m = sc$max_dim_m,
         seed_points = sc$seed_points_list,
         dfa_names = dynamic_dfa_names
@@ -533,11 +471,7 @@ healthAreaTabServer <- function(
         selected = selected_dfa
       )
       
-<<<<<<< HEAD
       if (!"u5_pop" %in% names(rv$grid_sf)) {
-=======
-      if (!'u5_pop' %in% names(rv$grid_sf)) {
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
         rv$grid_sf$u5_pop <- calculate_grid_cell_population(
           rv$grid_sf,
           get_u5_worldpop()

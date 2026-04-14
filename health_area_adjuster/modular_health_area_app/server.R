@@ -1,13 +1,9 @@
 app_server <- function(input, output, session) {
-<<<<<<< HEAD
   intro <- introTabServer(
     'intro',
     districts_shp = districts_shp
   )
   
-=======
-  intro <- introTabServer('intro', districts_shp = districts_shp)
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
   submitted_facilities <- reactiveVal(NULL)
   
   facility <- facilityTabServer(
@@ -19,13 +15,8 @@ app_server <- function(input, output, session) {
     submitted_facilities = submitted_facilities
   )
   
-<<<<<<< HEAD
   health_area <- healthAreaTabServer(
     'health_area',
-=======
-  healthAreaTabServer(
-    "health_area",
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
     zone = intro$zone,
     region = intro$region,
     district = intro$district,
@@ -71,7 +62,6 @@ app_server <- function(input, output, session) {
     }
   }, ignoreInit = TRUE)
   
-<<<<<<< HEAD
   # Optional debug hooks
   observe({
     req(health_area$has_scene())
@@ -85,7 +75,4 @@ app_server <- function(input, output, session) {
     }
   })
 }
-=======
-  
-}
->>>>>>> 87d259b (built out HF -> health area -> area adjustment workflow)
+
