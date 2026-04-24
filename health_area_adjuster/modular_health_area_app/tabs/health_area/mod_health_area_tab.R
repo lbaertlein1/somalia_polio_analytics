@@ -1,23 +1,19 @@
 healthAreaTabUI <- function(id) {
   ns <- NS(id)
   
-  tagList(
-    div(
-      id = ns('app_row'),
-      class = 'app-row',
+  fluidRow(
+    column(
+      width = 2,
+      healthAreaControlsUI(ns('controls'))
+    ),
+    column(
+      width = 7,
+      div(style = 'height: calc(100vh - 120px);', healthAreaMapUI(ns('map')))
+    ),
+    column(
+      width = 3,
       div(
-        id = ns('leftbar'),
-        class = 'app-leftbar',
-        healthAreaControlsUI(ns('controls'))
-      ),
-      div(
-        id = ns('mapwrap'),
-        class = 'app-mapwrap',
-        healthAreaMapUI(ns('map'))
-      ),
-      div(
-        id = ns('rightbar'),
-        class = 'app-rightbar',
+        style = 'overflow-y: auto; height: calc(100vh - 120px);',
         healthAreaPopulationUI(ns('population'))
       )
     )
@@ -35,8 +31,9 @@ healthAreaTabServer <- function(
     coordination_sites = NULL
 ) {
   moduleServer(id, function(input, output, session) {
-    controls <- healthAreaControlsServer("controls")
-    map_mod <- healthAreaMapServer("map")
+    controls       <- healthAreaControlsServer("controls")
+    map_mod        <- healthAreaMapServer("map")
+    active_dfa_rv  <- reactiveVal(starter_dfa_names[1])
     
     normalize_dfa_names <- function(x) {
       x <- unique(as.character(x))
@@ -84,17 +81,17 @@ healthAreaTabServer <- function(
     
     current_fill_colors <- reactive({
       make_fill_colors(
-        active_dfa = controls$active_dfa(),
-        dfa_names = rv$dfa_names
+        active_dfa = active_dfa_rv(),
+        dfa_names  = rv$dfa_names
       )
     })
     
     healthAreaPopulationServer(
       "population",
-      active_dfa = controls$active_dfa,
-      show_pop_raster = controls$show_pop_raster,
+      active_dfa_rv        = active_dfa_rv,
+      show_pop_raster      = controls$show_pop_raster,
       show_friction_raster = controls$show_friction_raster,
-      pop_table = reactive(rv$pop_table)
+      pop_table            = reactive(rv$pop_table)
     )
     
     u5_worldpop_rv <- reactiveVal(NULL)
@@ -164,7 +161,7 @@ healthAreaTabServer <- function(
       rv$pop_table <- dplyr::bind_rows(
         df,
         data.frame(
-          area_name = "District Total",
+          area_name  = "District Total",
           est_u5_pop = district_total,
           stringsAsFactors = FALSE
         )
@@ -443,7 +440,7 @@ healthAreaTabServer <- function(
           showFriction = controls$show_friction_raster(),
           initialAssignments = init_named,
           dfaColors = as.list(current_fill_colors()),
-          activeDfa = controls$active_dfa(),
+          activeDfa = active_dfa_rv(),
           neighbors = rv$neighbors_list,
           edgeCells = rv$edge_list,
           brushSize = controls$brush_m(),
@@ -461,17 +458,15 @@ healthAreaTabServer <- function(
       rv$district_sf <- sc$district_sf
       rv$grid_sf <- sc$grid_sf
       
-      selected_dfa <- controls$active_dfa()
+      selected_dfa <- active_dfa_rv()
       if (is.null(selected_dfa) || !selected_dfa %in% rv$dfa_names) {
         selected_dfa <- rv$dfa_names[[1]]
       }
       
-      controls$set_dfa_choices(
-        choices = rv$dfa_names,
-        selected = selected_dfa
-      )
+      # Ensure active_dfa_rv is a valid choice
+      if (!active_dfa_rv() %in% rv$dfa_names) active_dfa_rv(rv$dfa_names[[1]])
       
-      if (!"u5_pop" %in% names(rv$grid_sf)) {
+      if (!"u5_pop" %in% names(rv$grid_sf) || all(rv$grid_sf$u5_pop == 0, na.rm = TRUE)) {
         rv$grid_sf$u5_pop <- calculate_grid_cell_population(
           rv$grid_sf,
           get_u5_worldpop()
@@ -520,10 +515,10 @@ healthAreaTabServer <- function(
       req(!is.null(rv$initial_assignments))
       req(!is.null(rv$dfa_names), length(rv$dfa_names) > 0)
       
-      selected_dfa <- controls$active_dfa()
+      selected_dfa <- active_dfa_rv()
       if (is.null(selected_dfa) || !selected_dfa %in% rv$dfa_names) {
         selected_dfa <- rv$dfa_names[[1]]
-        controls$set_dfa_choices(rv$dfa_names, selected_dfa)
+        active_dfa_rv(selected_dfa)
       }
       
       rv$current_assignments <- rv$initial_assignments
@@ -600,7 +595,7 @@ healthAreaTabServer <- function(
       pending_action(NULL)
     }, ignoreInit = TRUE)
     
-    observeEvent(controls$active_dfa(), {
+    observeEvent(active_dfa_rv(), {
       req(isTRUE(district_ready()), tab_active())
       req(!is.null(rv$current_assignments), !is.null(rv$grid_sf), !is.null(rv$district_sf))
       
@@ -608,7 +603,7 @@ healthAreaTabServer <- function(
         "paint_set_colors",
         list(
           colors = as.list(current_fill_colors()),
-          activeDfa = controls$active_dfa()
+          activeDfa = active_dfa_rv()
         )
       )
       

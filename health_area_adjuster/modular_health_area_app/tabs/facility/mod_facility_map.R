@@ -104,44 +104,45 @@ facilityMapServer <- function(
     # Helpers
     # --------------------------------------------------
     
-    make_facility_icon <- function(is_selected = FALSE) {
+    # REPLACE make_facility_icon with this:
+    make_facility_icon <- function(is_selected = FALSE, is_sia = FALSE) {
       icon_url <- if (isTRUE(is_selected)) {
         'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png'
+      } else if (isTRUE(is_sia)) {
+        'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
       } else {
-        'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-black.png'
+        'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png'
       }
       
       leaflet::makeIcon(
-        iconUrl = icon_url,
-        shadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-        iconWidth = 25,
-        iconHeight = 41,
-        iconAnchorX = 12,
-        iconAnchorY = 41
+        iconUrl    = icon_url,
+        shadowUrl  = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconWidth  = 25, iconHeight  = 41,
+        iconAnchorX = 12, iconAnchorY = 41
       )
     }
     
+    # REPLACE add_one_marker with this:
     add_one_marker <- function(proxy, row, selected_id) {
       is_selected <- !is.null(selected_id) &&
         nzchar(selected_id) &&
         identical(as.character(row$facility_id[[1]]), as.character(selected_id))
       
+      is_sia <- isTRUE(row$polio_sia_coordination_site[[1]] == "Yes")
+      
       proxy |>
         leaflet::addMarkers(
-          lng = row$lon[[1]],
-          lat = row$lat[[1]],
+          lng     = row$lon[[1]],
+          lat     = row$lat[[1]],
           layerId = row$facility_id[[1]],
-          icon = make_facility_icon(is_selected),
-          options = leaflet::markerOptions(
-            draggable = TRUE,
-            riseOnHover = TRUE
-          ),
-          label = row$facility_name[[1]],
+          icon    = make_facility_icon(is_selected, is_sia),
+          options = leaflet::markerOptions(draggable = TRUE, riseOnHover = TRUE),
+          label   = row$facility_name[[1]],
           labelOptions = leaflet::labelOptions(
-            noHide = TRUE,
+            noHide    = TRUE,
             direction = 'right',
-            offset = c(10, 0),
-            textsize = '11px',
+            offset    = c(10, 0),
+            textsize  = '11px',
             className = 'hf-tooltip'
           )
         )
@@ -250,6 +251,34 @@ facilityMapServer <- function(
           lat1 = bbox[['ymin']],
           lng2 = bbox[['xmax']],
           lat2 = bbox[['ymax']]
+        ) %>%
+         leaflet::addControl(
+          html = '
+          <div style="background:white;padding:8px 10px;border-radius:4px;
+                      font-size:12px;line-height:1.8;border:1px solid #ccc;">
+            <b>Facilities</b><br>
+            <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png"
+                 height="20"> SIA Coordination Site<br>
+            <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"
+                 height="20"> Not a Coordination Site<br>
+            <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
+                 height="20"> Selected
+          </div>',
+          position = "bottomright"
+        ) %>%
+        leaflet::addScaleBar(
+          position = "bottomright",
+          options  = leaflet::scaleBarOptions(imperial = FALSE, maxWidth = 200)
+        ) |>
+        leaflet::addControl(
+          html = '
+          <div style="background:white;padding:6px 8px;border-radius:4px;
+                      border:1px solid #ccc;font-size:18px;line-height:1;
+                      text-align:center;">
+            &#8593;<br>
+            <span style="font-size:10px;font-weight:600;">N</span>
+          </div>',
+          position = "bottomright"
         )
     })
     

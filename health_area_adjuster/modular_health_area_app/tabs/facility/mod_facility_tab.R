@@ -1,395 +1,452 @@
+# =============================================================================
+# facility_tab.R
+# Two facility sources:
+#   rv$odk_sf  — pulled from ODK Central, refreshable
+#   rv$app_sf  — app-added SIA coordination sites, persists across refreshes
+# =============================================================================
+
 facilityTabUI <- function(id) {
   ns <- NS(id)
   
-  tags$script(HTML("
-  $(document).on('shown.bs.tab', 'a[data-toggle=\"tab\"]', function(e) {
-    setTimeout(function() {
-      $('.leaflet').each(function() {
-        var mapWidget = HTMLWidgets.find('#' + this.id);
-        if (mapWidget && mapWidget.getMap) {
-          var map = mapWidget.getMap();
-          if (map) {
-            map.invalidateSize();
-          }
-        }
-      });
-
-      if (window.paintApps) {
-        Object.keys(window.paintApps).forEach(function(k) {
-          var app = window.paintApps[k];
-          if (app && app.map) {
-            app.map.invalidateSize();
-          }
-        });
-      }
-
-      window.dispatchEvent(new Event('resize'));
-    }, 100);
-
-    setTimeout(function() {
-      $('.leaflet').each(function() {
-        var mapWidget = HTMLWidgets.find('#' + this.id);
-        if (mapWidget && mapWidget.getMap) {
-          var map = mapWidget.getMap();
-          if (map) {
-            map.invalidateSize();
-          }
-        }
-      });
-
-      if (window.paintApps) {
-        Object.keys(window.paintApps).forEach(function(k) {
-          var app = window.paintApps[k];
-          if (app && app.map) {
-            app.map.invalidateSize();
-          }
-        });
-      }
-
-      window.dispatchEvent(new Event('resize'));
-    }, 400);
-  });
-"))
-  
-  tagList(
-    div(
-      id = ns('app_row'),
-      class = 'facility-layout',
+  fluidRow(
+    # ---- Left sidebar -------------------------------------------------------
+    column(
+      width = 2,
       
-      div(
-        id = ns('leftbar'),
-        class = 'facility-leftbar',
-        div(
-          class = 'rightbar-title',
-          'Health Facility Mapping'
-        ),
-        p('Review the preset health facility points for the selected district.'),
-        tags$ul(
-          tags$li('Drag each point to the correct location if needed.'),
-          tags$li('Edit the facility attributes in the table below.'),
-          tags$li('Only facilities marked Yes for SIA Coordination Site will be used in the Health Area Mapping tab.')
-        ),
-        actionButton(
-          ns('add_facility'),
-          'Add new facility',
-          icon = icon('plus'),
-          width = '100%'
-        ),
-        div(
-          style = 'margin-top: 8px; font-size: 12px; color: #666;',
-          'Click this button, then click the map to place the new facility.'
-        ),
-        actionButton(
-          ns("submit_facilities"),
-          "Submit Facility Locations",
-          class = "btn-primary",
-          width = "100%"
-        )
+      div(class = 'rightbar-title', 'Health Facility Mapping'),
+      p('Facilities are loaded from the MHFL for the selected district.'),
+      tags$ul(
+        tags$li('Drag a pin to correct its GPS location.'),
+        tags$li('Rename a facility in the table.'),
+        tags$li('Mark facilities as SIA Coordination Sites in the table.'),
+        tags$li('Only Yes facilities are used in Health Area Mapping.')
       ),
       
+      uiOutput(ns('odk_status')),
+      tags$hr(),
+      
+      actionButton(ns('refresh_odk'), 'Refresh from ODK', icon = icon('rotate'), width = '100%'),
+      div(style = 'margin-top: 6px; font-size: 12px; color: #666;',
+          'Re-pulls latest MHFL data. Edits are preserved.'),
+      tags$hr(),
+      
+      uiOutput(ns('add_mhfl_ui')),
+      div(style = 'margin-top: 6px; font-size: 12px; color: #666;',
+          'Opens MHFL survey in new tab. Click Refresh after submitting.'),
+      tags$hr(),
+      
+      actionButton(
+        ns('add_sia_site'), 'Add SIA Coordination Site',
+        icon = icon('map-pin'), width = '100%', class = 'btn-warning'
+      ),
+      div(style = 'margin-top: 6px; font-size: 12px; color: #666;',
+          'Click this button, then click the map to place a new site.'),
+      tags$hr(),
+      
+      actionButton(ns('submit_facilities'), 'Submit Facility Locations',
+                   class = 'btn-primary', width = '100%')
+    ),
+    
+    # ---- Map ----------------------------------------------------------------
+    column(
+      width = 7,
+      div(style = 'height: calc(100vh - 120px);', facilityMapUI(ns('map')))
+    ),
+    
+    # ---- Right sidebar — table ----------------------------------------------
+    column(
+      width = 3,
+      div(class = 'rightbar-title', 'Facilities'),
+      uiOutput(ns('sia_counts_card')),
       div(
-        class = 'facility-main',
-        
-        div(
-          id = ns('mapwrap'),
-          class = 'facility-mapwrap',
-          facilityMapUI(ns('map'))
-        ),
-        
-        div(
-          id = ns('tablewrap'),
-          class = 'facility-tablewrap',
-          facilityTableUI(ns('table'))
-        )
+        style = 'overflow-y: auto; height: 75vh;',
+        facilityTableUI(ns('table'))
       )
     )
   )
 }
 
+
+# =============================================================================
+
 facilityTabServer <- function(id, zone, region, district, district_ready, submitted_facilities) {
   moduleServer(id, function(input, output, session) {
+    
     rv <- reactiveValues(
-      facility_sf = NULL
+      odk_sf       = NULL,   # from ODK — refreshable
+      app_sf       = NULL,   # app-added SIA sites — persists across refreshes
+      odk_loading  = FALSE,
+      odk_error    = NULL
     )
     
-    selected_id <- reactiveVal(NULL)
+    selected_id    <- reactiveVal(NULL)
     adding_facility <- reactiveVal(FALSE)
+    editing_locked  <- reactiveVal(FALSE)
     
+    # -------------------------------------------------------------------------
+    # District boundary
+    # -------------------------------------------------------------------------
     district_base <- reactive({
       req(isTRUE(district_ready()))
       req(zone(), region(), district())
       
       district_sf <- districts_shp |>
         dplyr::filter(
-          zone_name == zone(),
-          region_name == region(),
+          zone_name     == zone(),
+          region_name   == region(),
           district_name == district()
         ) |>
         dplyr::select(
-          admin_id,
-          district_name,
-          region_id,
-          region_name,
-          zone_id,
-          zone_name,
-          u5_pop_density_km2,
-          geometry
+          admin_id, district_name, region_id, region_name,
+          zone_id, zone_name, u5_pop_density_km2, geometry
         )
       
       req(nrow(district_sf) >= 1)
       
       district_sf |>
         dplyr::summarise(
-          admin_id = dplyr::first(admin_id),
-          district_name = dplyr::first(district_name),
-          region_id = dplyr::first(region_id),
-          region_name = dplyr::first(region_name),
-          zone_id = dplyr::first(zone_id),
-          zone_name = dplyr::first(zone_name),
+          admin_id           = dplyr::first(admin_id),
+          district_name      = dplyr::first(district_name),
+          region_id          = dplyr::first(region_id),
+          region_name        = dplyr::first(region_name),
+          zone_id            = dplyr::first(zone_id),
+          zone_name          = dplyr::first(zone_name),
           u5_pop_density_km2 = dplyr::first(u5_pop_density_km2),
-          geometry = sf::st_union(geometry),
-          .groups = 'drop'
+          geometry           = sf::st_union(geometry),
+          .groups            = 'drop'
         ) |>
         sf::st_as_sf() |>
         safe_make_valid()
     })
     
-    observeEvent(district(), {
-      req(isTRUE(district_ready()))
-      district_sf <- district_base()
-      
-      cat('facilityTabServer district changed:', district(), '\n')
-      cat('district_base rows:', nrow(district_sf), '\n')
-      
-      district_seed <- sum(utf8ToInt(district()))
-      
-      rv$facility_sf <- if (!is.null(rv$seed_points)) {
-        seed_points <- rv$seed_points
-      } else {
-        seed_points <- make_starter_facilities(
-          district_sf = district_sf,
-          district_name = district(),
-          n_facilities = n_start_dfas,
-          seed = district_seed
-        )
-      }
-      
-      cat('starter facilities created, rows:', nrow(rv$facility_sf), '\n')
-      cat('starter facility names:', paste(rv$facility_sf$facility_name, collapse = ', '), '\n')
-      cat('starter facility lon range:',
-          min(rv$facility_sf$lon), max(rv$facility_sf$lon), '\n')
-      cat('starter facility lat range:',
-          min(rv$facility_sf$lat), max(rv$facility_sf$lat), '\n')
-      
-      adding_facility(FALSE)
-      
-      if (!is.null(rv$facility_sf) && nrow(rv$facility_sf) > 0) {
-        selected_id(as.character(rv$facility_sf$facility_id[1]))
-      } else {
-        selected_id(NULL)
-      }
-    }, ignoreInit = FALSE)
-    
+    # -------------------------------------------------------------------------
+    # Combined facility data — ODK + app-added
+    # -------------------------------------------------------------------------
     facility_data <- reactive({
-      cat('facility_data reactive called\n')
-      out <- facility_sf_to_df(rv$facility_sf)
-      cat('facility_data rows:', nrow(out), '\n')
-      out
+      odk <- facility_sf_to_df(rv$odk_sf)
+      app <- facility_sf_to_df(rv$app_sf)
+      dplyr::bind_rows(odk, app)
+    })
+    
+    combined_sf <- reactive({
+      parts <- list(rv$odk_sf, rv$app_sf)
+      parts <- Filter(Negate(is.null), parts)
+      parts <- Filter(function(x) nrow(x) > 0, parts)
+      if (length(parts) == 0) return(NULL)
+      do.call(rbind, parts)
     })
     
     coordination_sites <- reactive({
       df <- facility_data()
-      if (nrow(df) == 0) {
-        return(df)
+      if (nrow(df) == 0) return(df)
+      df |> dplyr::filter(polio_sia_coordination_site == 'Yes')
+    })
+    
+    # -------------------------------------------------------------------------
+    # SIA coordination site count card
+    # -------------------------------------------------------------------------
+    output$sia_counts_card <- renderUI({
+      df <- facility_data()
+      
+      n_selected    <- sum(df$polio_sia_coordination_site == "Yes", na.rm = TRUE)
+      
+      # Recommended: ceiling(u5_pop_2025 / 2000), minimum 1
+      district_pop <- districts_shp |>
+        sf::st_drop_geometry() |>
+        dplyr::filter(district_name == district()) |>
+        dplyr::pull(u5_pop_2025) |>
+        sum(na.rm = TRUE)
+      
+      n_recommended <- max(1L, ceiling(district_pop / 2000))
+      
+      count_color <- if (n_selected >= n_recommended) "#388e3c" else "#e53935"
+      
+      div(
+        style = 'margin-bottom: 10px; padding: 8px;
+                 border: 1px solid #e0e0e0; border-radius: 4px;
+                 background: #fafafa;',
+        div(
+          style = 'font-weight: 600; font-size: 12px;
+                   color: #555; margin-bottom: 6px;',
+          'SIA Coordination Sites'
+        ),
+        div(
+          style = 'display: flex; gap: 8px;',
+          div(
+            style = 'flex: 1; text-align: center; padding: 6px 4px;
+                     border: 1px solid #e0e0e0; border-radius: 4px;
+                     background: white;',
+            div(style = 'font-size: 10px; color: #888; margin-bottom: 2px;',
+                'Recommended'),
+            div(style = 'font-size: 20px; font-weight: 700; color: #1565C0;',
+                n_recommended)
+          ),
+          div(
+            style = paste0(
+              'flex: 1; text-align: center; padding: 6px 4px;',
+              ' border: 1px solid #e0e0e0; border-radius: 4px;',
+              ' background: white;'
+            ),
+            div(style = 'font-size: 10px; color: #888; margin-bottom: 2px;',
+                'Selected'),
+            div(style = paste0('font-size: 20px; font-weight: 700; color: ', count_color, ';'),
+                n_selected)
+          )
+        )
+      )
+    })
+    
+    # -------------------------------------------------------------------------
+    # ODK status badge
+    # -------------------------------------------------------------------------
+    output$odk_status <- renderUI({
+      if (isTRUE(rv$odk_loading)) {
+        div(style = 'color: #2196F3; font-size: 12px; margin-bottom: 4px;',
+            icon('spinner', class = 'fa-spin'), ' Loading facilities from ODK...')
+      } else if (!is.null(rv$odk_error)) {
+        div(style = 'color: #e53935; font-size: 12px; margin-bottom: 4px;',
+            icon('circle-exclamation'), ' ', rv$odk_error)
+      } else if (!is.null(rv$odk_sf)) {
+        n_app <- if (!is.null(rv$app_sf)) nrow(rv$app_sf) else 0
+        div(style = 'color: #388e3c; font-size: 12px; margin-bottom: 4px;',
+            icon('circle-check'), ' ',
+            nrow(rv$odk_sf), ' MHFL facilities',
+            if (n_app > 0) paste0(' + ', n_app, ' app-added') else NULL
+        )
       }
-      
-      df |>
-        dplyr::filter(polio_sia_coordination_site == 'Yes')
     })
     
-    observeEvent(input$add_facility, {
-      adding_facility(TRUE)
-      showNotification(
-        'Click on the map to place the new facility.',
-        type = 'message',
-        duration = 3
+    # -------------------------------------------------------------------------
+    # Add to MHFL link
+    # -------------------------------------------------------------------------
+    output$add_mhfl_ui <- renderUI({
+      req(zone())
+      cfg <- odk_form_config(zone())
+      url <- paste0(
+        "https://emro.nafundi.com/#/projects/9/forms/",
+        cfg$form_id,
+        "/submissions/new"
+      )
+      tags$a(
+        href   = url,
+        target = "_blank",
+        class  = "btn btn-default",
+        style  = "width: 100%;",
+        icon("plus"), " Add new facility to MHFL"
       )
     })
     
-    update_marker_position <- function(facility_id, lat, lon) {
-      req(!is.null(rv$facility_sf), nrow(rv$facility_sf) > 0)
+    # -------------------------------------------------------------------------
+    # ODK fetch
+    # -------------------------------------------------------------------------
+    do_odk_fetch <- function(preserve_edits = FALSE) {
+      req(zone(), district())
       
-      idx <- which(rv$facility_sf$facility_id == facility_id)
-      req(length(idx) == 1)
+      previous_odk   <- if (isTRUE(preserve_edits)) rv$odk_sf else NULL
+      rv$odk_loading <- TRUE
+      rv$odk_error   <- NULL
       
-      rv$facility_sf$lon[idx] <- as.numeric(lon)
-      rv$facility_sf$lat[idx] <- as.numeric(lat)
+      tryCatch({
+        fresh <- fetch_facilities_odk(
+          zone_name     = zone(),
+          district_name = district()
+        )
+        
+        if (is.null(fresh) || nrow(fresh) == 0) {
+          rv$odk_error <- paste0('No MHFL records found for "', district(), '".')
+          rv$odk_sf    <- NULL
+        } else {
+          rv$odk_sf <- if (!is.null(previous_odk)) {
+            merge_odk_with_app_edits(fresh, previous_odk)
+          } else {
+            fresh
+          }
+        }
+        
+        # Set selected to first available facility
+        all_ids <- c(
+          if (!is.null(rv$odk_sf)) as.character(rv$odk_sf$facility_id) else NULL,
+          if (!is.null(rv$app_sf)) as.character(rv$app_sf$facility_id) else NULL
+        )
+        selected_id(if (length(all_ids) > 0) all_ids[1] else NULL)
+        
+      }, error = function(e) {
+        rv$odk_error <- paste0('ODK fetch failed: ', conditionMessage(e))
+        cat('ODK fetch error:', conditionMessage(e), '\n')
+      })
       
-      geom <- sf::st_sfc(
-        sf::st_point(c(as.numeric(lon), as.numeric(lat))),
-        crs = 4326
-      )
-      rv$facility_sf$geometry[idx] <- geom[[1]]
+      rv$odk_loading <- FALSE
     }
     
-    add_new_facility <- function(lat, lon) {
-      req(!is.null(rv$facility_sf))
-      
+    observeEvent(district(), {
+      req(isTRUE(district_ready()))
+      # Clear app-added sites when district changes — they belong to a district
+      rv$app_sf <- NULL
+      editing_locked(FALSE)
+      do_odk_fetch(preserve_edits = FALSE)
+    }, ignoreInit = FALSE)
+    
+    observeEvent(input$refresh_odk, {
+      do_odk_fetch(preserve_edits = TRUE)
+      showNotification('Facilities refreshed from ODK.', type = 'message', duration = 3)
+    })
+    
+    # -------------------------------------------------------------------------
+    # Add SIA coordination site — click-to-place on map
+    # -------------------------------------------------------------------------
+    observeEvent(input$add_sia_site, {
+      adding_facility(TRUE)
+      showNotification(
+        'Click on the map to place the new SIA coordination site.',
+        type = 'message', duration = 4
+      )
+    })
+    
+    add_new_sia_site <- function(lat, lon) {
       new_id <- paste0(
-        'facility_',
+        'app_',
         format(Sys.time(), '%Y%m%d%H%M%S'),
         '_',
         sample(1000:9999, 1)
       )
       
-      existing_n <- nrow(rv$facility_sf)
-      
-      template_row <- rv$facility_sf[1, , drop = FALSE]
-      template_row$facility_id <- new_id
-      template_row$facility_name <- paste('New Facility', existing_n + 1)
-      template_row$facility_type <- 'Health Post'
-      template_row$operational <- 'Operational'
-      template_row$ri_services <- 'Yes'
-      template_row$polio_sia_coordination_site <- 'No'
-      template_row$lon <- as.numeric(lon)
-      template_row$lat <- as.numeric(lat)
-      template_row$geometry <- sf::st_sfc(
-        sf::st_point(c(as.numeric(lon), as.numeric(lat))),
-        crs = 4326
+      new_row <- data.frame(
+        facility_id                 = new_id,
+        facility_name               = paste('SIA Site', 
+                                            if (!is.null(rv$app_sf)) nrow(rv$app_sf) + 1L else 1L),
+        facility_type               = NA_character_,
+        hf_ownership                = NA_character_,
+        region                      = region(),
+        district                    = district(),
+        incharge_name               = NA_character_,
+        lat                         = as.numeric(lat),
+        lon                         = as.numeric(lon),
+        polio_sia_coordination_site = "Yes",
+        odk_edit_link               = NA_character_,
+        stringsAsFactors            = FALSE
       )
       
-      rv$facility_sf <- rbind(rv$facility_sf, template_row)
+      new_sf <- sf::st_as_sf(
+        new_row,
+        coords = c("lon", "lat"),
+        crs    = 4326,
+        remove = FALSE
+      )
       
-      selected_id(as.character(new_id))
+      rv$app_sf <- if (is.null(rv$app_sf)) {
+        new_sf
+      } else {
+        rbind(rv$app_sf, new_sf)
+      }
+      
+      selected_id(new_id)
       adding_facility(FALSE)
       
-      showNotification(
-        'New facility added.',
-        type = 'message',
-        duration = 3
-      )
+      showNotification('SIA coordination site added.', type = 'message', duration = 3)
     }
     
-    update_table_value <- function(row, col, value) {
-      req(!is.null(rv$facility_sf), nrow(rv$facility_sf) >= row)
+    # -------------------------------------------------------------------------
+    # Coordinate update via marker drag — works on both ODK and app facilities
+    # -------------------------------------------------------------------------
+    update_marker_position <- function(facility_id, lat, lon) {
+      new_geom <- sf::st_sfc(
+        sf::st_point(c(as.numeric(lon), as.numeric(lat))),
+        crs = 4326
+      )[[1]]
       
-      df <- facility_sf_to_df(rv$facility_sf)
-      
-      editable_names <- c(
-        'facility_id',
-        'facility_name',
-        'operational',
-        'ri_services',
-        'facility_type',
-        'polio_sia_coordination_site',
-        'lon',
-        'lat'
-      )
-      
-      col_name <- editable_names[col + 1]
-      
-      if (col_name %in% c('facility_id', 'lon', 'lat')) {
-        return()
+      # Try ODK facilities first
+      if (!is.null(rv$odk_sf)) {
+        idx <- which(rv$odk_sf$facility_id == facility_id)
+        if (length(idx) == 1) {
+          rv$odk_sf$lon[idx]      <- as.numeric(lon)
+          rv$odk_sf$lat[idx]      <- as.numeric(lat)
+          rv$odk_sf$geometry[idx] <- new_geom
+          return()
+        }
       }
-      
-      if (col_name == 'operational') {
-        value <- if (value %in% c('Operational', 'Not Operational')) value else df[[col_name]][row]
+      # Then app facilities
+      if (!is.null(rv$app_sf)) {
+        idx <- which(rv$app_sf$facility_id == facility_id)
+        if (length(idx) == 1) {
+          rv$app_sf$lon[idx]      <- as.numeric(lon)
+          rv$app_sf$lat[idx]      <- as.numeric(lat)
+          rv$app_sf$geometry[idx] <- new_geom
+        }
       }
-      
-      if (col_name == 'ri_services') {
-        value <- if (value %in% c('Yes', 'No')) value else df[[col_name]][row]
-      }
-      
-      if (col_name == 'facility_type') {
-        value <- if (value %in% c('Health Post', 'Health Center', 'Hospital')) value else df[[col_name]][row]
-      }
-      
-      if (col_name == 'polio_sia_coordination_site') {
-        value <- if (value %in% c('Yes', 'No')) value else df[[col_name]][row]
-      }
-      
-      df[[col_name]][row] <- value
-      rv$facility_sf <- facility_df_to_sf(df)
     }
     
+    # -------------------------------------------------------------------------
+    # Table bulk update — routes edits to the correct source sf
+    # -------------------------------------------------------------------------
+    update_facility_data <- function(new_df) {
+      edits <- new_df |>
+        dplyr::select(facility_id, facility_name, polio_sia_coordination_site) |>
+        dplyr::distinct(facility_id, .keep_all = TRUE)
+      
+      apply_edits <- function(sf_obj) {
+        if (is.null(sf_obj) || nrow(sf_obj) == 0) return(sf_obj)
+        sf_obj |>
+          dplyr::left_join(edits, by = "facility_id", suffix = c("", ".new")) |>
+          dplyr::mutate(
+            facility_name               = dplyr::coalesce(facility_name.new, facility_name),
+            polio_sia_coordination_site = dplyr::coalesce(
+              polio_sia_coordination_site.new, polio_sia_coordination_site
+            )
+          ) |>
+          dplyr::select(-dplyr::ends_with(".new"))
+      }
+      
+      rv$odk_sf <- apply_edits(rv$odk_sf)
+      rv$app_sf <- apply_edits(rv$app_sf)
+    }
+    
+    # -------------------------------------------------------------------------
+    # Sub-module wiring
+    # -------------------------------------------------------------------------
     facilityMapServer(
-      id = "map",
-      district_sf = district_base,
-      facility_data_r = facility_data,
-      selected_id_r = selected_id,
-      on_marker_drag = update_marker_position,
-      on_add_facility = add_new_facility,
-      adding_facility_r = adding_facility,
-      show_buffer = TRUE,
+      id                     = "map",
+      district_sf            = district_base,
+      facility_data_r        = facility_data,
+      selected_id_r          = selected_id,
+      on_marker_drag         = update_marker_position,
+      on_add_facility        = add_new_sia_site,
+      adding_facility_r      = adding_facility,
+      show_buffer            = TRUE,
       all_district_densities = all_district_densities
     )
-    
-    update_facility_data <- function(new_df) {
-      req(!is.null(rv$facility_sf), nrow(rv$facility_sf) > 0)
-      
-      rv$facility_sf <- rv$facility_sf |>
-        dplyr::left_join(
-          new_df,
-          by = "facility_id",
-          suffix = c("", ".new")
-        ) |>
-        dplyr::mutate(
-          facility_name = facility_name.new,
-          facility_type = facility_type.new,
-          operational = operational.new,
-          ri_services = ri_services.new,
-          polio_sia_coordination_site = polio_sia_coordination_site.new
-        ) |>
-        dplyr::select(
-          -ends_with(".new")
-        )
-    }
     
     facilityTableServer(
       "table",
       facility_data_r = facility_data,
-      selected_id_r = selected_id,
-      on_data_change = update_facility_data
+      selected_id_r   = selected_id,
+      on_data_change  = update_facility_data
     )
     
-    
+    # -------------------------------------------------------------------------
+    # Submit
+    # -------------------------------------------------------------------------
     observeEvent(input$submit_facilities, {
-      
-      df <- facility_sf_to_df(rv$facility_sf)
-      
-      seeds <- df |>
-        dplyr::filter(
-          !is.na(polio_sia_coordination_site),
-          !is.na(operational),
-          polio_sia_coordination_site == "Yes",
-          operational == "Operational"
-        )
+      df    <- facility_data()
+      seeds <- df |> dplyr::filter(polio_sia_coordination_site == "Yes")
       
       if (nrow(seeds) == 0) {
         showNotification(
-          "At least one operational coordination site is required.",
-          type = "error",
-          duration = 5
+          "At least one coordination site must be marked Yes before submitting.",
+          type = "error", duration = 5
         )
         return()
       }
       
       submitted_facilities(seeds)
-      
+      editing_locked(TRUE)
       showNotification(
         "Facility locations submitted successfully.",
-        type = "message",
-        duration = 3
+        type = "message", duration = 3
       )
     })
-    editing_locked <- reactiveVal(FALSE)
-    observeEvent(input$submit_facilities, {
-      
-      editing_locked(TRUE)
-      
-    })
+    
     list(
-      facility_data = facility_data,
+      facility_data      = facility_data,
       coordination_sites = coordination_sites
     )
   })
