@@ -43,6 +43,13 @@ facilityTabUI <- function(id) {
           'Click this button, then click the map to place a new site.'),
       tags$hr(),
       
+      checkboxInput(
+        ns('show_pop_raster'),
+        'Show WorldPop U5 Population',
+        value = FALSE
+      ),
+      tags$hr(),
+      
       actionButton(ns('submit_facilities'), 'Submit Facility Locations',
                    class = 'btn-primary', width = '100%')
     ),
@@ -412,7 +419,8 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
       on_add_facility        = add_new_sia_site,
       adding_facility_r      = adding_facility,
       show_buffer            = TRUE,
-      all_district_densities = all_district_densities
+      all_district_densities = all_district_densities,
+      show_pop_r             = reactive(isTRUE(input$show_pop_raster))
     )
     
     facilityTableServer(

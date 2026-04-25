@@ -49,7 +49,8 @@ facilityMapServer <- function(
     on_add_facility,
     adding_facility_r,
     show_buffer = TRUE,
-    all_district_densities
+    all_district_densities,
+    show_pop_r = reactive(FALSE)
 ) {
   
   moduleServer(id, function(input, output, session) {
@@ -149,28 +150,6 @@ facilityMapServer <- function(
     }
     
     # --------------------------------------------------
-    # Density -> allowed distance in meters
-    # Least dense = 10 km
-    # Most dense = 1 km
-    # --------------------------------------------------
-    
-    get_allowed_distance_m <- function(district_density) {
-      district_density <- suppressWarnings(as.numeric(district_density))
-      if (length(district_density) == 0) {
-        return(5000)
-      }
-      district_density <- district_density[1]
-      
-      if (district_density >= 10) {
-        return(1000)
-      }
-      if (district_density >= 1) {
-        return(5000)
-      }
-      return(10000)
-    }
-    
-    # --------------------------------------------------
     # Allowed area cache
     # --------------------------------------------------
     
@@ -252,7 +231,7 @@ facilityMapServer <- function(
           lng2 = bbox[['xmax']],
           lat2 = bbox[['ymax']]
         ) %>%
-         leaflet::addControl(
+        leaflet::addControl(
           html = '
           <div style="background:white;padding:8px 10px;border-radius:4px;
                       font-size:12px;line-height:1.8;border:1px solid #ccc;">
@@ -264,7 +243,8 @@ facilityMapServer <- function(
             <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
                  height="20"> Selected
           </div>',
-          position = "bottomright"
+          position = "bottomright",
+          layerId  = "facility_legend"
         ) %>%
         leaflet::addScaleBar(
           position = "bottomright",
@@ -336,10 +316,126 @@ facilityMapServer <- function(
     })
     
     # --------------------------------------------------
+    # WorldPop U5 population raster overlay
+    # --------------------------------------------------
+    
+    u5_worldpop_cache <- reactiveVal(NULL)
+    
+    get_u5_worldpop_local <- function() {
+      if (is.null(u5_worldpop_cache())) {
+        u5_worldpop_cache(load_worldpop_u5_raster(worldpop_t_u1_1to4_file))
+      }
+      u5_worldpop_cache()
+    }
+    
+    # Rebuild the facilities legend whenever show_pop_r changes,
+    # appending the WorldPop colour scale when the layer is on.
+    observe({
+      raster_cols <- pop_palette(5)
+      
+      swatches_html <- paste(
+        vapply(raster_cols, function(clr) {
+          paste0(
+            '<div style="flex:1;height:10px;background:', clr,
+            ';border-top:1px solid #999;border-bottom:1px solid #999;"></div>'
+          )
+        }, character(1)),
+        collapse = ""
+      )
+      
+      pop_section <- if (isTRUE(show_pop_r())) {
+        paste0(
+          '<div style="height:6px;"></div>',
+          '<div style="font-size:11px;font-weight:600;margin-bottom:4px;">',
+          'WorldPop U5 Population</div>',
+          '<div style="display:flex;gap:0;margin-bottom:3px;">',
+          swatches_html, '</div>',
+          '<div style="display:flex;justify-content:space-between;',
+          'font-size:10px;color:#666;">',
+          '<span>Low</span><span></span><span></span><span></span><span>High</span>',
+          '</div>'
+        )
+      } else {
+        ""
+      }
+      
+      legend_html <- paste0(
+        '<div style="background:white;padding:8px 10px;border-radius:4px;',
+        'font-size:12px;line-height:1.8;border:1px solid #ccc;">',
+        '<b>Facilities</b><br>',
+        '<img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png"',
+        ' height="20"> SIA Coordination Site<br>',
+        '<img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"',
+        ' height="20"> Not a Coordination Site<br>',
+        '<img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"',
+        ' height="20"> Selected',
+        pop_section,
+        '</div>'
+      )
+      
+      leaflet::leafletProxy('map', session = session) |>
+        leaflet::removeControl("facility_legend") |>
+        leaflet::addControl(
+          html     = legend_html,
+          position = "bottomright",
+          layerId  = "facility_legend"
+        )
+    })
+    
+    observe({
+      proxy <- leaflet::leafletProxy('map', session = session)
+      
+      if (!isTRUE(show_pop_r())) {
+        proxy |> leaflet::clearGroup('pop_raster')
+        return()
+      }
+      
+      req(district_sf())
+      req(nrow(district_sf()) > 0)
+      
+      pop_sf <- tryCatch(
+        make_population_overlay_sf(
+          district_sf = sf::st_transform(district_sf(), 4326),
+          u5_rast     = get_u5_worldpop_local()
+        ),
+        error = function(e) {
+          cat('[facilityMap] population overlay error:', e$message, '\n')
+          NULL
+        }
+      )
+      
+      if (is.null(pop_sf) || nrow(pop_sf) == 0) {
+        showNotification(
+          'No population data available for this district.',
+          type = 'warning', duration = 4
+        )
+        return()
+      }
+      
+      proxy |>
+        leaflet::clearGroup('pop_raster') |>
+        leaflet::addPolygons(
+          data        = pop_sf,
+          group       = 'pop_raster',
+          fillColor   = ~fill_color,
+          fillOpacity = 0.6,
+          stroke      = FALSE,
+          options     = leaflet::pathOptions(interactive = FALSE)
+        )
+      
+      cat('[facilityMap] population overlay drawn, n =', nrow(pop_sf), '\n')
+    })
+    
+    # --------------------------------------------------
     # Facility markers
     # --------------------------------------------------
     
     observe({
+      # Explicitly depend on district_sf so this observer re-fires on every
+      # district change, even when facility_data stays an empty df (NULL->NULL
+      # on rv$odk_sf would otherwise not invalidate the reactive).
+      district_sf()
+      
       df <- facility_data_r()
       if (is.null(df)) {
         cat('[facilityMap] facility_data_r is NULL\n')

@@ -26,6 +26,29 @@ label_ownership <- function(x) {
 }
 
 # =============================================================================
+# Shared spatial helpers
+# =============================================================================
+
+# Returns the allowed drag/fetch buffer in metres based on u5 population
+# density (per km²). Shared by fetch_facilities_odk() and facilityMapServer().
+#
+#   density >= 10  →  1 km   (dense urban)
+#   density >= 1   →  5 km   (peri-urban / mixed)
+#   density <  1   → 10 km   (sparse rural)
+get_allowed_distance_m <- function(district_density) {
+  district_density <- suppressWarnings(as.numeric(district_density))
+  if (length(district_density) == 0 || all(is.na(district_density))) {
+    return(5000)
+  }
+  district_density <- district_density[1]
+  if (is.na(district_density)) return(5000)
+  
+  if (district_density >= 10) return(1000)
+  if (district_density >= 1)  return(5000)
+  return(10000)
+}
+
+# =============================================================================
 # facility_odk.R
 # ODK fetch helpers for the facility tab
 # =============================================================================
@@ -89,21 +112,71 @@ fetch_facilities_odk <- function(zone_name, district_name) {
       dplyr::filter(is.na(system_review_state) | system_review_state != "rejected")
   }
   
-  # Look up the ODK district slug from the crosswalk using the shapefile name
-  odk_district <- DISTRICT_CROSSWALK |>
-    dplyr::filter(shp_district == district_name) |>
+  # Deduplicate by submission — repeat groups (e.g. partners_support_repeat)
+  # cause one submission to expand into many rows. Keep one row per instanceID.
+  raw <- raw |>
+    dplyr::distinct(meta_instance_id, .keep_all = TRUE)
+  
+  # -------------------------------------------------------------------------
+  # Spatial filtering — two inclusion rules (either is sufficient):
+  #   Rule 1: facility GPS falls within the district polygon
+  #   Rule 2: facility GPS falls within 10 km of the district polygon AND
+  #            the ODK district field matches the crosswalk entry
+  #
+  # Using a fixed 10 km buffer here (not the density-based drag buffer).
+  # -------------------------------------------------------------------------
+  
+  # Local alias avoids dplyr column-name shadowing on 'district_name'
+  .shp <- district_name
+  
+  district_rows <- districts_shp |>
+    dplyr::filter(district_name == .shp)
+  
+  district_geom_proj <- district_rows |>
+    sf::st_transform(3857) |>
+    sf::st_union() |>
+    sf::st_make_valid()
+  
+  # Use the same density-based buffer as the drag-validation logic
+  density              <- district_rows$u5_pop_density_km2[1]
+  buffer_m             <- get_allowed_distance_m(density)
+  district_buffer_proj <- sf::st_buffer(district_geom_proj, dist = buffer_m)
+  
+  # ODK slug(s) for this shapefile district (usually one, may be zero for unmapped)
+  odk_districts <- DISTRICT_CROSSWALK |>
+    dplyr::filter(shp_district == .shp) |>
     dplyr::pull(odk_district)
   
-  if (length(odk_district) == 0) {
-    warning("No ODK district mapping found for shapefile district: '", district_name, "'")
-    return(NULL)
-  }
+  # Only rows with valid GPS can be spatially tested
+  has_coords <- !is.na(raw$geolocation_gps_latitude) & !is.na(raw$geolocation_gps_longitude)
+  raw_coords <- raw[has_coords, , drop = FALSE]
   
-  raw <- raw |>
-    dplyr::filter(facility_identification_district == odk_district) |>
-    # Deduplicate by submission — repeat groups (e.g. partners_support_repeat)
-    # cause one submission to expand into many rows. Keep one row per instanceID.
-    dplyr::distinct(meta_instance_id, .keep_all = TRUE)
+  if (nrow(raw_coords) == 0) return(NULL)
+  
+  raw_pts <- sf::st_as_sf(
+    raw_coords,
+    coords = c("geolocation_gps_longitude", "geolocation_gps_latitude"),
+    crs    = 4326,
+    remove = FALSE
+  ) |>
+    sf::st_transform(3857)
+  
+  within_polygon <- lengths(sf::st_within(raw_pts, district_geom_proj)) > 0
+  within_buffer  <- lengths(sf::st_within(raw_pts, district_buffer_proj)) > 0
+  name_matches   <- raw_coords$facility_identification_district %in% odk_districts
+  
+  keep <- within_polygon | (within_buffer & name_matches)
+  
+  cat(
+    "[fetch_facilities_odk] district:", district_name,
+    "| density:", round(density, 3),
+    "| buffer_km:", round(buffer_m / 1000, 1),
+    "| within polygon:", sum(within_polygon),
+    "| buffer+name match:", sum(within_buffer & name_matches),
+    "| total kept:", sum(keep), "\n"
+  )
+  
+  raw <- raw_coords[keep, , drop = FALSE]
   
   if (nrow(raw) == 0) return(NULL)
   
