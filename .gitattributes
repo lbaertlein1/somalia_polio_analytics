@@ -1,5 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+*.tif filter=lfs diff=lfs merge=lfs -text
+*.gpkg filter=lfs diff=lfs merge=lfs -text
+*.pbf filter=lfs diff=lfs merge=lfs -text
 /health_area_adjuster/modular_health_area_app/data/friction/somalia_friction_100m.tif filter=lfs diff=lfs merge=lfs -text
 /health_area_adjuster/modular_health_area_app/data/friction/somalia_population_cost_100m.tif filter=lfs diff=lfs merge=lfs -text
 /health_area_adjuster/modular_health_area_app/data/osm_inputs/cache/geofabrik_somalia-latest.gpkg filter=lfs diff=lfs merge=lfs -text
