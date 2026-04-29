@@ -1,8 +1,14 @@
 # =============================================================================
-# facility_tab.R
+# mod_facility_tab.R
 # Two facility sources:
 #   rv$odk_sf  — pulled from ODK Central, refreshable
 #   rv$app_sf  — app-added SIA coordination sites, persists across refreshes
+#
+# Session integration:
+#   save_snapshot_fn  called after submit to checkpoint facility state
+#   restore_r         reactive(snapshot) — observed to restore state on undo/redo
+#   odk_sf_r / app_sf_r  — exposed for manual Save button collection
+#   restore_from_snapshot()  — callable directly by app_server on undo/redo
 # =============================================================================
 
 facilityTabUI <- function(id) {
@@ -14,30 +20,18 @@ facilityTabUI <- function(id) {
       width = 2,
       
       div(class = 'rightbar-title', 'Health Facility Mapping'),
-      p('Facilities are loaded from the MHFL for the selected district.'),
       tags$ul(
         tags$li('Drag a pin to correct its GPS location.'),
         tags$li('Rename a facility in the table.'),
-        tags$li('Mark facilities as SIA Coordination Sites in the table.'),
-        tags$li('Only Yes facilities are used in Health Area Mapping.')
+        tags$li('Mark facilities as SIA Coordination Sites in the table.')
       ),
       
       uiOutput(ns('odk_status')),
       tags$hr(),
       
-      actionButton(ns('refresh_odk'), 'Refresh from ODK', icon = icon('rotate'), width = '100%'),
-      div(style = 'margin-top: 6px; font-size: 12px; color: #666;',
-          'Re-pulls latest MHFL data. Edits are preserved.'),
-      tags$hr(),
-      
-      uiOutput(ns('add_mhfl_ui')),
-      div(style = 'margin-top: 6px; font-size: 12px; color: #666;',
-          'Opens MHFL survey in new tab. Click Refresh after submitting.'),
-      tags$hr(),
-      
       actionButton(
         ns('add_sia_site'), 'Add SIA Coordination Site',
-        icon = icon('map-pin'), width = '100%', class = 'btn-warning'
+        icon = icon('map-pin'), width = '100%', class = 'btn-default'
       ),
       div(style = 'margin-top: 6px; font-size: 12px; color: #666;',
           'Click this button, then click the map to place a new site.'),
@@ -76,7 +70,14 @@ facilityTabUI <- function(id) {
 
 # =============================================================================
 
-facilityTabServer <- function(id, zone, region, district, district_ready, submitted_facilities) {
+facilityTabServer <- function(
+    id,
+    zone, region, district, district_ready,
+    submitted_facilities,
+    landmarks_r      = reactive(NULL),
+    save_snapshot_fn = NULL,
+    restore_r        = reactive(NULL)
+) {
   moduleServer(id, function(input, output, session) {
     
     rv <- reactiveValues(
@@ -86,9 +87,31 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
       odk_error    = NULL
     )
     
-    selected_id    <- reactiveVal(NULL)
+    selected_id     <- reactiveVal(NULL)
     adding_facility <- reactiveVal(FALSE)
     editing_locked  <- reactiveVal(FALSE)
+    
+    # Stores snapshot to apply AFTER do_odk_fetch() — fetch would overwrite restored odk_sf
+    pending_restore <- reactiveVal(NULL)
+    
+    # -------------------------------------------------------------------------
+    # SESSION: store snapshot; applied after ODK fetch completes
+    # -------------------------------------------------------------------------
+    observeEvent(restore_r(), {
+      snap <- restore_r()
+      if (is.null(snap)) return()
+      if (!is.null(snap$odk_sf) || !is.null(snap$app_sf)) {
+        if (isTRUE(rv$odk_loading)) {
+          pending_restore(snap)
+          cat("[facility] restore queued — ODK fetch in progress\n")
+        } else {
+          if (!is.null(snap$odk_sf)) rv$odk_sf <- snap$odk_sf
+          if (!is.null(snap$app_sf)) rv$app_sf  <- snap$app_sf
+          showNotification('Facility state restored.', type = 'message', duration = 2)
+          cat("[facility] restore applied immediately\n")
+        }
+      }
+    }, ignoreNULL = TRUE, ignoreInit = TRUE)
     
     # -------------------------------------------------------------------------
     # District boundary
@@ -155,9 +178,8 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
     output$sia_counts_card <- renderUI({
       df <- facility_data()
       
-      n_selected    <- sum(df$polio_sia_coordination_site == "Yes", na.rm = TRUE)
+      n_selected <- sum(df$polio_sia_coordination_site == "Yes", na.rm = TRUE)
       
-      # Recommended: ceiling(u5_pop_2025 / 2000), minimum 1
       district_pop <- districts_shp |>
         sf::st_drop_geometry() |>
         dplyr::filter(district_name == district()) |>
@@ -165,39 +187,34 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
         sum(na.rm = TRUE)
       
       n_recommended <- max(1L, ceiling(district_pop / 2000))
-      
-      count_color <- if (n_selected >= n_recommended) "#388e3c" else "#e53935"
+      count_color   <- if (n_selected >= n_recommended) "#388e3c" else "#e53935"
       
       div(
         style = 'margin-bottom: 10px; padding: 8px;
                  border: 1px solid #e0e0e0; border-radius: 4px;
                  background: #fafafa;',
         div(
-          style = 'font-weight: 600; font-size: 12px;
-                   color: #555; margin-bottom: 6px;',
+          style = 'font-weight: 600; font-size: 12px; color: #555; margin-bottom: 6px;',
           'SIA Coordination Sites'
         ),
         div(
           style = 'display: flex; gap: 8px;',
           div(
             style = 'flex: 1; text-align: center; padding: 6px 4px;
-                     border: 1px solid #e0e0e0; border-radius: 4px;
-                     background: white;',
-            div(style = 'font-size: 10px; color: #888; margin-bottom: 2px;',
-                'Recommended'),
-            div(style = 'font-size: 20px; font-weight: 700; color: #1565C0;',
-                n_recommended)
+                     border: 1px solid #e0e0e0; border-radius: 4px; background: white;',
+            div(style = 'font-size: 10px; color: #888; margin-bottom: 2px;', 'Recommended'),
+            div(style = 'font-size: 20px; font-weight: 700; color: #1565C0;', n_recommended)
           ),
           div(
             style = paste0(
               'flex: 1; text-align: center; padding: 6px 4px;',
-              ' border: 1px solid #e0e0e0; border-radius: 4px;',
-              ' background: white;'
+              ' border: 1px solid #e0e0e0; border-radius: 4px; background: white;'
             ),
-            div(style = 'font-size: 10px; color: #888; margin-bottom: 2px;',
-                'Selected'),
-            div(style = paste0('font-size: 20px; font-weight: 700; color: ', count_color, ';'),
-                n_selected)
+            div(style = 'font-size: 10px; color: #888; margin-bottom: 2px;', 'Selected'),
+            div(
+              style = paste0('font-size: 20px; font-weight: 700; color: ', count_color, ';'),
+              n_selected
+            )
           )
         )
       )
@@ -209,38 +226,11 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
     output$odk_status <- renderUI({
       if (isTRUE(rv$odk_loading)) {
         div(style = 'color: #2196F3; font-size: 12px; margin-bottom: 4px;',
-            icon('spinner', class = 'fa-spin'), ' Loading facilities from ODK...')
+            icon('spinner', class = 'fa-spin'), ' Loading facilities...')
       } else if (!is.null(rv$odk_error)) {
         div(style = 'color: #e53935; font-size: 12px; margin-bottom: 4px;',
             icon('circle-exclamation'), ' ', rv$odk_error)
-      } else if (!is.null(rv$odk_sf)) {
-        n_app <- if (!is.null(rv$app_sf)) nrow(rv$app_sf) else 0
-        div(style = 'color: #388e3c; font-size: 12px; margin-bottom: 4px;',
-            icon('circle-check'), ' ',
-            nrow(rv$odk_sf), ' MHFL facilities',
-            if (n_app > 0) paste0(' + ', n_app, ' app-added') else NULL
-        )
       }
-    })
-    
-    # -------------------------------------------------------------------------
-    # Add to MHFL link
-    # -------------------------------------------------------------------------
-    output$add_mhfl_ui <- renderUI({
-      req(zone())
-      cfg <- odk_form_config(zone())
-      url <- paste0(
-        "https://emro.nafundi.com/#/projects/9/forms/",
-        cfg$form_id,
-        "/submissions/new"
-      )
-      tags$a(
-        href   = url,
-        target = "_blank",
-        class  = "btn btn-default",
-        style  = "width: 100%;",
-        icon("plus"), " Add new facility to MHFL"
-      )
     })
     
     # -------------------------------------------------------------------------
@@ -270,7 +260,6 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
           }
         }
         
-        # Set selected to first available facility
         all_ids <- c(
           if (!is.null(rv$odk_sf)) as.character(rv$odk_sf$facility_id) else NULL,
           if (!is.null(rv$app_sf)) as.character(rv$app_sf$facility_id) else NULL
@@ -283,20 +272,24 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
       })
       
       rv$odk_loading <- FALSE
+      
+      # Apply any pending restore now that fetch is complete
+      snap <- pending_restore()
+      if (!is.null(snap)) {
+        pending_restore(NULL)
+        if (!is.null(snap$odk_sf)) rv$odk_sf <- snap$odk_sf
+        if (!is.null(snap$app_sf)) rv$app_sf  <- snap$app_sf
+        showNotification('Facility state restored.', type = 'message', duration = 2)
+        cat("[facility] pending restore applied after ODK fetch\n")
+      }
     }
     
     observeEvent(district(), {
       req(isTRUE(district_ready()))
-      # Clear app-added sites when district changes — they belong to a district
       rv$app_sf <- NULL
       editing_locked(FALSE)
       do_odk_fetch(preserve_edits = FALSE)
     }, ignoreInit = FALSE)
-    
-    observeEvent(input$refresh_odk, {
-      do_odk_fetch(preserve_edits = TRUE)
-      showNotification('Facilities refreshed from ODK.', type = 'message', duration = 3)
-    })
     
     # -------------------------------------------------------------------------
     # Add SIA coordination site — click-to-place on map
@@ -319,7 +312,7 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
       
       new_row <- data.frame(
         facility_id                 = new_id,
-        facility_name               = paste('SIA Site', 
+        facility_name               = paste('SIA Site',
                                             if (!is.null(rv$app_sf)) nrow(rv$app_sf) + 1L else 1L),
         facility_type               = NA_character_,
         hf_ownership                = NA_character_,
@@ -340,20 +333,15 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
         remove = FALSE
       )
       
-      rv$app_sf <- if (is.null(rv$app_sf)) {
-        new_sf
-      } else {
-        rbind(rv$app_sf, new_sf)
-      }
+      rv$app_sf <- if (is.null(rv$app_sf)) new_sf else rbind(rv$app_sf, new_sf)
       
       selected_id(new_id)
       adding_facility(FALSE)
-      
       showNotification('SIA coordination site added.', type = 'message', duration = 3)
     }
     
     # -------------------------------------------------------------------------
-    # Coordinate update via marker drag — works on both ODK and app facilities
+    # Coordinate update via marker drag
     # -------------------------------------------------------------------------
     update_marker_position <- function(facility_id, lat, lon) {
       new_geom <- sf::st_sfc(
@@ -361,7 +349,6 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
         crs = 4326
       )[[1]]
       
-      # Try ODK facilities first
       if (!is.null(rv$odk_sf)) {
         idx <- which(rv$odk_sf$facility_id == facility_id)
         if (length(idx) == 1) {
@@ -371,7 +358,6 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
           return()
         }
       }
-      # Then app facilities
       if (!is.null(rv$app_sf)) {
         idx <- which(rv$app_sf$facility_id == facility_id)
         if (length(idx) == 1) {
@@ -383,7 +369,7 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
     }
     
     # -------------------------------------------------------------------------
-    # Table bulk update — routes edits to the correct source sf
+    # Table bulk update
     # -------------------------------------------------------------------------
     update_facility_data <- function(new_df) {
       edits <- new_df |>
@@ -395,7 +381,7 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
         sf_obj |>
           dplyr::left_join(edits, by = "facility_id", suffix = c("", ".new")) |>
           dplyr::mutate(
-            facility_name               = dplyr::coalesce(facility_name.new, facility_name),
+            facility_name = dplyr::coalesce(facility_name.new, facility_name),
             polio_sia_coordination_site = dplyr::coalesce(
               polio_sia_coordination_site.new, polio_sia_coordination_site
             )
@@ -420,7 +406,8 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
       adding_facility_r      = adding_facility,
       show_buffer            = TRUE,
       all_district_densities = all_district_densities,
-      show_pop_r             = reactive(isTRUE(input$show_pop_raster))
+      show_pop_r             = reactive(isTRUE(input$show_pop_raster)),
+      landmarks_r            = landmarks_r
     )
     
     facilityTableServer(
@@ -447,15 +434,37 @@ facilityTabServer <- function(id, zone, region, district, district_ready, submit
       
       submitted_facilities(seeds)
       editing_locked(TRUE)
+      
+      # SESSION: checkpoint after submit
+      if (!is.null(save_snapshot_fn)) {
+        save_snapshot_fn(list(
+          odk_sf = rv$odk_sf,
+          app_sf = rv$app_sf
+        ))
+      }
+      
       showNotification(
         "Facility locations submitted successfully.",
         type = "message", duration = 3
       )
     })
     
+    # -------------------------------------------------------------------------
+    # Return — includes session-facing reactives and restore function
+    # -------------------------------------------------------------------------
     list(
       facility_data      = facility_data,
-      coordination_sites = coordination_sites
+      coordination_sites = coordination_sites,
+      
+      # SESSION: expose raw sf for manual Save button collection in app_server
+      odk_sf_r = reactive(rv$odk_sf),
+      app_sf_r = reactive(rv$app_sf),
+      
+      # SESSION: callable by app_server on undo / redo
+      restore_from_snapshot = function(snap) {
+        if (!is.null(snap$odk_sf)) rv$odk_sf <- snap$odk_sf
+        if (!is.null(snap$app_sf)) rv$app_sf  <- snap$app_sf
+      }
     )
   })
 }

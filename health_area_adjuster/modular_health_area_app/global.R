@@ -13,50 +13,74 @@ library(later)
 library(viridis)
 library(smoothr)
 library(dotenv)
+library(zip)
+library(pool)
+library(DBI)
+library(RPostgres)
+library(geojsonsf)
 
-dotenv::load_dot_env()   # reads .env from the working directory by default
+`%||%` <- function(a, b) if (!is.null(a)) a else b
 
-districts_file <- 'data/districts_shp.Rds'
-worldpop_t_u1_1to4_file <- 'data/som_u5_population_2025_100m.tif'
+if (file.exists('.env')) dotenv::load_dot_env('.env')
 
-default_grid_n <- 100
-n_start_dfas <- 5
 
-min_brush_m <- 50
-max_brush_m <- 10000
-brush_step_m <- 50
+# =============================================================================
+# Data files
+# =============================================================================
+districts_file           <- 'data/districts_shp.Rds'
+worldpop_t_u1_1to4_file  <- 'data/som_u5_population_2025_100m.tif'
 
-show_pop_default <- FALSE
+# =============================================================================
+# App constants
+# =============================================================================
+default_grid_n        <- 100
+n_start_dfas          <- 5
+min_brush_m           <- 50
+max_brush_m           <- 10000
+brush_step_m          <- 50
+show_pop_default      <- FALSE
 boundary_only_default <- FALSE
 
 starter_dfa_names <- paste('Health Area', seq_len(n_start_dfas))
-extra_dfa_names <- c('Inaccessible', 'Unpopulated')
-all_dfa_names <- c(starter_dfa_names, extra_dfa_names)
+extra_dfa_names   <- c('Inaccessible', 'Unpopulated')
+all_dfa_names     <- c(starter_dfa_names, extra_dfa_names)
 
-selected_fill_color <- '#FFD400'
+selected_fill_color    <- '#FFD400'
 nonselected_fill_color <- '#757575'
-special_fill_colors <- c(
-  'Inaccessible' = '#D7301F',
-  'Unpopulated' = '#FFFFFF'
-)
+special_fill_colors    <- c('Inaccessible' = '#D7301F', 'Unpopulated' = '#FFFFFF')
 
 pop_palette <- colorRampPalette(c(
   '#feebe2', '#fbb4b9', '#fbb4b9', '#c51b8a', '#7a0177'
 ))
 
-source('helpers/app_helpers.R', local = TRUE)
+# =============================================================================
+# Session constants
+# Phase 6: SESSIONS_DIR is unused after DB migration — safe to leave in place.
+# =============================================================================
+SESSION_MAX_HISTORY <- 10L         # max undo/redo checkpoints per session
+SESSION_MAX_SAVED   <- 5L          # max saved sessions kept per user+district
 
+# =============================================================================
+# Helpers
+# =============================================================================
+source('helpers/app_helpers.R', local = TRUE)
+source('helpers/download_helpers.R', local = TRUE)
+source('helpers/mod_db.R', local = TRUE)
+
+# =============================================================================
+# Districts shapefile
+# =============================================================================
 districts_path <- path.expand(districts_file)
 if (!file.exists(districts_path)) {
   stop(sprintf('Could not find districts file: %s', districts_file))
 }
 
-districts_shp <- readRDS(districts_path)
+districts_shp          <- readRDS(districts_path)
 all_district_densities <- districts_shp$u5_pop_density_km2
-districts_shp <- safe_make_valid(districts_shp)
+districts_shp          <- safe_make_valid(districts_shp)
 
 required_cols <- c('zone_name', 'region_name', 'district_name')
-missing_cols <- setdiff(required_cols, names(districts_shp))
+missing_cols  <- setdiff(required_cols, names(districts_shp))
 if (length(missing_cols) > 0) {
   stop(sprintf(
     'districts_shp is missing required column(s): %s',
@@ -66,15 +90,44 @@ if (length(missing_cols) > 0) {
 
 zone_choices <- sort(unique(as.character(stats::na.omit(districts_shp$zone_name))))
 
-source('tabs/intro/mod_intro_tab.R', local = TRUE)
-source('tabs/facility/facility_helpers.R', local = TRUE)
-source('tabs/facility/mod_facility_map.R', local = TRUE)
-source('tabs/facility/mod_facility_table.R', local = TRUE)
-source('tabs/facility/mod_facility_tab.R', local = TRUE)
-source('tabs/health_area/health_area_helpers.R', local = TRUE)
-source('tabs/health_area/mod_health_area_controls.R', local = TRUE)
-source('tabs/health_area/mod_health_area_map.R', local = TRUE)
-source('tabs/health_area/mod_health_area_population.R', local = TRUE)
-source('tabs/health_area/mod_health_area_tab.R', local = TRUE)
+
+# Connect to Database
+cat('DB_HOST:', Sys.getenv('DB_HOST'), '\n')
+# cat('DB_PORT:', Sys.getenv('DB_PORT'), '\n')
+cat('DB_NAME:', Sys.getenv('DB_NAME'), '\n')
+# cat('DB_USER:', Sys.getenv('DB_USER'), '\n')
+# cat('DB_PASSWORD:', Sys.getenv('DB_PASSWORD'), '\n')
+# cat('DB_SSL:', Sys.getenv('DB_SSL'), '\n')
+pool <- tryCatch(
+  db_connect(),
+  error = function(e) { message('DB connection failed: ', e$message); NULL }
+)
+onStop(function() pool::poolClose(pool))
+
+# =============================================================================
+# Module sources
+# =============================================================================
+source('tabs/auth/mod_auth.R',               local = TRUE)
+source('tabs/session/mod_session_manager.R', local = TRUE)
+
+source('tabs/intro/mod_intro_tab.R',         local = TRUE)
+
+source('tabs/orientation/mod_orientation_tab.R',         local = TRUE)
+
+
+source('tabs/facility/facility_helpers.R',             local = TRUE)
+source('tabs/facility/mod_facility_map.R',             local = TRUE)
+source('tabs/facility/mod_facility_table.R',           local = TRUE)
+source('tabs/facility/mod_facility_tab.R',             local = TRUE)
+
+source('tabs/health_area/health_area_helpers.R',                local = TRUE)
+source('tabs/health_area/mod_health_area_controls.R',           local = TRUE)
+source('tabs/health_area/mod_health_area_map.R',                local = TRUE)
+source('tabs/health_area/mod_health_area_population.R',         local = TRUE)
+source('tabs/health_area/mod_health_area_tab.R',                local = TRUE)
 source('tabs/health_area/mod_initial_health_area_generation.R', local = TRUE)
 
+source('tabs/microplan/mod_microplan_tab.R', local = TRUE)
+
+# Also add at the bottom:
+source('tabs/admin/mod_admin_tab.R', local = TRUE)

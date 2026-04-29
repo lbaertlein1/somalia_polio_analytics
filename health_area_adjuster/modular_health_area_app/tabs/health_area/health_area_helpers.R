@@ -1,156 +1,109 @@
 show_help_modal <- function(session) {
   showModal(
     modalDialog(
-      title = 'Health Area Boundary Review for Microplanning',
+      title = tags$span(
+        style = 'font-size: 15px; font-weight: 700; color: #0f172a;',
+        'Health Area Mapping — How to use this tab'
+      ),
       div(
-        style = '
-          max-height: 75vh;
-          overflow-y: auto;
-          font-size: 14px;
-          line-height: 1.5;
-        ',
-        HTML("
-<h3>About this tool</h3>
-
-<p>
-This tool is used to review and adjust <b>Health Area boundaries</b> before campaign microplanning.
-</p>
-
-<p>
-Health Areas were first created by national GIS teams using available data. These initial boundaries are provided as a starting point. District teams are asked to review and adjust the boundaries to reflect how the district will be covered in polio vaccination campaigns.
-</p>
-
-<p>
-A <b>Health Area</b> represents:
-</p>
-
-<ul>
-<li>The operational area covered during vaccination campaigns by vaccination teams supervised by a health center</li>
-<li>An area typically served by <b>5 to 6 vaccination teams</b></li>
-<li>An area targeting approximately <b>2,000 children</b></li>
-<li>Health areas should align as closely as possible with the population served by a health center</li>
-</ul>
-
-<p>
-Accurate Health Area boundaries are important because they support:
-</p>
-
-<ul>
-<li>Correct allocation of vaccination teams</li>
-<li>Manageable workloads and effective supervision</li>
-<li>Reliable population estimates</li>
-<li>Accountability for coverage and missed children</li>
-</ul>
-
-<p>
-This tool is intended to be used collaboratively during a district planning meeting prior to health area microplanning.
-</p>
-
-<p>
-The boundaries finalized here will be used as the <b>foundation for health area microplanning</b>.
-</p>
-
-<hr>
-
-<h3>How to use this tool</h3>
-<p>
-First, select a district on the Introduction tab. Once loaded, select a health area to begin editing. Use the mouse to 'paint' areas according to which health area they belong to. 
-</p>
-<ul>
-<li>Left click to 'paint' which land belongs to the selected Health Area.</li>
-<li>To adjust the size of the 'paint brush', adjust the Brush Size slider on the left sidebar.</li>
-<li>Right click to move the map.</li>
-<li>Use the scroll-wheel to zoom in or out.</li>
-<li>When finished with a Health Area, simply select another or click 'Save'.</li>
-</ul>
-
-<h4>Step 1. Mark Unpopulated areas</h4>
-
-<p>
-Begin by identifying areas where no people live.
-</p>
-
-<ul>
-<li>Desert or open land</li>
-<li>Water bodies</li>
-<li>Industrial or restricted land</li>
-<li>Other areas with no resident population</li>
-</ul>
-
-<p>
-Assign these areas to <b>Unpopulated</b>.
-</p>
-
-<h4>Step 2. Mark Inaccessible areas</h4>
-
-<p>
-Next, identify areas that vaccination teams cannot reach.
-</p>
-
-<ul>
-<li>Areas affected by insecurity</li>
-<li>Flooded areas</li>
-<li>Terrain that cannot be safely accessed</li>
-<li>Other areas where teams cannot operate</li>
-</ul>
-
-<p>
-Assign these areas to <b>Inaccessible</b>.
-</p>
-
-<h4>Step 3. Review and adjust Health Area boundaries</h4>
-
-<ul>
-<li>Follow recognizable features</li>
-<li>Ensure boundaries are easy for teams to understand</li>
-<li>Ensure vaccination team coverage and supervision are practical</li>
-</ul>
-
-<h4>Step 4. Ensure all areas are assigned</h4>
-
-<p>
-Every location must belong to exactly one category:
-</p>
-
-<ul>
-<li>A Health Area</li>
-<li>Inaccessible</li>
-<li>Unpopulated</li>
-</ul>
-
-<p>
-There must be no gaps and no overlaps.
-</p>
-
-<h4>Step 5. Submit the completed district</h4>
-
-<p>
-Submit the finalized boundaries so they can be used for microplanning.
-</p>
-
-<hr>
-
-<h3>Population estimates (WorldPop)</h3>
-
-<p>
-This tool uses <b>WorldPop population estimates</b> as the starting target population for each Health Area.
-</p>
-
-<p>
-District teams may adjust these estimates if needed.
-</p>
-
-<hr>
-
-<h3>Support</h3>
-
-<p>
-If you have questions or encounter problems while using this tool, contact the <b>national data team</b>.
-</p>
-")
+        style = 'font-size: 13px; line-height: 1.7; color: #334155; max-height: 65vh; overflow-y: auto;',
+        
+        # ── What is a health area ─────────────────────────────────────────────
+        div(
+          style = 'margin-bottom: 16px;',
+          tags$p(
+            'A ', tags$strong('Health Area'), ' is the operational area covered by vaccination teams ',
+            'supervised from one health facility. Each health area should target approximately ',
+            tags$strong('2,000 children under 5'), ' and be covered by ',
+            tags$strong('5–6 vaccination teams'), '.'
+          )
+        ),
+        
+        tags$hr(style = 'border-color: #e2e8f0; margin: 12px 0;'),
+        
+        # ── Controls ──────────────────────────────────────────────────────────
+        div(
+          style = 'margin-bottom: 14px;',
+          tags$p(style = 'font-weight: 700; color: #0f172a; margin-bottom: 6px;',
+                 'Map controls'),
+          tags$ul(
+            style = 'margin: 0; padding-left: 18px;',
+            tags$li(tags$strong('Left click'), ' — paint cells to the selected health area'),
+            tags$li(tags$strong('Right click + drag'), ' — move the map'),
+            tags$li(tags$strong('Scroll wheel'), ' — zoom in / out'),
+            tags$li(tags$strong('Brush size slider'), ' — adjust the painting brush size')
+          )
+        ),
+        
+        tags$hr(style = 'border-color: #e2e8f0; margin: 12px 0;'),
+        
+        # ── Steps ─────────────────────────────────────────────────────────────
+        div(
+          style = 'margin-bottom: 14px;',
+          tags$p(style = 'font-weight: 700; color: #0f172a; margin-bottom: 10px;',
+                 'Suggested steps'),
+          
+          .help_step('1', 'Mark Unpopulated areas',
+                     'Paint areas with no resident population — desert, water bodies, industrial land.'),
+          
+          .help_step('2', 'Mark Inaccessible areas',
+                     'Paint areas vaccination teams cannot reach — insecurity, flooding, impassable terrain.'),
+          
+          .help_step('3', 'Adjust Health Area boundaries',
+                     paste0(
+                       'Select a health area from the population table on the right, then paint. ',
+                       'Boundaries should follow recognisable features and give teams manageable, ',
+                       'well-supervised workloads. Aim for ~2,000 children per area.'
+                     )
+          ),
+          
+          .help_step('4', 'Check all cells are assigned',
+                     paste0(
+                       'Every cell must belong to exactly one category — a Health Area, ',
+                       'Inaccessible, or Unpopulated. No gaps or overlaps.'
+                     )
+          ),
+          
+          .help_step('5', 'Save',
+                     paste0(
+                       'Click Save when finished. Saved boundaries carry forward to the ',
+                       'Microplan Prep tab where population, teams and supervisors are recorded.'
+                     )
+          )
+        ),
+        
+        tags$hr(style = 'border-color: #e2e8f0; margin: 12px 0;'),
+        
+        # ── Population note ───────────────────────────────────────────────────
+        tags$p(
+          style = 'font-size: 12px; color: #64748b; margin: 0;',
+          tags$strong('Population estimates'), ' in the right panel are from WorldPop ',
+          '(children under 5). Values can be adjusted in the Microplan Prep tab.'
+        )
       ),
       easyClose = TRUE,
-      size = 'l'
+      size      = 'm',
+      footer    = modalButton('Close')
+    )
+  )
+}
+
+# ── Step item helper ───────────────────────────────────────────────────────────
+.help_step <- function(num, title, desc) {
+  div(
+    style = 'display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;',
+    div(
+      style = paste0(
+        'width:22px;height:22px;border-radius:50%;',
+        'background:#0d9488;color:#fff;flex-shrink:0;margin-top:1px;',
+        'display:flex;align-items:center;justify-content:center;',
+        'font-size:11px;font-weight:700;'
+      ),
+      num
+    ),
+    div(
+      tags$span(style = 'font-weight:600;color:#0f172a;', title),
+      tags$span(style = 'color:#64748b;', paste0(' — ', desc))
     )
   )
 }
@@ -193,14 +146,14 @@ calc_grid_limits <- function(max_dim_m) {
 calc_brush_limits <- function(max_dim_m) {
   min_b <- round_to_step(clamp_num(max_dim_m * 0.02, 50, 10000), brush_step_m)
   max_b <- round_to_step(clamp_num(max_dim_m * 0.18, 50, 10000), brush_step_m)
-
+  
   if (max_b <= min_b) {
     max_b <- clamp_num(min_b + brush_step_m, 50, 10000)
   }
-
+  
   default_b <- round_to_step((min_b + max_b) / 2, brush_step_m)
   default_b <- clamp_num(default_b, min_b, max_b)
-
+  
   list(
     min = as.integer(min_b),
     max = as.integer(max_b),
@@ -238,41 +191,41 @@ make_fill_colors <- function(active_dfa, dfa_names = all_dfa_names) {
 make_paint_grid <- function(district_sf, grid_n = 150) {
   district_sf <- safe_make_valid(district_sf)
   district_3857 <- st_transform(district_sf, 3857)
-
+  
   bbox <- st_bbox(district_3857)
   width_m <- bbox$xmax - bbox$xmin
   height_m <- bbox$ymax - bbox$ymin
   max_dim <- max(width_m, height_m)
-
+  
   cellsize <- max_dim / grid_n
-
+  
   raw_grid <- st_make_grid(
     district_3857,
     cellsize = cellsize,
     what = 'polygons',
     square = TRUE
   )
-
+  
   grid_sf <- st_sf(
     cell_id = seq_along(raw_grid),
     geometry = raw_grid,
     crs = st_crs(district_3857)
   )
-
+  
   cent_3857 <- suppressWarnings(st_centroid(grid_sf))
   inside <- lengths(st_within(cent_3857, district_3857)) > 0
-
+  
   grid_sf <- grid_sf |>
     filter(inside) |>
     mutate(cell_id = seq_len(n()))
-
+  
   cent_wgs84 <- st_transform(cent_3857[inside, ], 4326)
   coords <- st_coordinates(cent_wgs84)
-
+  
   grid_sf <- st_transform(grid_sf, 4326)
   grid_sf$centroid_lon <- coords[, 1]
   grid_sf$centroid_lat <- coords[, 2]
-
+  
   list(
     grid_sf = grid_sf,
     max_dim_m = as.numeric(max_dim)
@@ -281,18 +234,18 @@ make_paint_grid <- function(district_sf, grid_n = 150) {
 
 make_start_assignment <- function(grid_sf, district_sf, n_dfa = 5, seed = 1) {
   set.seed(seed)
-
+  
   pts <- st_sample(district_sf, size = n_dfa, exact = TRUE)
-
+  
   pts_sf <- st_sf(
     dfa_name = paste('Health Area', seq_len(n_dfa)),
     geometry = pts,
     crs = st_crs(district_sf)
   )
-
+  
   cent <- suppressWarnings(st_centroid(grid_sf))
   idx <- st_nearest_feature(cent, pts_sf)
-
+  
   list(
     assignments = as.character(pts_sf$dfa_name[idx]),
     seeds_sf = pts_sf
@@ -301,18 +254,19 @@ make_start_assignment <- function(grid_sf, district_sf, n_dfa = 5, seed = 1) {
 
 build_dfa_polygons_from_assignments <- function(grid_sf, assignments, district_sf) {
   stopifnot(length(assignments) == nrow(grid_sf))
-
+  
   out <- grid_sf |>
     mutate(dfa_name = assignments) |>
     dplyr::select(cell_id, centroid_lon, centroid_lat, dfa_name, geometry) |>
     group_by(dfa_name) |>
     summarise(geometry = st_union(geometry), .groups = 'drop')
-
+  
   out <- safe_make_valid(out)
   out <- suppressWarnings(st_intersection(out, district_sf))
   out <- safe_make_valid(out)
+  out <- tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
   out$geometry <- st_cast(out$geometry, 'MULTIPOLYGON', warn = FALSE)
-
+  
   out |>
     dplyr::select(dfa_name, geometry)
 }
@@ -329,6 +283,7 @@ smooth_dfa_boundaries <- function(dfa_sf, district_sf, iterations = 1) {
   
   dfa_sf <- suppressWarnings(sf::st_intersection(dfa_sf, district_sf))
   dfa_sf <- safe_make_valid(dfa_sf)
+  dfa_sf <- tryCatch(sf::st_collection_extract(dfa_sf, 'POLYGON'), error = function(e) dfa_sf)
   dfa_sf$geometry <- sf::st_cast(dfa_sf$geometry, "MULTIPOLYGON", warn = FALSE)
   
   dfa_sf
@@ -336,10 +291,10 @@ smooth_dfa_boundaries <- function(dfa_sf, district_sf, iterations = 1) {
 
 make_dfa_label_points <- function(dfa_sf) {
   if (is.null(dfa_sf) || nrow(dfa_sf) == 0) return(NULL)
-
+  
   pts <- suppressWarnings(st_point_on_surface(dfa_sf))
   coords <- st_coordinates(pts)
-
+  
   data.frame(
     dfa_name = dfa_sf$dfa_name,
     lon = coords[, 1],
@@ -350,11 +305,11 @@ make_dfa_label_points <- function(dfa_sf) {
 
 load_worldpop_u5_raster <- function(t_u1_1to4_file) {
   t_path <- path.expand(t_u1_1to4_file)
-
+  
   if (!file.exists(t_path)) {
     stop(paste0('WorldPop raster not found: ', t_path))
   }
-
+  
   u5 <- terra::rast(t_path)
   names(u5) <- 'u5_pop'
   u5
@@ -362,14 +317,14 @@ load_worldpop_u5_raster <- function(t_u1_1to4_file) {
 
 calculate_grid_cell_population <- function(grid_sf, u5_rast) {
   if (is.null(grid_sf) || nrow(grid_sf) == 0) return(numeric(0))
-
+  
   grid_proj <- sf::st_transform(grid_sf, sf::st_crs(terra::crs(u5_rast)))
   vals <- exactextractr::exact_extract(
     x = raster::raster(u5_rast),
     y = grid_proj,
     fun = 'sum'
   )
-
+  
   vals[is.na(vals)] <- 0
   as.numeric(vals)
 }
@@ -378,38 +333,38 @@ make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = Inf
   district_vect <- terra::vect(sf::st_transform(district_sf, terra::crs(u5_rast)))
   r_crop <- terra::crop(u5_rast, district_vect, snap = 'out')
   r_mask <- terra::mask(r_crop, district_vect)
-
+  
   vals0 <- terra::values(r_mask)
   if (all(is.na(vals0))) return(NULL)
-
+  
   factor_x <- max(1, ceiling(ncol(r_mask) / max_dim_cells))
   factor_y <- max(1, ceiling(nrow(r_mask) / max_dim_cells))
   fact <- max(factor_x, factor_y)
-
+  
   r_small <- terra::aggregate(r_mask, fact = fact, fun = mean, na.rm = TRUE)
   p <- terra::as.polygons(r_small, na.rm = TRUE)
   names(p) <- 'pop_u5'
-
+  
   pop_sf <- sf::st_as_sf(p)
   pop_sf <- sf::st_transform(pop_sf, 4326)
   pop_sf <- safe_make_valid(pop_sf)
-
+  
   vals <- pop_sf$pop_u5
   vals_non_na <- vals[is.finite(vals) & !is.na(vals)]
   if (length(vals_non_na) == 0) return(NULL)
-
+  
   breaks <- unique(stats::quantile(vals_non_na, probs = seq(0, 1, length.out = 6), na.rm = TRUE))
   if (length(breaks) < 2) {
     breaks <- c(min(vals_non_na, na.rm = TRUE), max(vals_non_na, na.rm = TRUE) + 1e-9)
   }
-
+  
   cols <- pop_palette(max(1, length(breaks) - 1))
   idx <- cut(vals, breaks = breaks, include.lowest = TRUE, labels = FALSE)
-
+  
   fill_color <- rep('#000000', length(vals))
   ok <- !is.na(idx)
   fill_color[ok] <- cols[idx[ok]]
-
+  
   pop_sf$fill_color <- fill_color
   pop_sf
 }
@@ -544,7 +499,7 @@ make_friction_overlay_sf <- function(
   friction_sf
 }
 # write_raster_overlay_png <- function(
-#     rast,
+    #     rast,
 #     session,
 #     prefix = "raster_overlay",
 #     palette = "viridis"
@@ -772,9 +727,65 @@ build_saved_dfa_sf <- function(
   }
   
   out <- safe_make_valid(out)
+  # Merge any remaining slivers into main bodies
+  out <- out |>
+    dplyr::group_by(dfa_name) |>
+    dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+    sf::st_as_sf()
+  out <- safe_make_valid(out)
+  out <- tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
+  
   out <- suppressWarnings(sf::st_intersection(out, district_proj))
   out <- safe_make_valid(out)
+  out <- tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
+  
+  # Re-merge after intersection in case it split rows
+  out <- out |>
+    dplyr::group_by(dfa_name) |>
+    dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+    sf::st_as_sf()
+  out <- safe_make_valid(out)
+  out <- tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
   out <- sf::st_cast(out, "MULTIPOLYGON", warn = FALSE)
+  
+  # Safety check: ensure no dfa_name was silently dropped by st_intersection.
+  # If any area is missing, recover it from raw_proj clipped to district.
+  expected_names <- unique(raw_proj$dfa_name)
+  present_names  <- unique(out$dfa_name)
+  missing_names  <- setdiff(expected_names, present_names)
+  
+  if (length(missing_names) > 0) {
+    cat('[build_saved_dfa_sf] recovering dropped areas:', paste(missing_names, collapse = ', '), '\n')
+    recovered_raw <- raw_proj[raw_proj$dfa_name %in% missing_names, , drop = FALSE]
+    recovered <- tryCatch({
+      r <- suppressWarnings(sf::st_intersection(recovered_raw, district_proj))
+      r <- safe_make_valid(r)
+      r <- tryCatch(sf::st_collection_extract(r, 'POLYGON'), error = function(e) r)
+      r |>
+        dplyr::group_by(dfa_name) |>
+        dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+        sf::st_as_sf() |>
+        safe_make_valid()
+    }, error = function(e) {
+      recovered_raw |>
+        dplyr::group_by(dfa_name) |>
+        dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+        sf::st_as_sf()
+    })
+    recovered <- tryCatch(sf::st_collection_extract(recovered, 'POLYGON'), error = function(e) recovered)
+    recovered <- sf::st_cast(recovered, 'MULTIPOLYGON', warn = FALSE)
+    
+    out <- dplyr::bind_rows(
+      out |> dplyr::select(dfa_name),
+      recovered |> dplyr::select(dfa_name)
+    ) |>
+      dplyr::group_by(dfa_name) |>
+      dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+      sf::st_as_sf() |>
+      safe_make_valid()
+    out <- tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
+    out <- sf::st_cast(out, 'MULTIPOLYGON', warn = FALSE)
+  }
   
   out |>
     dplyr::select(dfa_name) |>

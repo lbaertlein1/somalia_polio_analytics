@@ -5,6 +5,11 @@
 # Map zone name to ODK OData service URL and form ID.
 # TODO: confirm the exact zone_name strings used in districts_shp for Puntland.
 ODK_FORMS <- list(
+  somaliland = list(
+    svc     = "https://emro.nafundi.com/v1/projects/14/forms/somaliland_mhfl_facility_survey.svc",
+    form_id = "somaliland_mhfl_facility_survey",
+    zones   = c("Somaliland")   # <-- adjust to match zone_name values in your shapefile
+  ),
   puntland = list(
     svc     = "https://emro.nafundi.com/v1/projects/9/forms/puntland_mhfl_facility_survey.svc",
     form_id = "puntland_mhfl_facility_survey",

@@ -50,7 +50,8 @@ facilityMapServer <- function(
     adding_facility_r,
     show_buffer = TRUE,
     all_district_densities,
-    show_pop_r = reactive(FALSE)
+    show_pop_r  = reactive(FALSE),
+    landmarks_r = reactive(NULL)   # data frame: landmark_id, landmark_name, lat, lon
 ) {
   
   moduleServer(id, function(input, output, session) {
@@ -131,6 +132,25 @@ facilityMapServer <- function(
       
       is_sia <- isTRUE(row$polio_sia_coordination_site[[1]] == "Yes")
       
+      # Build popup HTML — simple table, no modal
+      popup_html <- paste0(
+        '<div style="font-size:12px;line-height:1.8;min-width:180px;">',
+        '<div style="font-weight:700;font-size:13px;margin-bottom:4px;color:#0f172a;">',
+        htmltools::htmlEscape(.na_dash(row$facility_name[[1]])),
+        '</div>',
+        '<table style="border-collapse:collapse;width:100%;">',
+        '<tr><td style="color:#64748b;padding-right:10px;">Type</td><td>',
+        htmltools::htmlEscape(.na_dash(row$facility_type[[1]])), '</td></tr>',
+        '<tr><td style="color:#64748b;padding-right:10px;">Ownership</td><td>',
+        htmltools::htmlEscape(.na_dash(row$hf_ownership[[1]])), '</td></tr>',
+        '<tr><td style="color:#64748b;padding-right:10px;">Incharge</td><td>',
+        htmltools::htmlEscape(.na_dash(row$incharge_name[[1]])), '</td></tr>',
+        '<tr><td style="color:#64748b;padding-right:10px;">SIA Site</td><td>',
+        htmltools::htmlEscape(.na_dash(row$polio_sia_coordination_site[[1]])),
+        '</td></tr>',
+        '</table></div>'
+      )
+      
       proxy |>
         leaflet::addMarkers(
           lng     = row$lon[[1]],
@@ -138,6 +158,7 @@ facilityMapServer <- function(
           layerId = row$facility_id[[1]],
           icon    = make_facility_icon(is_selected, is_sia),
           options = leaflet::markerOptions(draggable = TRUE, riseOnHover = TRUE),
+          popup   = popup_html,
           label   = row$facility_name[[1]],
           labelOptions = leaflet::labelOptions(
             noHide    = TRUE,
@@ -368,7 +389,9 @@ facilityMapServer <- function(
         '<img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"',
         ' height="20"> Not a Coordination Site<br>',
         '<img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"',
-        ' height="20"> Selected',
+        ' height="20"> Selected<br>',
+        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;',
+        'background:#7c3aed;margin-right:6px;vertical-align:middle;"></span>Landmark',
         pop_section,
         '</div>'
       )
@@ -579,7 +602,46 @@ facilityMapServer <- function(
     observeEvent(input$map_marker_click, {
       info <- input$map_marker_click
       req(!is.null(info$id))
-      selected_id_r(as.character(info$id))
+      # Ignore clicks on landmark markers (prefixed 'lm_')
+      if (!startsWith(as.character(info$id), 'lm_')) {
+        selected_id_r(as.character(info$id))
+      }
+    })
+    
+    # --------------------------------------------------
+    # Landmark dots — carried forward from orientation tab
+    # Purple circle + bare text label, no background bubble
+    # --------------------------------------------------
+    
+    observe({
+      proxy <- leaflet::leafletProxy('map', session = session)
+      proxy |> leaflet::clearGroup('landmarks')
+      
+      lm <- landmarks_r()
+      if (is.null(lm) || nrow(lm) == 0) return()
+      
+      for (i in seq_len(nrow(lm))) {
+        proxy <- proxy |>
+          leaflet::addCircleMarkers(
+            lng         = lm$lon[i],
+            lat         = lm$lat[i],
+            layerId     = paste0('lm_', lm$landmark_id[i]),
+            group       = 'landmarks',
+            radius      = 5,
+            color       = '#7c3aed',
+            fillColor   = '#7c3aed',
+            fillOpacity = 1,
+            weight      = 0,
+            options     = leaflet::pathOptions(interactive = FALSE),
+            label       = lm$landmark_name[i],
+            labelOptions = leaflet::labelOptions(
+              noHide    = TRUE,
+              direction = 'right',
+              offset    = c(8, 0),
+              className = 'landmark-label'
+            )
+          )
+      }
     })
   })
 }

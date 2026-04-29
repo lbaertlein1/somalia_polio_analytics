@@ -32,6 +32,8 @@
       gridLayer: null,
       savedLayer: null,
       seedLayer: null,
+      facilityLayer: null,
+      landmarkLayer: null,
       brushPreview: null,
       isPainting: false,
       assignments: {},
@@ -325,13 +327,6 @@
         }
       },
 
-      bringSeedPointsToFront: function() {
-        if (!this.seedLayer) return;
-        this.seedLayer.eachLayer(function(layer) {
-          if (layer && layer.bringToFront) layer.bringToFront();
-        });
-      },
-
       drawSeedPoints: function(seedPoints) {
         this.clearSeedLayer();
         if (!this.map || !seedPoints || !Array.isArray(seedPoints) || seedPoints.length === 0) return;
@@ -340,12 +335,13 @@
 
         seedPoints.forEach((pt) => {
           if (pt.lon == null || pt.lat == null) return;
+          // SIA coordination sites — most prominent
           const marker = L.circleMarker([pt.lat, pt.lon], {
-            radius: 4,
-            color: '#000000',
-            weight: 1,
+            radius: 8,
+            color: '#ffffff',
+            weight: 2,
             opacity: 1,
-            fillColor: '#000000',
+            fillColor: '#0d9488',
             fillOpacity: 1,
             interactive: false
           });
@@ -353,7 +349,7 @@
           marker.bindTooltip(String(pt.dfa_name || ''), {
             permanent: true,
             direction: 'right',
-            offset: [8, 0],
+            offset: [10, 0],
             className: 'dfa-tooltip'
           });
 
@@ -361,7 +357,105 @@
         });
 
         this.seedLayer.addTo(this.map);
-        this.bringSeedPointsToFront();
+        this.bringPointLayersToFront();
+      },
+
+      clearFacilityLayer: function() {
+        if (!this.map) return;
+        if (this.facilityLayer) {
+          this.map.removeLayer(this.facilityLayer);
+          this.facilityLayer = null;
+        }
+      },
+
+      clearLandmarkLayer: function() {
+        if (!this.map) return;
+        if (this.landmarkLayer) {
+          this.map.removeLayer(this.landmarkLayer);
+          this.landmarkLayer = null;
+        }
+      },
+
+      drawFacilityPoints: function(facilityPoints) {
+        this.clearFacilityLayer();
+        if (!this.map || !facilityPoints || !Array.isArray(facilityPoints) || facilityPoints.length === 0) return;
+
+        this.facilityLayer = L.layerGroup();
+
+        facilityPoints.forEach((pt) => {
+          if (pt.lon == null || pt.lat == null) return;
+          // Non-SIA facilities — equal prominence to landmarks
+          const marker = L.circleMarker([pt.lat, pt.lon], {
+            radius: 5,
+            color: '#ffffff',
+            weight: 1.5,
+            opacity: 1,
+            fillColor: '#d95f0e',
+            fillOpacity: 0.9,
+            interactive: false
+          });
+
+          if (pt.name) {
+            marker.bindTooltip(String(pt.name), {
+              permanent: true,
+              direction: 'right',
+              offset: [6, 0],
+              className: 'hf-label'
+            });
+          }
+
+          marker.addTo(this.facilityLayer);
+        });
+
+        this.facilityLayer.addTo(this.map);
+      },
+
+      drawLandmarkPoints: function(landmarkPoints) {
+        this.clearLandmarkLayer();
+        if (!this.map || !landmarkPoints || !Array.isArray(landmarkPoints) || landmarkPoints.length === 0) return;
+
+        this.landmarkLayer = L.layerGroup();
+
+        landmarkPoints.forEach((pt) => {
+          if (pt.lon == null || pt.lat == null) return;
+          // Landmarks — equal prominence to non-SIA facilities
+          const marker = L.circleMarker([pt.lat, pt.lon], {
+            radius: 5,
+            color: '#ffffff',
+            weight: 1.5,
+            opacity: 1,
+            fillColor: '#7c3aed',
+            fillOpacity: 0.9,
+            interactive: false
+          });
+
+          if (pt.name) {
+            marker.bindTooltip(String(pt.name), {
+              permanent: true,
+              direction: 'right',
+              offset: [6, 0],
+              className: 'landmark-label'
+            });
+          }
+
+          marker.addTo(this.landmarkLayer);
+        });
+
+        this.landmarkLayer.addTo(this.map);
+      },
+
+      // Bring all point layers to front in correct order:
+      // landmarks → facilities → seeds (seeds always on top)
+      bringPointLayersToFront: function() {
+        if (this.landmarkLayer) {
+          this.landmarkLayer.eachLayer(function(l) { if (l.bringToFront) l.bringToFront(); });
+        }
+        if (this.facilityLayer) {
+          this.facilityLayer.eachLayer(function(l) { if (l.bringToFront) l.bringToFront(); });
+        }
+        if (this.seedLayer) {
+          this.seedLayer.eachLayer(function(l) { if (l.bringToFront) l.bringToFront(); });
+        }
       },
 
       clearScene: function() {
@@ -374,6 +468,14 @@
         if (this.seedLayer) {
           this.map.removeLayer(this.seedLayer);
           this.seedLayer = null;
+        }
+        if (this.facilityLayer) {
+          this.map.removeLayer(this.facilityLayer);
+          this.facilityLayer = null;
+        }
+        if (this.landmarkLayer) {
+          this.map.removeLayer(this.landmarkLayer);
+          this.landmarkLayer = null;
         }
         if (this.popLayer) {
           this.map.removeLayer(this.popLayer);
@@ -405,7 +507,7 @@
         } else {
           if (this.map.hasLayer(this.popLayer)) this.map.removeLayer(this.popLayer);
         }
-        this.bringSeedPointsToFront();
+        this.bringPointLayersToFront();
       },
 
       setFrictionVisibility: function(showIt) {
@@ -431,7 +533,7 @@
         if (this.savedLayer && this.savedLayer.bringToFront) {
           this.savedLayer.bringToFront();
         }
-        this.bringSeedPointsToFront();
+        this.bringPointLayersToFront();
       },
 
       setBrushSize: function(v) {
@@ -546,7 +648,9 @@
         }
 
         this.drawSeedPoints(msg.seedPoints || []);
-        this.bringSeedPointsToFront();
+        this.drawFacilityPoints(msg.facilityPoints || []);
+        this.drawLandmarkPoints(msg.landmarkPoints || []);
+        this.bringPointLayersToFront();
         this.map.fitBounds(this.districtLayer.getBounds(), { padding: [10, 10] });
 
         setTimeout(() => {
@@ -563,7 +667,7 @@
           if (this.savedLayer && this.savedLayer.bringToFront) {
             this.savedLayer.bringToFront();
           }
-          this.bringSeedPointsToFront();
+          this.bringPointLayersToFront();
         }, 150);
 
         Shiny.setInputValue(this.readyInputId, Date.now(), { priority: 'event' });
@@ -595,7 +699,7 @@
         }
 
         if (!geojsonText) {
-          this.bringSeedPointsToFront();
+          this.bringPointLayersToFront();
           return;
         }
 
@@ -613,7 +717,7 @@
           }
         }).addTo(this.map);
 
-        this.bringSeedPointsToFront();
+        this.bringPointLayersToFront();
       }
     };
   }
@@ -646,11 +750,26 @@
     });
 
     Shiny.addCustomMessageHandler('paint_toggle_population', function(msg) {
-      getApp(msg).setPopulationVisibility(!!msg.show);
+      var app = getApp(msg);
+      // Build layer lazily if geojson provided and layer not yet built
+      if (msg.geojson && !app.popLayer) {
+        var popGeo = (typeof msg.geojson === 'string') ? JSON.parse(msg.geojson) : msg.geojson;
+        app.popLayer = L.geoJSON(popGeo, {
+          style: function(f) {
+            return { fillColor: f.properties.fill_color, fillOpacity: 0.5, weight: 0, stroke: false };
+          }
+        });
+      }
+      app.setPopulationVisibility(!!msg.show);
     });
 
     Shiny.addCustomMessageHandler('paint_toggle_friction', function(msg) {
-      getApp(msg).setFrictionVisibility(!!msg.show);
+      var app = getApp(msg);
+      // Build layer lazily if geojson provided and layer not yet built
+      if (msg.geojson && !app.frictionLayer) {
+        app.buildFrictionLayer(msg.geojson);
+      }
+      app.setFrictionVisibility(!!msg.show);
     });
 
     Shiny.addCustomMessageHandler('paint_set_brush', function(msg) {
