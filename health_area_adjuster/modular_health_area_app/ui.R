@@ -3,19 +3,39 @@ app_ui <- function() {
     shinyjs::useShinyjs(),
     
     tags$head(
-      tags$link(
-        rel = 'stylesheet',
-        href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-        integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=',
-        crossorigin = ''
-      ),
-      tags$script(
-        src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-        integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=',
-        crossorigin = ''
-      ),
       tags$link(rel = 'stylesheet', type = 'text/css', href = 'styles.css'),
       tags$script(src = 'paint-app.js'),
+      
+      tags$style(HTML("
+    #header-title {
+      min-width: 220px;
+      width: 16.66%;
+    }
+    .hdr-tab {
+      background: transparent;
+      border: none;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #64748b;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .hdr-tab:hover:not(.hdr-tab-locked) {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    .hdr-tab-active {
+      background: #0d9488 !important;
+      color: #ffffff !important;
+      font-weight: 600;
+    }
+    .hdr-tab-locked {
+      color: #cbd5e1;
+      cursor: not-allowed;
+    }
+  ")),
       
       tags$script(HTML("
         $(document).ready(function() {
@@ -95,9 +115,10 @@ app_ui <- function() {
           
           div(
             id = 'header-title',
-            tags$span('Polio Vaccination Campaigns:'),
-            tags$br(),
-            tags$span('District Planning', style = 'color:#0d9488;')
+            tags$span('Somalia Polio Vaccination Campaigns:',
+                      style = 'font-size: 14px; line-height: 1;'),
+            tags$span('District Health Area Planning',
+                      style = 'color:#0d9488; font-size: 14px; line-height: 1;')
           ),
           
           div(

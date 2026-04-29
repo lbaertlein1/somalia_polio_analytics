@@ -1,21 +1,11 @@
 # =============================================================================
 # mod_facility_tab.R
-# Two facility sources:
-#   rv$odk_sf  — pulled from ODK Central, refreshable
-#   rv$app_sf  — app-added SIA coordination sites, persists across refreshes
-#
-# Session integration:
-#   save_snapshot_fn  called after submit to checkpoint facility state
-#   restore_r         reactive(snapshot) — observed to restore state on undo/redo
-#   odk_sf_r / app_sf_r  — exposed for manual Save button collection
-#   restore_from_snapshot()  — callable directly by app_server on undo/redo
 # =============================================================================
 
 facilityTabUI <- function(id) {
   ns <- NS(id)
   
   fluidRow(
-    # ---- Left sidebar -------------------------------------------------------
     column(
       width = 2,
       
@@ -45,16 +35,19 @@ facilityTabUI <- function(id) {
       tags$hr(),
       
       actionButton(ns('submit_facilities'), 'Submit Facility Locations',
-                   class = 'btn-primary', width = '100%')
+                   class = 'btn-primary', width = '100%',
+                   icon = icon('check-circle')),
+      div(
+        style = 'font-size: 11px; color: #64748b; margin-top: 5px; line-height: 1.4;',
+        'Saves facility locations to the database.'
+      )
     ),
     
-    # ---- Map ----------------------------------------------------------------
     column(
       width = 7,
       div(style = 'height: calc(100vh - 120px);', facilityMapUI(ns('map')))
     ),
     
-    # ---- Right sidebar — table ----------------------------------------------
     column(
       width = 3,
       div(class = 'rightbar-title', 'Facilities'),
@@ -73,16 +66,18 @@ facilityTabUI <- function(id) {
 facilityTabServer <- function(
     id,
     zone, region, district, district_ready,
+    active_tab,
     submitted_facilities,
+    submit_stage_fn  = NULL,
     landmarks_r      = reactive(NULL),
-    save_snapshot_fn = NULL,
+    save_snapshot_fn = NULL,   # kept for compatibility, no-op
     restore_r        = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
     
     rv <- reactiveValues(
-      odk_sf       = NULL,   # from ODK — refreshable
-      app_sf       = NULL,   # app-added SIA sites — persists across refreshes
+      odk_sf       = NULL,
+      app_sf       = NULL,
       odk_loading  = FALSE,
       odk_error    = NULL
     )
@@ -90,12 +85,11 @@ facilityTabServer <- function(
     selected_id     <- reactiveVal(NULL)
     adding_facility <- reactiveVal(FALSE)
     editing_locked  <- reactiveVal(FALSE)
-    
-    # Stores snapshot to apply AFTER do_odk_fetch() — fetch would overwrite restored odk_sf
+    needs_odk_fetch <- reactiveVal(FALSE)
     pending_restore <- reactiveVal(NULL)
     
     # -------------------------------------------------------------------------
-    # SESSION: store snapshot; applied after ODK fetch completes
+    # Restore
     # -------------------------------------------------------------------------
     observeEvent(restore_r(), {
       snap <- restore_r()
@@ -103,12 +97,10 @@ facilityTabServer <- function(
       if (!is.null(snap$odk_sf) || !is.null(snap$app_sf)) {
         if (isTRUE(rv$odk_loading)) {
           pending_restore(snap)
-          cat("[facility] restore queued — ODK fetch in progress\n")
         } else {
           if (!is.null(snap$odk_sf)) rv$odk_sf <- snap$odk_sf
           if (!is.null(snap$app_sf)) rv$app_sf  <- snap$app_sf
           showNotification('Facility state restored.', type = 'message', duration = 2)
-          cat("[facility] restore applied immediately\n")
         }
       }
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
@@ -150,7 +142,7 @@ facilityTabServer <- function(
     })
     
     # -------------------------------------------------------------------------
-    # Combined facility data — ODK + app-added
+    # Combined facility data
     # -------------------------------------------------------------------------
     facility_data <- reactive({
       odk <- facility_sf_to_df(rv$odk_sf)
@@ -159,8 +151,7 @@ facilityTabServer <- function(
     })
     
     combined_sf <- reactive({
-      parts <- list(rv$odk_sf, rv$app_sf)
-      parts <- Filter(Negate(is.null), parts)
+      parts <- Filter(Negate(is.null), list(rv$odk_sf, rv$app_sf))
       parts <- Filter(function(x) nrow(x) > 0, parts)
       if (length(parts) == 0) return(NULL)
       do.call(rbind, parts)
@@ -253,7 +244,7 @@ facilityTabServer <- function(
           rv$odk_error <- paste0('No MHFL records found for "', district(), '".')
           rv$odk_sf    <- NULL
         } else {
-          rv$odk_sf <- if (!is.null(previous_odk)) {
+          rv$odk_sf <- if (!is.null(previous_odk) && nrow(previous_odk) > 0) {
             merge_odk_with_app_edits(fresh, previous_odk)
           } else {
             fresh
@@ -273,26 +264,34 @@ facilityTabServer <- function(
       
       rv$odk_loading <- FALSE
       
-      # Apply any pending restore now that fetch is complete
       snap <- pending_restore()
       if (!is.null(snap)) {
         pending_restore(NULL)
         if (!is.null(snap$odk_sf)) rv$odk_sf <- snap$odk_sf
         if (!is.null(snap$app_sf)) rv$app_sf  <- snap$app_sf
         showNotification('Facility state restored.', type = 'message', duration = 2)
-        cat("[facility] pending restore applied after ODK fetch\n")
       }
     }
     
+    # -------------------------------------------------------------------------
+    # Deferred ODK fetch — only when facility tab is active
+    # -------------------------------------------------------------------------
     observeEvent(district(), {
       req(isTRUE(district_ready()))
       rv$app_sf <- NULL
       editing_locked(FALSE)
-      do_odk_fetch(preserve_edits = FALSE)
+      needs_odk_fetch(TRUE)
     }, ignoreInit = FALSE)
     
+    observe({
+      req(isTRUE(needs_odk_fetch()))
+      req(identical(active_tab(), "tab_health_facility_mapping"))
+      needs_odk_fetch(FALSE)
+      do_odk_fetch(preserve_edits = FALSE)
+    })
+    
     # -------------------------------------------------------------------------
-    # Add SIA coordination site — click-to-place on map
+    # Add SIA coordination site
     # -------------------------------------------------------------------------
     observeEvent(input$add_sia_site, {
       adding_facility(TRUE)
@@ -303,12 +302,7 @@ facilityTabServer <- function(
     })
     
     add_new_sia_site <- function(lat, lon) {
-      new_id <- paste0(
-        'app_',
-        format(Sys.time(), '%Y%m%d%H%M%S'),
-        '_',
-        sample(1000:9999, 1)
-      )
+      new_id <- paste0('app_', format(Sys.time(), '%Y%m%d%H%M%S'), '_', sample(1000:9999, 1))
       
       new_row <- data.frame(
         facility_id                 = new_id,
@@ -326,13 +320,7 @@ facilityTabServer <- function(
         stringsAsFactors            = FALSE
       )
       
-      new_sf <- sf::st_as_sf(
-        new_row,
-        coords = c("lon", "lat"),
-        crs    = 4326,
-        remove = FALSE
-      )
-      
+      new_sf <- sf::st_as_sf(new_row, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
       rv$app_sf <- if (is.null(rv$app_sf)) new_sf else rbind(rv$app_sf, new_sf)
       
       selected_id(new_id)
@@ -344,10 +332,7 @@ facilityTabServer <- function(
     # Coordinate update via marker drag
     # -------------------------------------------------------------------------
     update_marker_position <- function(facility_id, lat, lon) {
-      new_geom <- sf::st_sfc(
-        sf::st_point(c(as.numeric(lon), as.numeric(lat))),
-        crs = 4326
-      )[[1]]
+      new_geom <- sf::st_sfc(sf::st_point(c(as.numeric(lon), as.numeric(lat))), crs = 4326)[[1]]
       
       if (!is.null(rv$odk_sf)) {
         idx <- which(rv$odk_sf$facility_id == facility_id)
@@ -396,9 +381,14 @@ facilityTabServer <- function(
     # -------------------------------------------------------------------------
     # Sub-module wiring
     # -------------------------------------------------------------------------
+    district_sf_for_map <- reactive({
+      req(identical(active_tab(), "tab_health_facility_mapping"))
+      district_base()
+    })
+    
     facilityMapServer(
       id                     = "map",
-      district_sf            = district_base,
+      district_sf            = district_sf_for_map,
       facility_data_r        = facility_data,
       selected_id_r          = selected_id,
       on_marker_drag         = update_marker_position,
@@ -418,7 +408,7 @@ facilityTabServer <- function(
     )
     
     # -------------------------------------------------------------------------
-    # Submit
+    # Submit — passes coordination sites locally AND writes to DB
     # -------------------------------------------------------------------------
     observeEvent(input$submit_facilities, {
       df    <- facility_data()
@@ -435,35 +425,33 @@ facilityTabServer <- function(
       submitted_facilities(seeds)
       editing_locked(TRUE)
       
-      # SESSION: checkpoint after submit
-      if (!is.null(save_snapshot_fn)) {
-        save_snapshot_fn(list(
-          odk_sf = rv$odk_sf,
-          app_sf = rv$app_sf
-        ))
+      if (!is.null(submit_stage_fn)) {
+        submit_stage_fn('facilities', list(odk_sf = rv$odk_sf, app_sf = rv$app_sf))
       }
-      
-      showNotification(
-        "Facility locations submitted successfully.",
-        type = "message", duration = 3
-      )
     })
     
     # -------------------------------------------------------------------------
-    # Return — includes session-facing reactives and restore function
+    # Return
     # -------------------------------------------------------------------------
     list(
       facility_data      = facility_data,
       coordination_sites = coordination_sites,
-      
-      # SESSION: expose raw sf for manual Save button collection in app_server
-      odk_sf_r = reactive(rv$odk_sf),
-      app_sf_r = reactive(rv$app_sf),
-      
-      # SESSION: callable by app_server on undo / redo
+      odk_sf_r           = reactive(rv$odk_sf),
+      app_sf_r           = reactive(rv$app_sf),
       restore_from_snapshot = function(snap) {
-        if (!is.null(snap$odk_sf)) rv$odk_sf <- snap$odk_sf
-        if (!is.null(snap$app_sf)) rv$app_sf  <- snap$app_sf
+        # Apply directly and cancel the queued ODK fetch so it cannot
+        # overwrite the restored state. No pending mechanism needed.
+        has_data <- (!is.null(snap$odk_sf) && nrow(snap$odk_sf) > 0) ||
+          (!is.null(snap$app_sf)  && nrow(snap$app_sf)  > 0)
+        
+        if (has_data) {
+          needs_odk_fetch(FALSE)
+          if (!is.null(snap$odk_sf) && nrow(snap$odk_sf) > 0) rv$odk_sf <- snap$odk_sf
+          if (!is.null(snap$app_sf)  && nrow(snap$app_sf)  > 0) rv$app_sf  <- snap$app_sf
+          showNotification('Facility locations restored.', type = 'message', duration = 2)
+        }
+        # If no facility data in snap (stage not yet submitted), needs_odk_fetch
+        # stays TRUE and the normal fetch runs when the tab is opened.
       }
     )
   })

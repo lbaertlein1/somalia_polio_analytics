@@ -1,11 +1,9 @@
 app_server <- function(input, output, session) {
   
-  
   # ===========================================================================
   # Auth
   # ===========================================================================
   auth <- authServer('auth', users_df, user_districts_df)
-  
   
   observeEvent(auth$logged_in, {
     req(isTRUE(auth$logged_in))
@@ -24,22 +22,6 @@ app_server <- function(input, output, session) {
   }, ignoreInit = TRUE, once = TRUE)
   
   # ===========================================================================
-  # Nav info
-  # ===========================================================================
-  output$nav_info <- renderUI({
-    req(isTRUE(auth$logged_in))
-    district_label <- if (
-      isTRUE(intro$district_ready()) && nzchar(intro$district() %||% '')
-    ) intro$district() else NULL
-    initials <- toupper(substr(auth$display_name %||% auth$username %||% '?', 1, 2))
-    tagList(
-      if (!is.null(district_label)) div(class = 'nav-district-tag', district_label),
-      div(class = 'nav-user-av',
-          title = paste0(auth$display_name, ' (', auth$role, ')'), initials)
-    )
-  })
-  
-  # ===========================================================================
   # Session manager
   # ===========================================================================
   session_mgr <- sessionManagerServer(
@@ -48,6 +30,9 @@ app_server <- function(input, output, session) {
     district_r       = reactive(intro$district()),
     district_ready_r = reactive(intro$district_ready())
   )
+  
+  # Convenience wrapper — the only path that writes to DB
+  submit_fn <- function(stage, data) session_mgr$submit_stage(stage, data)
   
   # ===========================================================================
   # Intro tab
@@ -60,7 +45,6 @@ app_server <- function(input, output, session) {
   
   # ===========================================================================
   # Orientation tab
-  # restore_r = reactive(NULL) — restoration handled centrally below
   # ===========================================================================
   orientation <- orientationTabServer(
     'orientation',
@@ -68,7 +52,7 @@ app_server <- function(input, output, session) {
     region           = intro$region,
     district         = intro$district,
     district_ready   = intro$district_ready,
-    save_snapshot_fn = function(data) session_mgr$save_snapshot(data, trigger = 'auto_orientation'),
+    submit_stage_fn  = submit_fn,
     restore_r        = reactive(NULL)
   )
   
@@ -83,9 +67,10 @@ app_server <- function(input, output, session) {
     region               = intro$region,
     district             = intro$district,
     district_ready       = intro$district_ready,
+    active_tab           = reactive(input$main_tabs),
     submitted_facilities = submitted_facilities,
+    submit_stage_fn      = submit_fn,
     landmarks_r          = orientation$landmarks_r,
-    save_snapshot_fn     = function(data) session_mgr$save_snapshot(data, trigger = 'auto_facility'),
     restore_r            = reactive(NULL)
   )
   
@@ -102,7 +87,7 @@ app_server <- function(input, output, session) {
     facility_data    = submitted_facilities,
     all_facilities_r = facility$facility_data,
     landmarks_r      = orientation$landmarks_r,
-    save_snapshot_fn = function(data) session_mgr$save_snapshot(data, trigger = 'auto_health_area'),
+    submit_stage_fn  = submit_fn,
     restore_r        = reactive(NULL)
   )
   
@@ -111,46 +96,50 @@ app_server <- function(input, output, session) {
   # ===========================================================================
   microplan <- microplanTabServer(
     'microplan',
-    zone             = intro$zone,
-    region           = intro$region,
-    district         = intro$district,
-    district_ready   = intro$district_ready,
-    saved_dfa_sf_r   = health_area$saved_dfa_sf_r,
-    pop_table_r      = health_area$pop_table_r,
-    facility_data_r  = facility$facility_data,
-    save_snapshot_fn = function(data) session_mgr$save_snapshot(data, trigger = 'auto_microplan'),
-    restore_r        = reactive(NULL)
+    zone                = intro$zone,
+    region              = intro$region,
+    district            = intro$district,
+    district_ready      = intro$district_ready,
+    saved_dfa_sf_r      = health_area$saved_dfa_sf_r,
+    pop_table_r         = health_area$pop_table_r,
+    facility_data_r     = facility$facility_data,
+    submit_stage_fn     = submit_fn,
+    areas_regenerated_r = health_area$areas_regenerated,
+    changed_areas_r     = health_area$changed_areas,
+    restore_r           = reactive(NULL)
   )
   
   # ===========================================================================
-  # Manual save — collect full state
-  # ===========================================================================
-  session_mgr$set_collect_fn(function() {
-    list(
-      landmarks           = orientation$landmarks_r(),
-      odk_sf              = facility$odk_sf_r(),
-      app_sf              = facility$app_sf_r(),
-      current_assignments = health_area$current_assignments_r(),
-      saved_dfa_sf        = health_area$saved_dfa_sf_r(),
-      dfa_names           = health_area$dfa_names_r(),
-      planning_data       = microplan$planning_data_r()
-    )
-  })
-  
-  # ===========================================================================
-  # Restore — SINGLE path: fires only when user clicks "Continue"
-  # Calls restore_from_snapshot() directly on each module.
-  # Modules have restore_r = reactive(NULL) so their internal observers
-  # never fire — this is the only restore path.
+  # Restore — fires only when user clicks "Resume" in session manager modal
   # ===========================================================================
   observeEvent(session_mgr$restore_snapshot(), {
     snap <- session_mgr$restore_snapshot()
     if (is.null(snap)) return()
-    cat('[app_server] restoring session snapshot\n')
+    cat('[app_server] restoring from submission snapshot\n')
+    
     orientation$restore_from_snapshot(snap)
     facility$restore_from_snapshot(snap)
     health_area$restore_from_snapshot(snap)
     microplan$restore_from_snapshot(snap)
+    
+    # Restore submitted_facilities so the health area module receives the
+    # correct SIA coordination sites as seed points for the painted scene.
+    # Without this, the scene uses 5 random seeds instead of the saved sites.
+    fac_sf <- tryCatch({
+      parts <- Filter(Negate(is.null), list(snap$odk_sf, snap$app_sf))
+      parts <- Filter(function(x) inherits(x, 'sf') && nrow(x) > 0, parts)
+      if (length(parts) == 0) NULL else do.call(rbind, parts)
+    }, error = function(e) NULL)
+    
+    if (!is.null(fac_sf)) {
+      fac_df <- facility_sf_to_df(fac_sf)
+      sia    <- fac_df[
+        !is.na(fac_df$polio_sia_coordination_site) &
+          fac_df$polio_sia_coordination_site == 'Yes', ,
+        drop = FALSE
+      ]
+      if (nrow(sia) > 0) submitted_facilities(sia)
+    }
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
   
   # ===========================================================================
@@ -180,16 +169,4 @@ app_server <- function(input, output, session) {
                        type = 'message', duration = 3)
     }
   }, ignoreInit = TRUE)
-  
-  # ===========================================================================
-  # Debug (remove in production)
-  # ===========================================================================
-  observe({
-    req(health_area$has_scene())
-    cat('[app_server] health area scene ready\n')
-  })
-  observe({
-    fp <- health_area$friction_path()
-    if (!is.null(fp) && nzchar(fp)) cat('[app_server] friction path:', fp, '\n')
-  })
 }

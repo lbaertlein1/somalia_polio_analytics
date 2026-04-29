@@ -17,7 +17,6 @@ library(zip)
 library(pool)
 library(DBI)
 library(RPostgres)
-library(geojsonsf)
 
 `%||%` <- function(a, b) if (!is.null(a)) a else b
 

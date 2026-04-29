@@ -29,24 +29,23 @@ authUI <- function(id) {
       div(
         style = 'text-align:center;margin-bottom:28px;',
         div(
-          style = paste0(
-            'width:52px;height:52px;border-radius:12px;background:#0d9488;',
-            'display:inline-flex;align-items:center;justify-content:center;',
-            'margin-bottom:12px;'
-          ),
-          tags$svg(
-            xmlns = 'http://www.w3.org/2000/svg',
-            viewBox = '0 0 24 24', width = '28', height = '28', fill = 'none',
-            tags$path(
-              d = 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
-              stroke = 'white', `stroke-width` = '2',
-              `stroke-linecap` = 'round', `stroke-linejoin` = 'round'
-            )
+          style = 'margin-bottom:12px;',
+          tags$img(
+            src    = 'https://upload.wikimedia.org/wikipedia/commons/a/a0/Flag_of_Somalia.svg',
+            width  = '72px',
+            height = 'auto',
+            style  = 'border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.2);'
           )
         ),
-        tags$h4(
-          style = 'margin:0 0 4px;color:#0f172a;font-size:18px;font-weight:600;',
-          'Polio Vaccination Campaigns:\nDistrict Planning'
+        tags$div(
+          tags$h4(
+            style = 'margin:0 0 2px;color:#0f172a;font-size:18px;font-weight:600;',
+            'Somalia Polio Vaccination Campaigns:'
+          ),
+          tags$h4(
+            style = 'margin:0 0 4px;color:#0f172a;font-size:18px;font-weight:600;',
+            'District Health Area Planning'
+          )
         ),
         tags$p(
           style = 'margin:0;color:#64748b;font-size:13px;',

@@ -1,18 +1,5 @@
 # =============================================================================
 # mod_db.R  —  Database connection + all read/write helpers
-#
-# Uses the pool package for connection pooling (safe for concurrent Shiny users).
-# All functions return the same data structures as the Phase 1 file-based code
-# so module logic requires minimal changes.
-#
-# Credentials are read from environment variables — never hardcode them.
-# Set in shinyapps.io dashboard, or locally via a .env file + dotenv::load_dot_env().
-#
-# Phase 6 migration checklist:
-#   [x] mod_db.R  (this file)
-#   [ ] mod_auth.R         — replace validate_credentials() + district lookup
-#   [ ] mod_session_manager.R — replace .read_sessions() + .write_session()
-#   [ ] mod_admin_tab.R    — replace .read_users() + .write_users() etc.
 # =============================================================================
 
 library(pool)
@@ -20,7 +7,7 @@ library(DBI)
 library(RPostgres)
 
 # =============================================================================
-# Connection pool (created once at startup in global.R)
+# Connection pool
 # =============================================================================
 
 db_connect <- function() {
@@ -32,19 +19,11 @@ db_connect <- function() {
     user     = Sys.getenv('DB_USER'),
     password = Sys.getenv('DB_PASSWORD'),
     sslmode  = Sys.getenv('DB_SSL', 'require'),
-    # Pool sizing — shinyapps.io free tier is single-instance
     minSize  = 1L,
     maxSize  = 5L,
-    idleTimeout = 300000L  # 5 minutes
+    idleTimeout = 300000L
   )
 }
-
-# Call this in global.R:
-#   pool <- db_connect()
-#
-# And register cleanup on app stop:
-#   onStop(function() pool::poolClose(pool))
-
 
 # =============================================================================
 # Helper: safe parameterised query
@@ -65,7 +44,6 @@ db_connect <- function() {
 
 # =============================================================================
 # SECTION 1: Users
-# Replaces: users_df, user_districts_df, .read_users(), .write_users()
 # =============================================================================
 
 db_get_users <- function(pool) {
@@ -83,9 +61,9 @@ db_get_user_districts <- function(pool, username = NULL) {
 
 db_validate_credentials <- function(pool, uname, pword) {
   row <- .db_query(pool,
-    "SELECT username, display_name, role FROM users
+                   "SELECT username, display_name, role FROM users
      WHERE username = ?u AND password = ?p",
-    list(u = uname, p = pword))
+                   list(u = uname, p = pword))
   if (nrow(row) == 0) return(NULL)
   row[1L, ]
 }
@@ -117,7 +95,6 @@ db_delete_user <- function(pool, username) {
 db_set_user_districts <- function(pool, username, district_names) {
   conn <- pool::poolCheckout(pool)
   on.exit(pool::poolReturn(conn))
-  # Replace all assignments for this user
   DBI::dbExecute(conn, "DELETE FROM user_districts WHERE username = $1", list(username))
   if (length(district_names) > 0) {
     rows <- data.frame(username = username, district_name = district_names,
@@ -129,253 +106,208 @@ db_set_user_districts <- function(pool, username, district_names) {
 
 
 # =============================================================================
-# SECTION 2: Sessions
-# Replaces: .read_sessions(), .write_session(), file-based .rds logic
+# SECTION 2: District submissions
+#
+# One row per district. Each tab's "Submit" button upserts its stage columns.
+# Other stage columns are preserved via COALESCE.
+#
+# SQL migration — run once on your DB:
+#
+#   CREATE TABLE IF NOT EXISTS district_submissions (
+#     district_name      TEXT PRIMARY KEY,
+#     submitted_by       TEXT,
+#     first_submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+#     last_submitted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+#     landmarks          JSONB,
+#     odk_sf             JSONB,
+#     app_sf             JSONB,
+#     saved_dfa_sf       JSONB,
+#     dfa_names          JSONB,
+#     planning_data      JSONB,
+#     has_landmarks      BOOLEAN NOT NULL DEFAULT FALSE,
+#     has_facilities     BOOLEAN NOT NULL DEFAULT FALSE,
+#     has_areas          BOOLEAN NOT NULL DEFAULT FALSE,
+#     has_microplan      BOOLEAN NOT NULL DEFAULT FALSE
+#   );
+#
 # =============================================================================
 
-db_list_sessions <- function(pool, username, district_name) {
-  .db_query(pool,
-    "SELECT session_id, username, district_name, started_at, saved_at
-     FROM sessions
-     WHERE username = ?u AND district_name = ?d
-     ORDER BY started_at DESC
-     LIMIT ?lim",
-    list(u = username, d = district_name, lim = SESSION_MAX_SAVED))
-}
-
-db_create_session <- function(pool, session_id, username, district_name) {
-  conn <- pool::poolCheckout(pool)
-  on.exit(pool::poolReturn(conn))
-  DBI::dbExecute(conn, "
-    INSERT INTO sessions (session_id, username, district_name, started_at, saved_at)
-    VALUES ($1, $2, $3, NOW(), NOW())
-    ON CONFLICT (session_id) DO UPDATE SET saved_at = NOW()
-  ", list(session_id, username, district_name))
-}
-
-db_update_session_saved_at <- function(pool, session_id) {
-  .db_execute(pool,
-    "UPDATE sessions SET saved_at = NOW() WHERE session_id = ?sid",
-    list(sid = session_id))
-}
-
-db_prune_old_sessions <- function(pool, username, district_name) {
-  # Keep only the most recent SESSION_MAX_SAVED sessions
-  .db_execute(pool, "
-    DELETE FROM sessions
-    WHERE username = ?u AND district_name = ?d
-      AND session_id NOT IN (
-        SELECT session_id FROM sessions
-        WHERE username = ?u AND district_name = ?d
-        ORDER BY started_at DESC
-        LIMIT ?lim
-      )
-  ", list(u = username, d = district_name, lim = SESSION_MAX_SAVED))
-}
-
-
-# =============================================================================
-# SECTION 3: Snapshots
-# Replaces: history list inside .rds session files
-# =============================================================================
-
-db_save_snapshot <- function(pool, session_id, trigger, snapshot_data) {
-  conn <- pool::poolCheckout(pool)
-  on.exit(pool::poolReturn(conn))
-
-  # Serialise sf objects to GeoJSON text; other objects to JSON
-  .to_json <- function(x) {
-    if (is.null(x)) return(NA_character_)
-    if (inherits(x, 'sf') || inherits(x, 'sfc')) {
-      tryCatch(
-        jsonlite::toJSON(geojsonsf::sf_geojson(x), auto_unbox = TRUE),
-        error = function(e) NA_character_
-      )
-    } else {
-      tryCatch(
-        jsonlite::toJSON(x, auto_unbox = TRUE, null = 'null'),
-        error = function(e) NA_character_
-      )
-    }
+# JSON helpers (shared by both submission functions)
+.to_json_for_db <- function(x) {
+  if (is.null(x)) return(NA_character_)
+  if (inherits(x, 'sf') || inherits(x, 'sfc')) {
+    # Store raw GeoJSON — GeoJSON is valid JSON so the JSONB column accepts it
+    # directly as a JSON *object*, not a JSON *string*.
+    # Wrapping with jsonlite::toJSON() would produce a JSON-encoded string value,
+    # which PostgreSQL stores differently and which geojson_sf() cannot parse on
+    # retrieval (it receives a quoted, escaped string, not a bare {…} object).
+    tryCatch(
+      geojsonsf::sf_geojson(x),
+      error = function(e) NA_character_
+    )
+  } else {
+    tryCatch(
+      jsonlite::toJSON(x, auto_unbox = TRUE, null = 'null'),
+      error = function(e) NA_character_
+    )
   }
+}
 
-  DBI::dbExecute(conn, "
-    INSERT INTO session_snapshots
-      (session_id, snapshot_at, trigger,
-       odk_sf, app_sf, landmarks,
-       current_assignments, saved_dfa_sf, dfa_names,
-       planning_data)
-    VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8, $9)
-  ", list(
-    session_id,
-    trigger,
-    .to_json(snapshot_data$odk_sf),
-    .to_json(snapshot_data$app_sf),
-    .to_json(snapshot_data$landmarks),
-    .to_json(snapshot_data$current_assignments),
-    .to_json(snapshot_data$saved_dfa_sf),
-    .to_json(snapshot_data$dfa_names),
-    .to_json(snapshot_data$planning_data)
-  ))
+.from_json_sf_db <- function(x) {
+  if (is.na(x) || !nzchar(x)) return(NULL)
+  tryCatch(geojsonsf::geojson_sf(x), error = function(e) NULL)
+}
 
-  # Prune old snapshots beyond cap
-  .db_execute(pool, "
-    DELETE FROM session_snapshots
-    WHERE session_id = ?sid
-      AND snapshot_id NOT IN (
-        SELECT snapshot_id FROM session_snapshots
-        WHERE session_id = ?sid
-        ORDER BY snapshot_at DESC
-        LIMIT ?lim
-      )
-  ", list(sid = session_id, lim = SESSION_MAX_HISTORY))
+# Deserialise a JSON column back to a named list (planning_data, etc.)
+.from_json_db <- function(x) {
+  if (is.na(x) || !nzchar(x)) return(NULL)
+  tryCatch(jsonlite::fromJSON(x, simplifyVector = FALSE), error = function(e) NULL)
+}
 
+# Deserialise a JSON column back to a data.frame (landmarks)
+.from_json_df_db <- function(x) {
+  if (is.na(x) || !nzchar(x)) return(NULL)
+  tryCatch(
+    as.data.frame(jsonlite::fromJSON(x, simplifyVector = TRUE, simplifyDataFrame = TRUE),
+                  stringsAsFactors = FALSE),
+    error = function(e) NULL
+  )
+}
+
+# Deserialise a JSON column back to a plain character/numeric vector
+.from_json_vec_db <- function(x) {
+  if (is.na(x) || !nzchar(x)) return(NULL)
+  tryCatch(jsonlite::fromJSON(x, simplifyVector = TRUE), error = function(e) NULL)
+}
+
+
+#' Get the most recent submission for a district.
+#' Returns NULL if no submission exists, otherwise a list with:
+#'   $district_name, $submitted_by, $first_submitted_at, $last_submitted_at,
+#'   $has_landmarks, $has_facilities, $has_areas, $has_microplan,
+#'   $snap  (list matching restore snapshot structure)
+db_get_district_submission <- function(pool, district_name) {
+  rows <- tryCatch(
+    .db_query(pool, "
+      SELECT district_name, submitted_by, first_submitted_at, last_submitted_at,
+             landmarks, odk_sf, app_sf, saved_dfa_sf, dfa_names,
+             current_assignments, planning_data,
+             has_landmarks, has_facilities, has_areas, has_microplan
+      FROM district_submissions
+      WHERE district_name = ?d
+    ", list(d = district_name)),
+    error = function(e) { cat('[db] get_district_submission error:', e$message, '\n'); NULL }
+  )
+  
+  if (is.null(rows) || nrow(rows) == 0) return(NULL)
+  
+  r <- rows[1, ]
+  list(
+    district_name      = r$district_name,
+    submitted_by       = r$submitted_by,
+    first_submitted_at = r$first_submitted_at,
+    last_submitted_at  = r$last_submitted_at,
+    has_landmarks      = isTRUE(r$has_landmarks),
+    has_facilities     = isTRUE(r$has_facilities),
+    has_areas          = isTRUE(r$has_areas),
+    has_microplan      = isTRUE(r$has_microplan),
+    snap = list(
+      landmarks           = .from_json_df_db(r$landmarks),      # data.frame
+      odk_sf              = .from_json_sf_db(r$odk_sf),         # sf
+      app_sf              = .from_json_sf_db(r$app_sf),         # sf
+      saved_dfa_sf        = .from_json_sf_db(r$saved_dfa_sf),   # sf
+      dfa_names           = .from_json_vec_db(r$dfa_names),     # character vector
+      current_assignments = .from_json_vec_db(r$current_assignments), # character vector
+      planning_data       = .from_json_db(r$planning_data)      # nested list
+    )
+  )
+}
+
+
+#' Write one stage of progress to district_submissions.
+#' stage = "landmarks" | "facilities" | "areas" | "microplan"
+#' data  = list with stage-specific fields (others passed as NULL, preserved by COALESCE)
+db_submit_stage <- function(pool, district_name, username, stage, data) {
+  landmarks_json     <- if (stage == "landmarks")  .to_json_for_db(data$landmarks)    else NA_character_
+  odk_sf_json        <- if (stage == "facilities") .to_json_for_db(data$odk_sf)       else NA_character_
+  app_sf_json        <- if (stage == "facilities") .to_json_for_db(data$app_sf)       else NA_character_
+  saved_dfa_sf_json       <- if (stage == "areas") .to_json_for_db(data$saved_dfa_sf)       else NA_character_
+  dfa_names_json          <- if (stage == "areas") .to_json_for_db(data$dfa_names)          else NA_character_
+  current_assignments_json <- if (stage == "areas") .to_json_for_db(data$current_assignments) else NA_character_
+  planning_data_json      <- if (stage == "microplan") .to_json_for_db(data$planning_data)   else NA_character_
+  
+  has_landmarks  <- stage == "landmarks"
+  has_facilities <- stage == "facilities"
+  has_areas      <- stage == "areas"
+  has_microplan  <- stage == "microplan"
+  
+  conn <- pool::poolCheckout(pool)
+  on.exit(pool::poolReturn(conn))
+  
+  tryCatch(
+    DBI::dbExecute(conn, "
+      INSERT INTO district_submissions (
+        district_name, submitted_by, first_submitted_at, last_submitted_at,
+        landmarks, odk_sf, app_sf, saved_dfa_sf, dfa_names,
+        current_assignments, planning_data,
+        has_landmarks, has_facilities, has_areas, has_microplan
+      ) VALUES ($1,$2,NOW(),NOW(),$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      ON CONFLICT (district_name) DO UPDATE SET
+        submitted_by       = EXCLUDED.submitted_by,
+        last_submitted_at  = NOW(),
+        landmarks           = COALESCE(EXCLUDED.landmarks,           district_submissions.landmarks),
+        odk_sf              = COALESCE(EXCLUDED.odk_sf,              district_submissions.odk_sf),
+        app_sf              = COALESCE(EXCLUDED.app_sf,              district_submissions.app_sf),
+        saved_dfa_sf        = COALESCE(EXCLUDED.saved_dfa_sf,        district_submissions.saved_dfa_sf),
+        dfa_names           = COALESCE(EXCLUDED.dfa_names,           district_submissions.dfa_names),
+        current_assignments = COALESCE(EXCLUDED.current_assignments, district_submissions.current_assignments),
+        planning_data       = COALESCE(EXCLUDED.planning_data,       district_submissions.planning_data),
+        has_landmarks  = district_submissions.has_landmarks  OR EXCLUDED.has_landmarks,
+        has_facilities = district_submissions.has_facilities OR EXCLUDED.has_facilities,
+        has_areas      = district_submissions.has_areas      OR EXCLUDED.has_areas,
+        has_microplan  = district_submissions.has_microplan  OR EXCLUDED.has_microplan,
+        first_submitted_at = LEAST(district_submissions.first_submitted_at, NOW())
+    ", list(
+      district_name, username,
+      landmarks_json, odk_sf_json, app_sf_json,
+      saved_dfa_sf_json, dfa_names_json, current_assignments_json, planning_data_json,
+      has_landmarks, has_facilities, has_areas, has_microplan
+    )),
+    error = function(e) {
+      cat('[db] submit_stage error (', stage, '):', e$message, '\n')
+      stop(e)
+    }
+  )
+  
   invisible(NULL)
 }
 
-db_get_snapshots <- function(pool, session_id) {
-  rows <- .db_query(pool, "
-    SELECT snapshot_id, snapshot_at, trigger,
-           odk_sf, app_sf, landmarks,
-           current_assignments, saved_dfa_sf, dfa_names,
-           planning_data
-    FROM session_snapshots
-    WHERE session_id = ?sid
-    ORDER BY snapshot_at ASC
-  ", list(sid = session_id))
 
-  if (nrow(rows) == 0) return(list())
-
-  .from_json_sf <- function(x) {
-    if (is.na(x) || !nzchar(x)) return(NULL)
-    tryCatch(geojsonsf::geojson_sf(x), error = function(e) NULL)
-  }
-  .from_json <- function(x) {
-    if (is.na(x) || !nzchar(x)) return(NULL)
-    tryCatch(jsonlite::fromJSON(x, simplifyVector = FALSE), error = function(e) NULL)
-  }
-
-  lapply(seq_len(nrow(rows)), function(i) {
-    r <- rows[i, ]
-    list(
-      snapshot_at         = r$snapshot_at,
-      trigger             = r$trigger,
-      odk_sf              = .from_json_sf(r$odk_sf),
-      app_sf              = .from_json_sf(r$app_sf),
-      landmarks           = .from_json(r$landmarks),
-      current_assignments = .from_json(r$current_assignments),
-      saved_dfa_sf        = .from_json_sf(r$saved_dfa_sf),
-      dfa_names           = .from_json(r$dfa_names),
-      planning_data       = .from_json(r$planning_data)
-    )
-  })
+#' Get all submitted districts for the admin progress table.
+#' Returns a data frame with stage flags only (no blob columns).
+db_get_all_submissions <- function(pool) {
+  tryCatch(
+    .db_query(pool, "
+      SELECT district_name, submitted_by, first_submitted_at, last_submitted_at,
+             has_landmarks, has_facilities, has_areas, has_microplan
+      FROM district_submissions
+      ORDER BY last_submitted_at DESC NULLS LAST
+    "),
+    error = function(e) { cat('[db] get_all_submissions error:', e$message, '\n'); NULL }
+  )
 }
 
 
-# =============================================================================
-# SECTION 4: Progress (admin)
-# Replaces: .load_progress() in mod_admin_tab.R
-# =============================================================================
-
-db_get_progress <- function(pool) {
-  .db_query(pool, "
-    SELECT
-      s.session_id,
-      s.username,
-      s.district_name,
-      s.saved_at,
-      s.started_at,
-      sn.planning_data,
-      sn.saved_dfa_sf
-    FROM sessions s
-    JOIN latest_snapshots sn USING (session_id)
-    ORDER BY s.saved_at DESC
-  ")
+#' Get full submission data for a single district (for admin Review modal).
+db_get_submission_for_review <- function(pool, district_name) {
+  db_get_district_submission(pool, district_name)
 }
 
 
-# =============================================================================
-# SECTION 5: Health area plans (denormalised, queryable)
-# Called from mod_microplan_tab.R whenever planning data is saved.
-# Writes to health_area_plans + supervisors tables directly.
-# =============================================================================
-
-#' Upsert all health area plans for a session.
-#' Replaces all existing rows for this session_id then re-inserts.
-#'
-#' @param pool        DB connection pool
-#' @param session_id  character — current session ID
-#' @param district_name character
-#' @param planning_data named list — same structure as rv$planning_data
-#'   list(
-#'     "Health Area 1" = list(
-#'       u5_pop=4200, n_teams=11, n_supervisors=3, complete=TRUE, notes='',
-#'       supervisors=list(
-#'         list(name='X', role='Y', phone='Z', email='W'), ...
-#'       )
-#'     ), ...
-#'   )
-
-db_upsert_health_area_plans <- function(pool, session_id, district_name, planning_data) {
-  if (length(planning_data) == 0) return(invisible(NULL))
-
-  conn <- pool::poolCheckout(pool)
-  on.exit(pool::poolReturn(conn))
-
-  # Wrap in a transaction so partial writes don't leave inconsistent state
-  DBI::dbWithTransaction(conn, {
-
-    # Delete existing plans for this session (supervisors cascade)
-    DBI::dbExecute(conn,
-      "DELETE FROM health_area_plans WHERE session_id = $1",
-      list(session_id)
-    )
-
-    slug <- gsub('[^A-Za-z0-9]', '_', tolower(trimws(district_name)))
-
-    for (area_name in names(planning_data)) {
-      d   <- planning_data[[area_name]]
-      uid <- paste0(slug, '__',
-                    gsub('[^A-Za-z0-9]', '_', tolower(trimws(area_name))))
-
-      # Insert health area plan row
-      plan_id <- DBI::dbGetQuery(conn, "
-        INSERT INTO health_area_plans
-          (session_id, district_name, area_name, uid,
-           u5_pop, n_teams, n_supervisors, complete, notes, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-        RETURNING id
-      ", list(
-        session_id,
-        district_name,
-        area_name,
-        uid,
-        as.numeric(d$u5_pop        %||% NA),
-        as.integer(d$n_teams       %||% NA),
-        as.integer(d$n_supervisors %||% NA),
-        isTRUE(d$complete),
-        trimws(d$notes %||% '')
-      ))$id
-
-      # Insert supervisor rows
-      sups <- d$supervisors %||% list()
-      for (i in seq_along(sups)) {
-        s <- sups[[i]] %||% list()
-        DBI::dbExecute(conn, "
-          INSERT INTO supervisors
-            (health_area_plan, supervisor_number, name, role, phone, email)
-          VALUES ($1, $2, $3, $4, $5, $6)
-        ", list(
-          plan_id,
-          as.integer(i),
-          trimws(s$name  %||% ''),
-          trimws(s$role  %||% ''),
-          trimws(s$phone %||% ''),
-          trimws(s$email %||% '')
-        ))
-      }
-    }
-  })
-
+#' Delete a district's submission entirely (used by the Reject button in admin).
+db_delete_district_submission <- function(pool, district_name) {
+  .db_execute(pool,
+              "DELETE FROM district_submissions WHERE district_name = ?d",
+              list(d = district_name))
   invisible(NULL)
 }

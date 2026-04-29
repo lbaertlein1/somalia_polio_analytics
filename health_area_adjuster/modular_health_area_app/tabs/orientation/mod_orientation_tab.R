@@ -1,60 +1,60 @@
 # =============================================================================
 # mod_orientation_tab.R
-# Orientation tab — familiarise users with the map before facility mapping.
-#
-# Interaction:
-#   Left-click map  → drop a landmark pin (auto-named "Landmark N")
-#   Drag pin        → reposition
-#   Click map pin   → highlight row in table
-#   Table Name col  → editable (rename landmark)
-#   Table Delete    → remove landmark
-#   Continue btn    → always active, switches to Facilities tab
-#
-# Landmarks carry forward to the facility map as purple dot + text label.
 # =============================================================================
 
 orientationTabUI <- function(id) {
   ns <- NS(id)
-
+  
   fluidRow(
-
-    # ── Left sidebar ──────────────────────────────────────────────────────────
+    
     column(
       width = 2,
-
+      
       div(class = 'rightbar-title', style = 'margin-top: 4px;', 'Orientation'),
-
+      
       tags$p(
         style = 'font-size: 12px; color: #475569; line-height: 1.6;',
         'Get familiar with the map before moving to facility mapping.'
       ),
-
+      
       tags$ul(
         style = 'font-size: 12px; color: #475569; padding-left: 16px; line-height: 1.8;',
         tags$li('Click anywhere on the map to drop a landmark.'),
         tags$li('Drag a pin to reposition it.'),
         tags$li('Rename landmarks in the table on the right.')
       ),
-
+      
       tags$hr(style = 'margin: 10px 0;'),
-
+      
       uiOutput(ns('landmark_count')),
-
+      
       tags$hr(style = 'margin: 10px 0;'),
-
+      
       actionButton(
         ns('clear_all'), 'Clear all landmarks',
         class = 'btn btn-default btn-sm',
         width = '100%',
         icon  = icon('trash')
       ),
-
+      
       tags$hr(style = 'margin: 10px 0;'),
-
-      # Continue always active — orientation is optional
+      
+      actionButton(
+        ns('submit_landmarks'), 'Submit Landmarks',
+        class = 'btn btn-primary btn-sm',
+        width = '100%',
+        icon  = icon('check-circle')
+      ),
+      div(
+        style = 'font-size: 11px; color: #64748b; margin-top: 5px; line-height: 1.4;',
+        'Saves your landmarks to the database.'
+      ),
+      
+      tags$hr(style = 'margin: 10px 0;'),
+      
       tags$button(
         id      = ns('continue'),
-        class   = 'btn btn-primary btn-block',
+        class   = 'btn btn-default btn-block',
         type    = 'button',
         style   = 'font-weight: 600; font-size: 13px; height: 36px; width: 100%;',
         onclick = paste0(
@@ -63,8 +63,7 @@ orientationTabUI <- function(id) {
         'Continue \u2192'
       )
     ),
-
-    # ── Map ───────────────────────────────────────────────────────────────────
+    
     column(
       width = 7,
       div(
@@ -72,8 +71,7 @@ orientationTabUI <- function(id) {
         leaflet::leafletOutput(ns('map'), width = '100%', height = '100%')
       )
     ),
-
-    # ── Right panel — landmark table ──────────────────────────────────────────
+    
     column(
       width = 3,
       div(class = 'rightbar-title', 'Landmarks'),
@@ -100,14 +98,14 @@ orientationTabServer <- function(
     region,
     district,
     district_ready,
-    save_snapshot_fn = NULL,
+    submit_stage_fn  = NULL,
+    save_snapshot_fn = NULL,   # kept for compatibility, no-op
     restore_r        = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
     
     updating_table <- reactiveVal(FALSE)
-
-    # ── State ─────────────────────────────────────────────────────────────────
+    
     rv <- reactiveValues(
       landmarks = data.frame(
         landmark_id   = character(0),
@@ -117,14 +115,14 @@ orientationTabServer <- function(
         stringsAsFactors = FALSE
       )
     )
-
+    
     selected_id <- reactiveVal(NULL)
-
+    
     # ── District boundary reactive ────────────────────────────────────────────
     district_sf <- reactive({
       req(isTRUE(district_ready()))
       req(zone(), region(), district())
-
+      
       sf <- districts_shp |>
         dplyr::filter(
           zone_name     == zone(),
@@ -141,11 +139,11 @@ orientationTabServer <- function(
         ) |>
         sf::st_as_sf() |>
         safe_make_valid()
-
+      
       req(nrow(sf) >= 1)
       sf::st_transform(sf, 4326)
     })
-
+    
     # ── Clear landmarks when district changes ─────────────────────────────────
     observeEvent(district(), {
       rv$landmarks <- data.frame(
@@ -157,21 +155,21 @@ orientationTabServer <- function(
       )
       selected_id(NULL)
     }, ignoreInit = TRUE)
-
-    # ── Session: restore ──────────────────────────────────────────────────────
+    
+    # ── Restore ───────────────────────────────────────────────────────────────
     observeEvent(restore_r(), {
       snap <- restore_r()
       if (is.null(snap) || is.null(snap$landmarks)) return()
       rv$landmarks <- snap$landmarks
       showNotification('Landmark state restored.', type = 'message', duration = 2)
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
-
+    
     # ── Base map ──────────────────────────────────────────────────────────────
     output$map <- leaflet::renderLeaflet({
       req(district_sf())
-
+      
       bbox <- sf::st_bbox(district_sf())
-
+      
       leaflet::leaflet(
         options = leaflet::leafletOptions(zoomSnap = 0.25)
       ) |>
@@ -195,8 +193,10 @@ orientationTabServer <- function(
           options  = leaflet::scaleBarOptions(imperial = FALSE, maxWidth = 200)
         )
     })
+    # Pre-render map while user is still on intro tab so the district boundary
+    # proxy call lands on an already-rendered map when district_sf() resolves.
     outputOptions(output, 'map', suspendWhenHidden = FALSE)
-
+    
     # ── District boundary ─────────────────────────────────────────────────────
     observe({
       req(district_sf())
@@ -211,25 +211,25 @@ orientationTabServer <- function(
           opacity = 1
         )
     })
-
+    
     # ── Draw / redraw all landmark markers ────────────────────────────────────
     .redraw_markers <- function() {
       proxy <- leaflet::leafletProxy('map', session = session) |>
         leaflet::clearGroup('landmarks')
-
+      
       lm <- rv$landmarks
       if (nrow(lm) == 0) return()
-
+      
       sel <- selected_id()
-
+      
       for (i in seq_len(nrow(lm))) {
         is_sel   <- !is.null(sel) && identical(lm$landmark_id[i], sel)
         icon_url <- if (is_sel) {
           'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png'
         } else {
-          'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-violet.png'
+          'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png'
         }
-
+        
         proxy <- proxy |>
           leaflet::addMarkers(
             lng     = lm$lon[i],
@@ -254,21 +254,21 @@ orientationTabServer <- function(
           )
       }
     }
-
+    
     observe({
       rv$landmarks
       selected_id()
       .redraw_markers()
     })
-
+    
     # ── Left-click on map → add landmark ──────────────────────────────────────
     observeEvent(input$map_click, {
       click <- input$map_click
       req(!is.null(click))
-
+      
       new_id <- paste0('lm_', format(Sys.time(), '%Y%m%d%H%M%S'), '_', sample(1000:9999, 1))
       n      <- nrow(rv$landmarks) + 1L
-
+      
       rv$landmarks <- rbind(rv$landmarks, data.frame(
         landmark_id   = new_id,
         landmark_name = paste('Landmark', n),
@@ -276,37 +276,29 @@ orientationTabServer <- function(
         lon           = as.numeric(click$lng),
         stringsAsFactors = FALSE
       ))
-
+      
       selected_id(new_id)
-
-      if (!is.null(save_snapshot_fn)) {
-        save_snapshot_fn(list(landmarks = rv$landmarks))
-      }
     })
-
+    
     # ── Drag → update position ────────────────────────────────────────────────
     observeEvent(input$map_marker_dragend, {
       info <- input$map_marker_dragend
       req(!is.null(info$id))
-
+      
       idx <- which(rv$landmarks$landmark_id == as.character(info$id))
       if (length(idx) != 1) return()
-
+      
       rv$landmarks$lat[idx] <- as.numeric(info$lat)
       rv$landmarks$lon[idx] <- as.numeric(info$lng)
-
-      if (!is.null(save_snapshot_fn)) {
-        save_snapshot_fn(list(landmarks = rv$landmarks))
-      }
     })
-
+    
     # ── Click pin → select in table ───────────────────────────────────────────
     observeEvent(input$map_marker_click, {
       info <- input$map_marker_click
       req(!is.null(info$id))
       selected_id(as.character(info$id))
     })
-
+    
     # ── Clear all ─────────────────────────────────────────────────────────────
     observeEvent(input$clear_all, {
       rv$landmarks <- data.frame(
@@ -318,7 +310,16 @@ orientationTabServer <- function(
       )
       selected_id(NULL)
     })
-
+    
+    # ── Submit landmarks → DB ─────────────────────────────────────────────────
+    observeEvent(input$submit_landmarks, {
+      if (!is.null(submit_stage_fn)) {
+        submit_stage_fn('landmarks', list(landmarks = rv$landmarks))
+      } else {
+        showNotification('Submit not configured.', type = 'warning', duration = 3)
+      }
+    }, ignoreInit = TRUE)
+    
     # ── Landmark count display ────────────────────────────────────────────────
     output$landmark_count <- renderUI({
       n <- nrow(rv$landmarks)
@@ -331,25 +332,25 @@ orientationTabServer <- function(
         }
       )
     })
-
+    
     # ── Landmark table ────────────────────────────────────────────────────────
     output$landmark_table <- rhandsontable::renderRHandsontable({
       updating_table(TRUE)
       on.exit(updating_table(FALSE))
       lm <- rv$landmarks
       if (nrow(lm) == 0) return(NULL)
-
+      
       sel_id      <- selected_id()
       sel_row     <- if (!is.null(sel_id)) which(lm$landmark_id == sel_id) else integer(0)
       sel_row_js  <- if (length(sel_row) == 1) sel_row - 1L else -1L
-
+      
       display_df <- data.frame(
         landmark_id_internal = lm$landmark_id,
         Name                 = lm$landmark_name,
         Delete               = seq_len(nrow(lm)),
         stringsAsFactors     = FALSE
       )
-
+      
       highlight_renderer <- htmlwidgets::JS(sprintf("
         function(instance, td, row, col, prop, value, cellProperties) {
           Handsontable.renderers.TextRenderer.apply(this, arguments);
@@ -362,7 +363,7 @@ orientationTabServer <- function(
           }
         }
       ", sel_row_js))
-
+      
       blank_renderer <- htmlwidgets::JS("
         function(instance, td, row, col, prop, value, cellProperties) {
           td.innerHTML = '';
@@ -371,7 +372,7 @@ orientationTabServer <- function(
           td.style.padding = '0px';
         }
       ")
-
+      
       delete_renderer <- htmlwidgets::JS(sprintf("
         function(instance, td, row, col, prop, value, cellProperties) {
           td.innerHTML = '<button style=\"font-size:11px;padding:1px 6px;cursor:pointer;' +
@@ -381,7 +382,7 @@ orientationTabServer <- function(
           else { td.style.background = ''; }
         }
       ", session$ns('delete_row'), sel_row_js))
-
+      
       rhandsontable::rhandsontable(
         display_df,
         rowHeaders = NULL,
@@ -403,16 +404,16 @@ orientationTabServer <- function(
         rhandsontable::hot_rows(rowHeights = 28) |>
         rhandsontable::hot_cols(manualColumnResize = TRUE)
     })
-
+    
     # ── Table row click → select + pan map ───────────────────────────────────
     observeEvent(input$selected_row, ignoreInit = TRUE, {
       idx <- as.integer(input$selected_row)
       lm  <- rv$landmarks
       req(!is.na(idx), idx >= 1, idx <= nrow(lm))
-
+      
       sel_id <- lm$landmark_id[idx]
       selected_id(sel_id)
-
+      
       leaflet::leafletProxy('map', session = session) |>
         leaflet::setView(
           lng  = lm$lon[idx],
@@ -420,40 +421,33 @@ orientationTabServer <- function(
           zoom = 13
         )
     })
-
+    
     # ── Table name edit → update rv ───────────────────────────────────────────
     observeEvent(input$landmark_table, ignoreInit = TRUE, ignoreNULL = TRUE, {
-      if (isTRUE(updating_table())) return()   # <-- add this line
+      if (isTRUE(updating_table())) return()
       
       edited <- rhandsontable::hot_to_r(input$landmark_table)
       req(!is.null(edited), nrow(edited) == nrow(rv$landmarks))
       
       if (!identical(edited$Name, rv$landmarks$landmark_name)) {
         rv$landmarks$landmark_name <- edited$Name
-        if (!is.null(save_snapshot_fn)) {
-          save_snapshot_fn(list(landmarks = rv$landmarks))
-        }
       }
     })
-
+    
     # ── Delete row ────────────────────────────────────────────────────────────
     observeEvent(input$delete_row, ignoreInit = TRUE, ignoreNULL = TRUE, {
       idx <- as.integer(input$delete_row)
       lm  <- rv$landmarks
       req(!is.na(idx), idx >= 1, idx <= nrow(lm))
-
+      
       del_id       <- lm$landmark_id[idx]
       rv$landmarks <- lm[-idx, , drop = FALSE]
-
+      
       if (!is.null(selected_id()) && identical(selected_id(), del_id)) {
         selected_id(NULL)
       }
-
-      if (!is.null(save_snapshot_fn)) {
-        save_snapshot_fn(list(landmarks = rv$landmarks))
-      }
     })
-
+    
     # ── Return ────────────────────────────────────────────────────────────────
     list(
       landmarks_r           = reactive(rv$landmarks),

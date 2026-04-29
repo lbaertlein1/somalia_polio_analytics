@@ -28,6 +28,17 @@ healthAreaControlsUI <- function(id) {
       class = 'control-row',
       actionButton(ns('reset_btn'), 'Reset'),
       actionButton(ns('save_btn'),  'Save')
+    ),
+    tags$hr(style = 'margin: 10px 0;'),
+    actionButton(
+      ns('submit_btn'), 'Submit Health Areas',
+      class = 'btn btn-primary btn-sm',
+      width = '100%',
+      icon  = icon('check-circle')
+    ),
+    div(
+      style = 'font-size: 11px; color: #64748b; margin-top: 5px; line-height: 1.4;',
+      'Saves your current boundaries to the database.'
     )
   )
 }
@@ -50,6 +61,7 @@ healthAreaControlsServer <- function(id) {
       boundary_only        = reactive(isTRUE(input$boundary_only)),
       help_click           = reactive(input$help_btn),
       save_click           = reactive(input$save_btn),
+      submit_click         = reactive(input$submit_btn),
       reset_click          = reactive(input$reset_btn),
       brush_minus_click    = reactive(input$brush_minus),
       brush_plus_click     = reactive(input$brush_plus),
