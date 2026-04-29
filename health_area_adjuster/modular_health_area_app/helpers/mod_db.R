@@ -21,7 +21,7 @@ db_connect <- function() {
     sslmode  = Sys.getenv('DB_SSL', 'require'),
     minSize  = 1L,
     maxSize  = 5L,
-    idleTimeout = 300000L
+    idleTimeout = 1800000L
   )
 }
 

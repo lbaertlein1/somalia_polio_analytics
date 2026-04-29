@@ -330,9 +330,9 @@ adminTabServer <- function(id, districts_shp) {
               error = function(e) ''
             ),
             status = dplyr::case_when(
-              isTRUE(has_microplan)  ~ 'Complete',
-              isTRUE(has_areas) | isTRUE(has_facilities) | isTRUE(has_landmarks) ~ 'In progress',
-              TRUE ~ 'Not started'
+              has_microplan               ~ 'Complete',
+              has_areas | has_facilities | has_landmarks ~ 'In progress',
+              TRUE                        ~ 'Not started'
             )
           ) |>
           dplyr::select(district_name, submitted_by, last_submitted,
@@ -372,8 +372,40 @@ adminTabServer <- function(id, districts_shp) {
           '<span style="color:#cbd5e1;font-size:14px;">\u2013</span>'
       }
       
+      .status_html <- function(status) {
+        vapply(status, function(s) {
+          cfg <- switch(s,
+                        'Complete'    = list(bg='#f0fdf4', col='#166534', bd='#bbf7d0'),
+                        'In progress' = list(bg='#fefce8', col='#854d0e', bd='#fde68a'),
+                        list(bg='#f8fafc', col='#64748b', bd='#e2e8f0')
+          )
+          sprintf('<span style="background:%s;color:%s;border:1px solid %s;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;">%s</span>',
+                  cfg$bg, cfg$col, cfg$bd, s)
+        }, character(1))
+      }
+      
       ns_str    <- session$ns('')
-      btn_style <- 'font-size:11px;padding:2px 8px;cursor:pointer;border-radius:3px;'
+      ns_btn <- session$ns
+      
+      .review_btn <- function(dname, status) {
+        if (status == 'Not started') return('')
+        paste0(
+          '<button style="font-size:11px;padding:2px 8px;cursor:pointer;',
+          'border-radius:3px;border:1px solid #1565C0;background:#fff;color:#1565C0;" ',
+          'onclick="Shiny.setInputValue(\'', ns_btn('review_row'), '\',\'', dname, '\',',
+          '{priority:\'event\'})">', 'Review</button>'
+        )
+      }
+      
+      .reject_btn <- function(dname, status) {
+        if (status == 'Not started') return('')
+        paste0(
+          '<button style="font-size:11px;padding:2px 8px;cursor:pointer;',
+          'border-radius:3px;border:1px solid #ef4444;background:#fff;color:#ef4444;" ',
+          'onclick="Shiny.setInputValue(\'', ns_btn('reject_row'), '\',\'', dname, '\',',
+          '{priority:\'event\'})">', 'Reject</button>'
+        )
+      }
       
       display <- data.frame(
         District         = pd$district_name,
@@ -383,45 +415,13 @@ adminTabServer <- function(id, districts_shp) {
         Facilities       = vapply(pd$has_facilities, .stage_html, character(1)),
         `Health Areas`   = vapply(pd$has_areas,      .stage_html, character(1)),
         Microplan        = vapply(pd$has_microplan,  .stage_html, character(1)),
-        Status           = pd$status,
+        Status           = .status_html(pd$status),
         `Last submitted` = pd$last_submitted,
         User             = pd$submitted_by,
-        Review           = seq_len(nrow(pd)),
-        Reject           = seq_len(nrow(pd)),
+        Review           = mapply(.review_btn, pd$district_name, pd$status, SIMPLIFY = TRUE),
+        Reject           = mapply(.reject_btn, pd$district_name, pd$status, SIMPLIFY = TRUE),
         stringsAsFactors = FALSE, check.names = FALSE
       )
-      
-      status_render <- DT::JS("
-        function(data,type,row){ if(type!=='display') return data;
-          var c={
-            'Complete':    {bg:'#f0fdf4',col:'#166534',bd:'#bbf7d0'},
-            'In progress': {bg:'#fefce8',col:'#854d0e',bd:'#fde68a'},
-            'Not started': {bg:'#f8fafc',col:'#64748b',bd:'#e2e8f0'}
-          };
-          var s=c[data]||c['Not started'];
-          return '<span style=\"background:'+s.bg+';color:'+s.col+
-                 ';border:1px solid '+s.bd+';border-radius:20px;'+
-                 'padding:2px 9px;font-size:11px;font-weight:600;\">'+data+'</span>';
-        }
-      ")
-      
-      review_render <- DT::JS(sprintf("
-        function(data,type,row){ if(type!=='display') return data;
-          if(row[7]==='Not started') return '';
-          return '<button style=\"%sborder:1px solid #1565C0;background:#fff;color:#1565C0;\"'+
-                 ' onclick=\"Shiny.setInputValue(\\'%sreview_row\\','+data+
-                 ',{priority:\\'event\\'})\">Review</button>';
-        }
-      ", btn_style, ns_str))
-      
-      reject_render <- DT::JS(sprintf("
-        function(data,type,row){ if(type!=='display') return data;
-          if(row[7]==='Not started') return '';
-          return '<button style=\"%sborder:1px solid #ef4444;background:#fff;color:#ef4444;\"'+
-                 ' onclick=\"Shiny.setInputValue(\\'%sreject_row\\','+data+
-                 ',{priority:\\'event\\'})\">Reject</button>';
-        }
-      ", btn_style, ns_str))
       
       DT::datatable(
         display,
@@ -434,10 +434,7 @@ adminTabServer <- function(id, districts_shp) {
           scrollY        = 'calc(100vh - 320px)',
           scrollCollapse = TRUE,
           columnDefs     = list(
-            list(targets = 3:6, orderable = FALSE),     # stage checkmark cols
-            list(targets = 7,   render = status_render),
-            list(targets = 10,  render = review_render),
-            list(targets = 11,  render = reject_render)
+            list(targets = 3:8, orderable = FALSE)   # stage + status + buttons not sortable
           )
         )
       )
@@ -452,10 +449,8 @@ adminTabServer <- function(id, districts_shp) {
     rejecting_district <- reactiveVal(NULL)
     
     observeEvent(input$reject_row, {
-      idx   <- as.integer(input$reject_row)
-      pd    <- isolate(progress_data())
-      req(!is.null(pd), idx >= 1L, idx <= nrow(pd))
-      dname <- pd$district_name[idx]
+      dname <- input$reject_row
+      req(!is.null(dname), nzchar(dname))
       rejecting_district(dname)
       showModal(modalDialog(
         title     = 'Confirm rejection',
@@ -490,11 +485,10 @@ adminTabServer <- function(id, districts_shp) {
     }, ignoreInit = TRUE)
     
     observeEvent(input$review_row, {
-      idx   <- as.integer(input$review_row)
+      dname <- input$review_row
+      req(!is.null(dname), nzchar(dname))
       pd    <- isolate(progress_data())
-      req(!is.null(pd), idx >= 1L, idx <= nrow(pd))
-      
-      dname <- pd$district_name[idx]
+      req(!is.null(pd))
       sub   <- tryCatch(
         db_get_submission_for_review(pool, dname),
         error = function(e) NULL
@@ -520,17 +514,16 @@ adminTabServer <- function(id, districts_shp) {
                          class = 'btn btn-default'),
           modalButton('Close')
         ),
-        # Stretch the xl modal to 92% of viewport so table columns fit without scrolling
-        tags$style(HTML('.modal-xl .modal-dialog { max-width: 92vw !important; width: 92vw !important; }')),
+        tags$style(HTML('.modal-dialog.modal-xl { max-width: 80vw !important; width: 80vw !important; }')),
         fluidRow(
-          column(7,
-                 div(style = 'height:420px;border-radius:7px;overflow:hidden;',
+          column(6,
+                 div(style = 'height:440px;border-radius:7px;overflow:hidden;',
                      leaflet::leafletOutput(session$ns('review_map'),
-                                            width = '100%', height = '420px'))
+                                            width = '100%', height = '440px'))
           ),
-          column(5,
+          column(6,
                  div(class = 'rightbar-title', 'Health Areas'),
-                 div(style = 'overflow-y:auto;max-height:400px;',
+                 div(style = 'overflow-y:auto;max-height:420px;',
                      DT::DTOutput(session$ns('review_table')))
           )
         )
@@ -633,8 +626,10 @@ adminTabServer <- function(id, districts_shp) {
                     options = list(
                       dom           = 'ft',
                       pageLength    = 200,
-                      scrollY       = '340px',
-                      scrollCollapse = TRUE
+                      scrollY       = '360px',
+                      scrollCollapse = TRUE,
+                      scrollX       = FALSE,
+                      autoWidth     = TRUE
                     ))
     })
     
