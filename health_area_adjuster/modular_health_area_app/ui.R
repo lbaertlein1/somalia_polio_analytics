@@ -8,8 +8,8 @@ app_ui <- function() {
       
       tags$style(HTML("
     #header-title {
-      min-width: 220px;
-      width: 16.66%;
+      min-width: 230px;
+      width: 23%;
     }
     .hdr-tab {
       background: transparent;
