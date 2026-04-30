@@ -1,0 +1,27 @@
+{
+  "id": "M5zQapPyTZI",
+  "username": "admin",
+  "dataViewOrganisationUnits": [
+    {
+      "name": "Somalia",
+      "path": "/phNUUZTG0DI",
+      "id": "phNUUZTG0DI",
+      "level": 1
+    }
+  ],
+  "organisationUnits": [
+    {
+      "name": "Somalia",
+      "path": "/phNUUZTG0DI",
+      "id": "phNUUZTG0DI",
+      "level": 1
+    }
+  ],
+  "name": "admin admin",
+  "userRoles": [
+    {
+      "name": "Superuser",
+      "id": "yrB6vc5Ip3r"
+    }
+  ]
+}

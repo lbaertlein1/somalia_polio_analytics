@@ -1,0 +1,325 @@
+{
+  "optionSets": [
+    {
+      "code": "SOM_AGE_GROUP",
+      "name": "Age group",
+      "options": [
+        {
+          "code": "AGE_0_59M",
+          "name": "0-59 months",
+          "sortOrder": 0,
+          "id": "kD4EcHjlic3"
+        },
+        {
+          "code": "AGE_5_10Y",
+          "name": "5-10 years",
+          "sortOrder": 1,
+          "id": "uiINMwX7ZXu"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "ATy9mhzpo12"
+    },
+    {
+      "code": null,
+      "name": "Agency",
+      "options": [
+        {
+          "code": "uv",
+          "name": "University Students",
+          "sortOrder": 0,
+          "id": "xtnCxfpdUkX"
+        },
+        {
+          "code": "cdc_tf",
+          "name": "CDC/TF",
+          "sortOrder": 1,
+          "id": "AmvI1zF9oEp"
+        },
+        {
+          "code": "mcking",
+          "name": "McKing Field Consultants",
+          "sortOrder": 2,
+          "id": "WJ5DvnouzyI"
+        },
+        {
+          "code": "core_group",
+          "name": "Core Group",
+          "sortOrder": 3,
+          "id": "nttJRAXb1vN"
+        },
+        {
+          "code": "icm_banadir",
+          "name": "ICM-Banadir",
+          "sortOrder": 4,
+          "id": "mcZeYk06hpR"
+        },
+        {
+          "code": "fetp",
+          "name": "FETP",
+          "sortOrder": 5,
+          "id": "fegMsfVPLnn"
+        },
+        {
+          "code": "moh",
+          "name": "MOH",
+          "sortOrder": 6,
+          "id": "Yyw81WOmFGm"
+        },
+        {
+          "code": "who",
+          "name": "WHO",
+          "sortOrder": 7,
+          "id": "Z2N0Q4QKpsw"
+        },
+        {
+          "code": "unicef",
+          "name": "UNICEF",
+          "sortOrder": 8,
+          "id": "Qzlfio0q9ku"
+        },
+        {
+          "code": "ngo",
+          "name": "Other NGO",
+          "sortOrder": 9,
+          "id": "KruQr3LnWjN"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "xKhEZEhtCaT"
+    },
+    {
+      "code": "SOM_CAMPAIGN",
+      "name": "Campaign",
+      "options": [
+        {
+          "code": "TEST_nOPV2_Nov_2025",
+          "name": "TEST nOPV2 Nov 2025",
+          "sortOrder": 0,
+          "id": "glkmrlVqjjE"
+        },
+        {
+          "code": "TEST_nOPV2_Dec_2025",
+          "name": "TEST nOPV2 Dec 2025",
+          "sortOrder": 1,
+          "id": "b30uJpvmzsQ"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "gxN66NUHLfb"
+    },
+    {
+      "code": null,
+      "name": "Campaign day",
+      "options": [
+        {
+          "code": "test_data",
+          "name": "Test/Practice Data",
+          "sortOrder": 0,
+          "id": "KR4gXfhOBVX"
+        },
+        {
+          "code": "day_1",
+          "name": "Day 1",
+          "sortOrder": 1,
+          "id": "dQZ5cCj4aBO"
+        },
+        {
+          "code": "day_2",
+          "name": "Day 2",
+          "sortOrder": 2,
+          "id": "EZxzY9HpWgY"
+        },
+        {
+          "code": "day_3",
+          "name": "Day 3",
+          "sortOrder": 3,
+          "id": "dsFMbCaFjL5"
+        },
+        {
+          "code": "day_4",
+          "name": "Day 4 / Catch-up",
+          "sortOrder": 4,
+          "id": "IlOTHrlU7l2"
+        },
+        {
+          "code": "day_5",
+          "name": "Day 5 / Catch-up",
+          "sortOrder": 5,
+          "id": "OC86kB9t6da"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "OmEb81S72ke"
+    },
+    {
+      "code": "SOM_CAMPAIGN_TYPE",
+      "name": "Campaign type",
+      "options": [
+        {
+          "code": "NID",
+          "name": "NID",
+          "sortOrder": 0,
+          "id": "wIiInzurS3T"
+        },
+        {
+          "code": "SNID",
+          "name": "SNID",
+          "sortOrder": 1,
+          "id": "sL3zbd6qdZa"
+        },
+        {
+          "code": "CASE_RESPONSE",
+          "name": "Case response",
+          "sortOrder": 2,
+          "id": "AddMahXuBfG"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "uLTkZnQ4Mx4"
+    },
+    {
+      "code": null,
+      "name": "Settlement type",
+      "options": [
+        {
+          "code": "rural",
+          "name": "Rural",
+          "sortOrder": 0,
+          "id": "Gt6SIu3uxDM"
+        },
+        {
+          "code": "urban",
+          "name": "Urban",
+          "sortOrder": 1,
+          "id": "bDpcMJKcS3J"
+        },
+        {
+          "code": "idp",
+          "name": "IDP",
+          "sortOrder": 2,
+          "id": "YuXJhPm3HLt"
+        },
+        {
+          "code": "nomadic",
+          "name": "Nomadic",
+          "sortOrder": 3,
+          "id": "kWwfXWgvO1U"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "CJyA0pUvHAZ"
+    },
+    {
+      "code": null,
+      "name": "Team gender",
+      "options": [
+        {
+          "code": "male_only",
+          "name": "Male only",
+          "sortOrder": 0,
+          "id": "IhlnMS7Wk5H"
+        },
+        {
+          "code": "female_only",
+          "name": "Female only",
+          "sortOrder": 1,
+          "id": "GcuF4qSDjvT"
+        },
+        {
+          "code": "both",
+          "name": "Male and Female",
+          "sortOrder": 2,
+          "id": "nrhRWgihJZN"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "o3X6KnOHx62"
+    },
+    {
+      "code": null,
+      "name": "Team type",
+      "options": [
+        {
+          "code": "house2house",
+          "name": "House to House",
+          "sortOrder": 0,
+          "id": "dBNhchdYgzf"
+        },
+        {
+          "code": "transit",
+          "name": "Transit",
+          "sortOrder": 1,
+          "id": "wwvjfnZ6ZcW"
+        },
+        {
+          "code": "roaming",
+          "name": "Roaming",
+          "sortOrder": 2,
+          "id": "k3FEUhh9NFh"
+        },
+        {
+          "code": "fixed",
+          "name": "Fixed Post",
+          "sortOrder": 3,
+          "id": "CVEqTn7mAXW"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "sn1CDRrGSES"
+    },
+    {
+      "code": "SOM_VACCINE_TYPE",
+      "name": "Vaccine type",
+      "options": [],
+      "valueType": "TEXT",
+      "id": "DYGXnKpfaRW"
+    },
+    {
+      "code": null,
+      "name": "Yes / No",
+      "options": [
+        {
+          "code": "yes",
+          "name": "Yes",
+          "sortOrder": 0,
+          "id": "suTHRgQfKLC"
+        },
+        {
+          "code": "no",
+          "name": "No",
+          "sortOrder": 1,
+          "id": "VKUagFWjyRu"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "qkv7Ern8brc"
+    },
+    {
+      "code": null,
+      "name": "Yes / No / NA",
+      "options": [
+        {
+          "code": "yes",
+          "name": "Yes",
+          "sortOrder": 0,
+          "id": "IpjfYMLd8fo"
+        },
+        {
+          "code": "no",
+          "name": "No",
+          "sortOrder": 1,
+          "id": "dRfOd0WOXKi"
+        },
+        {
+          "code": "na",
+          "name": "Not applicable",
+          "sortOrder": 2,
+          "id": "CRd9mf4AHtN"
+        }
+      ],
+      "valueType": "TEXT",
+      "id": "x4k6SX8Kjnw"
+    }
+  ]
+}

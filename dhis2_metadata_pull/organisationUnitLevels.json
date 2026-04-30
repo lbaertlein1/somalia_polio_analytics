@@ -1,0 +1,29 @@
+{
+  "organisationUnitLevels": [
+    {
+      "name": "Country",
+      "level": 1,
+      "id": "X1L8vTp4AAD"
+    },
+    {
+      "name": "DFA",
+      "level": 5,
+      "id": "bYPkeeM5wyb"
+    },
+    {
+      "name": "District",
+      "level": 4,
+      "id": "T3QTa0SkNBV"
+    },
+    {
+      "name": "Region",
+      "level": 3,
+      "id": "b0lvllYhMaC"
+    },
+    {
+      "name": "Zone",
+      "level": 2,
+      "id": "ogaYstwTCpl"
+    }
+  ]
+}

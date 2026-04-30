@@ -1,0 +1,48 @@
+{
+  "programIndicators": [
+    {
+      "name": "Admin - Total vaccinated",
+      "shortName": "Admin vacc total",
+      "program": {
+        "name": "Admin Coverage",
+        "id": "YYBtQ2Q9bcI"
+      },
+      "expression": "#{GMJMCIVK4m7.GKrli8DZUek} + #{GMJMCIVK4m7.IE0a39f2n0S}",
+      "analyticsType": "EVENT",
+      "id": "v1KCmbjSFBE"
+    },
+    {
+      "name": "LQAS - Lots failing",
+      "shortName": "LQAS Fail",
+      "program": {
+        "name": "LQAS",
+        "id": "s6sUqjCtB34"
+      },
+      "expression": "1",
+      "analyticsType": "EVENT",
+      "id": "STEl2w8HIGA"
+    },
+    {
+      "name": "LQAS - Lots passing",
+      "shortName": "LQAS Pass",
+      "program": {
+        "name": "LQAS",
+        "id": "s6sUqjCtB34"
+      },
+      "expression": "1",
+      "analyticsType": "EVENT",
+      "id": "X2JbQaANTsr"
+    },
+    {
+      "name": "RCA - Coverage %",
+      "shortName": "RCA Coverage %",
+      "program": {
+        "name": "Rapid Cluster Assessment",
+        "id": "y6ywbzPha4e"
+      },
+      "expression": "(#{vED6S6VAvFH.HQ73qWzfMKg} + #{vED6S6VAvFH.qW5sUSMEBx4}) / (#{vED6S6VAvFH.y1GukB1dLC4} + #{vED6S6VAvFH.vhspENMeZQC}) * 100",
+      "analyticsType": "EVENT",
+      "id": "W6xaSBfX5TK"
+    }
+  ]
+}

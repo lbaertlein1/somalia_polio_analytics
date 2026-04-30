@@ -1,0 +1,4007 @@
+{
+  "pager": {
+    "page": 14,
+    "total": 3855,
+    "pageSize": 250,
+    "nextPage": "https://www.somalia-polio-ims.org/api/organisationUnits?page=15&pageSize=250&fields=id%2Ccode%2Cname%2CshortName%2CdisplayName%2Clevel%2Cpath%2CopeningDate%2CclosedDate%2Cparent%5Bid%2Ccode%2Cname%2Clevel%5D",
+    "prevPage": "https://www.somalia-polio-ims.org/api/organisationUnits?page=13&pageSize=250&fields=id%2Ccode%2Cname%2CshortName%2CdisplayName%2Clevel%2Cpath%2CopeningDate%2CclosedDate%2Cparent%5Bid%2Ccode%2Cname%2Clevel%5D",
+    "pageCount": 16
+  },
+  "organisationUnits": [
+    {
+      "code": "SNG-BDN-Y",
+      "name": "SNG-BDN-Y",
+      "shortName": "SNG-BDN-Y",
+      "parent": {
+        "code": "SNG_BDN",
+        "name": "Badhan",
+        "id": "sZcDgrE93p4",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/sZcDgrE93p4/QArNxx8REqb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-BDN-Y",
+      "id": "QArNxx8REqb",
+      "level": 5
+    },
+    {
+      "code": "SNG-BDN-Z",
+      "name": "SNG-BDN-Z",
+      "shortName": "SNG-BDN-Z",
+      "parent": {
+        "code": "SNG_BDN",
+        "name": "Badhan",
+        "id": "sZcDgrE93p4",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/sZcDgrE93p4/bBiPB5ivkkM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-BDN-Z",
+      "id": "bBiPB5ivkkM",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-A",
+      "name": "SNG-ELF-A",
+      "shortName": "SNG-ELF-A",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/quYVQBQ26Hw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-A",
+      "id": "quYVQBQ26Hw",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-AA",
+      "name": "SNG-ELF-AA",
+      "shortName": "SNG-ELF-AA",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/kSDpmtVeu3v",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-AA",
+      "id": "kSDpmtVeu3v",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-AB",
+      "name": "SNG-ELF-AB",
+      "shortName": "SNG-ELF-AB",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/oMAtUXNIZLA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-AB",
+      "id": "oMAtUXNIZLA",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-AC",
+      "name": "SNG-ELF-AC",
+      "shortName": "SNG-ELF-AC",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/w2J11oybU4h",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-AC",
+      "id": "w2J11oybU4h",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-AD",
+      "name": "SNG-ELF-AD",
+      "shortName": "SNG-ELF-AD",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/nmVG38xu8uc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-AD",
+      "id": "nmVG38xu8uc",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-AE",
+      "name": "SNG-ELF-AE",
+      "shortName": "SNG-ELF-AE",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/j8UXQI91maR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-AE",
+      "id": "j8UXQI91maR",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-B",
+      "name": "SNG-ELF-B",
+      "shortName": "SNG-ELF-B",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/NXtxbOKKk76",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-B",
+      "id": "NXtxbOKKk76",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-C",
+      "name": "SNG-ELF-C",
+      "shortName": "SNG-ELF-C",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/bvgs6V78qct",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-C",
+      "id": "bvgs6V78qct",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-D",
+      "name": "SNG-ELF-D",
+      "shortName": "SNG-ELF-D",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/pcaHE7s1iol",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-D",
+      "id": "pcaHE7s1iol",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-E",
+      "name": "SNG-ELF-E",
+      "shortName": "SNG-ELF-E",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/wO3pdaTL4mb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-E",
+      "id": "wO3pdaTL4mb",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-F",
+      "name": "SNG-ELF-F",
+      "shortName": "SNG-ELF-F",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/KbpawwEv0Vi",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-F",
+      "id": "KbpawwEv0Vi",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-G",
+      "name": "SNG-ELF-G",
+      "shortName": "SNG-ELF-G",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/t8k6TvWzvNQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-G",
+      "id": "t8k6TvWzvNQ",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-H",
+      "name": "SNG-ELF-H",
+      "shortName": "SNG-ELF-H",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/ZuA9G9ZKxuV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-H",
+      "id": "ZuA9G9ZKxuV",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-I",
+      "name": "SNG-ELF-I",
+      "shortName": "SNG-ELF-I",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/wSC0VNgnj4t",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-I",
+      "id": "wSC0VNgnj4t",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-J",
+      "name": "SNG-ELF-J",
+      "shortName": "SNG-ELF-J",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/za8kexzZB6x",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-J",
+      "id": "za8kexzZB6x",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-K",
+      "name": "SNG-ELF-K",
+      "shortName": "SNG-ELF-K",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/ZODSClTGO3e",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-K",
+      "id": "ZODSClTGO3e",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-L",
+      "name": "SNG-ELF-L",
+      "shortName": "SNG-ELF-L",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/Le1F6KKAuWy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-L",
+      "id": "Le1F6KKAuWy",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-M",
+      "name": "SNG-ELF-M",
+      "shortName": "SNG-ELF-M",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/SnvM9PLnutN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-M",
+      "id": "SnvM9PLnutN",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-N",
+      "name": "SNG-ELF-N",
+      "shortName": "SNG-ELF-N",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/CZDInDIHjQN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-N",
+      "id": "CZDInDIHjQN",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-O",
+      "name": "SNG-ELF-O",
+      "shortName": "SNG-ELF-O",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/bekjhEy6TtJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-O",
+      "id": "bekjhEy6TtJ",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-P",
+      "name": "SNG-ELF-P",
+      "shortName": "SNG-ELF-P",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/MDO0EVInUAK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-P",
+      "id": "MDO0EVInUAK",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-Q",
+      "name": "SNG-ELF-Q",
+      "shortName": "SNG-ELF-Q",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/FjtCLUbVQNF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-Q",
+      "id": "FjtCLUbVQNF",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-R",
+      "name": "SNG-ELF-R",
+      "shortName": "SNG-ELF-R",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/qFfLR5jNd1g",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-R",
+      "id": "qFfLR5jNd1g",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-S",
+      "name": "SNG-ELF-S",
+      "shortName": "SNG-ELF-S",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/xVtvG0V6V2u",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-S",
+      "id": "xVtvG0V6V2u",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-T",
+      "name": "SNG-ELF-T",
+      "shortName": "SNG-ELF-T",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/gBYbdR79zgI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-T",
+      "id": "gBYbdR79zgI",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-U",
+      "name": "SNG-ELF-U",
+      "shortName": "SNG-ELF-U",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/coZWsSwYvUp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-U",
+      "id": "coZWsSwYvUp",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-V",
+      "name": "SNG-ELF-V",
+      "shortName": "SNG-ELF-V",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/xbL2FRkT8Q3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-V",
+      "id": "xbL2FRkT8Q3",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-W",
+      "name": "SNG-ELF-W",
+      "shortName": "SNG-ELF-W",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/MShNYnSYuRD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-W",
+      "id": "MShNYnSYuRD",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-X",
+      "name": "SNG-ELF-X",
+      "shortName": "SNG-ELF-X",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/amxBrGIcxPa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-X",
+      "id": "amxBrGIcxPa",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-Y",
+      "name": "SNG-ELF-Y",
+      "shortName": "SNG-ELF-Y",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/vKo5etHcYkH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-Y",
+      "id": "vKo5etHcYkH",
+      "level": 5
+    },
+    {
+      "code": "SNG-ELF-Z",
+      "name": "SNG-ELF-Z",
+      "shortName": "SNG-ELF-Z",
+      "parent": {
+        "code": "SNG_ELF",
+        "name": "El Afweyn",
+        "id": "UZiSp5W2OdP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP/LIhKV7sWeAm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ELF-Z",
+      "id": "LIhKV7sWeAm",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-A",
+      "name": "SNG-ERI-A",
+      "shortName": "SNG-ERI-A",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/XejJn9ozXNy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-A",
+      "id": "XejJn9ozXNy",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AA",
+      "name": "SNG-ERI-AA",
+      "shortName": "SNG-ERI-AA",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/ZTrfzSVLI6W",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AA",
+      "id": "ZTrfzSVLI6W",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AA1",
+      "name": "SNG-ERI-AA1",
+      "shortName": "SNG-ERI-AA1",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/JMxyUHb0JNW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AA1",
+      "id": "JMxyUHb0JNW",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AA2",
+      "name": "SNG-ERI-AA2",
+      "shortName": "SNG-ERI-AA2",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/p5uOJKi5Jwg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AA2",
+      "id": "p5uOJKi5Jwg",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AB",
+      "name": "SNG-ERI-AB",
+      "shortName": "SNG-ERI-AB",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/y6OJBfKdEGj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AB",
+      "id": "y6OJBfKdEGj",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AB1",
+      "name": "SNG-ERI-AB1",
+      "shortName": "SNG-ERI-AB1",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/qC3MrLbkkRs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AB1",
+      "id": "qC3MrLbkkRs",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AB2",
+      "name": "SNG-ERI-AB2",
+      "shortName": "SNG-ERI-AB2",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/pqsDICLjJcc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AB2",
+      "id": "pqsDICLjJcc",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AC",
+      "name": "SNG-ERI-AC",
+      "shortName": "SNG-ERI-AC",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/dKinKvNs6W2",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AC",
+      "id": "dKinKvNs6W2",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AC1",
+      "name": "SNG-ERI-AC1",
+      "shortName": "SNG-ERI-AC1",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/g7dcgGAZj73",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AC1",
+      "id": "g7dcgGAZj73",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AC2",
+      "name": "SNG-ERI-AC2",
+      "shortName": "SNG-ERI-AC2",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/zfJw2Hfv1Zv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AC2",
+      "id": "zfJw2Hfv1Zv",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AD",
+      "name": "SNG-ERI-AD",
+      "shortName": "SNG-ERI-AD",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/NqWMqsgDZVx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AD",
+      "id": "NqWMqsgDZVx",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AD1",
+      "name": "SNG-ERI-AD1",
+      "shortName": "SNG-ERI-AD1",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/Em7D8SkuMQw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AD1",
+      "id": "Em7D8SkuMQw",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AD2",
+      "name": "SNG-ERI-AD2",
+      "shortName": "SNG-ERI-AD2",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/m5CzFtXWL4p",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AD2",
+      "id": "m5CzFtXWL4p",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AE",
+      "name": "SNG-ERI-AE",
+      "shortName": "SNG-ERI-AE",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/BZFm5L7nxah",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AE",
+      "id": "BZFm5L7nxah",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AE1",
+      "name": "SNG-ERI-AE1",
+      "shortName": "SNG-ERI-AE1",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/KGfNpsZlSoe",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AE1",
+      "id": "KGfNpsZlSoe",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AF",
+      "name": "SNG-ERI-AF",
+      "shortName": "SNG-ERI-AF",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/CUVKEk1Cmco",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AF",
+      "id": "CUVKEk1Cmco",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AF1",
+      "name": "SNG-ERI-AF1",
+      "shortName": "SNG-ERI-AF1",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/dWcX4AZQxUm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AF1",
+      "id": "dWcX4AZQxUm",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AG",
+      "name": "SNG-ERI-AG",
+      "shortName": "SNG-ERI-AG",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/ZM9KXUsFSND",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AG",
+      "id": "ZM9KXUsFSND",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AG1",
+      "name": "SNG-ERI-AG1",
+      "shortName": "SNG-ERI-AG1",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/OLY51qcPFtW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AG1",
+      "id": "OLY51qcPFtW",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AG2",
+      "name": "SNG-ERI-AG2",
+      "shortName": "SNG-ERI-AG2",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/uqImrqKYTZ0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AG2",
+      "id": "uqImrqKYTZ0",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AH",
+      "name": "SNG-ERI-AH",
+      "shortName": "SNG-ERI-AH",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/IelFmO4l5NM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AH",
+      "id": "IelFmO4l5NM",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AI",
+      "name": "SNG-ERI-AI",
+      "shortName": "SNG-ERI-AI",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/TytAetYbbxm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AI",
+      "id": "TytAetYbbxm",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AJ",
+      "name": "SNG-ERI-AJ",
+      "shortName": "SNG-ERI-AJ",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/PKfPSWCtqwy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AJ",
+      "id": "PKfPSWCtqwy",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AK",
+      "name": "SNG-ERI-AK",
+      "shortName": "SNG-ERI-AK",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/yopCGi3R2Vc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AK",
+      "id": "yopCGi3R2Vc",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AL",
+      "name": "SNG-ERI-AL",
+      "shortName": "SNG-ERI-AL",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/K2jWHM4d1Qz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AL",
+      "id": "K2jWHM4d1Qz",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AM",
+      "name": "SNG-ERI-AM",
+      "shortName": "SNG-ERI-AM",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/yAcxOJKCawU",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AM",
+      "id": "yAcxOJKCawU",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AN",
+      "name": "SNG-ERI-AN",
+      "shortName": "SNG-ERI-AN",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/cAgzattMuhL",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AN",
+      "id": "cAgzattMuhL",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AO",
+      "name": "SNG-ERI-AO",
+      "shortName": "SNG-ERI-AO",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/L5wyC7HPktV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AO",
+      "id": "L5wyC7HPktV",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AP",
+      "name": "SNG-ERI-AP",
+      "shortName": "SNG-ERI-AP",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/AU10AD9HNi3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AP",
+      "id": "AU10AD9HNi3",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AQ",
+      "name": "SNG-ERI-AQ",
+      "shortName": "SNG-ERI-AQ",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/LyWMZi4f5Hj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AQ",
+      "id": "LyWMZi4f5Hj",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AR",
+      "name": "SNG-ERI-AR",
+      "shortName": "SNG-ERI-AR",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/ElqFZxbennJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AR",
+      "id": "ElqFZxbennJ",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AS",
+      "name": "SNG-ERI-AS",
+      "shortName": "SNG-ERI-AS",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/R8Lf3U349sz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AS",
+      "id": "R8Lf3U349sz",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AT",
+      "name": "SNG-ERI-AT",
+      "shortName": "SNG-ERI-AT",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/TXtJqRoOpwZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AT",
+      "id": "TXtJqRoOpwZ",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AU",
+      "name": "SNG-ERI-AU",
+      "shortName": "SNG-ERI-AU",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/cVjgHXfqMh9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AU",
+      "id": "cVjgHXfqMh9",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AV",
+      "name": "SNG-ERI-AV",
+      "shortName": "SNG-ERI-AV",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/Li69BvsNMBn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AV",
+      "id": "Li69BvsNMBn",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AW",
+      "name": "SNG-ERI-AW",
+      "shortName": "SNG-ERI-AW",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/H5nzyc0HgNE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AW",
+      "id": "H5nzyc0HgNE",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AX",
+      "name": "SNG-ERI-AX",
+      "shortName": "SNG-ERI-AX",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/LG4PYJxWKth",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AX",
+      "id": "LG4PYJxWKth",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AY",
+      "name": "SNG-ERI-AY",
+      "shortName": "SNG-ERI-AY",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/JhnxDS9X9Gp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AY",
+      "id": "JhnxDS9X9Gp",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-AZ",
+      "name": "SNG-ERI-AZ",
+      "shortName": "SNG-ERI-AZ",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/JJbKuOLD1s4",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-AZ",
+      "id": "JJbKuOLD1s4",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-B",
+      "name": "SNG-ERI-B",
+      "shortName": "SNG-ERI-B",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/npplurFogsa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-B",
+      "id": "npplurFogsa",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-BA",
+      "name": "SNG-ERI-BA",
+      "shortName": "SNG-ERI-BA",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/u051gB2qrfl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-BA",
+      "id": "u051gB2qrfl",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-BB",
+      "name": "SNG-ERI-BB",
+      "shortName": "SNG-ERI-BB",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/BHJUUFJ9Q0A",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-BB",
+      "id": "BHJUUFJ9Q0A",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-BC",
+      "name": "SNG-ERI-BC",
+      "shortName": "SNG-ERI-BC",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/p5rahW5er1k",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-BC",
+      "id": "p5rahW5er1k",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-BD",
+      "name": "SNG-ERI-BD",
+      "shortName": "SNG-ERI-BD",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/uBbS8lIKyNm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-BD",
+      "id": "uBbS8lIKyNm",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-BE",
+      "name": "SNG-ERI-BE",
+      "shortName": "SNG-ERI-BE",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/vRBCADbr9pu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-BE",
+      "id": "vRBCADbr9pu",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-C",
+      "name": "SNG-ERI-C",
+      "shortName": "SNG-ERI-C",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/TfIdzxqhq57",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-C",
+      "id": "TfIdzxqhq57",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-D",
+      "name": "SNG-ERI-D",
+      "shortName": "SNG-ERI-D",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/aiqipncwN2L",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-D",
+      "id": "aiqipncwN2L",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-E",
+      "name": "SNG-ERI-E",
+      "shortName": "SNG-ERI-E",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/LBCy8jmGw7f",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-E",
+      "id": "LBCy8jmGw7f",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-F",
+      "name": "SNG-ERI-F",
+      "shortName": "SNG-ERI-F",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/tpaMlyM4mVv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-F",
+      "id": "tpaMlyM4mVv",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-G",
+      "name": "SNG-ERI-G",
+      "shortName": "SNG-ERI-G",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/sMLFL36RJay",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-G",
+      "id": "sMLFL36RJay",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-H",
+      "name": "SNG-ERI-H",
+      "shortName": "SNG-ERI-H",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/be4LMhXKJjl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-H",
+      "id": "be4LMhXKJjl",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-I",
+      "name": "SNG-ERI-I",
+      "shortName": "SNG-ERI-I",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/e6xuaQl4vaI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-I",
+      "id": "e6xuaQl4vaI",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-J",
+      "name": "SNG-ERI-J",
+      "shortName": "SNG-ERI-J",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/SSRC4dcTEjJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-J",
+      "id": "SSRC4dcTEjJ",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-K",
+      "name": "SNG-ERI-K",
+      "shortName": "SNG-ERI-K",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/S4Nj0xE97hW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-K",
+      "id": "S4Nj0xE97hW",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-L",
+      "name": "SNG-ERI-L",
+      "shortName": "SNG-ERI-L",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/K3czR8i5L9W",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-L",
+      "id": "K3czR8i5L9W",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-M",
+      "name": "SNG-ERI-M",
+      "shortName": "SNG-ERI-M",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/WQRfm8qByNs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-M",
+      "id": "WQRfm8qByNs",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-N",
+      "name": "SNG-ERI-N",
+      "shortName": "SNG-ERI-N",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/E0SLbOV3iOC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-N",
+      "id": "E0SLbOV3iOC",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-O",
+      "name": "SNG-ERI-O",
+      "shortName": "SNG-ERI-O",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/QhGZdXgMw3L",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-O",
+      "id": "QhGZdXgMw3L",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-P",
+      "name": "SNG-ERI-P",
+      "shortName": "SNG-ERI-P",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/xHjgU6cE93N",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-P",
+      "id": "xHjgU6cE93N",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-Q",
+      "name": "SNG-ERI-Q",
+      "shortName": "SNG-ERI-Q",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/RC9aVrAC13I",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-Q",
+      "id": "RC9aVrAC13I",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R",
+      "name": "SNG-ERI-R",
+      "shortName": "SNG-ERI-R",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/A1Iw2sIUvLR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R",
+      "id": "A1Iw2sIUvLR",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R41",
+      "name": "SNG-ERI-R41",
+      "shortName": "SNG-ERI-R41",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/Mrxlmx00ID8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R41",
+      "id": "Mrxlmx00ID8",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R42",
+      "name": "SNG-ERI-R42",
+      "shortName": "SNG-ERI-R42",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/kOfB7LZD0YP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R42",
+      "id": "kOfB7LZD0YP",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R43",
+      "name": "SNG-ERI-R43",
+      "shortName": "SNG-ERI-R43",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/oQCaCWuBUcf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R43",
+      "id": "oQCaCWuBUcf",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R44",
+      "name": "SNG-ERI-R44",
+      "shortName": "SNG-ERI-R44",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/Tq3tV8G6m6b",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R44",
+      "id": "Tq3tV8G6m6b",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R45",
+      "name": "SNG-ERI-R45",
+      "shortName": "SNG-ERI-R45",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/rVmYRw51sVv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R45",
+      "id": "rVmYRw51sVv",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R46",
+      "name": "SNG-ERI-R46",
+      "shortName": "SNG-ERI-R46",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/zdkFWLQVf6O",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R46",
+      "id": "zdkFWLQVf6O",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R47",
+      "name": "SNG-ERI-R47",
+      "shortName": "SNG-ERI-R47",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/UxrfKcnmyeP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R47",
+      "id": "UxrfKcnmyeP",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R48",
+      "name": "SNG-ERI-R48",
+      "shortName": "SNG-ERI-R48",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/pG5FdOsN7cO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R48",
+      "id": "pG5FdOsN7cO",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R49",
+      "name": "SNG-ERI-R49",
+      "shortName": "SNG-ERI-R49",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/MHq8Ht6ifKv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R49",
+      "id": "MHq8Ht6ifKv",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R50",
+      "name": "SNG-ERI-R50",
+      "shortName": "SNG-ERI-R50",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/SF9CVeaCODz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R50",
+      "id": "SF9CVeaCODz",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R51",
+      "name": "SNG-ERI-R51",
+      "shortName": "SNG-ERI-R51",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/oydQXd1lABm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R51",
+      "id": "oydQXd1lABm",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R52",
+      "name": "SNG-ERI-R52",
+      "shortName": "SNG-ERI-R52",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/yXceIdENisQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R52",
+      "id": "yXceIdENisQ",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R53",
+      "name": "SNG-ERI-R53",
+      "shortName": "SNG-ERI-R53",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/q67hs08WMcq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R53",
+      "id": "q67hs08WMcq",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R54",
+      "name": "SNG-ERI-R54",
+      "shortName": "SNG-ERI-R54",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/giAua50psqM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R54",
+      "id": "giAua50psqM",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R55",
+      "name": "SNG-ERI-R55",
+      "shortName": "SNG-ERI-R55",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/CDcUryzIuTQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R55",
+      "id": "CDcUryzIuTQ",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R56",
+      "name": "SNG-ERI-R56",
+      "shortName": "SNG-ERI-R56",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/qOUxvjEpgxS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R56",
+      "id": "qOUxvjEpgxS",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R74",
+      "name": "SNG-ERI-R74",
+      "shortName": "SNG-ERI-R74",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/spxlOE65lRY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R74",
+      "id": "spxlOE65lRY",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R75",
+      "name": "SNG-ERI-R75",
+      "shortName": "SNG-ERI-R75",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/MO8n1ui2sKu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R75",
+      "id": "MO8n1ui2sKu",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R76",
+      "name": "SNG-ERI-R76",
+      "shortName": "SNG-ERI-R76",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/tf4iMdzLJ3N",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R76",
+      "id": "tf4iMdzLJ3N",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R77",
+      "name": "SNG-ERI-R77",
+      "shortName": "SNG-ERI-R77",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/Y0JliwxGQHc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R77",
+      "id": "Y0JliwxGQHc",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R78",
+      "name": "SNG-ERI-R78",
+      "shortName": "SNG-ERI-R78",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/tK38pRopfVu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R78",
+      "id": "tK38pRopfVu",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R79",
+      "name": "SNG-ERI-R79",
+      "shortName": "SNG-ERI-R79",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/wX1hWouVgsV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R79",
+      "id": "wX1hWouVgsV",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-R80",
+      "name": "SNG-ERI-R80",
+      "shortName": "SNG-ERI-R80",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/VqqMWI5pBSz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-R80",
+      "id": "VqqMWI5pBSz",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-S",
+      "name": "SNG-ERI-S",
+      "shortName": "SNG-ERI-S",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/lwhaJCZuExK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-S",
+      "id": "lwhaJCZuExK",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-T",
+      "name": "SNG-ERI-T",
+      "shortName": "SNG-ERI-T",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/AfI18pRPfwW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-T",
+      "id": "AfI18pRPfwW",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-TT",
+      "name": "SNG-ERI-TT",
+      "shortName": "SNG-ERI-TT",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/fBCKnvCa1K8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-TT",
+      "id": "fBCKnvCa1K8",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-U",
+      "name": "SNG-ERI-U",
+      "shortName": "SNG-ERI-U",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/zMGbzeEmHxj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-U",
+      "id": "zMGbzeEmHxj",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-UU",
+      "name": "SNG-ERI-UU",
+      "shortName": "SNG-ERI-UU",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/GjB3dz2wK4D",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-UU",
+      "id": "GjB3dz2wK4D",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-V",
+      "name": "SNG-ERI-V",
+      "shortName": "SNG-ERI-V",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/vOaZCarO0lK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-V",
+      "id": "vOaZCarO0lK",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-W",
+      "name": "SNG-ERI-W",
+      "shortName": "SNG-ERI-W",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/pGAZbMt2tgt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-W",
+      "id": "pGAZbMt2tgt",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-X",
+      "name": "SNG-ERI-X",
+      "shortName": "SNG-ERI-X",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/zsiV5v9bKZ3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-X",
+      "id": "zsiV5v9bKZ3",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-Y",
+      "name": "SNG-ERI-Y",
+      "shortName": "SNG-ERI-Y",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/xSZeZLqGSNY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-Y",
+      "id": "xSZeZLqGSNY",
+      "level": 5
+    },
+    {
+      "code": "SNG-ERI-Z",
+      "name": "SNG-ERI-Z",
+      "shortName": "SNG-ERI-Z",
+      "parent": {
+        "code": "SNG_ERI",
+        "name": "Erigavo",
+        "id": "NwJomtK2Qnp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp/QyRZjiZwGJc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SNG-ERI-Z",
+      "id": "QyRZjiZwGJc",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-A",
+      "name": "SOL-HDN-A",
+      "shortName": "SOL-HDN-A",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/LaQGW0ynyBc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-A",
+      "id": "LaQGW0ynyBc",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-B",
+      "name": "SOL-HDN-B",
+      "shortName": "SOL-HDN-B",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/bnHkUpsmCGd",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-B",
+      "id": "bnHkUpsmCGd",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-C",
+      "name": "SOL-HDN-C",
+      "shortName": "SOL-HDN-C",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/FlFdM2iH3N3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-C",
+      "id": "FlFdM2iH3N3",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-D",
+      "name": "SOL-HDN-D",
+      "shortName": "SOL-HDN-D",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/q5UdCcE600F",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-D",
+      "id": "q5UdCcE600F",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-E",
+      "name": "SOL-HDN-E",
+      "shortName": "SOL-HDN-E",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/PTqjJnwZZr8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-E",
+      "id": "PTqjJnwZZr8",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-F",
+      "name": "SOL-HDN-F",
+      "shortName": "SOL-HDN-F",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/Za5v5jniFHp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-F",
+      "id": "Za5v5jniFHp",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-G",
+      "name": "SOL-HDN-G",
+      "shortName": "SOL-HDN-G",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/CWSj5T95YRJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-G",
+      "id": "CWSj5T95YRJ",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-H",
+      "name": "SOL-HDN-H",
+      "shortName": "SOL-HDN-H",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/qxO5ss2HKd1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-H",
+      "id": "qxO5ss2HKd1",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-I",
+      "name": "SOL-HDN-I",
+      "shortName": "SOL-HDN-I",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/gqu9rFIX4mH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-I",
+      "id": "gqu9rFIX4mH",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-J",
+      "name": "SOL-HDN-J",
+      "shortName": "SOL-HDN-J",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/WCJbspzcQcC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-J",
+      "id": "WCJbspzcQcC",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-K",
+      "name": "SOL-HDN-K",
+      "shortName": "SOL-HDN-K",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/HjwfBZQBWnh",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-K",
+      "id": "HjwfBZQBWnh",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-L",
+      "name": "SOL-HDN-L",
+      "shortName": "SOL-HDN-L",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/CqSW85g8Bmh",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-L",
+      "id": "CqSW85g8Bmh",
+      "level": 5
+    },
+    {
+      "code": "SOL-HDN-M",
+      "name": "SOL-HDN-M",
+      "shortName": "SOL-HDN-M",
+      "parent": {
+        "code": "SOL_HDN",
+        "name": "Hudun",
+        "id": "rDPvhfcUSc8",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8/ErmGDwUMfXH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-HDN-M",
+      "id": "ErmGDwUMfXH",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-A",
+      "name": "SOL-LND-A",
+      "shortName": "SOL-LND-A",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/X8LzMSCJkhg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-A",
+      "id": "X8LzMSCJkhg",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AA",
+      "name": "SOL-LND-AA",
+      "shortName": "SOL-LND-AA",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/SekaNzYvi4Q",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AA",
+      "id": "SekaNzYvi4Q",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AB",
+      "name": "SOL-LND-AB",
+      "shortName": "SOL-LND-AB",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/DJ8UjVG4ZwQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AB",
+      "id": "DJ8UjVG4ZwQ",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AC",
+      "name": "SOL-LND-AC",
+      "shortName": "SOL-LND-AC",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/eRDRu9MqChH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AC",
+      "id": "eRDRu9MqChH",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AD",
+      "name": "SOL-LND-AD",
+      "shortName": "SOL-LND-AD",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/cx3SZa7Xd4R",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AD",
+      "id": "cx3SZa7Xd4R",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AE",
+      "name": "SOL-LND-AE",
+      "shortName": "SOL-LND-AE",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/V5IG2tfM4a6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AE",
+      "id": "V5IG2tfM4a6",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AF",
+      "name": "SOL-LND-AF",
+      "shortName": "SOL-LND-AF",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/Gjx7CI3ndhw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AF",
+      "id": "Gjx7CI3ndhw",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AG",
+      "name": "SOL-LND-AG",
+      "shortName": "SOL-LND-AG",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/eTbDEDXojMG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AG",
+      "id": "eTbDEDXojMG",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AH",
+      "name": "SOL-LND-AH",
+      "shortName": "SOL-LND-AH",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/Kvvz7szrX7t",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AH",
+      "id": "Kvvz7szrX7t",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AI",
+      "name": "SOL-LND-AI",
+      "shortName": "SOL-LND-AI",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/dwer6cMbbRM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AI",
+      "id": "dwer6cMbbRM",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AJ",
+      "name": "SOL-LND-AJ",
+      "shortName": "SOL-LND-AJ",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/IqWwZBtQyfL",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AJ",
+      "id": "IqWwZBtQyfL",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AK",
+      "name": "SOL-LND-AK",
+      "shortName": "SOL-LND-AK",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/CxTRuFd6yyd",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AK",
+      "id": "CxTRuFd6yyd",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AL",
+      "name": "SOL-LND-AL",
+      "shortName": "SOL-LND-AL",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/iZix3Hv90nP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AL",
+      "id": "iZix3Hv90nP",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AM",
+      "name": "SOL-LND-AM",
+      "shortName": "SOL-LND-AM",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/v8DgYv3o20E",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AM",
+      "id": "v8DgYv3o20E",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AN",
+      "name": "SOL-LND-AN",
+      "shortName": "SOL-LND-AN",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/wuokPO9L04y",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AN",
+      "id": "wuokPO9L04y",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AO",
+      "name": "SOL-LND-AO",
+      "shortName": "SOL-LND-AO",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/lKSDwsOBoO5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AO",
+      "id": "lKSDwsOBoO5",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AP",
+      "name": "SOL-LND-AP",
+      "shortName": "SOL-LND-AP",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/x9Z6RWTTmhH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AP",
+      "id": "x9Z6RWTTmhH",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AQ",
+      "name": "SOL-LND-AQ",
+      "shortName": "SOL-LND-AQ",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/skEk8EVpjdO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AQ",
+      "id": "skEk8EVpjdO",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AR",
+      "name": "SOL-LND-AR",
+      "shortName": "SOL-LND-AR",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/jI4n9G20ASi",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AR",
+      "id": "jI4n9G20ASi",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AS",
+      "name": "SOL-LND-AS",
+      "shortName": "SOL-LND-AS",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/Xi83z65lnwF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AS",
+      "id": "Xi83z65lnwF",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AT",
+      "name": "SOL-LND-AT",
+      "shortName": "SOL-LND-AT",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/I3ffeoFVyP7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AT",
+      "id": "I3ffeoFVyP7",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AU",
+      "name": "SOL-LND-AU",
+      "shortName": "SOL-LND-AU",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/bz0PGGIGZoY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AU",
+      "id": "bz0PGGIGZoY",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AV",
+      "name": "SOL-LND-AV",
+      "shortName": "SOL-LND-AV",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/SG9Pl3tVQfu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AV",
+      "id": "SG9Pl3tVQfu",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AW",
+      "name": "SOL-LND-AW",
+      "shortName": "SOL-LND-AW",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/eBLgmR7Th6A",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AW",
+      "id": "eBLgmR7Th6A",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AX",
+      "name": "SOL-LND-AX",
+      "shortName": "SOL-LND-AX",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/oRokHSCn9Da",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AX",
+      "id": "oRokHSCn9Da",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AY",
+      "name": "SOL-LND-AY",
+      "shortName": "SOL-LND-AY",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/Esxr6rUxSCm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AY",
+      "id": "Esxr6rUxSCm",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-AZ",
+      "name": "SOL-LND-AZ",
+      "shortName": "SOL-LND-AZ",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/lCU8n9rb7U1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-AZ",
+      "id": "lCU8n9rb7U1",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-B",
+      "name": "SOL-LND-B",
+      "shortName": "SOL-LND-B",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/GaxtBcJUL41",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-B",
+      "id": "GaxtBcJUL41",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-BA",
+      "name": "SOL-LND-BA",
+      "shortName": "SOL-LND-BA",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/pOXHsbZ62KA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-BA",
+      "id": "pOXHsbZ62KA",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-C",
+      "name": "SOL-LND-C",
+      "shortName": "SOL-LND-C",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/DuNC1Oj05j2",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-C",
+      "id": "DuNC1Oj05j2",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-D",
+      "name": "SOL-LND-D",
+      "shortName": "SOL-LND-D",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/qosa7hNMiia",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-D",
+      "id": "qosa7hNMiia",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-E",
+      "name": "SOL-LND-E",
+      "shortName": "SOL-LND-E",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/J8EyvXDYy8W",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-E",
+      "id": "J8EyvXDYy8W",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-F",
+      "name": "SOL-LND-F",
+      "shortName": "SOL-LND-F",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/c5bgClU9QWH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-F",
+      "id": "c5bgClU9QWH",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-G",
+      "name": "SOL-LND-G",
+      "shortName": "SOL-LND-G",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/oLESWjr36Q3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-G",
+      "id": "oLESWjr36Q3",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-H",
+      "name": "SOL-LND-H",
+      "shortName": "SOL-LND-H",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/FGgqQlxLW5i",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-H",
+      "id": "FGgqQlxLW5i",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-I",
+      "name": "SOL-LND-I",
+      "shortName": "SOL-LND-I",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/d0AhKVU8SEQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-I",
+      "id": "d0AhKVU8SEQ",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-J",
+      "name": "SOL-LND-J",
+      "shortName": "SOL-LND-J",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/jJkgnZjbB6X",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-J",
+      "id": "jJkgnZjbB6X",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-K",
+      "name": "SOL-LND-K",
+      "shortName": "SOL-LND-K",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/C5LMyvIF3FH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-K",
+      "id": "C5LMyvIF3FH",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-L",
+      "name": "SOL-LND-L",
+      "shortName": "SOL-LND-L",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/tD5cscF5lq7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-L",
+      "id": "tD5cscF5lq7",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-M",
+      "name": "SOL-LND-M",
+      "shortName": "SOL-LND-M",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/NEJIfJ2dFvc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-M",
+      "id": "NEJIfJ2dFvc",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-N",
+      "name": "SOL-LND-N",
+      "shortName": "SOL-LND-N",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/k4VemcKeEMN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-N",
+      "id": "k4VemcKeEMN",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-O",
+      "name": "SOL-LND-O",
+      "shortName": "SOL-LND-O",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/NzDWiS63lFy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-O",
+      "id": "NzDWiS63lFy",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-P",
+      "name": "SOL-LND-P",
+      "shortName": "SOL-LND-P",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/J4RsxdKYomp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-P",
+      "id": "J4RsxdKYomp",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-Q",
+      "name": "SOL-LND-Q",
+      "shortName": "SOL-LND-Q",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/mpR3h1roHFY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-Q",
+      "id": "mpR3h1roHFY",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-R",
+      "name": "SOL-LND-R",
+      "shortName": "SOL-LND-R",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/KnsPmTa0Lkf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-R",
+      "id": "KnsPmTa0Lkf",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-S",
+      "name": "SOL-LND-S",
+      "shortName": "SOL-LND-S",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/Cpxo38XEgWk",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-S",
+      "id": "Cpxo38XEgWk",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-T",
+      "name": "SOL-LND-T",
+      "shortName": "SOL-LND-T",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/d3tH2cIdgQ7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-T",
+      "id": "d3tH2cIdgQ7",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-U",
+      "name": "SOL-LND-U",
+      "shortName": "SOL-LND-U",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/eIeJWlZtN6H",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-U",
+      "id": "eIeJWlZtN6H",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-V",
+      "name": "SOL-LND-V",
+      "shortName": "SOL-LND-V",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/Ovr8TvvWqbd",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-V",
+      "id": "Ovr8TvvWqbd",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-W",
+      "name": "SOL-LND-W",
+      "shortName": "SOL-LND-W",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/EorFAi4gcHx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-W",
+      "id": "EorFAi4gcHx",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-X",
+      "name": "SOL-LND-X",
+      "shortName": "SOL-LND-X",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/dF2NNxWGEmD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-X",
+      "id": "dF2NNxWGEmD",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-Y",
+      "name": "SOL-LND-Y",
+      "shortName": "SOL-LND-Y",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/uKNuKxhRiOH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-Y",
+      "id": "uKNuKxhRiOH",
+      "level": 5
+    },
+    {
+      "code": "SOL-LND-Z",
+      "name": "SOL-LND-Z",
+      "shortName": "SOL-LND-Z",
+      "parent": {
+        "code": "SOL_LND",
+        "name": "Las Anod",
+        "id": "FbIuEpyH910",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/FbIuEpyH910/o6czXiRBVCo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-LND-Z",
+      "id": "o6czXiRBVCo",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-A",
+      "name": "SOL-TEL-A",
+      "shortName": "SOL-TEL-A",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/vACbnEfPy0n",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-A",
+      "id": "vACbnEfPy0n",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-B",
+      "name": "SOL-TEL-B",
+      "shortName": "SOL-TEL-B",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/Tm3KSA33Ozo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-B",
+      "id": "Tm3KSA33Ozo",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-C",
+      "name": "SOL-TEL-C",
+      "shortName": "SOL-TEL-C",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/beZCodQmUnv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-C",
+      "id": "beZCodQmUnv",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-D",
+      "name": "SOL-TEL-D",
+      "shortName": "SOL-TEL-D",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/T3pGd1px8oF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-D",
+      "id": "T3pGd1px8oF",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-E",
+      "name": "SOL-TEL-E",
+      "shortName": "SOL-TEL-E",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/woqYY3uss25",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-E",
+      "id": "woqYY3uss25",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-F",
+      "name": "SOL-TEL-F",
+      "shortName": "SOL-TEL-F",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/wh3xyNEKrKx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-F",
+      "id": "wh3xyNEKrKx",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-G",
+      "name": "SOL-TEL-G",
+      "shortName": "SOL-TEL-G",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/NvVPa9PPFww",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-G",
+      "id": "NvVPa9PPFww",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-H",
+      "name": "SOL-TEL-H",
+      "shortName": "SOL-TEL-H",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/o3ckq2wdmIb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-H",
+      "id": "o3ckq2wdmIb",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-I",
+      "name": "SOL-TEL-I",
+      "shortName": "SOL-TEL-I",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/P5m78Q09SyP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-I",
+      "id": "P5m78Q09SyP",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-J",
+      "name": "SOL-TEL-J",
+      "shortName": "SOL-TEL-J",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/Mj9lyE7YmY1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-J",
+      "id": "Mj9lyE7YmY1",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-K",
+      "name": "SOL-TEL-K",
+      "shortName": "SOL-TEL-K",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/dcK2g6OvrJT",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-K",
+      "id": "dcK2g6OvrJT",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-L",
+      "name": "SOL-TEL-L",
+      "shortName": "SOL-TEL-L",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/j5noIofOJ5t",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-L",
+      "id": "j5noIofOJ5t",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-M",
+      "name": "SOL-TEL-M",
+      "shortName": "SOL-TEL-M",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/g27LniPkN00",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-M",
+      "id": "g27LniPkN00",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-N",
+      "name": "SOL-TEL-N",
+      "shortName": "SOL-TEL-N",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/C0FOvge0VqV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-N",
+      "id": "C0FOvge0VqV",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-O",
+      "name": "SOL-TEL-O",
+      "shortName": "SOL-TEL-O",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/E7vBpdqZAv6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-O",
+      "id": "E7vBpdqZAv6",
+      "level": 5
+    },
+    {
+      "code": "SOL-TEL-P",
+      "name": "SOL-TEL-P",
+      "shortName": "SOL-TEL-P",
+      "parent": {
+        "code": "SOL_TEL",
+        "name": "Taleh",
+        "id": "ZPUdTLc7DmK",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/ZPUdTLc7DmK/PAW3HxvE4NV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "SOL-TEL-P",
+      "id": "PAW3HxvE4NV",
+      "level": 5
+    },
+    {
+      "code": "LSH_SBL",
+      "name": "Sablale",
+      "shortName": "Sablale",
+      "parent": {
+        "code": "LSH",
+        "name": "Lower Shabelle",
+        "id": "pg94cVJwqwv",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/pg94cVJwqwv/kyrsR4sKINW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Sablale",
+      "id": "kyrsR4sKINW",
+      "level": 4
+    },
+    {
+      "code": "SAH",
+      "name": "Sahil",
+      "shortName": "Sahil",
+      "parent": {
+        "code": "Z_SLD",
+        "name": "Somaliland",
+        "id": "bghN1FK0cHa",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/TcnbL5EtM1x",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Sahil",
+      "id": "TcnbL5EtM1x",
+      "level": 3
+    },
+    {
+      "code": "MJB_SKO",
+      "name": "Sakow",
+      "shortName": "Sakow",
+      "parent": {
+        "code": "MJB",
+        "name": "Middle Juba",
+        "id": "koXHTUNhmfg",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/koXHTUNhmfg/BkQpAcfRmnT",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Sakow",
+      "id": "BkQpAcfRmnT",
+      "level": 4
+    },
+    {
+      "code": "MJB_SLG",
+      "name": "Salagle",
+      "shortName": "Salagle",
+      "parent": {
+        "code": "MJB",
+        "name": "Middle Juba",
+        "id": "koXHTUNhmfg",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/koXHTUNhmfg/GUVWH5hB8va",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Salagle",
+      "id": "GUVWH5hB8va",
+      "level": 4
+    },
+    {
+      "code": "SNG",
+      "name": "Sanag",
+      "shortName": "Sanag",
+      "parent": {
+        "code": "Z_SLD",
+        "name": "Somaliland",
+        "id": "bghN1FK0cHa",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Sanag",
+      "id": "ofTXcEqgUbJ",
+      "level": 3
+    },
+    {
+      "code": "BAN_SHN",
+      "name": "Shangani",
+      "shortName": "Shangani",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/b2wjY20hYWg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Shangani",
+      "id": "b2wjY20hYWg",
+      "level": 4
+    },
+    {
+      "code": "SAH_SKH",
+      "name": "Sheikh",
+      "shortName": "Sheikh",
+      "parent": {
+        "code": "SAH",
+        "name": "Sahil",
+        "id": "TcnbL5EtM1x",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/TcnbL5EtM1x/LPT9NnNZQek",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Sheikh",
+      "id": "LPT9NnNZQek",
+      "level": 4
+    },
+    {
+      "code": "BAN_SBS",
+      "name": "Shibis",
+      "shortName": "Shibis",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/dOq6tX9XMQ2",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Shibis",
+      "id": "dOq6tX9XMQ2",
+      "level": 4
+    },
+    {
+      "code": "SOM",
+      "name": "Somalia",
+      "shortName": "Somalia",
+      "parent": {},
+      "path": "/phNUUZTG0DI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Somalia",
+      "id": "phNUUZTG0DI",
+      "level": 1
+    },
+    {
+      "code": "Z_SLD",
+      "name": "Somaliland",
+      "shortName": "Somaliland",
+      "parent": {
+        "code": "SOM",
+        "name": "Somalia",
+        "id": "phNUUZTG0DI",
+        "level": 1
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Somaliland",
+      "id": "bghN1FK0cHa",
+      "level": 2
+    },
+    {
+      "code": "SOL",
+      "name": "Sool",
+      "shortName": "Sool",
+      "parent": {
+        "code": "Z_SLD",
+        "name": "Somaliland",
+        "id": "bghN1FK0cHa",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Sool",
+      "id": "kOiLQpNDYCY",
+      "level": 3
+    },
+    {
+      "code": "SMD",
+      "name": "South Mudug",
+      "shortName": "South Mudug",
+      "parent": {
+        "code": "Z_GAL",
+        "name": "Galmudug State",
+        "id": "CSjjlkpL9EK",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/fvZm2QGGO3K",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "South Mudug",
+      "id": "fvZm2QGGO3K",
+      "level": 3
+    },
+    {
+      "code": "Z_SWS",
+      "name": "South West State",
+      "shortName": "South West State",
+      "parent": {
+        "code": "SOM",
+        "name": "Somalia",
+        "id": "phNUUZTG0DI",
+        "level": 1
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "South West State",
+      "id": "bveR91XZ2lE",
+      "level": 2
+    },
+    {
+      "code": "TOG-ANB-A",
+      "name": "TOG-ANB-A",
+      "shortName": "TOG-ANB-A",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/ccaWD2efRKG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-A",
+      "id": "ccaWD2efRKG",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-B",
+      "name": "TOG-ANB-B",
+      "shortName": "TOG-ANB-B",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/XBy6f6bndjK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-B",
+      "id": "XBy6f6bndjK",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-C",
+      "name": "TOG-ANB-C",
+      "shortName": "TOG-ANB-C",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/whllEO98uf4",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-C",
+      "id": "whllEO98uf4",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-D",
+      "name": "TOG-ANB-D",
+      "shortName": "TOG-ANB-D",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/nPQ44Bqbb0C",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-D",
+      "id": "nPQ44Bqbb0C",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-E",
+      "name": "TOG-ANB-E",
+      "shortName": "TOG-ANB-E",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/TkTeBrYu7Tl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-E",
+      "id": "TkTeBrYu7Tl",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-F",
+      "name": "TOG-ANB-F",
+      "shortName": "TOG-ANB-F",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/IGwaPXHgSHd",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-F",
+      "id": "IGwaPXHgSHd",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-G",
+      "name": "TOG-ANB-G",
+      "shortName": "TOG-ANB-G",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/vgPqRXbojQl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-G",
+      "id": "vgPqRXbojQl",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-H",
+      "name": "TOG-ANB-H",
+      "shortName": "TOG-ANB-H",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/A9yqDhpxwrC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-H",
+      "id": "A9yqDhpxwrC",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-I",
+      "name": "TOG-ANB-I",
+      "shortName": "TOG-ANB-I",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/CnF1MfCFW35",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-I",
+      "id": "CnF1MfCFW35",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-J",
+      "name": "TOG-ANB-J",
+      "shortName": "TOG-ANB-J",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/mZDrnXB2moG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-J",
+      "id": "mZDrnXB2moG",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-K",
+      "name": "TOG-ANB-K",
+      "shortName": "TOG-ANB-K",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/YGh2e3toIqd",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-K",
+      "id": "YGh2e3toIqd",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-L",
+      "name": "TOG-ANB-L",
+      "shortName": "TOG-ANB-L",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/YCpr0HouXJy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-L",
+      "id": "YCpr0HouXJy",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-M",
+      "name": "TOG-ANB-M",
+      "shortName": "TOG-ANB-M",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/kdkGe335qUA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-M",
+      "id": "kdkGe335qUA",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-N",
+      "name": "TOG-ANB-N",
+      "shortName": "TOG-ANB-N",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/yzMdfRx7Rw7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-N",
+      "id": "yzMdfRx7Rw7",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-O",
+      "name": "TOG-ANB-O",
+      "shortName": "TOG-ANB-O",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/S0KovDWVPLn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-O",
+      "id": "S0KovDWVPLn",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-P",
+      "name": "TOG-ANB-P",
+      "shortName": "TOG-ANB-P",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/UC7T8hbX2lw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-P",
+      "id": "UC7T8hbX2lw",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-Q",
+      "name": "TOG-ANB-Q",
+      "shortName": "TOG-ANB-Q",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/aGhkVBQudGn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-Q",
+      "id": "aGhkVBQudGn",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-R",
+      "name": "TOG-ANB-R",
+      "shortName": "TOG-ANB-R",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/PWskHJ2xgyp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-R",
+      "id": "PWskHJ2xgyp",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-S",
+      "name": "TOG-ANB-S",
+      "shortName": "TOG-ANB-S",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/c9J7oirdwRo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-S",
+      "id": "c9J7oirdwRo",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-T",
+      "name": "TOG-ANB-T",
+      "shortName": "TOG-ANB-T",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/O14OUkX5X1d",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-T",
+      "id": "O14OUkX5X1d",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-U",
+      "name": "TOG-ANB-U",
+      "shortName": "TOG-ANB-U",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/xojcfIfUlnn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-U",
+      "id": "xojcfIfUlnn",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-V",
+      "name": "TOG-ANB-V",
+      "shortName": "TOG-ANB-V",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/Tq6R1CasHA6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-V",
+      "id": "Tq6R1CasHA6",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-W",
+      "name": "TOG-ANB-W",
+      "shortName": "TOG-ANB-W",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/mq9MqzVy9fq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-W",
+      "id": "mq9MqzVy9fq",
+      "level": 5
+    },
+    {
+      "code": "TOG-ANB-X",
+      "name": "TOG-ANB-X",
+      "shortName": "TOG-ANB-X",
+      "parent": {
+        "code": "TOG_ANB",
+        "name": "Aynabo",
+        "id": "ZQRXaPgdZJV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/ZQRXaPgdZJV/XWQsDr69qz9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-ANB-X",
+      "id": "XWQsDr69qz9",
+      "level": 5
+    },
+    {
+      "code": "TOG-BUH-A",
+      "name": "TOG-BUH-A",
+      "shortName": "TOG-BUH-A",
+      "parent": {
+        "code": "TOG_BUH",
+        "name": "Buhodle",
+        "id": "PhTmfI7rhUV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/PhTmfI7rhUV/CChpbyNNJzD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-BUH-A",
+      "id": "CChpbyNNJzD",
+      "level": 5
+    },
+    {
+      "code": "TOG-BUH-AA",
+      "name": "TOG-BUH-AA",
+      "shortName": "TOG-BUH-AA",
+      "parent": {
+        "code": "TOG_BUH",
+        "name": "Buhodle",
+        "id": "PhTmfI7rhUV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/PhTmfI7rhUV/w8Pe2WlxCdX",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-BUH-AA",
+      "id": "w8Pe2WlxCdX",
+      "level": 5
+    },
+    {
+      "code": "TOG-BUH-AB",
+      "name": "TOG-BUH-AB",
+      "shortName": "TOG-BUH-AB",
+      "parent": {
+        "code": "TOG_BUH",
+        "name": "Buhodle",
+        "id": "PhTmfI7rhUV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/PhTmfI7rhUV/peraAWTmjb7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-BUH-AB",
+      "id": "peraAWTmjb7",
+      "level": 5
+    },
+    {
+      "code": "TOG-BUH-AC",
+      "name": "TOG-BUH-AC",
+      "shortName": "TOG-BUH-AC",
+      "parent": {
+        "code": "TOG_BUH",
+        "name": "Buhodle",
+        "id": "PhTmfI7rhUV",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/PhTmfI7rhUV/OnHxSHT7NhE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "TOG-BUH-AC",
+      "id": "OnHxSHT7NhE",
+      "level": 5
+    }
+  ]
+}

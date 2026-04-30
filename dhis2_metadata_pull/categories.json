@@ -1,0 +1,17 @@
+{
+  "categories": [
+    {
+      "code": "default",
+      "name": "default",
+      "dataDimension": false,
+      "categoryOptions": [
+        {
+          "code": "default",
+          "name": "default",
+          "id": "xYerKDKCefk"
+        }
+      ],
+      "id": "GLevLNI9wkl"
+    }
+  ]
+}

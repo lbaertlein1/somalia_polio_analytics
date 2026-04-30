@@ -1,0 +1,16 @@
+{
+  "categoryCombos": [
+    {
+      "code": "default",
+      "name": "default",
+      "categories": [
+        {
+          "name": "default",
+          "id": "GLevLNI9wkl"
+        }
+      ],
+      "skipTotal": false,
+      "id": "bjDvmb4bfuf"
+    }
+  ]
+}

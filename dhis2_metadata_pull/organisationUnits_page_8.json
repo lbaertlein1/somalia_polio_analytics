@@ -1,0 +1,4012 @@
+{
+  "pager": {
+    "page": 8,
+    "total": 3855,
+    "pageSize": 250,
+    "nextPage": "https://www.somalia-polio-ims.org/api/organisationUnits?page=9&pageSize=250&fields=id%2Ccode%2Cname%2CshortName%2CdisplayName%2Clevel%2Cpath%2CopeningDate%2CclosedDate%2Cparent%5Bid%2Ccode%2Cname%2Clevel%5D",
+    "prevPage": "https://www.somalia-polio-ims.org/api/organisationUnits?page=7&pageSize=250&fields=id%2Ccode%2Cname%2CshortName%2CdisplayName%2Clevel%2Cpath%2CopeningDate%2CclosedDate%2Cparent%5Bid%2Ccode%2Cname%2Clevel%5D",
+    "pageCount": 16
+  },
+  "organisationUnits": [
+    {
+      "code": "HRN-BLT-AK",
+      "name": "HRN-BLT-AK",
+      "shortName": "HRN-BLT-AK",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/Bv8OmAEu3Dv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AK",
+      "id": "Bv8OmAEu3Dv",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AL",
+      "name": "HRN-BLT-AL",
+      "shortName": "HRN-BLT-AL",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/rDBUKCnn7N1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AL",
+      "id": "rDBUKCnn7N1",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AM",
+      "name": "HRN-BLT-AM",
+      "shortName": "HRN-BLT-AM",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/cPECcP9Mqzn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AM",
+      "id": "cPECcP9Mqzn",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AN",
+      "name": "HRN-BLT-AN",
+      "shortName": "HRN-BLT-AN",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/vtC8Z3H6Vpr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AN",
+      "id": "vtC8Z3H6Vpr",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AO",
+      "name": "HRN-BLT-AO",
+      "shortName": "HRN-BLT-AO",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/KpJbamQXCpO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AO",
+      "id": "KpJbamQXCpO",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AP",
+      "name": "HRN-BLT-AP",
+      "shortName": "HRN-BLT-AP",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/D9Jtiqw1dHN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AP",
+      "id": "D9Jtiqw1dHN",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AQ",
+      "name": "HRN-BLT-AQ",
+      "shortName": "HRN-BLT-AQ",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/tM6BB1XoYLY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AQ",
+      "id": "tM6BB1XoYLY",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AR",
+      "name": "HRN-BLT-AR",
+      "shortName": "HRN-BLT-AR",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/sMdWmojYT0X",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AR",
+      "id": "sMdWmojYT0X",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AS",
+      "name": "HRN-BLT-AS",
+      "shortName": "HRN-BLT-AS",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/qVFzIgkULx7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AS",
+      "id": "qVFzIgkULx7",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AT",
+      "name": "HRN-BLT-AT",
+      "shortName": "HRN-BLT-AT",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/TnlAnI3o9nA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AT",
+      "id": "TnlAnI3o9nA",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AU",
+      "name": "HRN-BLT-AU",
+      "shortName": "HRN-BLT-AU",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/tTSBkaDKxnv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AU",
+      "id": "tTSBkaDKxnv",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AV",
+      "name": "HRN-BLT-AV",
+      "shortName": "HRN-BLT-AV",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/VEFasT2x5Aq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AV",
+      "id": "VEFasT2x5Aq",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AW",
+      "name": "HRN-BLT-AW",
+      "shortName": "HRN-BLT-AW",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/pl8TNAFOxUf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AW",
+      "id": "pl8TNAFOxUf",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AX",
+      "name": "HRN-BLT-AX",
+      "shortName": "HRN-BLT-AX",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/PMFw2mrwK9a",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AX",
+      "id": "PMFw2mrwK9a",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AY",
+      "name": "HRN-BLT-AY",
+      "shortName": "HRN-BLT-AY",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/XlqakbtRS4f",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AY",
+      "id": "XlqakbtRS4f",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-AZ",
+      "name": "HRN-BLT-AZ",
+      "shortName": "HRN-BLT-AZ",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/ajZd7bdw8qn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-AZ",
+      "id": "ajZd7bdw8qn",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-B",
+      "name": "HRN-BLT-B",
+      "shortName": "HRN-BLT-B",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/xhHJwrwvtjN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-B",
+      "id": "xhHJwrwvtjN",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BA",
+      "name": "HRN-BLT-BA",
+      "shortName": "HRN-BLT-BA",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/MYDpTSetWSY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BA",
+      "id": "MYDpTSetWSY",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BB",
+      "name": "HRN-BLT-BB",
+      "shortName": "HRN-BLT-BB",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/OfImZf21Avn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BB",
+      "id": "OfImZf21Avn",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BC",
+      "name": "HRN-BLT-BC",
+      "shortName": "HRN-BLT-BC",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/Et9WFUfInQF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BC",
+      "id": "Et9WFUfInQF",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BD",
+      "name": "HRN-BLT-BD",
+      "shortName": "HRN-BLT-BD",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/nRT5xZp7Ul7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BD",
+      "id": "nRT5xZp7Ul7",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BE",
+      "name": "HRN-BLT-BE",
+      "shortName": "HRN-BLT-BE",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/HkY6L31L6Sy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BE",
+      "id": "HkY6L31L6Sy",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BF",
+      "name": "HRN-BLT-BF",
+      "shortName": "HRN-BLT-BF",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/rZciuAay7ii",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BF",
+      "id": "rZciuAay7ii",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BG",
+      "name": "HRN-BLT-BG",
+      "shortName": "HRN-BLT-BG",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/AuT8fCFsNDF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BG",
+      "id": "AuT8fCFsNDF",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BH",
+      "name": "HRN-BLT-BH",
+      "shortName": "HRN-BLT-BH",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/fHbouijfLc8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BH",
+      "id": "fHbouijfLc8",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BI",
+      "name": "HRN-BLT-BI",
+      "shortName": "HRN-BLT-BI",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/TzlbEO4NBle",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BI",
+      "id": "TzlbEO4NBle",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BJ",
+      "name": "HRN-BLT-BJ",
+      "shortName": "HRN-BLT-BJ",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/Q9F8USgytBJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BJ",
+      "id": "Q9F8USgytBJ",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BK",
+      "name": "HRN-BLT-BK",
+      "shortName": "HRN-BLT-BK",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/aJCPH1KoM1X",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BK",
+      "id": "aJCPH1KoM1X",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BL",
+      "name": "HRN-BLT-BL",
+      "shortName": "HRN-BLT-BL",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/ju3j0Ru64En",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BL",
+      "id": "ju3j0Ru64En",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BM",
+      "name": "HRN-BLT-BM",
+      "shortName": "HRN-BLT-BM",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/molEQiDaSUJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BM",
+      "id": "molEQiDaSUJ",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BN",
+      "name": "HRN-BLT-BN",
+      "shortName": "HRN-BLT-BN",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/eu2ZQenrg9X",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BN",
+      "id": "eu2ZQenrg9X",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BO",
+      "name": "HRN-BLT-BO",
+      "shortName": "HRN-BLT-BO",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/VmM38Ev9sws",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BO",
+      "id": "VmM38Ev9sws",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BP",
+      "name": "HRN-BLT-BP",
+      "shortName": "HRN-BLT-BP",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/x4IFzLlhbxF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BP",
+      "id": "x4IFzLlhbxF",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BQ",
+      "name": "HRN-BLT-BQ",
+      "shortName": "HRN-BLT-BQ",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/jyLiBOwNo6I",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BQ",
+      "id": "jyLiBOwNo6I",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BR",
+      "name": "HRN-BLT-BR",
+      "shortName": "HRN-BLT-BR",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/iDNfgDWVXha",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BR",
+      "id": "iDNfgDWVXha",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BS",
+      "name": "HRN-BLT-BS",
+      "shortName": "HRN-BLT-BS",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/Wp8wRzgIa3L",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BS",
+      "id": "Wp8wRzgIa3L",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BT",
+      "name": "HRN-BLT-BT",
+      "shortName": "HRN-BLT-BT",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/vAU1S2q0GRG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BT",
+      "id": "vAU1S2q0GRG",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BU",
+      "name": "HRN-BLT-BU",
+      "shortName": "HRN-BLT-BU",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/mVHv7qRVVWE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BU",
+      "id": "mVHv7qRVVWE",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BV",
+      "name": "HRN-BLT-BV",
+      "shortName": "HRN-BLT-BV",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/T7zjOfec11D",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BV",
+      "id": "T7zjOfec11D",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BW",
+      "name": "HRN-BLT-BW",
+      "shortName": "HRN-BLT-BW",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/QrdGg7wXpSS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BW",
+      "id": "QrdGg7wXpSS",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BX",
+      "name": "HRN-BLT-BX",
+      "shortName": "HRN-BLT-BX",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/Y9fLyekenhr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BX",
+      "id": "Y9fLyekenhr",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BY",
+      "name": "HRN-BLT-BY",
+      "shortName": "HRN-BLT-BY",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/NdTzH12WDjG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BY",
+      "id": "NdTzH12WDjG",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-BZ",
+      "name": "HRN-BLT-BZ",
+      "shortName": "HRN-BLT-BZ",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/LjpguI27Y7q",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-BZ",
+      "id": "LjpguI27Y7q",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-C",
+      "name": "HRN-BLT-C",
+      "shortName": "HRN-BLT-C",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/ocKImo9x8lu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-C",
+      "id": "ocKImo9x8lu",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-CC",
+      "name": "HRN-BLT-CC",
+      "shortName": "HRN-BLT-CC",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/tx05ZhRMRsG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-CC",
+      "id": "tx05ZhRMRsG",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-CD",
+      "name": "HRN-BLT-CD",
+      "shortName": "HRN-BLT-CD",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/xddC0SxVa7M",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-CD",
+      "id": "xddC0SxVa7M",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-CE",
+      "name": "HRN-BLT-CE",
+      "shortName": "HRN-BLT-CE",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/f4dJoIH5UxG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-CE",
+      "id": "f4dJoIH5UxG",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-CF",
+      "name": "HRN-BLT-CF",
+      "shortName": "HRN-BLT-CF",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/gb08Dg1M4Zj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-CF",
+      "id": "gb08Dg1M4Zj",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-CH",
+      "name": "HRN-BLT-CH",
+      "shortName": "HRN-BLT-CH",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/wRbxqMmHwuY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-CH",
+      "id": "wRbxqMmHwuY",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-CI",
+      "name": "HRN-BLT-CI",
+      "shortName": "HRN-BLT-CI",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/FE8Ls9ikJl3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-CI",
+      "id": "FE8Ls9ikJl3",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-CJ",
+      "name": "HRN-BLT-CJ",
+      "shortName": "HRN-BLT-CJ",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/AUdu3BhpLIE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-CJ",
+      "id": "AUdu3BhpLIE",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-CK",
+      "name": "HRN-BLT-CK",
+      "shortName": "HRN-BLT-CK",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/pSByrzjXnNO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-CK",
+      "id": "pSByrzjXnNO",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-CL",
+      "name": "HRN-BLT-CL",
+      "shortName": "HRN-BLT-CL",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/ogFJTU15cC0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-CL",
+      "id": "ogFJTU15cC0",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-D",
+      "name": "HRN-BLT-D",
+      "shortName": "HRN-BLT-D",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/Y4k4gmsPEcc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-D",
+      "id": "Y4k4gmsPEcc",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-E",
+      "name": "HRN-BLT-E",
+      "shortName": "HRN-BLT-E",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/bS34jxEad0t",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-E",
+      "id": "bS34jxEad0t",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-F",
+      "name": "HRN-BLT-F",
+      "shortName": "HRN-BLT-F",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/fwkLo8mO4A5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-F",
+      "id": "fwkLo8mO4A5",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-G",
+      "name": "HRN-BLT-G",
+      "shortName": "HRN-BLT-G",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/k84Dqc47tHW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-G",
+      "id": "k84Dqc47tHW",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-H",
+      "name": "HRN-BLT-H",
+      "shortName": "HRN-BLT-H",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/GrCZGJG6a8p",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-H",
+      "id": "GrCZGJG6a8p",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-I",
+      "name": "HRN-BLT-I",
+      "shortName": "HRN-BLT-I",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/FUKMptBeIle",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-I",
+      "id": "FUKMptBeIle",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-J",
+      "name": "HRN-BLT-J",
+      "shortName": "HRN-BLT-J",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/sG9QNr0u6Mk",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-J",
+      "id": "sG9QNr0u6Mk",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-K",
+      "name": "HRN-BLT-K",
+      "shortName": "HRN-BLT-K",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/LBccyFytuPQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-K",
+      "id": "LBccyFytuPQ",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-L",
+      "name": "HRN-BLT-L",
+      "shortName": "HRN-BLT-L",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/z8We5SrWNga",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-L",
+      "id": "z8We5SrWNga",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-M",
+      "name": "HRN-BLT-M",
+      "shortName": "HRN-BLT-M",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/Ddnx5pcKtow",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-M",
+      "id": "Ddnx5pcKtow",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-N",
+      "name": "HRN-BLT-N",
+      "shortName": "HRN-BLT-N",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/VSrwlqt0Qy9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-N",
+      "id": "VSrwlqt0Qy9",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-O",
+      "name": "HRN-BLT-O",
+      "shortName": "HRN-BLT-O",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/VPbA1MBZMAA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-O",
+      "id": "VPbA1MBZMAA",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-P",
+      "name": "HRN-BLT-P",
+      "shortName": "HRN-BLT-P",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/XSk00Jagohg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-P",
+      "id": "XSk00Jagohg",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-Q",
+      "name": "HRN-BLT-Q",
+      "shortName": "HRN-BLT-Q",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/Oj7CWT7mZcK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-Q",
+      "id": "Oj7CWT7mZcK",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-R",
+      "name": "HRN-BLT-R",
+      "shortName": "HRN-BLT-R",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/dUVRryCOq9b",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-R",
+      "id": "dUVRryCOq9b",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-S",
+      "name": "HRN-BLT-S",
+      "shortName": "HRN-BLT-S",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/tTnVriwFOLb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-S",
+      "id": "tTnVriwFOLb",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-T",
+      "name": "HRN-BLT-T",
+      "shortName": "HRN-BLT-T",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/S3X2Fg2Ta6w",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-T",
+      "id": "S3X2Fg2Ta6w",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-U",
+      "name": "HRN-BLT-U",
+      "shortName": "HRN-BLT-U",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/ifvM6olafc0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-U",
+      "id": "ifvM6olafc0",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-V",
+      "name": "HRN-BLT-V",
+      "shortName": "HRN-BLT-V",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/xQLVKL20gYs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-V",
+      "id": "xQLVKL20gYs",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-W",
+      "name": "HRN-BLT-W",
+      "shortName": "HRN-BLT-W",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/Cyhj0yg3BVs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-W",
+      "id": "Cyhj0yg3BVs",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-X",
+      "name": "HRN-BLT-X",
+      "shortName": "HRN-BLT-X",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/o8OLaFkpOA0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-X",
+      "id": "o8OLaFkpOA0",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-Y",
+      "name": "HRN-BLT-Y",
+      "shortName": "HRN-BLT-Y",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/eZZzFq6bFJf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-Y",
+      "id": "eZZzFq6bFJf",
+      "level": 5
+    },
+    {
+      "code": "HRN-BLT-Z",
+      "name": "HRN-BLT-Z",
+      "shortName": "HRN-BLT-Z",
+      "parent": {
+        "code": "HRN_BLT",
+        "name": "Belet Weyne",
+        "id": "Q4TURfGu3qJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ/yoVFOpDSoIM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-BLT-Z",
+      "id": "yoVFOpDSoIM",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-A",
+      "name": "HRN-JLX-A",
+      "shortName": "HRN-JLX-A",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/Sw4N5tPvBRR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-A",
+      "id": "Sw4N5tPvBRR",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-AA",
+      "name": "HRN-JLX-AA",
+      "shortName": "HRN-JLX-AA",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/gWb3dpVwyzS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-AA",
+      "id": "gWb3dpVwyzS",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-AB",
+      "name": "HRN-JLX-AB",
+      "shortName": "HRN-JLX-AB",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/bwJ57hZCOi0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-AB",
+      "id": "bwJ57hZCOi0",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-AC",
+      "name": "HRN-JLX-AC",
+      "shortName": "HRN-JLX-AC",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/lp8VimRYBsL",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-AC",
+      "id": "lp8VimRYBsL",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-AD",
+      "name": "HRN-JLX-AD",
+      "shortName": "HRN-JLX-AD",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/Ypb0vkOzFIa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-AD",
+      "id": "Ypb0vkOzFIa",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-AE",
+      "name": "HRN-JLX-AE",
+      "shortName": "HRN-JLX-AE",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/ueNENEX5h7E",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-AE",
+      "id": "ueNENEX5h7E",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-AF",
+      "name": "HRN-JLX-AF",
+      "shortName": "HRN-JLX-AF",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/nJAXPhMacau",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-AF",
+      "id": "nJAXPhMacau",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-B",
+      "name": "HRN-JLX-B",
+      "shortName": "HRN-JLX-B",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/AA9uCox7IDm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-B",
+      "id": "AA9uCox7IDm",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-C",
+      "name": "HRN-JLX-C",
+      "shortName": "HRN-JLX-C",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/f2uKhItSggE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-C",
+      "id": "f2uKhItSggE",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-D",
+      "name": "HRN-JLX-D",
+      "shortName": "HRN-JLX-D",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/HeEBnwhc3xZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-D",
+      "id": "HeEBnwhc3xZ",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-E",
+      "name": "HRN-JLX-E",
+      "shortName": "HRN-JLX-E",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/BUbIoHYmzuL",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-E",
+      "id": "BUbIoHYmzuL",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-F",
+      "name": "HRN-JLX-F",
+      "shortName": "HRN-JLX-F",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/N2BiZyjwRjJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-F",
+      "id": "N2BiZyjwRjJ",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-G",
+      "name": "HRN-JLX-G",
+      "shortName": "HRN-JLX-G",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/J4lft2LxRSL",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-G",
+      "id": "J4lft2LxRSL",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-H",
+      "name": "HRN-JLX-H",
+      "shortName": "HRN-JLX-H",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/TcjQYFqsVjr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-H",
+      "id": "TcjQYFqsVjr",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-I",
+      "name": "HRN-JLX-I",
+      "shortName": "HRN-JLX-I",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/FwoJZ3Y05iT",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-I",
+      "id": "FwoJZ3Y05iT",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-J",
+      "name": "HRN-JLX-J",
+      "shortName": "HRN-JLX-J",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/Eko2zpdppRg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-J",
+      "id": "Eko2zpdppRg",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-K",
+      "name": "HRN-JLX-K",
+      "shortName": "HRN-JLX-K",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/SfCLXCOu1e6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-K",
+      "id": "SfCLXCOu1e6",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-L",
+      "name": "HRN-JLX-L",
+      "shortName": "HRN-JLX-L",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/FpAE7KoLFOR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-L",
+      "id": "FpAE7KoLFOR",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-M",
+      "name": "HRN-JLX-M",
+      "shortName": "HRN-JLX-M",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/EOGgiAJGLgu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-M",
+      "id": "EOGgiAJGLgu",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-N",
+      "name": "HRN-JLX-N",
+      "shortName": "HRN-JLX-N",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/CBg8FCrTZl0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-N",
+      "id": "CBg8FCrTZl0",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-O",
+      "name": "HRN-JLX-O",
+      "shortName": "HRN-JLX-O",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/z2A0lrvsG9m",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-O",
+      "id": "z2A0lrvsG9m",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-P",
+      "name": "HRN-JLX-P",
+      "shortName": "HRN-JLX-P",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/eJoMq5T8NMB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-P",
+      "id": "eJoMq5T8NMB",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-Q",
+      "name": "HRN-JLX-Q",
+      "shortName": "HRN-JLX-Q",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/oH199INYSIT",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-Q",
+      "id": "oH199INYSIT",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-R",
+      "name": "HRN-JLX-R",
+      "shortName": "HRN-JLX-R",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/ZmUGrHSrGJT",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-R",
+      "id": "ZmUGrHSrGJT",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-S",
+      "name": "HRN-JLX-S",
+      "shortName": "HRN-JLX-S",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/Z8Ya9tRbgyG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-S",
+      "id": "Z8Ya9tRbgyG",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-T",
+      "name": "HRN-JLX-T",
+      "shortName": "HRN-JLX-T",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/oP4lJtEoyc1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-T",
+      "id": "oP4lJtEoyc1",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-U",
+      "name": "HRN-JLX-U",
+      "shortName": "HRN-JLX-U",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/eOnU8Zk1I1z",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-U",
+      "id": "eOnU8Zk1I1z",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-V",
+      "name": "HRN-JLX-V",
+      "shortName": "HRN-JLX-V",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/zmPrmpggebb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-V",
+      "id": "zmPrmpggebb",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-W",
+      "name": "HRN-JLX-W",
+      "shortName": "HRN-JLX-W",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/t7K7KBDVhq6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-W",
+      "id": "t7K7KBDVhq6",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-X",
+      "name": "HRN-JLX-X",
+      "shortName": "HRN-JLX-X",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/yrmpG9H7Ahn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-X",
+      "id": "yrmpG9H7Ahn",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-Y",
+      "name": "HRN-JLX-Y",
+      "shortName": "HRN-JLX-Y",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/eeniyPoQqNn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-Y",
+      "id": "eeniyPoQqNn",
+      "level": 5
+    },
+    {
+      "code": "HRN-JLX-Z",
+      "name": "HRN-JLX-Z",
+      "shortName": "HRN-JLX-Z",
+      "parent": {
+        "code": "HRN_JLX",
+        "name": "Jalalaqsi",
+        "id": "G0srGXuoA1v",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v/uqXkshrzI71",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-JLX-Z",
+      "id": "uqXkshrzI71",
+      "level": 5
+    },
+    {
+      "code": "HRN-MAH-A",
+      "name": "HRN-MAH-A",
+      "shortName": "HRN-MAH-A",
+      "parent": {
+        "code": "HRN_MAH",
+        "name": "Mahas",
+        "id": "DzIn0LC9xCm",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/DzIn0LC9xCm/HgqLB2M0hdS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MAH-A",
+      "id": "HgqLB2M0hdS",
+      "level": 5
+    },
+    {
+      "code": "HRN-MAH-B",
+      "name": "HRN-MAH-B",
+      "shortName": "HRN-MAH-B",
+      "parent": {
+        "code": "HRN_MAH",
+        "name": "Mahas",
+        "id": "DzIn0LC9xCm",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/DzIn0LC9xCm/sLqFtnUFq0e",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MAH-B",
+      "id": "sLqFtnUFq0e",
+      "level": 5
+    },
+    {
+      "code": "HRN-MAH-C",
+      "name": "HRN-MAH-C",
+      "shortName": "HRN-MAH-C",
+      "parent": {
+        "code": "HRN_MAH",
+        "name": "Mahas",
+        "id": "DzIn0LC9xCm",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/DzIn0LC9xCm/gRigFbbg4D0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MAH-C",
+      "id": "gRigFbbg4D0",
+      "level": 5
+    },
+    {
+      "code": "HRN-MAH-D",
+      "name": "HRN-MAH-D",
+      "shortName": "HRN-MAH-D",
+      "parent": {
+        "code": "HRN_MAH",
+        "name": "Mahas",
+        "id": "DzIn0LC9xCm",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/DzIn0LC9xCm/ZzZYuYt6DsW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MAH-D",
+      "id": "ZzZYuYt6DsW",
+      "level": 5
+    },
+    {
+      "code": "HRN-MAH-E",
+      "name": "HRN-MAH-E",
+      "shortName": "HRN-MAH-E",
+      "parent": {
+        "code": "HRN_MAH",
+        "name": "Mahas",
+        "id": "DzIn0LC9xCm",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/DzIn0LC9xCm/SiNlQunjMKH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MAH-E",
+      "id": "SiNlQunjMKH",
+      "level": 5
+    },
+    {
+      "code": "HRN-MAH-F",
+      "name": "HRN-MAH-F",
+      "shortName": "HRN-MAH-F",
+      "parent": {
+        "code": "HRN_MAH",
+        "name": "Mahas",
+        "id": "DzIn0LC9xCm",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/DzIn0LC9xCm/QqKHPEIQuQ8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MAH-F",
+      "id": "QqKHPEIQuQ8",
+      "level": 5
+    },
+    {
+      "code": "HRN-MAH-G",
+      "name": "HRN-MAH-G",
+      "shortName": "HRN-MAH-G",
+      "parent": {
+        "code": "HRN_MAH",
+        "name": "Mahas",
+        "id": "DzIn0LC9xCm",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/DzIn0LC9xCm/niUh2MuC6Vw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MAH-G",
+      "id": "niUh2MuC6Vw",
+      "level": 5
+    },
+    {
+      "code": "HRN-MAH-H",
+      "name": "HRN-MAH-H",
+      "shortName": "HRN-MAH-H",
+      "parent": {
+        "code": "HRN_MAH",
+        "name": "Mahas",
+        "id": "DzIn0LC9xCm",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/DzIn0LC9xCm/A9jKFI4niVW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MAH-H",
+      "id": "A9jKFI4niVW",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-A",
+      "name": "HRN-MTB-A",
+      "shortName": "HRN-MTB-A",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/YBcR87ov1Mq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-A",
+      "id": "YBcR87ov1Mq",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-B",
+      "name": "HRN-MTB-B",
+      "shortName": "HRN-MTB-B",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/jMK0ooi5m0L",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-B",
+      "id": "jMK0ooi5m0L",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-C",
+      "name": "HRN-MTB-C",
+      "shortName": "HRN-MTB-C",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/FwRbUyulpYS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-C",
+      "id": "FwRbUyulpYS",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-D",
+      "name": "HRN-MTB-D",
+      "shortName": "HRN-MTB-D",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/f6L7VN6RvE6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-D",
+      "id": "f6L7VN6RvE6",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-E",
+      "name": "HRN-MTB-E",
+      "shortName": "HRN-MTB-E",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/XdpLuu8RUr6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-E",
+      "id": "XdpLuu8RUr6",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-F",
+      "name": "HRN-MTB-F",
+      "shortName": "HRN-MTB-F",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/BHnUTLXqPDD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-F",
+      "id": "BHnUTLXqPDD",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-G",
+      "name": "HRN-MTB-G",
+      "shortName": "HRN-MTB-G",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/VWClr5j5d4B",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-G",
+      "id": "VWClr5j5d4B",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-H",
+      "name": "HRN-MTB-H",
+      "shortName": "HRN-MTB-H",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/dKssl07EFzr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-H",
+      "id": "dKssl07EFzr",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-I",
+      "name": "HRN-MTB-I",
+      "shortName": "HRN-MTB-I",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/qYihmD5BIck",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-I",
+      "id": "qYihmD5BIck",
+      "level": 5
+    },
+    {
+      "code": "HRN-MTB-J",
+      "name": "HRN-MTB-J",
+      "shortName": "HRN-MTB-J",
+      "parent": {
+        "code": "HRN_MTB",
+        "name": "Mataban",
+        "id": "xCllW6LVnYl",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl/SDTz2EraUlx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "HRN-MTB-J",
+      "id": "SDTz2EraUlx",
+      "level": 5
+    },
+    {
+      "code": "KRK_HFN",
+      "name": "Hafun",
+      "shortName": "Hafun",
+      "parent": {
+        "code": "KRK",
+        "name": "Karkar",
+        "id": "fY6oVnyhWPN",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/xsVqBLLPVDs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hafun",
+      "id": "xsVqBLLPVDs",
+      "level": 4
+    },
+    {
+      "code": "LJB_HGR",
+      "name": "Hagar",
+      "shortName": "Hagar",
+      "parent": {
+        "code": "LJB",
+        "name": "Lower Juba",
+        "id": "o27iHpDULWo",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/q7r7OVvn169",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hagar",
+      "id": "q7r7OVvn169",
+      "level": 4
+    },
+    {
+      "code": "BAN_HJB",
+      "name": "Hamar Jabjab",
+      "shortName": "Hamar Jabjab",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/BThMJPNRhzh",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hamar Jabjab",
+      "id": "BThMJPNRhzh",
+      "level": 4
+    },
+    {
+      "code": "BAN_HMW",
+      "name": "Hamar Weyn",
+      "shortName": "Hamar Weyn",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/pU1RMazOwII",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hamar Weyn",
+      "id": "pU1RMazOwII",
+      "level": 4
+    },
+    {
+      "code": "SMD_HRD",
+      "name": "Haradhere",
+      "shortName": "Haradhere",
+      "parent": {
+        "code": "SMD",
+        "name": "South Mudug",
+        "id": "fvZm2QGGO3K",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/fvZm2QGGO3K/gImhE0YSecW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Haradhere",
+      "id": "gImhE0YSecW",
+      "level": 4
+    },
+    {
+      "code": "WGB_HAR",
+      "name": "Hargeisa",
+      "shortName": "Hargeisa",
+      "parent": {
+        "code": "WGB",
+        "name": "Marodijeh",
+        "id": "uUhf9Q4y7Nq",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/uUhf9Q4y7Nq/tfaQ45dmBNo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hargeisa",
+      "id": "tfaQ45dmBNo",
+      "level": 4
+    },
+    {
+      "code": "BAN_HWD",
+      "name": "Hawal Wadag",
+      "shortName": "Hawal Wadag",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/QTQYUfXvclX",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hawal Wadag",
+      "id": "QTQYUfXvclX",
+      "level": 4
+    },
+    {
+      "code": "BAN_HLW",
+      "name": "Heliwa",
+      "shortName": "Heliwa",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/MXA7x9ZWGwc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Heliwa",
+      "id": "MXA7x9ZWGwc",
+      "level": 4
+    },
+    {
+      "code": "Z_HSS",
+      "name": "Hir-Shabelle State",
+      "shortName": "Hir-Shabelle State",
+      "parent": {
+        "code": "SOM",
+        "name": "Somalia",
+        "id": "phNUUZTG0DI",
+        "level": 1
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hir-Shabelle State",
+      "id": "bKKHtEccAot",
+      "level": 2
+    },
+    {
+      "code": "HRN",
+      "name": "Hiran",
+      "shortName": "Hiran",
+      "parent": {
+        "code": "Z_HSS",
+        "name": "Hir-Shabelle State",
+        "id": "bKKHtEccAot",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hiran",
+      "id": "aMmkIHqZegn",
+      "level": 3
+    },
+    {
+      "code": "SMD_HOB",
+      "name": "Hobyo",
+      "shortName": "Hobyo",
+      "parent": {
+        "code": "SMD",
+        "name": "South Mudug",
+        "id": "fvZm2QGGO3K",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/fvZm2QGGO3K/EGHvFr3leLe",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hobyo",
+      "id": "EGHvFr3leLe",
+      "level": 4
+    },
+    {
+      "code": "BAN_HDN",
+      "name": "Hodan",
+      "shortName": "Hodan",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/mgvCiKWTxxC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hodan",
+      "id": "mgvCiKWTxxC",
+      "level": 4
+    },
+    {
+      "code": "SOL_HDN",
+      "name": "Hudun",
+      "shortName": "Hudun",
+      "parent": {
+        "code": "SOL",
+        "name": "Sool",
+        "id": "kOiLQpNDYCY",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/kOiLQpNDYCY/rDPvhfcUSc8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hudun",
+      "id": "rDPvhfcUSc8",
+      "level": 4
+    },
+    {
+      "code": "BKL_HUD",
+      "name": "Hudur",
+      "shortName": "Hudur",
+      "parent": {
+        "code": "BKL",
+        "name": "Bakol",
+        "id": "XAUtLVkLgbs",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/XAUtLVkLgbs/a7nb8Xz1VYU",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Hudur",
+      "id": "a7nb8Xz1VYU",
+      "level": 4
+    },
+    {
+      "code": "BRI_ISH",
+      "name": "Iskushuban",
+      "shortName": "Iskushuban",
+      "parent": {
+        "code": "BRI",
+        "name": "Bari",
+        "id": "RHX2qzQfxHW",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Iskushuban",
+      "id": "jYj9LNqxriT",
+      "level": 4
+    },
+    {
+      "code": "HRN_JLX",
+      "name": "Jalalaqsi",
+      "shortName": "Jalalaqsi",
+      "parent": {
+        "code": "HRN",
+        "name": "Hiran",
+        "id": "aMmkIHqZegn",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/G0srGXuoA1v",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Jalalaqsi",
+      "id": "G0srGXuoA1v",
+      "level": 4
+    },
+    {
+      "code": "LJB_JME",
+      "name": "Jamaame East",
+      "shortName": "Jamaame East",
+      "parent": {
+        "code": "LJB",
+        "name": "Lower Juba",
+        "id": "o27iHpDULWo",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/Rb1H8UQs49v",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Jamaame East",
+      "id": "Rb1H8UQs49v",
+      "level": 4
+    },
+    {
+      "code": "LJB_JMW",
+      "name": "Jamaame West",
+      "shortName": "Jamaame West",
+      "parent": {
+        "code": "LJB",
+        "name": "Lower Juba",
+        "id": "o27iHpDULWo",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/erlY0SUya9r",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Jamaame West",
+      "id": "erlY0SUya9r",
+      "level": 4
+    },
+    {
+      "code": "MUD_JIR",
+      "name": "Jariban",
+      "shortName": "Jariban",
+      "parent": {
+        "code": "MUD",
+        "name": "Mudug",
+        "id": "Y17oQpWmgLs",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Jariban",
+      "id": "TfqX7ELnj90",
+      "level": 4
+    },
+    {
+      "code": "MJB_JBE",
+      "name": "Jilib East",
+      "shortName": "Jilib East",
+      "parent": {
+        "code": "MJB",
+        "name": "Middle Juba",
+        "id": "koXHTUNhmfg",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/koXHTUNhmfg/eFHwiJ846RG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Jilib East",
+      "id": "eFHwiJ846RG",
+      "level": 4
+    },
+    {
+      "code": "LJB_JBW",
+      "name": "Jilib West",
+      "shortName": "Jilib West",
+      "parent": {
+        "code": "LJB",
+        "name": "Lower Juba",
+        "id": "o27iHpDULWo",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/u0eeAFJ5FD0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Jilib West",
+      "id": "u0eeAFJ5FD0",
+      "level": 4
+    },
+    {
+      "code": "MSH_JOW",
+      "name": "Jowhar",
+      "shortName": "Jowhar",
+      "parent": {
+        "code": "MSH",
+        "name": "Middle Shabelle",
+        "id": "tRjCM2F5JIl",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/Um4unHo0QA7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Jowhar",
+      "id": "Um4unHo0QA7",
+      "level": 4
+    },
+    {
+      "code": "Z_JUB",
+      "name": "Jubaland State",
+      "shortName": "Jubaland State",
+      "parent": {
+        "code": "SOM",
+        "name": "Somalia",
+        "id": "phNUUZTG0DI",
+        "level": 1
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Jubaland State",
+      "id": "IkXO5bvG4h8",
+      "level": 2
+    },
+    {
+      "code": "KRK-BBL-A",
+      "name": "KRK-BBL-A",
+      "shortName": "KRK-BBL-A",
+      "parent": {
+        "code": "KRK_BBL",
+        "name": "Bender Bayla",
+        "id": "C4tsYdXgzQo",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/C4tsYdXgzQo/yxGhDAjN3fN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-BBL-A",
+      "id": "yxGhDAjN3fN",
+      "level": 5
+    },
+    {
+      "code": "KRK-BBL-B",
+      "name": "KRK-BBL-B",
+      "shortName": "KRK-BBL-B",
+      "parent": {
+        "code": "KRK_BBL",
+        "name": "Bender Bayla",
+        "id": "C4tsYdXgzQo",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/C4tsYdXgzQo/RfWf6GEBGZ7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-BBL-B",
+      "id": "RfWf6GEBGZ7",
+      "level": 5
+    },
+    {
+      "code": "KRK-BBL-C",
+      "name": "KRK-BBL-C",
+      "shortName": "KRK-BBL-C",
+      "parent": {
+        "code": "KRK_BBL",
+        "name": "Bender Bayla",
+        "id": "C4tsYdXgzQo",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/C4tsYdXgzQo/c7fnldkWPcI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-BBL-C",
+      "id": "c7fnldkWPcI",
+      "level": 5
+    },
+    {
+      "code": "KRK-BBL-D",
+      "name": "KRK-BBL-D",
+      "shortName": "KRK-BBL-D",
+      "parent": {
+        "code": "KRK_BBL",
+        "name": "Bender Bayla",
+        "id": "C4tsYdXgzQo",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/C4tsYdXgzQo/XpA0wQl7nhO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-BBL-D",
+      "id": "XpA0wQl7nhO",
+      "level": 5
+    },
+    {
+      "code": "KRK-BBL-E",
+      "name": "KRK-BBL-E",
+      "shortName": "KRK-BBL-E",
+      "parent": {
+        "code": "KRK_BBL",
+        "name": "Bender Bayla",
+        "id": "C4tsYdXgzQo",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/C4tsYdXgzQo/FG1gLyUj7LB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-BBL-E",
+      "id": "FG1gLyUj7LB",
+      "level": 5
+    },
+    {
+      "code": "KRK-BBL-F",
+      "name": "KRK-BBL-F",
+      "shortName": "KRK-BBL-F",
+      "parent": {
+        "code": "KRK_BBL",
+        "name": "Bender Bayla",
+        "id": "C4tsYdXgzQo",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/C4tsYdXgzQo/stNMQ3DpNNN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-BBL-F",
+      "id": "stNMQ3DpNNN",
+      "level": 5
+    },
+    {
+      "code": "KRK-BBL-G",
+      "name": "KRK-BBL-G",
+      "shortName": "KRK-BBL-G",
+      "parent": {
+        "code": "KRK_BBL",
+        "name": "Bender Bayla",
+        "id": "C4tsYdXgzQo",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/C4tsYdXgzQo/FUIERgs8qKW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-BBL-G",
+      "id": "FUIERgs8qKW",
+      "level": 5
+    },
+    {
+      "code": "KRK-BBL-H",
+      "name": "KRK-BBL-H",
+      "shortName": "KRK-BBL-H",
+      "parent": {
+        "code": "KRK_BBL",
+        "name": "Bender Bayla",
+        "id": "C4tsYdXgzQo",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/C4tsYdXgzQo/lF8RfRPzi1l",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-BBL-H",
+      "id": "lF8RfRPzi1l",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-A",
+      "name": "KRK-GAR-A",
+      "shortName": "KRK-GAR-A",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/TGQAaHMrl1p",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-A",
+      "id": "TGQAaHMrl1p",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-B",
+      "name": "KRK-GAR-B",
+      "shortName": "KRK-GAR-B",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/CJfelueXkKq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-B",
+      "id": "CJfelueXkKq",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-C",
+      "name": "KRK-GAR-C",
+      "shortName": "KRK-GAR-C",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/XGfwEPQSrwi",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-C",
+      "id": "XGfwEPQSrwi",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-D",
+      "name": "KRK-GAR-D",
+      "shortName": "KRK-GAR-D",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/ij9VeVcL8cM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-D",
+      "id": "ij9VeVcL8cM",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-E",
+      "name": "KRK-GAR-E",
+      "shortName": "KRK-GAR-E",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/VmfyFxTbEP6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-E",
+      "id": "VmfyFxTbEP6",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-F",
+      "name": "KRK-GAR-F",
+      "shortName": "KRK-GAR-F",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/O94HM7cu6T2",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-F",
+      "id": "O94HM7cu6T2",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-G",
+      "name": "KRK-GAR-G",
+      "shortName": "KRK-GAR-G",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/uNCwHTz2pr6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-G",
+      "id": "uNCwHTz2pr6",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-H",
+      "name": "KRK-GAR-H",
+      "shortName": "KRK-GAR-H",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/ewZkVHwdY8H",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-H",
+      "id": "ewZkVHwdY8H",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-I",
+      "name": "KRK-GAR-I",
+      "shortName": "KRK-GAR-I",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/RxOOjbl1uc2",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-I",
+      "id": "RxOOjbl1uc2",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-J",
+      "name": "KRK-GAR-J",
+      "shortName": "KRK-GAR-J",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/H6ShvTbwbEb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-J",
+      "id": "H6ShvTbwbEb",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-K",
+      "name": "KRK-GAR-K",
+      "shortName": "KRK-GAR-K",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/OAE4A2tKi9D",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-K",
+      "id": "OAE4A2tKi9D",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-L",
+      "name": "KRK-GAR-L",
+      "shortName": "KRK-GAR-L",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/pHMLjahXaAf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-L",
+      "id": "pHMLjahXaAf",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-M",
+      "name": "KRK-GAR-M",
+      "shortName": "KRK-GAR-M",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/drmzhb2NQhK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-M",
+      "id": "drmzhb2NQhK",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-N",
+      "name": "KRK-GAR-N",
+      "shortName": "KRK-GAR-N",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/sRYxPQ52ODy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-N",
+      "id": "sRYxPQ52ODy",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-O",
+      "name": "KRK-GAR-O",
+      "shortName": "KRK-GAR-O",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/rdeAKAxAdMC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-O",
+      "id": "rdeAKAxAdMC",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-P",
+      "name": "KRK-GAR-P",
+      "shortName": "KRK-GAR-P",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/xgMmr6SkHw6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-P",
+      "id": "xgMmr6SkHw6",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-Q",
+      "name": "KRK-GAR-Q",
+      "shortName": "KRK-GAR-Q",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/e9zGMP1xBn6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-Q",
+      "id": "e9zGMP1xBn6",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-R",
+      "name": "KRK-GAR-R",
+      "shortName": "KRK-GAR-R",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/KXNDlemL1yK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-R",
+      "id": "KXNDlemL1yK",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-S",
+      "name": "KRK-GAR-S",
+      "shortName": "KRK-GAR-S",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/VCRAobT52ju",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-S",
+      "id": "VCRAobT52ju",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-T",
+      "name": "KRK-GAR-T",
+      "shortName": "KRK-GAR-T",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/HQvjoArwRRx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-T",
+      "id": "HQvjoArwRRx",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-U",
+      "name": "KRK-GAR-U",
+      "shortName": "KRK-GAR-U",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/bXi9dwd9VX8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-U",
+      "id": "bXi9dwd9VX8",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-V",
+      "name": "KRK-GAR-V",
+      "shortName": "KRK-GAR-V",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/cPk9H2Dv9zn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-V",
+      "id": "cPk9H2Dv9zn",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-W",
+      "name": "KRK-GAR-W",
+      "shortName": "KRK-GAR-W",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/C5xuQo1DFnK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-W",
+      "id": "C5xuQo1DFnK",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-X",
+      "name": "KRK-GAR-X",
+      "shortName": "KRK-GAR-X",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/jqQG095HUgm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-X",
+      "id": "jqQG095HUgm",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-Y",
+      "name": "KRK-GAR-Y",
+      "shortName": "KRK-GAR-Y",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/cXcRhZkvPEQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-Y",
+      "id": "cXcRhZkvPEQ",
+      "level": 5
+    },
+    {
+      "code": "KRK-GAR-Z",
+      "name": "KRK-GAR-Z",
+      "shortName": "KRK-GAR-Z",
+      "parent": {
+        "code": "KRK_GAR",
+        "name": "Gardo",
+        "id": "fdVzFONJwTW",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/fdVzFONJwTW/nsUev5H41TZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-GAR-Z",
+      "id": "nsUev5H41TZ",
+      "level": 5
+    },
+    {
+      "code": "KRK-HFN-A",
+      "name": "KRK-HFN-A",
+      "shortName": "KRK-HFN-A",
+      "parent": {
+        "code": "KRK_HFN",
+        "name": "Hafun",
+        "id": "xsVqBLLPVDs",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/xsVqBLLPVDs/DxdTcmVHpkt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-HFN-A",
+      "id": "DxdTcmVHpkt",
+      "level": 5
+    },
+    {
+      "code": "KRK-HFN-B",
+      "name": "KRK-HFN-B",
+      "shortName": "KRK-HFN-B",
+      "parent": {
+        "code": "KRK_HFN",
+        "name": "Hafun",
+        "id": "xsVqBLLPVDs",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/xsVqBLLPVDs/uDWyu1f2Khj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-HFN-B",
+      "id": "uDWyu1f2Khj",
+      "level": 5
+    },
+    {
+      "code": "KRK-HFN-C",
+      "name": "KRK-HFN-C",
+      "shortName": "KRK-HFN-C",
+      "parent": {
+        "code": "KRK_HFN",
+        "name": "Hafun",
+        "id": "xsVqBLLPVDs",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/xsVqBLLPVDs/crn37WWyXUx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-HFN-C",
+      "id": "crn37WWyXUx",
+      "level": 5
+    },
+    {
+      "code": "KRK-HFN-D",
+      "name": "KRK-HFN-D",
+      "shortName": "KRK-HFN-D",
+      "parent": {
+        "code": "KRK_HFN",
+        "name": "Hafun",
+        "id": "xsVqBLLPVDs",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/xsVqBLLPVDs/Bhq75iKY6Cg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-HFN-D",
+      "id": "Bhq75iKY6Cg",
+      "level": 5
+    },
+    {
+      "code": "KRK-HFN-E",
+      "name": "KRK-HFN-E",
+      "shortName": "KRK-HFN-E",
+      "parent": {
+        "code": "KRK_HFN",
+        "name": "Hafun",
+        "id": "xsVqBLLPVDs",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/xsVqBLLPVDs/uF7sjydEb72",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-HFN-E",
+      "id": "uF7sjydEb72",
+      "level": 5
+    },
+    {
+      "code": "KRK-RKO-A",
+      "name": "KRK-RKO-A",
+      "shortName": "KRK-RKO-A",
+      "parent": {
+        "code": "KRK_RKO",
+        "name": "Rako",
+        "id": "WIZiLY6U5wX",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/WIZiLY6U5wX/vNIlGeY77Xv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-RKO-A",
+      "id": "vNIlGeY77Xv",
+      "level": 5
+    },
+    {
+      "code": "KRK-RKO-B",
+      "name": "KRK-RKO-B",
+      "shortName": "KRK-RKO-B",
+      "parent": {
+        "code": "KRK_RKO",
+        "name": "Rako",
+        "id": "WIZiLY6U5wX",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/WIZiLY6U5wX/GvFNmFbOnX3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-RKO-B",
+      "id": "GvFNmFbOnX3",
+      "level": 5
+    },
+    {
+      "code": "KRK-RKO-C",
+      "name": "KRK-RKO-C",
+      "shortName": "KRK-RKO-C",
+      "parent": {
+        "code": "KRK_RKO",
+        "name": "Rako",
+        "id": "WIZiLY6U5wX",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/WIZiLY6U5wX/BV698y93pWC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-RKO-C",
+      "id": "BV698y93pWC",
+      "level": 5
+    },
+    {
+      "code": "KRK-RKO-D",
+      "name": "KRK-RKO-D",
+      "shortName": "KRK-RKO-D",
+      "parent": {
+        "code": "KRK_RKO",
+        "name": "Rako",
+        "id": "WIZiLY6U5wX",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/WIZiLY6U5wX/HAEuQLEcdPm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-RKO-D",
+      "id": "HAEuQLEcdPm",
+      "level": 5
+    },
+    {
+      "code": "KRK-RKO-E",
+      "name": "KRK-RKO-E",
+      "shortName": "KRK-RKO-E",
+      "parent": {
+        "code": "KRK_RKO",
+        "name": "Rako",
+        "id": "WIZiLY6U5wX",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/WIZiLY6U5wX/RrLWg04064A",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-RKO-E",
+      "id": "RrLWg04064A",
+      "level": 5
+    },
+    {
+      "code": "KRK-RKO-F",
+      "name": "KRK-RKO-F",
+      "shortName": "KRK-RKO-F",
+      "parent": {
+        "code": "KRK_RKO",
+        "name": "Rako",
+        "id": "WIZiLY6U5wX",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/WIZiLY6U5wX/kelw07kEOwv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-RKO-F",
+      "id": "kelw07kEOwv",
+      "level": 5
+    },
+    {
+      "code": "KRK-WAY-A",
+      "name": "KRK-WAY-A",
+      "shortName": "KRK-WAY-A",
+      "parent": {
+        "code": "KRK_WAY",
+        "name": "Waciya",
+        "id": "D7HafsJeqdp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/D7HafsJeqdp/YHCPmGK1l8N",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-WAY-A",
+      "id": "YHCPmGK1l8N",
+      "level": 5
+    },
+    {
+      "code": "KRK-WAY-B",
+      "name": "KRK-WAY-B",
+      "shortName": "KRK-WAY-B",
+      "parent": {
+        "code": "KRK_WAY",
+        "name": "Waciya",
+        "id": "D7HafsJeqdp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/D7HafsJeqdp/qZSRo4xP9XW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-WAY-B",
+      "id": "qZSRo4xP9XW",
+      "level": 5
+    },
+    {
+      "code": "KRK-WAY-C",
+      "name": "KRK-WAY-C",
+      "shortName": "KRK-WAY-C",
+      "parent": {
+        "code": "KRK_WAY",
+        "name": "Waciya",
+        "id": "D7HafsJeqdp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/D7HafsJeqdp/UWUKpvEFCZc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-WAY-C",
+      "id": "UWUKpvEFCZc",
+      "level": 5
+    },
+    {
+      "code": "KRK-WAY-D",
+      "name": "KRK-WAY-D",
+      "shortName": "KRK-WAY-D",
+      "parent": {
+        "code": "KRK_WAY",
+        "name": "Waciya",
+        "id": "D7HafsJeqdp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/D7HafsJeqdp/jC5fHzMCIf0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-WAY-D",
+      "id": "jC5fHzMCIf0",
+      "level": 5
+    },
+    {
+      "code": "KRK-WAY-E",
+      "name": "KRK-WAY-E",
+      "shortName": "KRK-WAY-E",
+      "parent": {
+        "code": "KRK_WAY",
+        "name": "Waciya",
+        "id": "D7HafsJeqdp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/D7HafsJeqdp/xYg9Gn72s0C",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-WAY-E",
+      "id": "xYg9Gn72s0C",
+      "level": 5
+    },
+    {
+      "code": "KRK-WAY-F",
+      "name": "KRK-WAY-F",
+      "shortName": "KRK-WAY-F",
+      "parent": {
+        "code": "KRK_WAY",
+        "name": "Waciya",
+        "id": "D7HafsJeqdp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/D7HafsJeqdp/cbtjlq8jvrM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-WAY-F",
+      "id": "cbtjlq8jvrM",
+      "level": 5
+    },
+    {
+      "code": "KRK-WAY-G",
+      "name": "KRK-WAY-G",
+      "shortName": "KRK-WAY-G",
+      "parent": {
+        "code": "KRK_WAY",
+        "name": "Waciya",
+        "id": "D7HafsJeqdp",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/D7HafsJeqdp/xJrUIxA8Azf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "KRK-WAY-G",
+      "id": "xJrUIxA8Azf",
+      "level": 5
+    },
+    {
+      "code": "BAN_KDA",
+      "name": "Kahda",
+      "shortName": "Kahda",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/ELvlgjUQbZ3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Kahda",
+      "id": "ELvlgjUQbZ3",
+      "level": 4
+    },
+    {
+      "code": "BAN_KRN",
+      "name": "Karan",
+      "shortName": "Karan",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/Wst7WQFCews",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Karan",
+      "id": "Wst7WQFCews",
+      "level": 4
+    },
+    {
+      "code": "KRK",
+      "name": "Karkar",
+      "shortName": "Karkar",
+      "parent": {
+        "code": "Z_PUN",
+        "name": "Puntland",
+        "id": "Hdifa5RHaTR",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Karkar",
+      "id": "fY6oVnyhWPN",
+      "level": 3
+    },
+    {
+      "code": "LJB_KIS",
+      "name": "Kismayo",
+      "shortName": "Kismayo",
+      "parent": {
+        "code": "LJB",
+        "name": "Lower Juba",
+        "id": "o27iHpDULWo",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/hETA3HW7UkK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Kismayo",
+      "id": "hETA3HW7UkK",
+      "level": 4
+    },
+    {
+      "code": "LSH_KRT",
+      "name": "Kurtunwaarey",
+      "shortName": "Kurtunwaarey",
+      "parent": {
+        "code": "LSH",
+        "name": "Lower Shabelle",
+        "id": "pg94cVJwqwv",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/pg94cVJwqwv/HctOAHJ3oVs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Kurtunwaarey",
+      "id": "HctOAHJ3oVs",
+      "level": 4
+    },
+    {
+      "code": "LJB-AFM-A",
+      "name": "LJB-AFM-A",
+      "shortName": "LJB-AFM-A",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/YQbv4uuYVxK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-A",
+      "id": "YQbv4uuYVxK",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AA",
+      "name": "LJB-AFM-AA",
+      "shortName": "LJB-AFM-AA",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/d4WHTqH9sNF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AA",
+      "id": "d4WHTqH9sNF",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AB",
+      "name": "LJB-AFM-AB",
+      "shortName": "LJB-AFM-AB",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/C2TqRq0nw07",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AB",
+      "id": "C2TqRq0nw07",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AC",
+      "name": "LJB-AFM-AC",
+      "shortName": "LJB-AFM-AC",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/AE312b0Bsxp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AC",
+      "id": "AE312b0Bsxp",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AD",
+      "name": "LJB-AFM-AD",
+      "shortName": "LJB-AFM-AD",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/ZLxln2G4cKT",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AD",
+      "id": "ZLxln2G4cKT",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AE",
+      "name": "LJB-AFM-AE",
+      "shortName": "LJB-AFM-AE",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/HnrfSzlDwGV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AE",
+      "id": "HnrfSzlDwGV",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AF",
+      "name": "LJB-AFM-AF",
+      "shortName": "LJB-AFM-AF",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/C8EPwlUpall",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AF",
+      "id": "C8EPwlUpall",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AG",
+      "name": "LJB-AFM-AG",
+      "shortName": "LJB-AFM-AG",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/XvR5thrWAJy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AG",
+      "id": "XvR5thrWAJy",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AH",
+      "name": "LJB-AFM-AH",
+      "shortName": "LJB-AFM-AH",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/FARsKrIwlhs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AH",
+      "id": "FARsKrIwlhs",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AI",
+      "name": "LJB-AFM-AI",
+      "shortName": "LJB-AFM-AI",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/P27VUaresNK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AI",
+      "id": "P27VUaresNK",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AJ",
+      "name": "LJB-AFM-AJ",
+      "shortName": "LJB-AFM-AJ",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/ZFdGALGgylj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AJ",
+      "id": "ZFdGALGgylj",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AK",
+      "name": "LJB-AFM-AK",
+      "shortName": "LJB-AFM-AK",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/SRR68HEYiUy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AK",
+      "id": "SRR68HEYiUy",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AL",
+      "name": "LJB-AFM-AL",
+      "shortName": "LJB-AFM-AL",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/C52g5JI71eV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AL",
+      "id": "C52g5JI71eV",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AM",
+      "name": "LJB-AFM-AM",
+      "shortName": "LJB-AFM-AM",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/aF0OPHlURDy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AM",
+      "id": "aF0OPHlURDy",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AN",
+      "name": "LJB-AFM-AN",
+      "shortName": "LJB-AFM-AN",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/Bc7B5VkTnpC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AN",
+      "id": "Bc7B5VkTnpC",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AO",
+      "name": "LJB-AFM-AO",
+      "shortName": "LJB-AFM-AO",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/UCrPShkRt1D",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AO",
+      "id": "UCrPShkRt1D",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AP",
+      "name": "LJB-AFM-AP",
+      "shortName": "LJB-AFM-AP",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/VMrPTlrh8hD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AP",
+      "id": "VMrPTlrh8hD",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AQ",
+      "name": "LJB-AFM-AQ",
+      "shortName": "LJB-AFM-AQ",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/s03C8ymN5dm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AQ",
+      "id": "s03C8ymN5dm",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-AR",
+      "name": "LJB-AFM-AR",
+      "shortName": "LJB-AFM-AR",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/HXJOls2jJqw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-AR",
+      "id": "HXJOls2jJqw",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-B",
+      "name": "LJB-AFM-B",
+      "shortName": "LJB-AFM-B",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/xOejXcEyjxb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-B",
+      "id": "xOejXcEyjxb",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-C",
+      "name": "LJB-AFM-C",
+      "shortName": "LJB-AFM-C",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/OhQv9k8DnTd",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-C",
+      "id": "OhQv9k8DnTd",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-D",
+      "name": "LJB-AFM-D",
+      "shortName": "LJB-AFM-D",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/I8dd7imvY70",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-D",
+      "id": "I8dd7imvY70",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-E",
+      "name": "LJB-AFM-E",
+      "shortName": "LJB-AFM-E",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/LAfiMcy8e6T",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-E",
+      "id": "LAfiMcy8e6T",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-F",
+      "name": "LJB-AFM-F",
+      "shortName": "LJB-AFM-F",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/ivrnybkdOhp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-F",
+      "id": "ivrnybkdOhp",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-G",
+      "name": "LJB-AFM-G",
+      "shortName": "LJB-AFM-G",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/Cj937zI8MV1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-G",
+      "id": "Cj937zI8MV1",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-H",
+      "name": "LJB-AFM-H",
+      "shortName": "LJB-AFM-H",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/IL2STHRBslb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-H",
+      "id": "IL2STHRBslb",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-I",
+      "name": "LJB-AFM-I",
+      "shortName": "LJB-AFM-I",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/lW3ppZ4RdtC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-I",
+      "id": "lW3ppZ4RdtC",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-J",
+      "name": "LJB-AFM-J",
+      "shortName": "LJB-AFM-J",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/Q5TAoQEFV4X",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-J",
+      "id": "Q5TAoQEFV4X",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-K",
+      "name": "LJB-AFM-K",
+      "shortName": "LJB-AFM-K",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/ehDrP3U9n48",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-K",
+      "id": "ehDrP3U9n48",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-L",
+      "name": "LJB-AFM-L",
+      "shortName": "LJB-AFM-L",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/ZAavAYpU5C3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-L",
+      "id": "ZAavAYpU5C3",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-M",
+      "name": "LJB-AFM-M",
+      "shortName": "LJB-AFM-M",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/XiIb7pydybO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-M",
+      "id": "XiIb7pydybO",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-N",
+      "name": "LJB-AFM-N",
+      "shortName": "LJB-AFM-N",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/jtYjDBJS8BB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-N",
+      "id": "jtYjDBJS8BB",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-O",
+      "name": "LJB-AFM-O",
+      "shortName": "LJB-AFM-O",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/NuoWXhc4GeE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-O",
+      "id": "NuoWXhc4GeE",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-P",
+      "name": "LJB-AFM-P",
+      "shortName": "LJB-AFM-P",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/tsIdWLAVmPV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-P",
+      "id": "tsIdWLAVmPV",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-Q",
+      "name": "LJB-AFM-Q",
+      "shortName": "LJB-AFM-Q",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/Qfjzc56rp0R",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-Q",
+      "id": "Qfjzc56rp0R",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-R",
+      "name": "LJB-AFM-R",
+      "shortName": "LJB-AFM-R",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/VgmrP9zLvGp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-R",
+      "id": "VgmrP9zLvGp",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-S",
+      "name": "LJB-AFM-S",
+      "shortName": "LJB-AFM-S",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/Uti7fQrl70P",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-S",
+      "id": "Uti7fQrl70P",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-T",
+      "name": "LJB-AFM-T",
+      "shortName": "LJB-AFM-T",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/YRVjY4Zwt6Z",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-T",
+      "id": "YRVjY4Zwt6Z",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-U",
+      "name": "LJB-AFM-U",
+      "shortName": "LJB-AFM-U",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/SySiQN57Qnt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-U",
+      "id": "SySiQN57Qnt",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-V",
+      "name": "LJB-AFM-V",
+      "shortName": "LJB-AFM-V",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/MIxZpbtKW1z",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-V",
+      "id": "MIxZpbtKW1z",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-W",
+      "name": "LJB-AFM-W",
+      "shortName": "LJB-AFM-W",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/hbGf73aboPW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-W",
+      "id": "hbGf73aboPW",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-X",
+      "name": "LJB-AFM-X",
+      "shortName": "LJB-AFM-X",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/v3cLT5Q0T0f",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-X",
+      "id": "v3cLT5Q0T0f",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-Y",
+      "name": "LJB-AFM-Y",
+      "shortName": "LJB-AFM-Y",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/xwXxtOst9GW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-Y",
+      "id": "xwXxtOst9GW",
+      "level": 5
+    },
+    {
+      "code": "LJB-AFM-Z",
+      "name": "LJB-AFM-Z",
+      "shortName": "LJB-AFM-Z",
+      "parent": {
+        "code": "LJB_AFM",
+        "name": "Afmadow",
+        "id": "smunF1T8WfJ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/smunF1T8WfJ/rHkJSh5u6rv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "LJB-AFM-Z",
+      "id": "rHkJSh5u6rv",
+      "level": 5
+    }
+  ]
+}

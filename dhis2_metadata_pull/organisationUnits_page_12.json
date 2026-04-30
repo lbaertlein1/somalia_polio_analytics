@@ -1,0 +1,4012 @@
+{
+  "pager": {
+    "page": 12,
+    "total": 3855,
+    "pageSize": 250,
+    "nextPage": "https://www.somalia-polio-ims.org/api/organisationUnits?page=13&pageSize=250&fields=id%2Ccode%2Cname%2CshortName%2CdisplayName%2Clevel%2Cpath%2CopeningDate%2CclosedDate%2Cparent%5Bid%2Ccode%2Cname%2Clevel%5D",
+    "prevPage": "https://www.somalia-polio-ims.org/api/organisationUnits?page=11&pageSize=250&fields=id%2Ccode%2Cname%2CshortName%2CdisplayName%2Clevel%2Cpath%2CopeningDate%2CclosedDate%2Cparent%5Bid%2Ccode%2Cname%2Clevel%5D",
+    "pageCount": 16
+  },
+  "organisationUnits": [
+    {
+      "code": "MSH-MDY-C",
+      "name": "MSH-MDY-C",
+      "shortName": "MSH-MDY-C",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/cfRnmogt1Ee",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-C",
+      "id": "cfRnmogt1Ee",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-D",
+      "name": "MSH-MDY-D",
+      "shortName": "MSH-MDY-D",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/ZEsLP0PlFQX",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-D",
+      "id": "ZEsLP0PlFQX",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-E",
+      "name": "MSH-MDY-E",
+      "shortName": "MSH-MDY-E",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/chSHac4P7Mz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-E",
+      "id": "chSHac4P7Mz",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-F",
+      "name": "MSH-MDY-F",
+      "shortName": "MSH-MDY-F",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/YVnLv5S0RKl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-F",
+      "id": "YVnLv5S0RKl",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-G",
+      "name": "MSH-MDY-G",
+      "shortName": "MSH-MDY-G",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/rLJg7MtIri7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-G",
+      "id": "rLJg7MtIri7",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-H",
+      "name": "MSH-MDY-H",
+      "shortName": "MSH-MDY-H",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/XtoaFL6ZRq5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-H",
+      "id": "XtoaFL6ZRq5",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-I",
+      "name": "MSH-MDY-I",
+      "shortName": "MSH-MDY-I",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/EjHjUVommaN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-I",
+      "id": "EjHjUVommaN",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-J",
+      "name": "MSH-MDY-J",
+      "shortName": "MSH-MDY-J",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/aj7gsFk8Ivm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-J",
+      "id": "aj7gsFk8Ivm",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-K",
+      "name": "MSH-MDY-K",
+      "shortName": "MSH-MDY-K",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/C1UZwYWNlEY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-K",
+      "id": "C1UZwYWNlEY",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-L",
+      "name": "MSH-MDY-L",
+      "shortName": "MSH-MDY-L",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/YlUyi5gj9Pt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-L",
+      "id": "YlUyi5gj9Pt",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-M",
+      "name": "MSH-MDY-M",
+      "shortName": "MSH-MDY-M",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/uEGHtKOgxpl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-M",
+      "id": "uEGHtKOgxpl",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-N",
+      "name": "MSH-MDY-N",
+      "shortName": "MSH-MDY-N",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/HhHuV5pDDRi",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-N",
+      "id": "HhHuV5pDDRi",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-O",
+      "name": "MSH-MDY-O",
+      "shortName": "MSH-MDY-O",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/moJb4tpTpTB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-O",
+      "id": "moJb4tpTpTB",
+      "level": 5
+    },
+    {
+      "code": "MSH-MDY-P",
+      "name": "MSH-MDY-P",
+      "shortName": "MSH-MDY-P",
+      "parent": {
+        "code": "MSH_MDY",
+        "name": "Mahaday",
+        "id": "z1L4VkKUo9j",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j/QtUZZoEzg44",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-MDY-P",
+      "id": "QtUZZoEzg44",
+      "level": 5
+    },
+    {
+      "code": "MSH-RGE-A",
+      "name": "MSH-RGE-A",
+      "shortName": "MSH-RGE-A",
+      "parent": {
+        "code": "MSH_RGE",
+        "name": "Raga Elle",
+        "id": "jpVS7abUkf3",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/jpVS7abUkf3/BgqCH52K7IF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RGE-A",
+      "id": "BgqCH52K7IF",
+      "level": 5
+    },
+    {
+      "code": "MSH-RGE-B",
+      "name": "MSH-RGE-B",
+      "shortName": "MSH-RGE-B",
+      "parent": {
+        "code": "MSH_RGE",
+        "name": "Raga Elle",
+        "id": "jpVS7abUkf3",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/jpVS7abUkf3/dS9BwSXgrzg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RGE-B",
+      "id": "dS9BwSXgrzg",
+      "level": 5
+    },
+    {
+      "code": "MSH-RGE-C",
+      "name": "MSH-RGE-C",
+      "shortName": "MSH-RGE-C",
+      "parent": {
+        "code": "MSH_RGE",
+        "name": "Raga Elle",
+        "id": "jpVS7abUkf3",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/jpVS7abUkf3/aJ5oWjirhas",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RGE-C",
+      "id": "aJ5oWjirhas",
+      "level": 5
+    },
+    {
+      "code": "MSH-RGE-D",
+      "name": "MSH-RGE-D",
+      "shortName": "MSH-RGE-D",
+      "parent": {
+        "code": "MSH_RGE",
+        "name": "Raga Elle",
+        "id": "jpVS7abUkf3",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/jpVS7abUkf3/RZtrraMQWpZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RGE-D",
+      "id": "RZtrraMQWpZ",
+      "level": 5
+    },
+    {
+      "code": "MSH-RGE-E",
+      "name": "MSH-RGE-E",
+      "shortName": "MSH-RGE-E",
+      "parent": {
+        "code": "MSH_RGE",
+        "name": "Raga Elle",
+        "id": "jpVS7abUkf3",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/jpVS7abUkf3/LqwRsXonXji",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RGE-E",
+      "id": "LqwRsXonXji",
+      "level": 5
+    },
+    {
+      "code": "MSH-RGE-F",
+      "name": "MSH-RGE-F",
+      "shortName": "MSH-RGE-F",
+      "parent": {
+        "code": "MSH_RGE",
+        "name": "Raga Elle",
+        "id": "jpVS7abUkf3",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/jpVS7abUkf3/QnoI1jvLhO8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RGE-F",
+      "id": "QnoI1jvLhO8",
+      "level": 5
+    },
+    {
+      "code": "MSH-RGE-G",
+      "name": "MSH-RGE-G",
+      "shortName": "MSH-RGE-G",
+      "parent": {
+        "code": "MSH_RGE",
+        "name": "Raga Elle",
+        "id": "jpVS7abUkf3",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/jpVS7abUkf3/fTNFImY67mA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RGE-G",
+      "id": "fTNFImY67mA",
+      "level": 5
+    },
+    {
+      "code": "MSH-RGE-H",
+      "name": "MSH-RGE-H",
+      "shortName": "MSH-RGE-H",
+      "parent": {
+        "code": "MSH_RGE",
+        "name": "Raga Elle",
+        "id": "jpVS7abUkf3",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/jpVS7abUkf3/FN9bs9z1mxj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RGE-H",
+      "id": "FN9bs9z1mxj",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-A",
+      "name": "MSH-RNG-A",
+      "shortName": "MSH-RNG-A",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/xJsTjwQKyZd",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-A",
+      "id": "xJsTjwQKyZd",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-B",
+      "name": "MSH-RNG-B",
+      "shortName": "MSH-RNG-B",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/AEABw3erM7t",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-B",
+      "id": "AEABw3erM7t",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-C",
+      "name": "MSH-RNG-C",
+      "shortName": "MSH-RNG-C",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/Hl92FAJxqZa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-C",
+      "id": "Hl92FAJxqZa",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-D",
+      "name": "MSH-RNG-D",
+      "shortName": "MSH-RNG-D",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/WHkZJTjnoj1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-D",
+      "id": "WHkZJTjnoj1",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-E",
+      "name": "MSH-RNG-E",
+      "shortName": "MSH-RNG-E",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/Yc2GSxqB3Qz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-E",
+      "id": "Yc2GSxqB3Qz",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-F",
+      "name": "MSH-RNG-F",
+      "shortName": "MSH-RNG-F",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/gVIwtGFa1IZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-F",
+      "id": "gVIwtGFa1IZ",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-G",
+      "name": "MSH-RNG-G",
+      "shortName": "MSH-RNG-G",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/bkZO8JWkBKe",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-G",
+      "id": "bkZO8JWkBKe",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-H",
+      "name": "MSH-RNG-H",
+      "shortName": "MSH-RNG-H",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/f4MZQuoAqeu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-H",
+      "id": "f4MZQuoAqeu",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-I",
+      "name": "MSH-RNG-I",
+      "shortName": "MSH-RNG-I",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/tm79Ubn35HZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-I",
+      "id": "tm79Ubn35HZ",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-J",
+      "name": "MSH-RNG-J",
+      "shortName": "MSH-RNG-J",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/HwoG6iBTJ9g",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-J",
+      "id": "HwoG6iBTJ9g",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-K",
+      "name": "MSH-RNG-K",
+      "shortName": "MSH-RNG-K",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/OYFYcJFMi9U",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-K",
+      "id": "OYFYcJFMi9U",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-L",
+      "name": "MSH-RNG-L",
+      "shortName": "MSH-RNG-L",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/ITsmDaxYAom",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-L",
+      "id": "ITsmDaxYAom",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-M",
+      "name": "MSH-RNG-M",
+      "shortName": "MSH-RNG-M",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/Y469lmmIcmV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-M",
+      "id": "Y469lmmIcmV",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-N",
+      "name": "MSH-RNG-N",
+      "shortName": "MSH-RNG-N",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/sEbVBL3RyGh",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-N",
+      "id": "sEbVBL3RyGh",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-O",
+      "name": "MSH-RNG-O",
+      "shortName": "MSH-RNG-O",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/DcnGYedjhnc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-O",
+      "id": "DcnGYedjhnc",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-P",
+      "name": "MSH-RNG-P",
+      "shortName": "MSH-RNG-P",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/JyyreL8WCPF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-P",
+      "id": "JyyreL8WCPF",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-Q",
+      "name": "MSH-RNG-Q",
+      "shortName": "MSH-RNG-Q",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/YARghtCPFhB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-Q",
+      "id": "YARghtCPFhB",
+      "level": 5
+    },
+    {
+      "code": "MSH-RNG-R",
+      "name": "MSH-RNG-R",
+      "shortName": "MSH-RNG-R",
+      "parent": {
+        "code": "MSH_RNG",
+        "name": "Runingod",
+        "id": "rI1KVaXKXm5",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/rI1KVaXKXm5/RbAYxkncuI9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-RNG-R",
+      "id": "RbAYxkncuI9",
+      "level": 5
+    },
+    {
+      "code": "MSH-WRS-A",
+      "name": "MSH-WRS-A",
+      "shortName": "MSH-WRS-A",
+      "parent": {
+        "code": "MSH_WRS",
+        "name": "Warsheikh",
+        "id": "yxcBMvjVy8g",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/yxcBMvjVy8g/YyC4TVGt2cP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-WRS-A",
+      "id": "YyC4TVGt2cP",
+      "level": 5
+    },
+    {
+      "code": "MSH-WRS-B",
+      "name": "MSH-WRS-B",
+      "shortName": "MSH-WRS-B",
+      "parent": {
+        "code": "MSH_WRS",
+        "name": "Warsheikh",
+        "id": "yxcBMvjVy8g",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/yxcBMvjVy8g/RMjro6SwO9V",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-WRS-B",
+      "id": "RMjro6SwO9V",
+      "level": 5
+    },
+    {
+      "code": "MSH-WRS-C",
+      "name": "MSH-WRS-C",
+      "shortName": "MSH-WRS-C",
+      "parent": {
+        "code": "MSH_WRS",
+        "name": "Warsheikh",
+        "id": "yxcBMvjVy8g",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/yxcBMvjVy8g/CTNQ4QOnKFa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-WRS-C",
+      "id": "CTNQ4QOnKFa",
+      "level": 5
+    },
+    {
+      "code": "MSH-WRS-D",
+      "name": "MSH-WRS-D",
+      "shortName": "MSH-WRS-D",
+      "parent": {
+        "code": "MSH_WRS",
+        "name": "Warsheikh",
+        "id": "yxcBMvjVy8g",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/yxcBMvjVy8g/brxAB69h44M",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-WRS-D",
+      "id": "brxAB69h44M",
+      "level": 5
+    },
+    {
+      "code": "MSH-WRS-E",
+      "name": "MSH-WRS-E",
+      "shortName": "MSH-WRS-E",
+      "parent": {
+        "code": "MSH_WRS",
+        "name": "Warsheikh",
+        "id": "yxcBMvjVy8g",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/yxcBMvjVy8g/oBmSCE6vSMR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-WRS-E",
+      "id": "oBmSCE6vSMR",
+      "level": 5
+    },
+    {
+      "code": "MSH-WRS-F",
+      "name": "MSH-WRS-F",
+      "shortName": "MSH-WRS-F",
+      "parent": {
+        "code": "MSH_WRS",
+        "name": "Warsheikh",
+        "id": "yxcBMvjVy8g",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/yxcBMvjVy8g/ffxNICxwqUM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MSH-WRS-F",
+      "id": "ffxNICxwqUM",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-A",
+      "name": "MUD-GAL-A",
+      "shortName": "MUD-GAL-A",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/EMKaPuiYik5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-A",
+      "id": "EMKaPuiYik5",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AA",
+      "name": "MUD-GAL-AA",
+      "shortName": "MUD-GAL-AA",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/QyDzkBUGVmX",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AA",
+      "id": "QyDzkBUGVmX",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AB",
+      "name": "MUD-GAL-AB",
+      "shortName": "MUD-GAL-AB",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/mAAZBDbjWJt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AB",
+      "id": "mAAZBDbjWJt",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AC",
+      "name": "MUD-GAL-AC",
+      "shortName": "MUD-GAL-AC",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/Sw10M6ZPJGA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AC",
+      "id": "Sw10M6ZPJGA",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AD",
+      "name": "MUD-GAL-AD",
+      "shortName": "MUD-GAL-AD",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/dTEc9nLKj7t",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AD",
+      "id": "dTEc9nLKj7t",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AE",
+      "name": "MUD-GAL-AE",
+      "shortName": "MUD-GAL-AE",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/KcpwXVIama5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AE",
+      "id": "KcpwXVIama5",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AF",
+      "name": "MUD-GAL-AF",
+      "shortName": "MUD-GAL-AF",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/Nvi6WpTB3el",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AF",
+      "id": "Nvi6WpTB3el",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AG",
+      "name": "MUD-GAL-AG",
+      "shortName": "MUD-GAL-AG",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/VZ67phjUlsy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AG",
+      "id": "VZ67phjUlsy",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AH",
+      "name": "MUD-GAL-AH",
+      "shortName": "MUD-GAL-AH",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/Pwj1JCyrGd0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AH",
+      "id": "Pwj1JCyrGd0",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AM",
+      "name": "MUD-GAL-AM",
+      "shortName": "MUD-GAL-AM",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/EXpbuRbagMz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AM",
+      "id": "EXpbuRbagMz",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AN",
+      "name": "MUD-GAL-AN",
+      "shortName": "MUD-GAL-AN",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/YerNVwE2Paa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AN",
+      "id": "YerNVwE2Paa",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AO",
+      "name": "MUD-GAL-AO",
+      "shortName": "MUD-GAL-AO",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/EFXJGD1BYCV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AO",
+      "id": "EFXJGD1BYCV",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AP",
+      "name": "MUD-GAL-AP",
+      "shortName": "MUD-GAL-AP",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/qnHb8xsRmYx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AP",
+      "id": "qnHb8xsRmYx",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AQ",
+      "name": "MUD-GAL-AQ",
+      "shortName": "MUD-GAL-AQ",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ucsgbi3fXUI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AQ",
+      "id": "ucsgbi3fXUI",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AR",
+      "name": "MUD-GAL-AR",
+      "shortName": "MUD-GAL-AR",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/byrIf65HEvD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AR",
+      "id": "byrIf65HEvD",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AS",
+      "name": "MUD-GAL-AS",
+      "shortName": "MUD-GAL-AS",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/Ulin2gj35cS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AS",
+      "id": "Ulin2gj35cS",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AT",
+      "name": "MUD-GAL-AT",
+      "shortName": "MUD-GAL-AT",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/uNDASdxC49V",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AT",
+      "id": "uNDASdxC49V",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AU",
+      "name": "MUD-GAL-AU",
+      "shortName": "MUD-GAL-AU",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/opqpF0GyHVp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AU",
+      "id": "opqpF0GyHVp",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AV",
+      "name": "MUD-GAL-AV",
+      "shortName": "MUD-GAL-AV",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/RS3HrUfHx7h",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AV",
+      "id": "RS3HrUfHx7h",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AW",
+      "name": "MUD-GAL-AW",
+      "shortName": "MUD-GAL-AW",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/KTXPG6Czt67",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AW",
+      "id": "KTXPG6Czt67",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AX",
+      "name": "MUD-GAL-AX",
+      "shortName": "MUD-GAL-AX",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/lJYTzvCJQ1X",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AX",
+      "id": "lJYTzvCJQ1X",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AY",
+      "name": "MUD-GAL-AY",
+      "shortName": "MUD-GAL-AY",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/rBqTficJhrA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AY",
+      "id": "rBqTficJhrA",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-AZ",
+      "name": "MUD-GAL-AZ",
+      "shortName": "MUD-GAL-AZ",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/FTJBxOpdvIu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-AZ",
+      "id": "FTJBxOpdvIu",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-Ai",
+      "name": "MUD-GAL-Ai",
+      "shortName": "MUD-GAL-Ai",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/oMLvmcvVPAN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-Ai",
+      "id": "oMLvmcvVPAN",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-Aj",
+      "name": "MUD-GAL-Aj",
+      "shortName": "MUD-GAL-Aj",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/OT4NoNuu4K3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-Aj",
+      "id": "OT4NoNuu4K3",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-Ak",
+      "name": "MUD-GAL-Ak",
+      "shortName": "MUD-GAL-Ak",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/gkYJaFton6X",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-Ak",
+      "id": "gkYJaFton6X",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-Al",
+      "name": "MUD-GAL-Al",
+      "shortName": "MUD-GAL-Al",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/sAZ001HY2K5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-Al",
+      "id": "sAZ001HY2K5",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-B",
+      "name": "MUD-GAL-B",
+      "shortName": "MUD-GAL-B",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/iUFotdEwty1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-B",
+      "id": "iUFotdEwty1",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BA",
+      "name": "MUD-GAL-BA",
+      "shortName": "MUD-GAL-BA",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/iE3ISk9AZB5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BA",
+      "id": "iE3ISk9AZB5",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BB",
+      "name": "MUD-GAL-BB",
+      "shortName": "MUD-GAL-BB",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/VhXshZUAT0A",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BB",
+      "id": "VhXshZUAT0A",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BC",
+      "name": "MUD-GAL-BC",
+      "shortName": "MUD-GAL-BC",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/eMnHIrvzgtO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BC",
+      "id": "eMnHIrvzgtO",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BD",
+      "name": "MUD-GAL-BD",
+      "shortName": "MUD-GAL-BD",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/zCRct1NPdGA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BD",
+      "id": "zCRct1NPdGA",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BE",
+      "name": "MUD-GAL-BE",
+      "shortName": "MUD-GAL-BE",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/YexmfDIdfFI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BE",
+      "id": "YexmfDIdfFI",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BF",
+      "name": "MUD-GAL-BF",
+      "shortName": "MUD-GAL-BF",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ni340oDZjxq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BF",
+      "id": "ni340oDZjxq",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BG",
+      "name": "MUD-GAL-BG",
+      "shortName": "MUD-GAL-BG",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/iYCtpxLW7GV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BG",
+      "id": "iYCtpxLW7GV",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BH",
+      "name": "MUD-GAL-BH",
+      "shortName": "MUD-GAL-BH",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/YYGS9zShQIa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BH",
+      "id": "YYGS9zShQIa",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BI",
+      "name": "MUD-GAL-BI",
+      "shortName": "MUD-GAL-BI",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/V4rIDQ2nI7Z",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BI",
+      "id": "V4rIDQ2nI7Z",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BJ",
+      "name": "MUD-GAL-BJ",
+      "shortName": "MUD-GAL-BJ",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/dfIDokQw8tX",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BJ",
+      "id": "dfIDokQw8tX",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BK",
+      "name": "MUD-GAL-BK",
+      "shortName": "MUD-GAL-BK",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/VkqKsBJTFST",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BK",
+      "id": "VkqKsBJTFST",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BL",
+      "name": "MUD-GAL-BL",
+      "shortName": "MUD-GAL-BL",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/Dn6VjeNkb1a",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BL",
+      "id": "Dn6VjeNkb1a",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BM",
+      "name": "MUD-GAL-BM",
+      "shortName": "MUD-GAL-BM",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/pLCnqifrpl9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BM",
+      "id": "pLCnqifrpl9",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BN",
+      "name": "MUD-GAL-BN",
+      "shortName": "MUD-GAL-BN",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/o157Uv8Bchm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BN",
+      "id": "o157Uv8Bchm",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BO",
+      "name": "MUD-GAL-BO",
+      "shortName": "MUD-GAL-BO",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/T5MgAKUAzaw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BO",
+      "id": "T5MgAKUAzaw",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BP",
+      "name": "MUD-GAL-BP",
+      "shortName": "MUD-GAL-BP",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/aH3E4W90iqr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BP",
+      "id": "aH3E4W90iqr",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BQ",
+      "name": "MUD-GAL-BQ",
+      "shortName": "MUD-GAL-BQ",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/k0LfCtT5sbQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BQ",
+      "id": "k0LfCtT5sbQ",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BR",
+      "name": "MUD-GAL-BR",
+      "shortName": "MUD-GAL-BR",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/SiMDzSLiDso",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BR",
+      "id": "SiMDzSLiDso",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BS",
+      "name": "MUD-GAL-BS",
+      "shortName": "MUD-GAL-BS",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/nfxwPkjTAQK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BS",
+      "id": "nfxwPkjTAQK",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BT",
+      "name": "MUD-GAL-BT",
+      "shortName": "MUD-GAL-BT",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/iHhh8EURZFW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BT",
+      "id": "iHhh8EURZFW",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BU",
+      "name": "MUD-GAL-BU",
+      "shortName": "MUD-GAL-BU",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/lDMCRMZmPo8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BU",
+      "id": "lDMCRMZmPo8",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BV",
+      "name": "MUD-GAL-BV",
+      "shortName": "MUD-GAL-BV",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/Lp6laSQMh8c",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BV",
+      "id": "Lp6laSQMh8c",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BW",
+      "name": "MUD-GAL-BW",
+      "shortName": "MUD-GAL-BW",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/yjFuiXoT1RC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BW",
+      "id": "yjFuiXoT1RC",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BX",
+      "name": "MUD-GAL-BX",
+      "shortName": "MUD-GAL-BX",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/QuPbHJyfSUb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BX",
+      "id": "QuPbHJyfSUb",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BY",
+      "name": "MUD-GAL-BY",
+      "shortName": "MUD-GAL-BY",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/tU7iacjFllC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BY",
+      "id": "tU7iacjFllC",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-BZ",
+      "name": "MUD-GAL-BZ",
+      "shortName": "MUD-GAL-BZ",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/SlcPWZXVE9b",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-BZ",
+      "id": "SlcPWZXVE9b",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-C",
+      "name": "MUD-GAL-C",
+      "shortName": "MUD-GAL-C",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/C0GPUsgy2vb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-C",
+      "id": "C0GPUsgy2vb",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CA",
+      "name": "MUD-GAL-CA",
+      "shortName": "MUD-GAL-CA",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/JtHcYYGTukt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CA",
+      "id": "JtHcYYGTukt",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CB",
+      "name": "MUD-GAL-CB",
+      "shortName": "MUD-GAL-CB",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/jwGzrow7EiM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CB",
+      "id": "jwGzrow7EiM",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CC",
+      "name": "MUD-GAL-CC",
+      "shortName": "MUD-GAL-CC",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/BjivHtq1NpT",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CC",
+      "id": "BjivHtq1NpT",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CD",
+      "name": "MUD-GAL-CD",
+      "shortName": "MUD-GAL-CD",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/PbXLyVdPgsK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CD",
+      "id": "PbXLyVdPgsK",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CE",
+      "name": "MUD-GAL-CE",
+      "shortName": "MUD-GAL-CE",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/vKRT6kl5xSo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CE",
+      "id": "vKRT6kl5xSo",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CF",
+      "name": "MUD-GAL-CF",
+      "shortName": "MUD-GAL-CF",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/f1IA0hhBgWB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CF",
+      "id": "f1IA0hhBgWB",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CG",
+      "name": "MUD-GAL-CG",
+      "shortName": "MUD-GAL-CG",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/tRn85zZOXk1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CG",
+      "id": "tRn85zZOXk1",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CH",
+      "name": "MUD-GAL-CH",
+      "shortName": "MUD-GAL-CH",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/T60itsAHzci",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CH",
+      "id": "T60itsAHzci",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CI",
+      "name": "MUD-GAL-CI",
+      "shortName": "MUD-GAL-CI",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/gsKEIqYLB7x",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CI",
+      "id": "gsKEIqYLB7x",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CJ",
+      "name": "MUD-GAL-CJ",
+      "shortName": "MUD-GAL-CJ",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/Y22CGexjQJH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CJ",
+      "id": "Y22CGexjQJH",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CK",
+      "name": "MUD-GAL-CK",
+      "shortName": "MUD-GAL-CK",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/JS9yenauWBD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CK",
+      "id": "JS9yenauWBD",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CL",
+      "name": "MUD-GAL-CL",
+      "shortName": "MUD-GAL-CL",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/pLjUJzSm7ix",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CL",
+      "id": "pLjUJzSm7ix",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CM",
+      "name": "MUD-GAL-CM",
+      "shortName": "MUD-GAL-CM",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/RmdmeNr1GHs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CM",
+      "id": "RmdmeNr1GHs",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CN",
+      "name": "MUD-GAL-CN",
+      "shortName": "MUD-GAL-CN",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/WHms7SvsLQm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CN",
+      "id": "WHms7SvsLQm",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CO",
+      "name": "MUD-GAL-CO",
+      "shortName": "MUD-GAL-CO",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/fdj9NDorbVL",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CO",
+      "id": "fdj9NDorbVL",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CP",
+      "name": "MUD-GAL-CP",
+      "shortName": "MUD-GAL-CP",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/xWAlZycJB64",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CP",
+      "id": "xWAlZycJB64",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CQ",
+      "name": "MUD-GAL-CQ",
+      "shortName": "MUD-GAL-CQ",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/BR29lMX2txg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CQ",
+      "id": "BR29lMX2txg",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CR",
+      "name": "MUD-GAL-CR",
+      "shortName": "MUD-GAL-CR",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/siLZ73eBBLV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CR",
+      "id": "siLZ73eBBLV",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CS",
+      "name": "MUD-GAL-CS",
+      "shortName": "MUD-GAL-CS",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/Zzhv5PNep0C",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CS",
+      "id": "Zzhv5PNep0C",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CT",
+      "name": "MUD-GAL-CT",
+      "shortName": "MUD-GAL-CT",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/Rl3i9jO6zDS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CT",
+      "id": "Rl3i9jO6zDS",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CU",
+      "name": "MUD-GAL-CU",
+      "shortName": "MUD-GAL-CU",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/uugVEwxkpYr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CU",
+      "id": "uugVEwxkpYr",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CV",
+      "name": "MUD-GAL-CV",
+      "shortName": "MUD-GAL-CV",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/SQcBT3q4dJC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CV",
+      "id": "SQcBT3q4dJC",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CW",
+      "name": "MUD-GAL-CW",
+      "shortName": "MUD-GAL-CW",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/OoWfiO77O2I",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CW",
+      "id": "OoWfiO77O2I",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CX",
+      "name": "MUD-GAL-CX",
+      "shortName": "MUD-GAL-CX",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/iFkcXCUXzO1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CX",
+      "id": "iFkcXCUXzO1",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CY",
+      "name": "MUD-GAL-CY",
+      "shortName": "MUD-GAL-CY",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/i0e8JcS1Irm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CY",
+      "id": "i0e8JcS1Irm",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-CZ",
+      "name": "MUD-GAL-CZ",
+      "shortName": "MUD-GAL-CZ",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/DIdN79Pku6h",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-CZ",
+      "id": "DIdN79Pku6h",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-D",
+      "name": "MUD-GAL-D",
+      "shortName": "MUD-GAL-D",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/wMndRKoPWkX",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-D",
+      "id": "wMndRKoPWkX",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DA",
+      "name": "MUD-GAL-DA",
+      "shortName": "MUD-GAL-DA",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ywVPQ6CZ4Gv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DA",
+      "id": "ywVPQ6CZ4Gv",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DB",
+      "name": "MUD-GAL-DB",
+      "shortName": "MUD-GAL-DB",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ROhuAle8aPh",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DB",
+      "id": "ROhuAle8aPh",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DC",
+      "name": "MUD-GAL-DC",
+      "shortName": "MUD-GAL-DC",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ncgHsFBtym2",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DC",
+      "id": "ncgHsFBtym2",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DD",
+      "name": "MUD-GAL-DD",
+      "shortName": "MUD-GAL-DD",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/vQUs7wiNCyq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DD",
+      "id": "vQUs7wiNCyq",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DE",
+      "name": "MUD-GAL-DE",
+      "shortName": "MUD-GAL-DE",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ieU7N6GPZTH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DE",
+      "id": "ieU7N6GPZTH",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DF",
+      "name": "MUD-GAL-DF",
+      "shortName": "MUD-GAL-DF",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/lTJyf0RBuq3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DF",
+      "id": "lTJyf0RBuq3",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DG",
+      "name": "MUD-GAL-DG",
+      "shortName": "MUD-GAL-DG",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/wtOd8IDvIZW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DG",
+      "id": "wtOd8IDvIZW",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DH",
+      "name": "MUD-GAL-DH",
+      "shortName": "MUD-GAL-DH",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ncZekOTzcfi",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DH",
+      "id": "ncZekOTzcfi",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DI",
+      "name": "MUD-GAL-DI",
+      "shortName": "MUD-GAL-DI",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/rqiSjhWYpg4",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DI",
+      "id": "rqiSjhWYpg4",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DJ",
+      "name": "MUD-GAL-DJ",
+      "shortName": "MUD-GAL-DJ",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/vHu71pqP7b9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DJ",
+      "id": "vHu71pqP7b9",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DK",
+      "name": "MUD-GAL-DK",
+      "shortName": "MUD-GAL-DK",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ruDVnr0xMhH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DK",
+      "id": "ruDVnr0xMhH",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DL",
+      "name": "MUD-GAL-DL",
+      "shortName": "MUD-GAL-DL",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/njlPnMUROY9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DL",
+      "id": "njlPnMUROY9",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DM",
+      "name": "MUD-GAL-DM",
+      "shortName": "MUD-GAL-DM",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/YdWIonLpxwg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DM",
+      "id": "YdWIonLpxwg",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-DN",
+      "name": "MUD-GAL-DN",
+      "shortName": "MUD-GAL-DN",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/GqcBnhIVoW0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-DN",
+      "id": "GqcBnhIVoW0",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-E",
+      "name": "MUD-GAL-E",
+      "shortName": "MUD-GAL-E",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/II5vrUx4kh4",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-E",
+      "id": "II5vrUx4kh4",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-F",
+      "name": "MUD-GAL-F",
+      "shortName": "MUD-GAL-F",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/uG5ispqReDY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-F",
+      "id": "uG5ispqReDY",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-G",
+      "name": "MUD-GAL-G",
+      "shortName": "MUD-GAL-G",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ugwg3R5dgKP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-G",
+      "id": "ugwg3R5dgKP",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-H",
+      "name": "MUD-GAL-H",
+      "shortName": "MUD-GAL-H",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/U2jSMES0vjt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-H",
+      "id": "U2jSMES0vjt",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-I",
+      "name": "MUD-GAL-I",
+      "shortName": "MUD-GAL-I",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ZBZeO0uasn3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-I",
+      "id": "ZBZeO0uasn3",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-J",
+      "name": "MUD-GAL-J",
+      "shortName": "MUD-GAL-J",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/B7TrykSv3oH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-J",
+      "id": "B7TrykSv3oH",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-K",
+      "name": "MUD-GAL-K",
+      "shortName": "MUD-GAL-K",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/V5eOhrL6DoR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-K",
+      "id": "V5eOhrL6DoR",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-L",
+      "name": "MUD-GAL-L",
+      "shortName": "MUD-GAL-L",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/vkeyQLk1aqY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-L",
+      "id": "vkeyQLk1aqY",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-M",
+      "name": "MUD-GAL-M",
+      "shortName": "MUD-GAL-M",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/y07RSTGpX7o",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-M",
+      "id": "y07RSTGpX7o",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-N",
+      "name": "MUD-GAL-N",
+      "shortName": "MUD-GAL-N",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/gzq3vAr78a4",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-N",
+      "id": "gzq3vAr78a4",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-O",
+      "name": "MUD-GAL-O",
+      "shortName": "MUD-GAL-O",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/fxQyam4iBdZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-O",
+      "id": "fxQyam4iBdZ",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-P",
+      "name": "MUD-GAL-P",
+      "shortName": "MUD-GAL-P",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/XEnkMshctIN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-P",
+      "id": "XEnkMshctIN",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-Q",
+      "name": "MUD-GAL-Q",
+      "shortName": "MUD-GAL-Q",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/qvJ8uiyJEiY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-Q",
+      "id": "qvJ8uiyJEiY",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-R",
+      "name": "MUD-GAL-R",
+      "shortName": "MUD-GAL-R",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/vrQ04EXhwQQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-R",
+      "id": "vrQ04EXhwQQ",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-S",
+      "name": "MUD-GAL-S",
+      "shortName": "MUD-GAL-S",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/CdUthZ4MQOk",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-S",
+      "id": "CdUthZ4MQOk",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-T",
+      "name": "MUD-GAL-T",
+      "shortName": "MUD-GAL-T",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/vIelBXBnDCa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-T",
+      "id": "vIelBXBnDCa",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-U",
+      "name": "MUD-GAL-U",
+      "shortName": "MUD-GAL-U",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/rFlPxk4tTRl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-U",
+      "id": "rFlPxk4tTRl",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-V",
+      "name": "MUD-GAL-V",
+      "shortName": "MUD-GAL-V",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/aaEnYMBqHvX",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-V",
+      "id": "aaEnYMBqHvX",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-W",
+      "name": "MUD-GAL-W",
+      "shortName": "MUD-GAL-W",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/M4ZZNPSt2RD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-W",
+      "id": "M4ZZNPSt2RD",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-X",
+      "name": "MUD-GAL-X",
+      "shortName": "MUD-GAL-X",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/VuJS6Yf3xUp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-X",
+      "id": "VuJS6Yf3xUp",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-Y",
+      "name": "MUD-GAL-Y",
+      "shortName": "MUD-GAL-Y",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/YZYTqIkGN6T",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-Y",
+      "id": "YZYTqIkGN6T",
+      "level": 5
+    },
+    {
+      "code": "MUD-GAL-Z",
+      "name": "MUD-GAL-Z",
+      "shortName": "MUD-GAL-Z",
+      "parent": {
+        "code": "MUD_GAL",
+        "name": "Galkayu North",
+        "id": "y3HAvmr0Sx9",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/y3HAvmr0Sx9/ryIvK79e25k",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GAL-Z",
+      "id": "ryIvK79e25k",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-A",
+      "name": "MUD-GDB-A",
+      "shortName": "MUD-GDB-A",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/rbxU2h2oDak",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-A",
+      "id": "rbxU2h2oDak",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-AA",
+      "name": "MUD-GDB-AA",
+      "shortName": "MUD-GDB-AA",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/HhWQA00WHv7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-AA",
+      "id": "HhWQA00WHv7",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-AB",
+      "name": "MUD-GDB-AB",
+      "shortName": "MUD-GDB-AB",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/xKej8vT2kwO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-AB",
+      "id": "xKej8vT2kwO",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-AC",
+      "name": "MUD-GDB-AC",
+      "shortName": "MUD-GDB-AC",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/vJ8jLhotbUA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-AC",
+      "id": "vJ8jLhotbUA",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-AD",
+      "name": "MUD-GDB-AD",
+      "shortName": "MUD-GDB-AD",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/Mzzul11UCip",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-AD",
+      "id": "Mzzul11UCip",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-B",
+      "name": "MUD-GDB-B",
+      "shortName": "MUD-GDB-B",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/xLniUd1QCN2",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-B",
+      "id": "xLniUd1QCN2",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-C",
+      "name": "MUD-GDB-C",
+      "shortName": "MUD-GDB-C",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/d2CLSnSfS7b",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-C",
+      "id": "d2CLSnSfS7b",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-D",
+      "name": "MUD-GDB-D",
+      "shortName": "MUD-GDB-D",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/CEmBih0oQa6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-D",
+      "id": "CEmBih0oQa6",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-E",
+      "name": "MUD-GDB-E",
+      "shortName": "MUD-GDB-E",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/h7N31IJPvx5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-E",
+      "id": "h7N31IJPvx5",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-F",
+      "name": "MUD-GDB-F",
+      "shortName": "MUD-GDB-F",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/VtY4jsihkVY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-F",
+      "id": "VtY4jsihkVY",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-G",
+      "name": "MUD-GDB-G",
+      "shortName": "MUD-GDB-G",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/WJUOmuXSrgY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-G",
+      "id": "WJUOmuXSrgY",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-H",
+      "name": "MUD-GDB-H",
+      "shortName": "MUD-GDB-H",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/WDsn6Qw0NRo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-H",
+      "id": "WDsn6Qw0NRo",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-I",
+      "name": "MUD-GDB-I",
+      "shortName": "MUD-GDB-I",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/oe860aMCdBF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-I",
+      "id": "oe860aMCdBF",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-J",
+      "name": "MUD-GDB-J",
+      "shortName": "MUD-GDB-J",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/vZFoFowHk3p",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-J",
+      "id": "vZFoFowHk3p",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-K",
+      "name": "MUD-GDB-K",
+      "shortName": "MUD-GDB-K",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/JBmuGv4eCPA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-K",
+      "id": "JBmuGv4eCPA",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-L",
+      "name": "MUD-GDB-L",
+      "shortName": "MUD-GDB-L",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/GyDtEFC0YP1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-L",
+      "id": "GyDtEFC0YP1",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-M",
+      "name": "MUD-GDB-M",
+      "shortName": "MUD-GDB-M",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/QyqQzvkAAHZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-M",
+      "id": "QyqQzvkAAHZ",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-N",
+      "name": "MUD-GDB-N",
+      "shortName": "MUD-GDB-N",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/WzjkXi4AxdQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-N",
+      "id": "WzjkXi4AxdQ",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-O",
+      "name": "MUD-GDB-O",
+      "shortName": "MUD-GDB-O",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/U9JacG2GgiG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-O",
+      "id": "U9JacG2GgiG",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-P",
+      "name": "MUD-GDB-P",
+      "shortName": "MUD-GDB-P",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/HXHPjo7fyGQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-P",
+      "id": "HXHPjo7fyGQ",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-Q",
+      "name": "MUD-GDB-Q",
+      "shortName": "MUD-GDB-Q",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/m4FrPd3tVMz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-Q",
+      "id": "m4FrPd3tVMz",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-R",
+      "name": "MUD-GDB-R",
+      "shortName": "MUD-GDB-R",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/nrMt9hAY691",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-R",
+      "id": "nrMt9hAY691",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-S",
+      "name": "MUD-GDB-S",
+      "shortName": "MUD-GDB-S",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/Oj24K1XOntS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-S",
+      "id": "Oj24K1XOntS",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-T",
+      "name": "MUD-GDB-T",
+      "shortName": "MUD-GDB-T",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/AqA2WtuJOT8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-T",
+      "id": "AqA2WtuJOT8",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-U",
+      "name": "MUD-GDB-U",
+      "shortName": "MUD-GDB-U",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/aBVjiIizHFO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-U",
+      "id": "aBVjiIizHFO",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-V",
+      "name": "MUD-GDB-V",
+      "shortName": "MUD-GDB-V",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/AbeDXA0iBpn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-V",
+      "id": "AbeDXA0iBpn",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-W",
+      "name": "MUD-GDB-W",
+      "shortName": "MUD-GDB-W",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/jyRvZWZynAs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-W",
+      "id": "jyRvZWZynAs",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-X",
+      "name": "MUD-GDB-X",
+      "shortName": "MUD-GDB-X",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/nrHwaWSwZ4E",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-X",
+      "id": "nrHwaWSwZ4E",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-Y",
+      "name": "MUD-GDB-Y",
+      "shortName": "MUD-GDB-Y",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/jhs9QjGApbz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-Y",
+      "id": "jhs9QjGApbz",
+      "level": 5
+    },
+    {
+      "code": "MUD-GDB-Z",
+      "name": "MUD-GDB-Z",
+      "shortName": "MUD-GDB-Z",
+      "parent": {
+        "code": "MUD_GDB",
+        "name": "Goldogob",
+        "id": "XornWGYvt9Y",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/XornWGYvt9Y/wJ5ct2povJr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-GDB-Z",
+      "id": "wJ5ct2povJr",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-A",
+      "name": "MUD-JIR-A",
+      "shortName": "MUD-JIR-A",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/KiBzSZSG6tC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-A",
+      "id": "KiBzSZSG6tC",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-AA",
+      "name": "MUD-JIR-AA",
+      "shortName": "MUD-JIR-AA",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/B0pDviaXUer",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-AA",
+      "id": "B0pDviaXUer",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-AB",
+      "name": "MUD-JIR-AB",
+      "shortName": "MUD-JIR-AB",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/dRaoPlk7ndo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-AB",
+      "id": "dRaoPlk7ndo",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-AC",
+      "name": "MUD-JIR-AC",
+      "shortName": "MUD-JIR-AC",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/vaYcOoDjpXJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-AC",
+      "id": "vaYcOoDjpXJ",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-AD",
+      "name": "MUD-JIR-AD",
+      "shortName": "MUD-JIR-AD",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/Qi5UkPFK8zu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-AD",
+      "id": "Qi5UkPFK8zu",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-AE",
+      "name": "MUD-JIR-AE",
+      "shortName": "MUD-JIR-AE",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/YjWQ3OdRrCO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-AE",
+      "id": "YjWQ3OdRrCO",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-B",
+      "name": "MUD-JIR-B",
+      "shortName": "MUD-JIR-B",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/ZyW3T1kTIEu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-B",
+      "id": "ZyW3T1kTIEu",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-C",
+      "name": "MUD-JIR-C",
+      "shortName": "MUD-JIR-C",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/ZW1k8H2Q2NI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-C",
+      "id": "ZW1k8H2Q2NI",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-D",
+      "name": "MUD-JIR-D",
+      "shortName": "MUD-JIR-D",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/aEEq7tIr5Ms",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-D",
+      "id": "aEEq7tIr5Ms",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-E",
+      "name": "MUD-JIR-E",
+      "shortName": "MUD-JIR-E",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/id2XlpYrNdW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-E",
+      "id": "id2XlpYrNdW",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-F",
+      "name": "MUD-JIR-F",
+      "shortName": "MUD-JIR-F",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/tfp4kSGvWvl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-F",
+      "id": "tfp4kSGvWvl",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-G",
+      "name": "MUD-JIR-G",
+      "shortName": "MUD-JIR-G",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/UhWSmWPzVpa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-G",
+      "id": "UhWSmWPzVpa",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-H",
+      "name": "MUD-JIR-H",
+      "shortName": "MUD-JIR-H",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/UymZmp1sOzJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-H",
+      "id": "UymZmp1sOzJ",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-I",
+      "name": "MUD-JIR-I",
+      "shortName": "MUD-JIR-I",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/L0Mj4p2RWee",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-I",
+      "id": "L0Mj4p2RWee",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-J",
+      "name": "MUD-JIR-J",
+      "shortName": "MUD-JIR-J",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/gVxT2Q3bjNf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-J",
+      "id": "gVxT2Q3bjNf",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-K",
+      "name": "MUD-JIR-K",
+      "shortName": "MUD-JIR-K",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/UwyO8ZLjOWo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-K",
+      "id": "UwyO8ZLjOWo",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-L",
+      "name": "MUD-JIR-L",
+      "shortName": "MUD-JIR-L",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/DXr4WunITqd",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-L",
+      "id": "DXr4WunITqd",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-M",
+      "name": "MUD-JIR-M",
+      "shortName": "MUD-JIR-M",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/p8p4HMD0R3C",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-M",
+      "id": "p8p4HMD0R3C",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-N",
+      "name": "MUD-JIR-N",
+      "shortName": "MUD-JIR-N",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/t529kXxdKmg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-N",
+      "id": "t529kXxdKmg",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-O",
+      "name": "MUD-JIR-O",
+      "shortName": "MUD-JIR-O",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/nwG0pwS4LyW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-O",
+      "id": "nwG0pwS4LyW",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-P",
+      "name": "MUD-JIR-P",
+      "shortName": "MUD-JIR-P",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/Jl5938CHknc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-P",
+      "id": "Jl5938CHknc",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-Q",
+      "name": "MUD-JIR-Q",
+      "shortName": "MUD-JIR-Q",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/BSU4OwEGTCP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-Q",
+      "id": "BSU4OwEGTCP",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-R",
+      "name": "MUD-JIR-R",
+      "shortName": "MUD-JIR-R",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/kichnwS5Mjg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-R",
+      "id": "kichnwS5Mjg",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-S",
+      "name": "MUD-JIR-S",
+      "shortName": "MUD-JIR-S",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/ntc68qXc7ap",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-S",
+      "id": "ntc68qXc7ap",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-T",
+      "name": "MUD-JIR-T",
+      "shortName": "MUD-JIR-T",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/wy4PEoBw1oe",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-T",
+      "id": "wy4PEoBw1oe",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-U",
+      "name": "MUD-JIR-U",
+      "shortName": "MUD-JIR-U",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/B3eS5jJ4mwa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-U",
+      "id": "B3eS5jJ4mwa",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-V",
+      "name": "MUD-JIR-V",
+      "shortName": "MUD-JIR-V",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/SmZeUv8lvun",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-V",
+      "id": "SmZeUv8lvun",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-W",
+      "name": "MUD-JIR-W",
+      "shortName": "MUD-JIR-W",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/OqFPVIMUT4z",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-W",
+      "id": "OqFPVIMUT4z",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-X",
+      "name": "MUD-JIR-X",
+      "shortName": "MUD-JIR-X",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/HU94YJpJsxp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-X",
+      "id": "HU94YJpJsxp",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-Y",
+      "name": "MUD-JIR-Y",
+      "shortName": "MUD-JIR-Y",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/xPo5X0EZTGj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-Y",
+      "id": "xPo5X0EZTGj",
+      "level": 5
+    },
+    {
+      "code": "MUD-JIR-Z",
+      "name": "MUD-JIR-Z",
+      "shortName": "MUD-JIR-Z",
+      "parent": {
+        "code": "MUD_JIR",
+        "name": "Jariban",
+        "id": "TfqX7ELnj90",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs/TfqX7ELnj90/KErt9tI8N4y",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "MUD-JIR-Z",
+      "id": "KErt9tI8N4y",
+      "level": 5
+    },
+    {
+      "code": "BAN_MDN",
+      "name": "Madina",
+      "shortName": "Madina",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/OL5FkUIirHa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Madina",
+      "id": "OL5FkUIirHa",
+      "level": 4
+    },
+    {
+      "code": "MSH_MDY",
+      "name": "Mahaday",
+      "shortName": "Mahaday",
+      "parent": {
+        "code": "MSH",
+        "name": "Middle Shabelle",
+        "id": "tRjCM2F5JIl",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/z1L4VkKUo9j",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Mahaday",
+      "id": "z1L4VkKUo9j",
+      "level": 4
+    },
+    {
+      "code": "HRN_MAH",
+      "name": "Mahas",
+      "shortName": "Mahas",
+      "parent": {
+        "code": "HRN",
+        "name": "Hiran",
+        "id": "aMmkIHqZegn",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/DzIn0LC9xCm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Mahas",
+      "id": "DzIn0LC9xCm",
+      "level": 4
+    },
+    {
+      "code": "LSH_MAR",
+      "name": "Marka",
+      "shortName": "Marka",
+      "parent": {
+        "code": "LSH",
+        "name": "Lower Shabelle",
+        "id": "pg94cVJwqwv",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/pg94cVJwqwv/BkKxWLxfMUm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Marka",
+      "id": "BkKxWLxfMUm",
+      "level": 4
+    },
+    {
+      "code": "WGB",
+      "name": "Marodijeh",
+      "shortName": "Marodijeh",
+      "parent": {
+        "code": "Z_SLD",
+        "name": "Somaliland",
+        "id": "bghN1FK0cHa",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/uUhf9Q4y7Nq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Marodijeh",
+      "id": "uUhf9Q4y7Nq",
+      "level": 3
+    },
+    {
+      "code": "HRN_MTB",
+      "name": "Mataban",
+      "shortName": "Mataban",
+      "parent": {
+        "code": "HRN",
+        "name": "Hiran",
+        "id": "aMmkIHqZegn",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/xCllW6LVnYl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Mataban",
+      "id": "xCllW6LVnYl",
+      "level": 4
+    },
+    {
+      "code": "MJB",
+      "name": "Middle Juba",
+      "shortName": "Middle Juba",
+      "parent": {
+        "code": "Z_JUB",
+        "name": "Jubaland State",
+        "id": "IkXO5bvG4h8",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/koXHTUNhmfg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Middle Juba",
+      "id": "koXHTUNhmfg",
+      "level": 3
+    },
+    {
+      "code": "MSH",
+      "name": "Middle Shabelle",
+      "shortName": "Middle Shabelle",
+      "parent": {
+        "code": "Z_HSS",
+        "name": "Hir-Shabelle State",
+        "id": "bKKHtEccAot",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Middle Shabelle",
+      "id": "tRjCM2F5JIl",
+      "level": 3
+    },
+    {
+      "code": "MUD",
+      "name": "Mudug",
+      "shortName": "Mudug",
+      "parent": {
+        "code": "Z_PUN",
+        "name": "Puntland",
+        "id": "Hdifa5RHaTR",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/Y17oQpWmgLs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Mudug",
+      "id": "Y17oQpWmgLs",
+      "level": 3
+    },
+    {
+      "code": "NUG-BRT-A",
+      "name": "NUG-BRT-A",
+      "shortName": "NUG-BRT-A",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/UN43D8gN0Hh",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-A",
+      "id": "UN43D8gN0Hh",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-B",
+      "name": "NUG-BRT-B",
+      "shortName": "NUG-BRT-B",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/Iw9j0Dt9S9D",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-B",
+      "id": "Iw9j0Dt9S9D",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-C",
+      "name": "NUG-BRT-C",
+      "shortName": "NUG-BRT-C",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/vIVsTrpfSfF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-C",
+      "id": "vIVsTrpfSfF",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-D",
+      "name": "NUG-BRT-D",
+      "shortName": "NUG-BRT-D",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/QaUJqPsAFM2",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-D",
+      "id": "QaUJqPsAFM2",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-E",
+      "name": "NUG-BRT-E",
+      "shortName": "NUG-BRT-E",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/O7hgqfN5Chy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-E",
+      "id": "O7hgqfN5Chy",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-F",
+      "name": "NUG-BRT-F",
+      "shortName": "NUG-BRT-F",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/OWzdUgO4Xj6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-F",
+      "id": "OWzdUgO4Xj6",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-G",
+      "name": "NUG-BRT-G",
+      "shortName": "NUG-BRT-G",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/bK4tE2hoMbH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-G",
+      "id": "bK4tE2hoMbH",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-H",
+      "name": "NUG-BRT-H",
+      "shortName": "NUG-BRT-H",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/aCXc3b7v5vF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-H",
+      "id": "aCXc3b7v5vF",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-I",
+      "name": "NUG-BRT-I",
+      "shortName": "NUG-BRT-I",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/tHWN3AkobtW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-I",
+      "id": "tHWN3AkobtW",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-J",
+      "name": "NUG-BRT-J",
+      "shortName": "NUG-BRT-J",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/x6Zp59dDr76",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-J",
+      "id": "x6Zp59dDr76",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-K",
+      "name": "NUG-BRT-K",
+      "shortName": "NUG-BRT-K",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/EBdijLBByOb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-K",
+      "id": "EBdijLBByOb",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-L",
+      "name": "NUG-BRT-L",
+      "shortName": "NUG-BRT-L",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/gqulunLgn8H",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-L",
+      "id": "gqulunLgn8H",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-M",
+      "name": "NUG-BRT-M",
+      "shortName": "NUG-BRT-M",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/TiIJoYxb1P8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-M",
+      "id": "TiIJoYxb1P8",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-N",
+      "name": "NUG-BRT-N",
+      "shortName": "NUG-BRT-N",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/SJMAFusgFmW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-N",
+      "id": "SJMAFusgFmW",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-O",
+      "name": "NUG-BRT-O",
+      "shortName": "NUG-BRT-O",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/BWExR6to2eP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-O",
+      "id": "BWExR6to2eP",
+      "level": 5
+    },
+    {
+      "code": "NUG-BRT-P",
+      "name": "NUG-BRT-P",
+      "shortName": "NUG-BRT-P",
+      "parent": {
+        "code": "NUG_BRT",
+        "name": "Burtinle",
+        "id": "sqIChX90xSL",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL/OuKoto7dsIt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "NUG-BRT-P",
+      "id": "OuKoto7dsIt",
+      "level": 5
+    }
+  ]
+}

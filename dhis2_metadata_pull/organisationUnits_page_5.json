@@ -1,0 +1,4012 @@
+{
+  "pager": {
+    "page": 5,
+    "total": 3855,
+    "pageSize": 250,
+    "nextPage": "https://www.somalia-polio-ims.org/api/organisationUnits?page=6&pageSize=250&fields=id%2Ccode%2Cname%2CshortName%2CdisplayName%2Clevel%2Cpath%2CopeningDate%2CclosedDate%2Cparent%5Bid%2Ccode%2Cname%2Clevel%5D",
+    "prevPage": "https://www.somalia-polio-ims.org/api/organisationUnits?page=4&pageSize=250&fields=id%2Ccode%2Cname%2CshortName%2CdisplayName%2Clevel%2Cpath%2CopeningDate%2CclosedDate%2Cparent%5Bid%2Ccode%2Cname%2Clevel%5D",
+    "pageCount": 16
+  },
+  "organisationUnits": [
+    {
+      "code": "BRI-BOS-CF",
+      "name": "BRI-BOS-CF",
+      "shortName": "BRI-BOS-CF",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/qXG2MEHLqiO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CF",
+      "id": "qXG2MEHLqiO",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CG",
+      "name": "BRI-BOS-CG",
+      "shortName": "BRI-BOS-CG",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/i7AOdnuLAdN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CG",
+      "id": "i7AOdnuLAdN",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CH",
+      "name": "BRI-BOS-CH",
+      "shortName": "BRI-BOS-CH",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/pmFmAvRt53a",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CH",
+      "id": "pmFmAvRt53a",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CI",
+      "name": "BRI-BOS-CI",
+      "shortName": "BRI-BOS-CI",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/LC0NdqxENnV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CI",
+      "id": "LC0NdqxENnV",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CJ",
+      "name": "BRI-BOS-CJ",
+      "shortName": "BRI-BOS-CJ",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/ZbityjVsrOq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CJ",
+      "id": "ZbityjVsrOq",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CK",
+      "name": "BRI-BOS-CK",
+      "shortName": "BRI-BOS-CK",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/jMWa12Hwzb7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CK",
+      "id": "jMWa12Hwzb7",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CL",
+      "name": "BRI-BOS-CL",
+      "shortName": "BRI-BOS-CL",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/GQsJFYdz0MB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CL",
+      "id": "GQsJFYdz0MB",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CM",
+      "name": "BRI-BOS-CM",
+      "shortName": "BRI-BOS-CM",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/Xo5lNgTcqfK",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CM",
+      "id": "Xo5lNgTcqfK",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CN",
+      "name": "BRI-BOS-CN",
+      "shortName": "BRI-BOS-CN",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/ZKafrelFD7J",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CN",
+      "id": "ZKafrelFD7J",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CO",
+      "name": "BRI-BOS-CO",
+      "shortName": "BRI-BOS-CO",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/jpzvINP9oEv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CO",
+      "id": "jpzvINP9oEv",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CP",
+      "name": "BRI-BOS-CP",
+      "shortName": "BRI-BOS-CP",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/ZHeLXV56PE9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CP",
+      "id": "ZHeLXV56PE9",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CQ",
+      "name": "BRI-BOS-CQ",
+      "shortName": "BRI-BOS-CQ",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/PYAqqKBGsFD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CQ",
+      "id": "PYAqqKBGsFD",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CR",
+      "name": "BRI-BOS-CR",
+      "shortName": "BRI-BOS-CR",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/nn56bTfJNYp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CR",
+      "id": "nn56bTfJNYp",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CS",
+      "name": "BRI-BOS-CS",
+      "shortName": "BRI-BOS-CS",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/nYCbwz7CaoU",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CS",
+      "id": "nYCbwz7CaoU",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CT",
+      "name": "BRI-BOS-CT",
+      "shortName": "BRI-BOS-CT",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/tivFzRaTp6l",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CT",
+      "id": "tivFzRaTp6l",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CU",
+      "name": "BRI-BOS-CU",
+      "shortName": "BRI-BOS-CU",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/yEIMKXGIok5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CU",
+      "id": "yEIMKXGIok5",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CV",
+      "name": "BRI-BOS-CV",
+      "shortName": "BRI-BOS-CV",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/nBGsJp8wzlR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CV",
+      "id": "nBGsJp8wzlR",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CW",
+      "name": "BRI-BOS-CW",
+      "shortName": "BRI-BOS-CW",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/ZVrfuErL8im",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CW",
+      "id": "ZVrfuErL8im",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CX",
+      "name": "BRI-BOS-CX",
+      "shortName": "BRI-BOS-CX",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/w86qIrVlqsW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CX",
+      "id": "w86qIrVlqsW",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CY",
+      "name": "BRI-BOS-CY",
+      "shortName": "BRI-BOS-CY",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/uPhUCxSxAdJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CY",
+      "id": "uPhUCxSxAdJ",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-CZ",
+      "name": "BRI-BOS-CZ",
+      "shortName": "BRI-BOS-CZ",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/crAG3hqejpE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-CZ",
+      "id": "crAG3hqejpE",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-D",
+      "name": "BRI-BOS-D",
+      "shortName": "BRI-BOS-D",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/CXBuM3xoFRH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-D",
+      "id": "CXBuM3xoFRH",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DA",
+      "name": "BRI-BOS-DA",
+      "shortName": "BRI-BOS-DA",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/SbjyyByTD7a",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DA",
+      "id": "SbjyyByTD7a",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DB",
+      "name": "BRI-BOS-DB",
+      "shortName": "BRI-BOS-DB",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/DLogcvDHGc1",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DB",
+      "id": "DLogcvDHGc1",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DC",
+      "name": "BRI-BOS-DC",
+      "shortName": "BRI-BOS-DC",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/XrWG5sw4Yor",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DC",
+      "id": "XrWG5sw4Yor",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DD",
+      "name": "BRI-BOS-DD",
+      "shortName": "BRI-BOS-DD",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/kIJ0wCpiSQP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DD",
+      "id": "kIJ0wCpiSQP",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DE",
+      "name": "BRI-BOS-DE",
+      "shortName": "BRI-BOS-DE",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/A7RqcjY17sG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DE",
+      "id": "A7RqcjY17sG",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DF",
+      "name": "BRI-BOS-DF",
+      "shortName": "BRI-BOS-DF",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/ZiOiSZPb0Rf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DF",
+      "id": "ZiOiSZPb0Rf",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DG",
+      "name": "BRI-BOS-DG",
+      "shortName": "BRI-BOS-DG",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/f8yIBaP8lpc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DG",
+      "id": "f8yIBaP8lpc",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DH",
+      "name": "BRI-BOS-DH",
+      "shortName": "BRI-BOS-DH",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/thDEWiS9cdR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DH",
+      "id": "thDEWiS9cdR",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DI",
+      "name": "BRI-BOS-DI",
+      "shortName": "BRI-BOS-DI",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/GQN8M0eV8le",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DI",
+      "id": "GQN8M0eV8le",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DJ",
+      "name": "BRI-BOS-DJ",
+      "shortName": "BRI-BOS-DJ",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/gg8RzopdqOb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DJ",
+      "id": "gg8RzopdqOb",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DK",
+      "name": "BRI-BOS-DK",
+      "shortName": "BRI-BOS-DK",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/ksdsl5x0dOP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DK",
+      "id": "ksdsl5x0dOP",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DL",
+      "name": "BRI-BOS-DL",
+      "shortName": "BRI-BOS-DL",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/IQMkgvxh38x",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DL",
+      "id": "IQMkgvxh38x",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DM",
+      "name": "BRI-BOS-DM",
+      "shortName": "BRI-BOS-DM",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/EVCFywomDXW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DM",
+      "id": "EVCFywomDXW",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DN",
+      "name": "BRI-BOS-DN",
+      "shortName": "BRI-BOS-DN",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/lyqbqZu62z8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DN",
+      "id": "lyqbqZu62z8",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DO",
+      "name": "BRI-BOS-DO",
+      "shortName": "BRI-BOS-DO",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/QxUFb5fbmlq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DO",
+      "id": "QxUFb5fbmlq",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DP",
+      "name": "BRI-BOS-DP",
+      "shortName": "BRI-BOS-DP",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/l1p42w11cNg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DP",
+      "id": "l1p42w11cNg",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DQ",
+      "name": "BRI-BOS-DQ",
+      "shortName": "BRI-BOS-DQ",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/WGk1a1Hns0r",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DQ",
+      "id": "WGk1a1Hns0r",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DR",
+      "name": "BRI-BOS-DR",
+      "shortName": "BRI-BOS-DR",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/fPvpr8t2fYl",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DR",
+      "id": "fPvpr8t2fYl",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DS",
+      "name": "BRI-BOS-DS",
+      "shortName": "BRI-BOS-DS",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/Qsri6GU0X0f",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DS",
+      "id": "Qsri6GU0X0f",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DT",
+      "name": "BRI-BOS-DT",
+      "shortName": "BRI-BOS-DT",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/DPgYqgVi4rS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DT",
+      "id": "DPgYqgVi4rS",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DU",
+      "name": "BRI-BOS-DU",
+      "shortName": "BRI-BOS-DU",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/CXCpkj17b25",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DU",
+      "id": "CXCpkj17b25",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-DV",
+      "name": "BRI-BOS-DV",
+      "shortName": "BRI-BOS-DV",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/qHNtxZb2J25",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-DV",
+      "id": "qHNtxZb2J25",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-E",
+      "name": "BRI-BOS-E",
+      "shortName": "BRI-BOS-E",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/ypbHa8JN7jq",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-E",
+      "id": "ypbHa8JN7jq",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-F",
+      "name": "BRI-BOS-F",
+      "shortName": "BRI-BOS-F",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/hGz4a4VUT4C",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-F",
+      "id": "hGz4a4VUT4C",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-G",
+      "name": "BRI-BOS-G",
+      "shortName": "BRI-BOS-G",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/j5DwjKqtznm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-G",
+      "id": "j5DwjKqtznm",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-H",
+      "name": "BRI-BOS-H",
+      "shortName": "BRI-BOS-H",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/ubJCnwoqfMx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-H",
+      "id": "ubJCnwoqfMx",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-I",
+      "name": "BRI-BOS-I",
+      "shortName": "BRI-BOS-I",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/W2CDeF5LjUy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-I",
+      "id": "W2CDeF5LjUy",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-J",
+      "name": "BRI-BOS-J",
+      "shortName": "BRI-BOS-J",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/PWH3TWlLaxE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-J",
+      "id": "PWH3TWlLaxE",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-K",
+      "name": "BRI-BOS-K",
+      "shortName": "BRI-BOS-K",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/YeP4Hmdh9Do",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-K",
+      "id": "YeP4Hmdh9Do",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-L",
+      "name": "BRI-BOS-L",
+      "shortName": "BRI-BOS-L",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/MvAiZm3sNUn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-L",
+      "id": "MvAiZm3sNUn",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-M",
+      "name": "BRI-BOS-M",
+      "shortName": "BRI-BOS-M",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/FeiLznRPpO8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-M",
+      "id": "FeiLznRPpO8",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-N",
+      "name": "BRI-BOS-N",
+      "shortName": "BRI-BOS-N",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/iHtit2Rt14P",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-N",
+      "id": "iHtit2Rt14P",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-O",
+      "name": "BRI-BOS-O",
+      "shortName": "BRI-BOS-O",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/jcjR50Njgx5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-O",
+      "id": "jcjR50Njgx5",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-P",
+      "name": "BRI-BOS-P",
+      "shortName": "BRI-BOS-P",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/vDO1kbksQZJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-P",
+      "id": "vDO1kbksQZJ",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-Q",
+      "name": "BRI-BOS-Q",
+      "shortName": "BRI-BOS-Q",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/WsZcarmhe7B",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-Q",
+      "id": "WsZcarmhe7B",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-R",
+      "name": "BRI-BOS-R",
+      "shortName": "BRI-BOS-R",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/WjSnooxceO2",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-R",
+      "id": "WjSnooxceO2",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-S",
+      "name": "BRI-BOS-S",
+      "shortName": "BRI-BOS-S",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/fwPN8FmGlfm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-S",
+      "id": "fwPN8FmGlfm",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-T",
+      "name": "BRI-BOS-T",
+      "shortName": "BRI-BOS-T",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/bOTkpgyQzlV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-T",
+      "id": "bOTkpgyQzlV",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-U",
+      "name": "BRI-BOS-U",
+      "shortName": "BRI-BOS-U",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/TDUd9FEvvmE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-U",
+      "id": "TDUd9FEvvmE",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-V",
+      "name": "BRI-BOS-V",
+      "shortName": "BRI-BOS-V",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/cG0JqfPThzG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-V",
+      "id": "cG0JqfPThzG",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-W",
+      "name": "BRI-BOS-W",
+      "shortName": "BRI-BOS-W",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/GsmhQRjOjJt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-W",
+      "id": "GsmhQRjOjJt",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-X",
+      "name": "BRI-BOS-X",
+      "shortName": "BRI-BOS-X",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/FmDMApsZVaN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-X",
+      "id": "FmDMApsZVaN",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-Y",
+      "name": "BRI-BOS-Y",
+      "shortName": "BRI-BOS-Y",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/YxV1Bh03Auz",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-Y",
+      "id": "YxV1Bh03Auz",
+      "level": 5
+    },
+    {
+      "code": "BRI-BOS-Z",
+      "name": "BRI-BOS-Z",
+      "shortName": "BRI-BOS-Z",
+      "parent": {
+        "code": "BRI_BOS",
+        "name": "Bossaso",
+        "id": "XWpzn7vCsjx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx/ZN89987jDUD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-BOS-Z",
+      "id": "ZN89987jDUD",
+      "level": 5
+    },
+    {
+      "code": "BRI-ISH-A",
+      "name": "BRI-ISH-A",
+      "shortName": "BRI-ISH-A",
+      "parent": {
+        "code": "BRI_ISH",
+        "name": "Iskushuban",
+        "id": "jYj9LNqxriT",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT/aXkxcN6JK3t",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-ISH-A",
+      "id": "aXkxcN6JK3t",
+      "level": 5
+    },
+    {
+      "code": "BRI-ISH-B",
+      "name": "BRI-ISH-B",
+      "shortName": "BRI-ISH-B",
+      "parent": {
+        "code": "BRI_ISH",
+        "name": "Iskushuban",
+        "id": "jYj9LNqxriT",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT/cQL67RtyeKg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-ISH-B",
+      "id": "cQL67RtyeKg",
+      "level": 5
+    },
+    {
+      "code": "BRI-ISH-C",
+      "name": "BRI-ISH-C",
+      "shortName": "BRI-ISH-C",
+      "parent": {
+        "code": "BRI_ISH",
+        "name": "Iskushuban",
+        "id": "jYj9LNqxriT",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT/IuHzF31h0Ga",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-ISH-C",
+      "id": "IuHzF31h0Ga",
+      "level": 5
+    },
+    {
+      "code": "BRI-ISH-D",
+      "name": "BRI-ISH-D",
+      "shortName": "BRI-ISH-D",
+      "parent": {
+        "code": "BRI_ISH",
+        "name": "Iskushuban",
+        "id": "jYj9LNqxriT",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT/vfImeZEFDVF",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-ISH-D",
+      "id": "vfImeZEFDVF",
+      "level": 5
+    },
+    {
+      "code": "BRI-ISH-E",
+      "name": "BRI-ISH-E",
+      "shortName": "BRI-ISH-E",
+      "parent": {
+        "code": "BRI_ISH",
+        "name": "Iskushuban",
+        "id": "jYj9LNqxriT",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT/OvAhWS2nEn0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-ISH-E",
+      "id": "OvAhWS2nEn0",
+      "level": 5
+    },
+    {
+      "code": "BRI-ISH-F",
+      "name": "BRI-ISH-F",
+      "shortName": "BRI-ISH-F",
+      "parent": {
+        "code": "BRI_ISH",
+        "name": "Iskushuban",
+        "id": "jYj9LNqxriT",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT/YAQjWmaatGW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-ISH-F",
+      "id": "YAQjWmaatGW",
+      "level": 5
+    },
+    {
+      "code": "BRI-ISH-G",
+      "name": "BRI-ISH-G",
+      "shortName": "BRI-ISH-G",
+      "parent": {
+        "code": "BRI_ISH",
+        "name": "Iskushuban",
+        "id": "jYj9LNqxriT",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT/usE721I2wuW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-ISH-G",
+      "id": "usE721I2wuW",
+      "level": 5
+    },
+    {
+      "code": "BRI-ISH-H",
+      "name": "BRI-ISH-H",
+      "shortName": "BRI-ISH-H",
+      "parent": {
+        "code": "BRI_ISH",
+        "name": "Iskushuban",
+        "id": "jYj9LNqxriT",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT/IIY0iN95Oll",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-ISH-H",
+      "id": "IIY0iN95Oll",
+      "level": 5
+    },
+    {
+      "code": "BRI-ISH-I",
+      "name": "BRI-ISH-I",
+      "shortName": "BRI-ISH-I",
+      "parent": {
+        "code": "BRI_ISH",
+        "name": "Iskushuban",
+        "id": "jYj9LNqxriT",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/jYj9LNqxriT/vApeX9RSyyr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-ISH-I",
+      "id": "vApeX9RSyyr",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-A",
+      "name": "BRI-QAN-A",
+      "shortName": "BRI-QAN-A",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/rz0RpnP1n4t",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-A",
+      "id": "rz0RpnP1n4t",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-B",
+      "name": "BRI-QAN-B",
+      "shortName": "BRI-QAN-B",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/D832fDGDaWN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-B",
+      "id": "D832fDGDaWN",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-C",
+      "name": "BRI-QAN-C",
+      "shortName": "BRI-QAN-C",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/sgR93D7pik7",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-C",
+      "id": "sgR93D7pik7",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-D",
+      "name": "BRI-QAN-D",
+      "shortName": "BRI-QAN-D",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/UXQ79xxpUOC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-D",
+      "id": "UXQ79xxpUOC",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-E",
+      "name": "BRI-QAN-E",
+      "shortName": "BRI-QAN-E",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/SPygF8JmDVy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-E",
+      "id": "SPygF8JmDVy",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-F",
+      "name": "BRI-QAN-F",
+      "shortName": "BRI-QAN-F",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/VXy5BKgY5uD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-F",
+      "id": "VXy5BKgY5uD",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-G",
+      "name": "BRI-QAN-G",
+      "shortName": "BRI-QAN-G",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/ayikPLk6t6Y",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-G",
+      "id": "ayikPLk6t6Y",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-H",
+      "name": "BRI-QAN-H",
+      "shortName": "BRI-QAN-H",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/qZNEQ9rl0aB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-H",
+      "id": "qZNEQ9rl0aB",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-I",
+      "name": "BRI-QAN-I",
+      "shortName": "BRI-QAN-I",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/vCXapV23o3u",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-I",
+      "id": "vCXapV23o3u",
+      "level": 5
+    },
+    {
+      "code": "BRI-QAN-J",
+      "name": "BRI-QAN-J",
+      "shortName": "BRI-QAN-J",
+      "parent": {
+        "code": "BRI_QAN",
+        "name": "Qandala",
+        "id": "dhBvwLfQfJw",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/dhBvwLfQfJw/tji8i6xx1gY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-QAN-J",
+      "id": "tji8i6xx1gY",
+      "level": 5
+    },
+    {
+      "code": "BRI-UFN-A",
+      "name": "BRI-UFN-A",
+      "shortName": "BRI-UFN-A",
+      "parent": {
+        "code": "BRI_UFN",
+        "name": "Ufeyn",
+        "id": "J2wJfm3dTMP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/J2wJfm3dTMP/iS3Ztt45Y8J",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-UFN-A",
+      "id": "iS3Ztt45Y8J",
+      "level": 5
+    },
+    {
+      "code": "BRI-UFN-B",
+      "name": "BRI-UFN-B",
+      "shortName": "BRI-UFN-B",
+      "parent": {
+        "code": "BRI_UFN",
+        "name": "Ufeyn",
+        "id": "J2wJfm3dTMP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/J2wJfm3dTMP/q0nqqQNgmut",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-UFN-B",
+      "id": "q0nqqQNgmut",
+      "level": 5
+    },
+    {
+      "code": "BRI-UFN-C",
+      "name": "BRI-UFN-C",
+      "shortName": "BRI-UFN-C",
+      "parent": {
+        "code": "BRI_UFN",
+        "name": "Ufeyn",
+        "id": "J2wJfm3dTMP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/J2wJfm3dTMP/mXXdgjys3da",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-UFN-C",
+      "id": "mXXdgjys3da",
+      "level": 5
+    },
+    {
+      "code": "BRI-UFN-D",
+      "name": "BRI-UFN-D",
+      "shortName": "BRI-UFN-D",
+      "parent": {
+        "code": "BRI_UFN",
+        "name": "Ufeyn",
+        "id": "J2wJfm3dTMP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/J2wJfm3dTMP/rQCsJqZsyHD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-UFN-D",
+      "id": "rQCsJqZsyHD",
+      "level": 5
+    },
+    {
+      "code": "BRI-UFN-E",
+      "name": "BRI-UFN-E",
+      "shortName": "BRI-UFN-E",
+      "parent": {
+        "code": "BRI_UFN",
+        "name": "Ufeyn",
+        "id": "J2wJfm3dTMP",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/J2wJfm3dTMP/MfEZGK5rbvQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "BRI-UFN-E",
+      "id": "MfEZGK5rbvQ",
+      "level": 5
+    },
+    {
+      "code": "LJB_BDD",
+      "name": "Badhadhe",
+      "shortName": "Badhadhe",
+      "parent": {
+        "code": "LJB",
+        "name": "Lower Juba",
+        "id": "o27iHpDULWo",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/o27iHpDULWo/uHOcKJ5HFe9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Badhadhe",
+      "id": "uHOcKJ5HFe9",
+      "level": 4
+    },
+    {
+      "code": "SNG_BDN",
+      "name": "Badhan",
+      "shortName": "Badhan",
+      "parent": {
+        "code": "SNG",
+        "name": "Sanag",
+        "id": "ofTXcEqgUbJ",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/sZcDgrE93p4",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Badhan",
+      "id": "sZcDgrE93p4",
+      "level": 4
+    },
+    {
+      "code": "BAY_BDB",
+      "name": "Baidoa",
+      "shortName": "Baidoa",
+      "parent": {
+        "code": "BAY",
+        "name": "Bay",
+        "id": "Phc5om9Lh7H",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/Phc5om9Lh7H/qxfStvF9qbf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Baidoa",
+      "id": "qxfStvF9qbf",
+      "level": 4
+    },
+    {
+      "code": "AWL_BKI",
+      "name": "Baki",
+      "shortName": "Baki",
+      "parent": {
+        "code": "AWL",
+        "name": "Awdal",
+        "id": "sTCaEs8ZqlU",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/sTCaEs8ZqlU/DQSbUNpHROR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Baki",
+      "id": "DQSbUNpHROR",
+      "level": 4
+    },
+    {
+      "code": "BKL",
+      "name": "Bakol",
+      "shortName": "Bakol",
+      "parent": {
+        "code": "Z_SWS",
+        "name": "South West State",
+        "id": "bveR91XZ2lE",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/XAUtLVkLgbs",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Bakol",
+      "id": "XAUtLVkLgbs",
+      "level": 3
+    },
+    {
+      "code": "MSH_BLD",
+      "name": "Balad",
+      "shortName": "Balad",
+      "parent": {
+        "code": "MSH",
+        "name": "Middle Shabelle",
+        "id": "tRjCM2F5JIl",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/tRjCM2F5JIl/FE9WCRfTWwV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Balad",
+      "id": "FE9WCRfTWwV",
+      "level": 4
+    },
+    {
+      "code": "GDD_BLB",
+      "name": "Balanbale",
+      "shortName": "Balanbale",
+      "parent": {
+        "code": "GDD",
+        "name": "Galgadud",
+        "id": "KGtsh7cl1gH",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Balanbale",
+      "id": "gtu6bzEQZJR",
+      "level": 4
+    },
+    {
+      "code": "WGB_BGB",
+      "name": "Baligubadle",
+      "shortName": "Baligubadle",
+      "parent": {
+        "code": "WGB",
+        "name": "Marodijeh",
+        "id": "uUhf9Q4y7Nq",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/uUhf9Q4y7Nq/NLMIEVpk3fG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Baligubadle",
+      "id": "NLMIEVpk3fG",
+      "level": 4
+    },
+    {
+      "code": "Z_BAN",
+      "name": "Banadir",
+      "shortName": "Banadir",
+      "parent": {
+        "code": "SOM",
+        "name": "Somalia",
+        "id": "phNUUZTG0DI",
+        "level": 1
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Banadir",
+      "id": "MuUgmXuCuaY",
+      "level": 2
+    },
+    {
+      "code": "BAN",
+      "name": "Banadir",
+      "shortName": "Banadir",
+      "parent": {
+        "code": "Z_BAN",
+        "name": "Banadir",
+        "id": "MuUgmXuCuaY",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Banadir",
+      "id": "lBRT5jaQlat",
+      "level": 3
+    },
+    {
+      "code": "GDO_BRD",
+      "name": "Bardera",
+      "shortName": "Bardera",
+      "parent": {
+        "code": "GDO",
+        "name": "Gedo",
+        "id": "D7Bc0BKlpRf",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/D7Bc0BKlpRf/IyRVIWRZhhE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Bardera",
+      "id": "IyRVIWRZhhE",
+      "level": 4
+    },
+    {
+      "code": "BRI_BAR",
+      "name": "Bargaal",
+      "shortName": "Bargaal",
+      "parent": {
+        "code": "BRI",
+        "name": "Bari",
+        "id": "RHX2qzQfxHW",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/ziVr1FtMtvJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Bargaal",
+      "id": "ziVr1FtMtvJ",
+      "level": 4
+    },
+    {
+      "code": "BRI",
+      "name": "Bari",
+      "shortName": "Bari",
+      "parent": {
+        "code": "Z_PUN",
+        "name": "Puntland",
+        "id": "Hdifa5RHaTR",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Bari",
+      "id": "RHX2qzQfxHW",
+      "level": 3
+    },
+    {
+      "code": "BAY",
+      "name": "Bay",
+      "shortName": "Bay",
+      "parent": {
+        "code": "Z_SWS",
+        "name": "South West State",
+        "id": "bveR91XZ2lE",
+        "level": 2
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/Phc5om9Lh7H",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Bay",
+      "id": "Phc5om9Lh7H",
+      "level": 3
+    },
+    {
+      "code": "GDO_BLH",
+      "name": "Belet Hawa",
+      "shortName": "Belet Hawa",
+      "parent": {
+        "code": "GDO",
+        "name": "Gedo",
+        "id": "D7Bc0BKlpRf",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/D7Bc0BKlpRf/U8huWiXf1nT",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Belet Hawa",
+      "id": "U8huWiXf1nT",
+      "level": 4
+    },
+    {
+      "code": "HRN_BLT",
+      "name": "Belet Weyne",
+      "shortName": "Belet Weyne",
+      "parent": {
+        "code": "HRN",
+        "name": "Hiran",
+        "id": "aMmkIHqZegn",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/Q4TURfGu3qJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Belet Weyne",
+      "id": "Q4TURfGu3qJ",
+      "level": 4
+    },
+    {
+      "code": "KRK_BBL",
+      "name": "Bender Bayla",
+      "shortName": "Bender Bayla",
+      "parent": {
+        "code": "KRK",
+        "name": "Karkar",
+        "id": "fY6oVnyhWPN",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/fY6oVnyhWPN/C4tsYdXgzQo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Bender Bayla",
+      "id": "C4tsYdXgzQo",
+      "level": 4
+    },
+    {
+      "code": "SAH_BER",
+      "name": "Berbera",
+      "shortName": "Berbera",
+      "parent": {
+        "code": "SAH",
+        "name": "Sahil",
+        "id": "TcnbL5EtM1x",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/TcnbL5EtM1x/zoakeyBuTQD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Berbera",
+      "id": "zoakeyBuTQD",
+      "level": 4
+    },
+    {
+      "code": "BAY_BDL",
+      "name": "Berdale",
+      "shortName": "Berdale",
+      "parent": {
+        "code": "BAY",
+        "name": "Bay",
+        "id": "Phc5om9Lh7H",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/Phc5om9Lh7H/OfEJKsm4bKo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Berdale",
+      "id": "OfEJKsm4bKo",
+      "level": 4
+    },
+    {
+      "code": "BAN_BDB",
+      "name": "Bondere",
+      "shortName": "Bondere",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/ZwSXGKsND6T",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Bondere",
+      "id": "ZwSXGKsND6T",
+      "level": 4
+    },
+    {
+      "code": "AWL_BOR",
+      "name": "Borama",
+      "shortName": "Borama",
+      "parent": {
+        "code": "AWL",
+        "name": "Awdal",
+        "id": "sTCaEs8ZqlU",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/sTCaEs8ZqlU/Mo4jcaGpPXi",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Borama",
+      "id": "Mo4jcaGpPXi",
+      "level": 4
+    },
+    {
+      "code": "BRI_BOS",
+      "name": "Bossaso",
+      "shortName": "Bossaso",
+      "parent": {
+        "code": "BRI",
+        "name": "Bari",
+        "id": "RHX2qzQfxHW",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/RHX2qzQfxHW/XWpzn7vCsjx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Bossaso",
+      "id": "XWpzn7vCsjx",
+      "level": 4
+    },
+    {
+      "code": "LSH_BRV",
+      "name": "Brava",
+      "shortName": "Brava",
+      "parent": {
+        "code": "LSH",
+        "name": "Lower Shabelle",
+        "id": "pg94cVJwqwv",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/pg94cVJwqwv/BAncV5EbpHQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Brava",
+      "id": "BAncV5EbpHQ",
+      "level": 4
+    },
+    {
+      "code": "MJB_BUA",
+      "name": "Buaale",
+      "shortName": "Buaale",
+      "parent": {
+        "code": "MJB",
+        "name": "Middle Juba",
+        "id": "koXHTUNhmfg",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/koXHTUNhmfg/FuxIq22SqLJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Buaale",
+      "id": "FuxIq22SqLJ",
+      "level": 4
+    },
+    {
+      "code": "TOG_BUH",
+      "name": "Buhodle",
+      "shortName": "Buhodle",
+      "parent": {
+        "code": "TOG",
+        "name": "Togdheer",
+        "id": "DgeYIX7EJoy",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/PhTmfI7rhUV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Buhodle",
+      "id": "PhTmfI7rhUV",
+      "level": 4
+    },
+    {
+      "code": "HRN_BBT",
+      "name": "Bulo Burti",
+      "shortName": "Bulo Burti",
+      "parent": {
+        "code": "HRN",
+        "name": "Hiran",
+        "id": "aMmkIHqZegn",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bKKHtEccAot/aMmkIHqZegn/TMA9vIa7S2J",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Bulo Burti",
+      "id": "TMA9vIa7S2J",
+      "level": 4
+    },
+    {
+      "code": "TOG_BUR",
+      "name": "Burao",
+      "shortName": "Burao",
+      "parent": {
+        "code": "TOG",
+        "name": "Togdheer",
+        "id": "DgeYIX7EJoy",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/DgeYIX7EJoy/I33EixKj7mP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Burao",
+      "id": "I33EixKj7mP",
+      "level": 4
+    },
+    {
+      "code": "GDO_BDB",
+      "name": "Burdubo",
+      "shortName": "Burdubo",
+      "parent": {
+        "code": "GDO",
+        "name": "Gedo",
+        "id": "D7Bc0BKlpRf",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/D7Bc0BKlpRf/hJDB7xp4NWZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Burdubo",
+      "id": "hJDB7xp4NWZ",
+      "level": 4
+    },
+    {
+      "code": "BAY_BHB",
+      "name": "Burhakaba",
+      "shortName": "Burhakaba",
+      "parent": {
+        "code": "BAY",
+        "name": "Bay",
+        "id": "Phc5om9Lh7H",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/Phc5om9Lh7H/OoffZfsoBdO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Burhakaba",
+      "id": "OoffZfsoBdO",
+      "level": 4
+    },
+    {
+      "code": "NUG_BRT",
+      "name": "Burtinle",
+      "shortName": "Burtinle",
+      "parent": {
+        "code": "NUG",
+        "name": "Nugal",
+        "id": "gLDeGbmjZcH",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/sqIChX90xSL",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Burtinle",
+      "id": "sqIChX90xSL",
+      "level": 4
+    },
+    {
+      "code": "NUG_DNG",
+      "name": "Dangoroyo",
+      "shortName": "Dangoroyo",
+      "parent": {
+        "code": "NUG",
+        "name": "Nugal",
+        "id": "gLDeGbmjZcH",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/OE9mEIkz7yB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Dangoroyo",
+      "id": "OE9mEIkz7yB",
+      "level": 4
+    },
+    {
+      "code": "BAN_DYN",
+      "name": "Danyile",
+      "shortName": "Danyile",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/agz6heILGq5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Danyile",
+      "id": "agz6heILGq5",
+      "level": 4
+    },
+    {
+      "code": "BAN_DRK",
+      "name": "Dharkenly",
+      "shortName": "Dharkenly",
+      "parent": {
+        "code": "BAN",
+        "name": "Banadir",
+        "id": "lBRT5jaQlat",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/MuUgmXuCuaY/lBRT5jaQlat/ndc6cr1F8Yw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Dharkenly",
+      "id": "ndc6cr1F8Yw",
+      "level": 4
+    },
+    {
+      "code": "BAY_DNS",
+      "name": "Dinsoor",
+      "shortName": "Dinsoor",
+      "parent": {
+        "code": "BAY",
+        "name": "Bay",
+        "id": "Phc5om9Lh7H",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/Phc5om9Lh7H/ZugUvFXB0Rn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Dinsoor",
+      "id": "ZugUvFXB0Rn",
+      "level": 4
+    },
+    {
+      "code": "GDO_DLO",
+      "name": "Dolo",
+      "shortName": "Dolo",
+      "parent": {
+        "code": "GDO",
+        "name": "Gedo",
+        "id": "D7Bc0BKlpRf",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/D7Bc0BKlpRf/a6VxTo3Vwuw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Dolo",
+      "id": "a6VxTo3Vwuw",
+      "level": 4
+    },
+    {
+      "code": "GDD_DSB",
+      "name": "Dusamreb",
+      "shortName": "Dusamreb",
+      "parent": {
+        "code": "GDD",
+        "name": "Galgadud",
+        "id": "KGtsh7cl1gH",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Dusamreb",
+      "id": "fqkHcBIbKfj",
+      "level": 4
+    },
+    {
+      "code": "SNG_ELF",
+      "name": "El Afweyn",
+      "shortName": "El Afweyn",
+      "parent": {
+        "code": "SNG",
+        "name": "Sanag",
+        "id": "ofTXcEqgUbJ",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/UZiSp5W2OdP",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "El Afweyn",
+      "id": "UZiSp5W2OdP",
+      "level": 4
+    },
+    {
+      "code": "BKL_ELB",
+      "name": "El Barde",
+      "shortName": "El Barde",
+      "parent": {
+        "code": "BKL",
+        "name": "Bakol",
+        "id": "XAUtLVkLgbs",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bveR91XZ2lE/XAUtLVkLgbs/PRclE1ztYPa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "El Barde",
+      "id": "PRclE1ztYPa",
+      "level": 4
+    },
+    {
+      "code": "GDD_ELB",
+      "name": "El Bur",
+      "shortName": "El Bur",
+      "parent": {
+        "code": "GDD",
+        "name": "Galgadud",
+        "id": "KGtsh7cl1gH",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "El Bur",
+      "id": "rqN4EpLv5eZ",
+      "level": 4
+    },
+    {
+      "code": "GDD_ELD",
+      "name": "El Dhere",
+      "shortName": "El Dhere",
+      "parent": {
+        "code": "GDD",
+        "name": "Galgadud",
+        "id": "KGtsh7cl1gH",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/zbsECcqPfkc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "El Dhere",
+      "id": "zbsECcqPfkc",
+      "level": 4
+    },
+    {
+      "code": "GDO_ELW",
+      "name": "El Wak",
+      "shortName": "El Wak",
+      "parent": {
+        "code": "GDO",
+        "name": "Gedo",
+        "id": "D7Bc0BKlpRf",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/IkXO5bvG4h8/D7Bc0BKlpRf/zhoobkpoT6H",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "El Wak",
+      "id": "zhoobkpoT6H",
+      "level": 4
+    },
+    {
+      "code": "GDD_ELG",
+      "name": "Elgaras",
+      "shortName": "Elgaras",
+      "parent": {
+        "code": "GDD",
+        "name": "Galgadud",
+        "id": "KGtsh7cl1gH",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/pytXvEVkF3l",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Elgaras",
+      "id": "pytXvEVkF3l",
+      "level": 4
+    },
+    {
+      "code": "SNG_ERI",
+      "name": "Erigavo",
+      "shortName": "Erigavo",
+      "parent": {
+        "code": "SNG",
+        "name": "Sanag",
+        "id": "ofTXcEqgUbJ",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/bghN1FK0cHa/ofTXcEqgUbJ/NwJomtK2Qnp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Erigavo",
+      "id": "NwJomtK2Qnp",
+      "level": 4
+    },
+    {
+      "code": "NUG_EIL",
+      "name": "Eyl",
+      "shortName": "Eyl",
+      "parent": {
+        "code": "NUG",
+        "name": "Nugal",
+        "id": "gLDeGbmjZcH",
+        "level": 3
+      },
+      "path": "/phNUUZTG0DI/Hdifa5RHaTR/gLDeGbmjZcH/ScMSoaWCuqx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "Eyl",
+      "id": "ScMSoaWCuqx",
+      "level": 4
+    },
+    {
+      "code": "GDD-ABD-A",
+      "name": "GDD-ABD-A",
+      "shortName": "GDD-ABD-A",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/q0MNrW6hb12",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-A",
+      "id": "q0MNrW6hb12",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AA",
+      "name": "GDD-ABD-AA",
+      "shortName": "GDD-ABD-AA",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/Z0ieFHPzqA6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AA",
+      "id": "Z0ieFHPzqA6",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AB",
+      "name": "GDD-ABD-AB",
+      "shortName": "GDD-ABD-AB",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/kVPFEoZn5hE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AB",
+      "id": "kVPFEoZn5hE",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AC",
+      "name": "GDD-ABD-AC",
+      "shortName": "GDD-ABD-AC",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/M4w0jaEbpuY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AC",
+      "id": "M4w0jaEbpuY",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AD",
+      "name": "GDD-ABD-AD",
+      "shortName": "GDD-ABD-AD",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/dStJwHRpMDo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AD",
+      "id": "dStJwHRpMDo",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AE",
+      "name": "GDD-ABD-AE",
+      "shortName": "GDD-ABD-AE",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/GamgLwkl4vg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AE",
+      "id": "GamgLwkl4vg",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AF",
+      "name": "GDD-ABD-AF",
+      "shortName": "GDD-ABD-AF",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/wCxE7UWD0eb",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AF",
+      "id": "wCxE7UWD0eb",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AG",
+      "name": "GDD-ABD-AG",
+      "shortName": "GDD-ABD-AG",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/cXwkXLcXcDw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AG",
+      "id": "cXwkXLcXcDw",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AH",
+      "name": "GDD-ABD-AH",
+      "shortName": "GDD-ABD-AH",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/mG7JsaP8kF9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AH",
+      "id": "mG7JsaP8kF9",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AI",
+      "name": "GDD-ABD-AI",
+      "shortName": "GDD-ABD-AI",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/L8kOmuVIO6L",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AI",
+      "id": "L8kOmuVIO6L",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-AJ",
+      "name": "GDD-ABD-AJ",
+      "shortName": "GDD-ABD-AJ",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/WxgceAkcyiv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-AJ",
+      "id": "WxgceAkcyiv",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-B",
+      "name": "GDD-ABD-B",
+      "shortName": "GDD-ABD-B",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/YJaeLcLbmUG",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-B",
+      "id": "YJaeLcLbmUG",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-C",
+      "name": "GDD-ABD-C",
+      "shortName": "GDD-ABD-C",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/VTGKKaSeWnN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-C",
+      "id": "VTGKKaSeWnN",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-D",
+      "name": "GDD-ABD-D",
+      "shortName": "GDD-ABD-D",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/u26ZVZz7gFB",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-D",
+      "id": "u26ZVZz7gFB",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-E",
+      "name": "GDD-ABD-E",
+      "shortName": "GDD-ABD-E",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/XYBf8KLMaBf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-E",
+      "id": "XYBf8KLMaBf",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-F",
+      "name": "GDD-ABD-F",
+      "shortName": "GDD-ABD-F",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/ynuiEuV6hVa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-F",
+      "id": "ynuiEuV6hVa",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-G",
+      "name": "GDD-ABD-G",
+      "shortName": "GDD-ABD-G",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/SHqRllRAK8g",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-G",
+      "id": "SHqRllRAK8g",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-H",
+      "name": "GDD-ABD-H",
+      "shortName": "GDD-ABD-H",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/nlEffHgtnWI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-H",
+      "id": "nlEffHgtnWI",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-I",
+      "name": "GDD-ABD-I",
+      "shortName": "GDD-ABD-I",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/vtyo6Jgk2TW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-I",
+      "id": "vtyo6Jgk2TW",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-J",
+      "name": "GDD-ABD-J",
+      "shortName": "GDD-ABD-J",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/g10f1BfCakv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-J",
+      "id": "g10f1BfCakv",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-K",
+      "name": "GDD-ABD-K",
+      "shortName": "GDD-ABD-K",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/Qg9dU6Uhd6W",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-K",
+      "id": "Qg9dU6Uhd6W",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-L",
+      "name": "GDD-ABD-L",
+      "shortName": "GDD-ABD-L",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/s5W2oj1oEzd",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-L",
+      "id": "s5W2oj1oEzd",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-M",
+      "name": "GDD-ABD-M",
+      "shortName": "GDD-ABD-M",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/qM1qHuvrPH9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-M",
+      "id": "qM1qHuvrPH9",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-N",
+      "name": "GDD-ABD-N",
+      "shortName": "GDD-ABD-N",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/H6UkzWKnICO",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-N",
+      "id": "H6UkzWKnICO",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-O",
+      "name": "GDD-ABD-O",
+      "shortName": "GDD-ABD-O",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/s2aZx9tLc3q",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-O",
+      "id": "s2aZx9tLc3q",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-P",
+      "name": "GDD-ABD-P",
+      "shortName": "GDD-ABD-P",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/RvDtfYrGfdv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-P",
+      "id": "RvDtfYrGfdv",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-Q",
+      "name": "GDD-ABD-Q",
+      "shortName": "GDD-ABD-Q",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/ed1EzrS2Wrm",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-Q",
+      "id": "ed1EzrS2Wrm",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-R",
+      "name": "GDD-ABD-R",
+      "shortName": "GDD-ABD-R",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/emgMrWpAHzv",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-R",
+      "id": "emgMrWpAHzv",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-S",
+      "name": "GDD-ABD-S",
+      "shortName": "GDD-ABD-S",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/vqJJkzBEjYW",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-S",
+      "id": "vqJJkzBEjYW",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-T",
+      "name": "GDD-ABD-T",
+      "shortName": "GDD-ABD-T",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/NEdmF5GCDKp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-T",
+      "id": "NEdmF5GCDKp",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-U",
+      "name": "GDD-ABD-U",
+      "shortName": "GDD-ABD-U",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/QVu7QMKT99W",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-U",
+      "id": "QVu7QMKT99W",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-V",
+      "name": "GDD-ABD-V",
+      "shortName": "GDD-ABD-V",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/Mc7MQtwoL1M",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-V",
+      "id": "Mc7MQtwoL1M",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-W",
+      "name": "GDD-ABD-W",
+      "shortName": "GDD-ABD-W",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/mPdZ3t8NvaI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-W",
+      "id": "mPdZ3t8NvaI",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-X",
+      "name": "GDD-ABD-X",
+      "shortName": "GDD-ABD-X",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/Y2J5FTCesIV",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-X",
+      "id": "Y2J5FTCesIV",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-Y",
+      "name": "GDD-ABD-Y",
+      "shortName": "GDD-ABD-Y",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/SDGGn4I8cxN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-Y",
+      "id": "SDGGn4I8cxN",
+      "level": 5
+    },
+    {
+      "code": "GDD-ABD-Z",
+      "name": "GDD-ABD-Z",
+      "shortName": "GDD-ABD-Z",
+      "parent": {
+        "code": "GDD_ABD",
+        "name": "Abudwaq",
+        "id": "cDsE1AeORGx",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/cDsE1AeORGx/MPopESyhz3A",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ABD-Z",
+      "id": "MPopESyhz3A",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-A",
+      "name": "GDD-ADD-A",
+      "shortName": "GDD-ADD-A",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/AKVLI06bKUa",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-A",
+      "id": "AKVLI06bKUa",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-B",
+      "name": "GDD-ADD-B",
+      "shortName": "GDD-ADD-B",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/dA8CwzHEwZI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-B",
+      "id": "dA8CwzHEwZI",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-C",
+      "name": "GDD-ADD-C",
+      "shortName": "GDD-ADD-C",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/lFeD5HdUdMQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-C",
+      "id": "lFeD5HdUdMQ",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-D",
+      "name": "GDD-ADD-D",
+      "shortName": "GDD-ADD-D",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/vqHYN5kga6c",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-D",
+      "id": "vqHYN5kga6c",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-E",
+      "name": "GDD-ADD-E",
+      "shortName": "GDD-ADD-E",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/VdGBHXr3RHM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-E",
+      "id": "VdGBHXr3RHM",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-F",
+      "name": "GDD-ADD-F",
+      "shortName": "GDD-ADD-F",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/DYNMeK5B892",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-F",
+      "id": "DYNMeK5B892",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-G",
+      "name": "GDD-ADD-G",
+      "shortName": "GDD-ADD-G",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/WHjHYD6NIzc",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-G",
+      "id": "WHjHYD6NIzc",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-H",
+      "name": "GDD-ADD-H",
+      "shortName": "GDD-ADD-H",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/Okzn8cryL1H",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-H",
+      "id": "Okzn8cryL1H",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-I",
+      "name": "GDD-ADD-I",
+      "shortName": "GDD-ADD-I",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/n2cm8S8afhn",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-I",
+      "id": "n2cm8S8afhn",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-J",
+      "name": "GDD-ADD-J",
+      "shortName": "GDD-ADD-J",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/xIU3rjMCl0c",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-J",
+      "id": "xIU3rjMCl0c",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-K",
+      "name": "GDD-ADD-K",
+      "shortName": "GDD-ADD-K",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/MxPET6wed3y",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-K",
+      "id": "MxPET6wed3y",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-L",
+      "name": "GDD-ADD-L",
+      "shortName": "GDD-ADD-L",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/yiWDnnrnjVH",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-L",
+      "id": "yiWDnnrnjVH",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-M",
+      "name": "GDD-ADD-M",
+      "shortName": "GDD-ADD-M",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/g7RytcSoC4m",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-M",
+      "id": "g7RytcSoC4m",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-N",
+      "name": "GDD-ADD-N",
+      "shortName": "GDD-ADD-N",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/raT5BEwHL0M",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-N",
+      "id": "raT5BEwHL0M",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-O",
+      "name": "GDD-ADD-O",
+      "shortName": "GDD-ADD-O",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/k1m2KfxqI2v",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-O",
+      "id": "k1m2KfxqI2v",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-P",
+      "name": "GDD-ADD-P",
+      "shortName": "GDD-ADD-P",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/JPUhWcgqtD3",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-P",
+      "id": "JPUhWcgqtD3",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-Q",
+      "name": "GDD-ADD-Q",
+      "shortName": "GDD-ADD-Q",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/ERVfGzGVGxD",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-Q",
+      "id": "ERVfGzGVGxD",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-R",
+      "name": "GDD-ADD-R",
+      "shortName": "GDD-ADD-R",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/bESKb35GzYu",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-R",
+      "id": "bESKb35GzYu",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-S",
+      "name": "GDD-ADD-S",
+      "shortName": "GDD-ADD-S",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/YII93yNGw9S",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-S",
+      "id": "YII93yNGw9S",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-T",
+      "name": "GDD-ADD-T",
+      "shortName": "GDD-ADD-T",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/VUKPsc1X8Fj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-T",
+      "id": "VUKPsc1X8Fj",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-U",
+      "name": "GDD-ADD-U",
+      "shortName": "GDD-ADD-U",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/beYsMy9oMCQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-U",
+      "id": "beYsMy9oMCQ",
+      "level": 5
+    },
+    {
+      "code": "GDD-ADD-V",
+      "name": "GDD-ADD-V",
+      "shortName": "GDD-ADD-V",
+      "parent": {
+        "code": "GDD_ADD",
+        "name": "Adado",
+        "id": "Z6K0fGYPss7",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/Z6K0fGYPss7/WmXzrdA2yGQ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ADD-V",
+      "id": "WmXzrdA2yGQ",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-A",
+      "name": "GDD-BLB-A",
+      "shortName": "GDD-BLB-A",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/sFxMCtxo9Eo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-A",
+      "id": "sFxMCtxo9Eo",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-B",
+      "name": "GDD-BLB-B",
+      "shortName": "GDD-BLB-B",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/d9K4sUDw7ZM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-B",
+      "id": "d9K4sUDw7ZM",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-C",
+      "name": "GDD-BLB-C",
+      "shortName": "GDD-BLB-C",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/tna1CDyP8Cj",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-C",
+      "id": "tna1CDyP8Cj",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-D",
+      "name": "GDD-BLB-D",
+      "shortName": "GDD-BLB-D",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/beuCfpS3F2J",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-D",
+      "id": "beuCfpS3F2J",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-E",
+      "name": "GDD-BLB-E",
+      "shortName": "GDD-BLB-E",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/D5GCwvBKeA8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-E",
+      "id": "D5GCwvBKeA8",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-F",
+      "name": "GDD-BLB-F",
+      "shortName": "GDD-BLB-F",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/m0tMoH8vRGY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-F",
+      "id": "m0tMoH8vRGY",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-G",
+      "name": "GDD-BLB-G",
+      "shortName": "GDD-BLB-G",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/lJ8TWOrUGNt",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-G",
+      "id": "lJ8TWOrUGNt",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-H",
+      "name": "GDD-BLB-H",
+      "shortName": "GDD-BLB-H",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/RaR6PRchY1L",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-H",
+      "id": "RaR6PRchY1L",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-I",
+      "name": "GDD-BLB-I",
+      "shortName": "GDD-BLB-I",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/JdJFRkToNpJ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-I",
+      "id": "JdJFRkToNpJ",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-J",
+      "name": "GDD-BLB-J",
+      "shortName": "GDD-BLB-J",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/Diayn8KUosy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-J",
+      "id": "Diayn8KUosy",
+      "level": 5
+    },
+    {
+      "code": "GDD-BLB-K",
+      "name": "GDD-BLB-K",
+      "shortName": "GDD-BLB-K",
+      "parent": {
+        "code": "GDD_BLB",
+        "name": "Balanbale",
+        "id": "gtu6bzEQZJR",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/gtu6bzEQZJR/CbtDhlqHI0h",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-BLB-K",
+      "id": "CbtDhlqHI0h",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-A",
+      "name": "GDD-DSB-A",
+      "shortName": "GDD-DSB-A",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/o8EoNbCbvHr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-A",
+      "id": "o8EoNbCbvHr",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-AA",
+      "name": "GDD-DSB-AA",
+      "shortName": "GDD-DSB-AA",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/pjp6tNGmwp5",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-AA",
+      "id": "pjp6tNGmwp5",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-AB",
+      "name": "GDD-DSB-AB",
+      "shortName": "GDD-DSB-AB",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/sTdZjZ0Do0y",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-AB",
+      "id": "sTdZjZ0Do0y",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-B",
+      "name": "GDD-DSB-B",
+      "shortName": "GDD-DSB-B",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/vurGICphh2s",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-B",
+      "id": "vurGICphh2s",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-C",
+      "name": "GDD-DSB-C",
+      "shortName": "GDD-DSB-C",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/B0KzmWlysnM",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-C",
+      "id": "B0KzmWlysnM",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-D",
+      "name": "GDD-DSB-D",
+      "shortName": "GDD-DSB-D",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/Isk3pNh9LAf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-D",
+      "id": "Isk3pNh9LAf",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-D3",
+      "name": "GDD-DSB-D3",
+      "shortName": "GDD-DSB-D3",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/A7Y0POmYFFp",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-D3",
+      "id": "A7Y0POmYFFp",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-E",
+      "name": "GDD-DSB-E",
+      "shortName": "GDD-DSB-E",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/xJFgsPovi8u",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-E",
+      "id": "xJFgsPovi8u",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-E5",
+      "name": "GDD-DSB-E5",
+      "shortName": "GDD-DSB-E5",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/eCyhS9JWuc8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-E5",
+      "id": "eCyhS9JWuc8",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-F",
+      "name": "GDD-DSB-F",
+      "shortName": "GDD-DSB-F",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/Pc8yERfBBFE",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-F",
+      "id": "Pc8yERfBBFE",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-G",
+      "name": "GDD-DSB-G",
+      "shortName": "GDD-DSB-G",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/orrRIdpXpRN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-G",
+      "id": "orrRIdpXpRN",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-H",
+      "name": "GDD-DSB-H",
+      "shortName": "GDD-DSB-H",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/jZL9Q4qaeIy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-H",
+      "id": "jZL9Q4qaeIy",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-I",
+      "name": "GDD-DSB-I",
+      "shortName": "GDD-DSB-I",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/cfZ2aKcgjSS",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-I",
+      "id": "cfZ2aKcgjSS",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-J",
+      "name": "GDD-DSB-J",
+      "shortName": "GDD-DSB-J",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/ZgKUHqyUMFg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-J",
+      "id": "ZgKUHqyUMFg",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-K",
+      "name": "GDD-DSB-K",
+      "shortName": "GDD-DSB-K",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/glL3lvwaCaR",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-K",
+      "id": "glL3lvwaCaR",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-L",
+      "name": "GDD-DSB-L",
+      "shortName": "GDD-DSB-L",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/ljK1n6eEhUU",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-L",
+      "id": "ljK1n6eEhUU",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-M",
+      "name": "GDD-DSB-M",
+      "shortName": "GDD-DSB-M",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/UNF0yTyDLxx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-M",
+      "id": "UNF0yTyDLxx",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-N",
+      "name": "GDD-DSB-N",
+      "shortName": "GDD-DSB-N",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/mZImiqsSPpo",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-N",
+      "id": "mZImiqsSPpo",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-O",
+      "name": "GDD-DSB-O",
+      "shortName": "GDD-DSB-O",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/sueyHTQ5d35",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-O",
+      "id": "sueyHTQ5d35",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-P",
+      "name": "GDD-DSB-P",
+      "shortName": "GDD-DSB-P",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/oTLsyUEjMu9",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-P",
+      "id": "oTLsyUEjMu9",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-Q",
+      "name": "GDD-DSB-Q",
+      "shortName": "GDD-DSB-Q",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/Eqn9CFGh28Q",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-Q",
+      "id": "Eqn9CFGh28Q",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-R",
+      "name": "GDD-DSB-R",
+      "shortName": "GDD-DSB-R",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/ePmDZJuTSan",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-R",
+      "id": "ePmDZJuTSan",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-S",
+      "name": "GDD-DSB-S",
+      "shortName": "GDD-DSB-S",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/GZIi0G2RT9F",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-S",
+      "id": "GZIi0G2RT9F",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-T",
+      "name": "GDD-DSB-T",
+      "shortName": "GDD-DSB-T",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/EiffWOjyQUA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-T",
+      "id": "EiffWOjyQUA",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-U",
+      "name": "GDD-DSB-U",
+      "shortName": "GDD-DSB-U",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/Ag5aczzEq2U",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-U",
+      "id": "Ag5aczzEq2U",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-V",
+      "name": "GDD-DSB-V",
+      "shortName": "GDD-DSB-V",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/w0mzGA2QM0t",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-V",
+      "id": "w0mzGA2QM0t",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-W",
+      "name": "GDD-DSB-W",
+      "shortName": "GDD-DSB-W",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/p90C7kbqmLZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-W",
+      "id": "p90C7kbqmLZ",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-X",
+      "name": "GDD-DSB-X",
+      "shortName": "GDD-DSB-X",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/gHQSAw4Zu9Q",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-X",
+      "id": "gHQSAw4Zu9Q",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-Y",
+      "name": "GDD-DSB-Y",
+      "shortName": "GDD-DSB-Y",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/rZaIPCco1TC",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-Y",
+      "id": "rZaIPCco1TC",
+      "level": 5
+    },
+    {
+      "code": "GDD-DSB-Z",
+      "name": "GDD-DSB-Z",
+      "shortName": "GDD-DSB-Z",
+      "parent": {
+        "code": "GDD_DSB",
+        "name": "Dusamreb",
+        "id": "fqkHcBIbKfj",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/fqkHcBIbKfj/H2k2uPdk4Tg",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-DSB-Z",
+      "id": "H2k2uPdk4Tg",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-A",
+      "name": "GDD-ELB-A",
+      "shortName": "GDD-ELB-A",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/EXEXHvcVVHx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-A",
+      "id": "EXEXHvcVVHx",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-B",
+      "name": "GDD-ELB-B",
+      "shortName": "GDD-ELB-B",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/hm2SJoPrwtZ",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-B",
+      "id": "hm2SJoPrwtZ",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-C",
+      "name": "GDD-ELB-C",
+      "shortName": "GDD-ELB-C",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/jw9bZBobHWe",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-C",
+      "id": "jw9bZBobHWe",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-D",
+      "name": "GDD-ELB-D",
+      "shortName": "GDD-ELB-D",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/uWosBPIZ1qf",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-D",
+      "id": "uWosBPIZ1qf",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-E",
+      "name": "GDD-ELB-E",
+      "shortName": "GDD-ELB-E",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/qpjhKkYzIAN",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-E",
+      "id": "qpjhKkYzIAN",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-F",
+      "name": "GDD-ELB-F",
+      "shortName": "GDD-ELB-F",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/FrQE32lu7Sx",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-F",
+      "id": "FrQE32lu7Sx",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-G",
+      "name": "GDD-ELB-G",
+      "shortName": "GDD-ELB-G",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/eBR1TcvPJsw",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-G",
+      "id": "eBR1TcvPJsw",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-H",
+      "name": "GDD-ELB-H",
+      "shortName": "GDD-ELB-H",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/CFhJQ3qhMJA",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-H",
+      "id": "CFhJQ3qhMJA",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-I",
+      "name": "GDD-ELB-I",
+      "shortName": "GDD-ELB-I",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/vxq4TsXno0M",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-I",
+      "id": "vxq4TsXno0M",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-J",
+      "name": "GDD-ELB-J",
+      "shortName": "GDD-ELB-J",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/RuqHZhZXYpY",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-J",
+      "id": "RuqHZhZXYpY",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-K",
+      "name": "GDD-ELB-K",
+      "shortName": "GDD-ELB-K",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/gCVhLEyOFQ0",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-K",
+      "id": "gCVhLEyOFQ0",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-L",
+      "name": "GDD-ELB-L",
+      "shortName": "GDD-ELB-L",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/esZIKomSIL6",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-L",
+      "id": "esZIKomSIL6",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-M",
+      "name": "GDD-ELB-M",
+      "shortName": "GDD-ELB-M",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/R83EjToe4Iy",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-M",
+      "id": "R83EjToe4Iy",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-N",
+      "name": "GDD-ELB-N",
+      "shortName": "GDD-ELB-N",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/SMDaOEY7zQ8",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-N",
+      "id": "SMDaOEY7zQ8",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-O",
+      "name": "GDD-ELB-O",
+      "shortName": "GDD-ELB-O",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/PupFl1o55hr",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-O",
+      "id": "PupFl1o55hr",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-P",
+      "name": "GDD-ELB-P",
+      "shortName": "GDD-ELB-P",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/auyX1O7v2oI",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-P",
+      "id": "auyX1O7v2oI",
+      "level": 5
+    },
+    {
+      "code": "GDD-ELB-Q",
+      "name": "GDD-ELB-Q",
+      "shortName": "GDD-ELB-Q",
+      "parent": {
+        "code": "GDD_ELB",
+        "name": "El Bur",
+        "id": "rqN4EpLv5eZ",
+        "level": 4
+      },
+      "path": "/phNUUZTG0DI/CSjjlkpL9EK/KGtsh7cl1gH/rqN4EpLv5eZ/KcWBUs6Tw3o",
+      "openingDate": "2020-01-01T00:00:00.000",
+      "displayName": "GDD-ELB-Q",
+      "id": "KcWBUs6Tw3o",
+      "level": 5
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "jobConfigurations": [
+    {
+      "name": "Credentials expiry alert",
+      "jobType": "CREDENTIALS_EXPIRY_ALERT",
+      "cronExpression": "0 0 2 ? * *",
+      "enabled": true,
+      "id": "sHMedQF7VYa"
+    },
+    {
+      "name": "Data statistics",
+      "jobType": "DATA_STATISTICS",
+      "cronExpression": "0 0 2 ? * *",
+      "enabled": true,
+      "id": "BFa3jDsbtdO"
+    },
+    {
+      "name": "Data value trim",
+      "jobType": "DATA_VALUE_TRIM",
+      "cronExpression": "0 0 1 ? * *",
+      "enabled": true,
+      "id": "D2datatrim8"
+    },
+    {
+      "name": "Dataset notification",
+      "jobType": "DATA_SET_NOTIFICATION",
+      "cronExpression": "0 0 2 ? * *",
+      "enabled": true,
+      "id": "YvAwAmrqAtN"
+    },
+    {
+      "name": "File resource clean up",
+      "jobType": "FILE_RESOURCE_CLEANUP",
+      "cronExpression": "0 0 2 ? * *",
+      "enabled": true,
+      "id": "pd6O228pqr0"
+    },
+    {
+      "name": "Housekeeping",
+      "jobType": "HOUSEKEEPING",
+      "cronExpression": null,
+      "enabled": true,
+      "id": "DHIS2rocks1"
+    },
+    {
+      "name": "Remove expired or used reserved values",
+      "jobType": "REMOVE_USED_OR_EXPIRED_RESERVED_VALUES",
+      "cronExpression": "0 0 2 ? * *",
+      "enabled": true,
+      "id": "uwWCT2BMmlq"
+    },
+    {
+      "name": "System version update check notification",
+      "jobType": "SYSTEM_VERSION_UPDATE_CHECK",
+      "cronExpression": "19 4 4 ? * *",
+      "enabled": true,
+      "id": "vt21671bgno"
+    },
+    {
+      "name": "User account expiry alert",
+      "jobType": "ACCOUNT_EXPIRY_ALERT",
+      "cronExpression": "0 0 2 ? * *",
+      "enabled": true,
+      "id": "fUWM1At1TUx"
+    },
+    {
+      "name": "Validation result notification",
+      "jobType": "VALIDATION_RESULTS_NOTIFICATION",
+      "cronExpression": "0 0 7 ? * *",
+      "enabled": true,
+      "id": "Js3vHn2AVuG"
+    }
+  ]
+}

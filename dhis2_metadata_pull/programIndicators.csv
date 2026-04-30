@@ -1,0 +1,5 @@
+"name","shortName","program","expression","analyticsType","id"
+"Admin - Total vaccinated","Admin vacc total","[""Admin Coverage"",""LQAS"",""LQAS"",""Rapid Cluster Assessment""]","#{GMJMCIVK4m7.GKrli8DZUek} + #{GMJMCIVK4m7.IE0a39f2n0S}","EVENT","v1KCmbjSFBE"
+"LQAS - Lots failing","LQAS Fail","[""YYBtQ2Q9bcI"",""s6sUqjCtB34"",""s6sUqjCtB34"",""y6ywbzPha4e""]","1","EVENT","STEl2w8HIGA"
+"LQAS - Lots passing","LQAS Pass","[""Admin Coverage"",""LQAS"",""LQAS"",""Rapid Cluster Assessment""]","1","EVENT","X2JbQaANTsr"
+"RCA - Coverage %","RCA Coverage %","[""YYBtQ2Q9bcI"",""s6sUqjCtB34"",""s6sUqjCtB34"",""y6ywbzPha4e""]","(#{vED6S6VAvFH.HQ73qWzfMKg} + #{vED6S6VAvFH.qW5sUSMEBx4}) / (#{vED6S6VAvFH.y1GukB1dLC4} + #{vED6S6VAvFH.vhspENMeZQC}) * 100","EVENT","W6xaSBfX5TK"

@@ -1,0 +1,2569 @@
+{
+  "dataElements": [
+    {
+      "code": "SOM_DE_AGE_GROUP",
+      "name": "Age group",
+      "shortName": "Age group",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Age group",
+        "id": "ATy9mhzpo12"
+      },
+      "id": "sgYHd2ZrLcD",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "SOM_DE_CAMPAIGN",
+      "name": "Campaign",
+      "shortName": "Campaign",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Campaign",
+        "id": "gxN66NUHLfb"
+      },
+      "id": "YIeJMUjWHq5",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "SOM_DE_CAMPAIGN_END",
+      "name": "Campaign end date",
+      "shortName": "Campaign end date",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "DATE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "sCLsdT0LpPC",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "SOM_DE_CAMPAIGN_START",
+      "name": "Campaign start date",
+      "shortName": "Campaign start date",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "DATE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "UZXdL9zn82X",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "SOM_DE_CAMPAIGN_TYPE",
+      "name": "Campaign type",
+      "shortName": "Campaign type",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Campaign type",
+        "id": "uLTkZnQ4Mx4"
+      },
+      "id": "U77W6fZexIG",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_MARKED_0_11M",
+      "name": "Children finger-marked 0-11 months",
+      "shortName": "Marked 0-11m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "QeNwV1QaiXz",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_MARKED_12_59M",
+      "name": "Children finger-marked 12-59 months",
+      "shortName": "Marked 12-59m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "iz8944Nz9Fe",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_SEEN_0_11M",
+      "name": "Children seen 0-11 months",
+      "shortName": "Seen 0-11m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "mc8OwZEKbdB",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_SEEN_12_59M",
+      "name": "Children seen 12-59 months",
+      "shortName": "Seen 12-59m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "kBgKGZYjDIa",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - AFP cases reported",
+      "shortName": "DFA AFP cases",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "EbCc9hvHRoK",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Area not covered",
+      "shortName": "DFA Not covered",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "o6BxtcYdiCu",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Campaign day",
+      "shortName": "DFA Campaign day",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Campaign day",
+        "id": "OmEb81S72ke"
+      },
+      "id": "FQMMneLDjkV",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Houses visited",
+      "shortName": "DFA Houses visited",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "M35E5zkZjf7",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Near international border",
+      "shortName": "DFA Near border",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "gKlCNWrViPr",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Referred for re-EPI",
+      "shortName": "DFA Re-EPI",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "beWiaptDc57",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Revisited not available",
+      "shortName": "DFA Revisit NA",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "SXtVTadzSGz",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Revisited refusals",
+      "shortName": "DFA Revisit refusals",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "UzKgtlg1ii4",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Training conducted",
+      "shortName": "DFA Training",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "iYz8o23XJCt",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Vaccinated 0-11 months",
+      "shortName": "DFA Vacc 0-11m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "GKrli8DZUek",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Vaccinated 12-59 months",
+      "shortName": "DFA Vacc 12-59m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "IE0a39f2n0S",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Vitamin A blue 6-11 months",
+      "shortName": "DFA VitA blue",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "lt2Sc5YDiYg",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Vitamin A red 12-59 months",
+      "shortName": "DFA VitA red",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "uRH8uy0BaVa",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Zero doses 0-11 months",
+      "shortName": "DFA Zero 0-11m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "sjnS8vSdmxm",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - Zero doses 12-59 months",
+      "shortName": "DFA Zero 12-59m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "CFNwbp6t4w0",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - nOPV2 vials received",
+      "shortName": "DFA nOPV2 received",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "qNQ5GdKra6h",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "DFA - nOPV2 vials used/emptied",
+      "shortName": "DFA nOPV2 used",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "vimXGsDCG5T",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Actions for tomorrow",
+      "shortName": "EM Actions tomorrow",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "LONG_TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "lmNRloB2oxl",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Actions required from higher level",
+      "shortName": "EM Actions higher",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "LONG_TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "OmqA6XqCvIH",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Campaign day",
+      "shortName": "EM Campaign day",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Campaign day",
+        "id": "OmEb81S72ke"
+      },
+      "id": "z8s9QiPRizG",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - DFAs held evening meeting",
+      "shortName": "EM DFAs meeting",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "x7XB8WcMzfB",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - DFAs in district",
+      "shortName": "EM DFAs total",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "WNzd6ZZpgMe",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - DPO name",
+      "shortName": "EM DPO name",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "sI77zlG8JFn",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Key members participated (DPO/DSMC/DMO)",
+      "shortName": "EM Key members",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "Ym5WH1o1AzI",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Main challenges discussed",
+      "shortName": "EM Challenges",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "LONG_TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "hCEAVCMLok3",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: CDC/TF",
+      "shortName": "EM CDC/TF",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "GiwkpRflbbi",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: Core Group",
+      "shortName": "EM Core Group",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "qMiNwSlVqtp",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: FETP",
+      "shortName": "EM FETP",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "bCxG7jxGyzL",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: ICM Banadir",
+      "shortName": "EM ICM Banadir",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "l1V6QhsV7Pc",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: MOH",
+      "shortName": "EM MOH",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "pSMHYwGQNuC",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: McKing",
+      "shortName": "EM McKing",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "o9tMbElW286",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: Other",
+      "shortName": "EM Other",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "H5xkiH8SZCx",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: Other NGO",
+      "shortName": "EM NGO",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "AkxhvKZJp0C",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: SOBs",
+      "shortName": "EM SOBs",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "lhsvLQfqm43",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: UNICEF",
+      "shortName": "EM UNICEF",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "jGLYuteRRco",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "EM - Monitors attended: WHO",
+      "shortName": "EM WHO",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "cDT5NA0IqLk",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_HOUSES_AWARE",
+      "name": "Houses aware of campaign",
+      "shortName": "Houses aware",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "Qy2FYhEzpIQ",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_HOUSES_MARKED",
+      "name": "Houses correctly marked",
+      "shortName": "Houses marked",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "CYRcbIvM01O",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_HOUSES_VISITED",
+      "name": "Houses visited",
+      "shortName": "Houses visited",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "tPQ5mCbdd0f",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_HOUSES_SM",
+      "name": "Houses visited by social mobilizer",
+      "shortName": "Houses SM visited",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "iCFY9wI3GsF",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - AFP cases observed",
+      "shortName": "LQAS AFP cases",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "NGUByXZ2dA2",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Children 0-5 sampled",
+      "shortName": "LQAS Children sampled",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "cv48jVoDvsK",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Children aware of campaign",
+      "shortName": "LQAS Aware",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "kXGCXjBt7cE",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Children finger-marked",
+      "shortName": "LQAS Finger-marked",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "mgPKoBRlOk8",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Children not finger-marked",
+      "shortName": "LQAS Not marked",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "cNLmd9OLhdu",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Clusters completed",
+      "shortName": "LQAS Clusters",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "i6rISF3yidI",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Households visited",
+      "shortName": "LQAS HH visited",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "kVQlQq5KovD",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Lot ID",
+      "shortName": "LQAS Lot ID",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "YAFMJNGDjF3",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Lot number",
+      "shortName": "LQAS Lot number",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "LEMdj65iej3",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Missed: child asleep",
+      "shortName": "LQAS Miss asleep",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "J8E0l3XUWc2",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Missed: child away from home",
+      "shortName": "LQAS Miss away",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "em3FF6gTkea",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Missed: newly arrived/migrated",
+      "shortName": "LQAS Miss migrated",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "bJPB8OJqaGe",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Missed: other",
+      "shortName": "LQAS Miss other",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "PJqY6HsmUEF",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Missed: parents not at home",
+      "shortName": "LQAS Miss absent",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "SJxP80qyHr0",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Missed: refused",
+      "shortName": "LQAS Miss refused",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "ODVdKK3nDwt",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Missed: team did not visit",
+      "shortName": "LQAS Miss no visit",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "QIc6jAojsP3",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "LQAS - Missed: vaccinated no finger mark",
+      "shortName": "LQAS Miss vacc NFM",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "taspVihyOZm",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_MISSED_NBS",
+      "name": "Missed — newborn/sleeping/sick",
+      "shortName": "Missed NBS",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "ufuqTCS9B8S",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_MISSED_UNAVAIL",
+      "name": "Missed — not available",
+      "shortName": "Missed unavailable",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "NDVTKoFwALB",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_MISSED_REFUSAL",
+      "name": "Missed — refusal",
+      "shortName": "Missed refusal",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "VmUnaO8nJBN",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_MISSED_NO_VISIT",
+      "name": "Missed — team did not visit",
+      "shortName": "Missed no visit",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "vSBStdRE36X",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_MISSED_VACC_NM",
+      "name": "Missed — vaccinated not finger-marked",
+      "shortName": "Missed vacc NM",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "rDLftu2el2K",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - AFP cases observed",
+      "shortName": "RCA AFP cases",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "IzTQWPz6ijd",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Agency",
+      "shortName": "RCA Agency",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Agency",
+        "id": "xKhEZEhtCaT"
+      },
+      "id": "EqLOixMYlIi",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Campaign day",
+      "shortName": "RCA Campaign day",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Campaign day",
+        "id": "OmEb81S72ke"
+      },
+      "id": "tjIuT934pdE",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Children 0-11 months seen",
+      "shortName": "RCA Seen 0-11m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "y1GukB1dLC4",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Children 0-11 months vaccinated",
+      "shortName": "RCA Vacc 0-11m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "HQ73qWzfMKg",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Children 12-59 months seen",
+      "shortName": "RCA Seen 12-59m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "vhspENMeZQC",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Children 12-59 months vaccinated",
+      "shortName": "RCA Vacc 12-59m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "qW5sUSMEBx4",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Households campaign aware",
+      "shortName": "RCA HH aware",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "YN1sRHO1I7F",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Missed: house not visited",
+      "shortName": "RCA Miss no visit",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "gAB1Sa83IK1",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Missed: not available",
+      "shortName": "RCA Miss NA",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "Q72wpCbk8f7",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Missed: refused",
+      "shortName": "RCA Miss refused",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "xJe6P2XelQW",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Missed: team visited but missed",
+      "shortName": "RCA Miss visited",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "geAL9UEaSgp",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Missed: unknown",
+      "shortName": "RCA Miss unknown",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "T86VVvqZNtn",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Missed: vaccinated no finger mark",
+      "shortName": "RCA Miss NFM",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "noynKzqJYhM",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Monitor code",
+      "shortName": "RCA Monitor code",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "XY11zXrqPKa",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Settlement type",
+      "shortName": "RCA Settlement",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Settlement type",
+        "id": "CJyA0pUvHAZ"
+      },
+      "id": "dQzc20Aj7OB",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Supervisor name",
+      "shortName": "RCA Supervisor",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "A1CRxFoGfMS",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Total missed children",
+      "shortName": "RCA Missed total",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "BeNsDUZ6SNG",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "RCA - Village name",
+      "shortName": "RCA Village",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "PESxL4L3ok3",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "SUP - Campaign day",
+      "shortName": "SUP Campaign day",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Campaign day",
+        "id": "OmEb81S72ke"
+      },
+      "id": "cGxxnBvdrC3",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "SUP - Challenge observed",
+      "shortName": "SUP Challenge",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "LONG_TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "GVTWbZj91Gj",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "SUP - DFA supervisor name",
+      "shortName": "SUP Supervisor",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "k9hQjvRTODF",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "SUP - Settlement type",
+      "shortName": "SUP Settlement",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Settlement type",
+        "id": "CJyA0pUvHAZ"
+      },
+      "id": "AMAK7m1JHaA",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "SUP - Support needed",
+      "shortName": "SUP Support needed",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "LONG_TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "mai76yUuKaF",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "SUP - Team number",
+      "shortName": "SUP Team number",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": true,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "xJ9GjquZw3f",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "SUP - Team type",
+      "shortName": "SUP Team type",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Team type",
+        "id": "sn1CDRrGSES"
+      },
+      "id": "ddPsHNehwRf",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "SUP - Village name",
+      "shortName": "SUP Village",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "MiPrgy3rrAu",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_SUPERVISOR_NAME",
+      "name": "Supervisor name",
+      "shortName": "Supervisor name",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "eetx00Bl5Vm",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - AFP cases observed",
+      "shortName": "TM AFP cases",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "HDgzZ255poT",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Agency",
+      "shortName": "TM Agency",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Agency",
+        "id": "xKhEZEhtCaT"
+      },
+      "id": "Qv8n1Wa31Sn",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Area visited by social mob team",
+      "shortName": "TM SM visited area",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "Fy9SrskKOie",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Campaign day",
+      "shortName": "TM Campaign day",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Campaign day",
+        "id": "OmEb81S72ke"
+      },
+      "id": "ZdzasPvjGva",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Empty vials kept properly",
+      "shortName": "TM Empty vials",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "RPQtuJ9UFn2",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Enough vaccine available",
+      "shortName": "TM Enough vaccine",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "ZSMjt21kcMb",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Ice packs in good condition",
+      "shortName": "TM Ice packs",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "afBoAsid97X",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Micro-plan available",
+      "shortName": "TM Micro-plan",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "dqWTdro6s5V",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Missed children on tally match total",
+      "shortName": "TM Missed match",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "GbVGikddZGm",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Monitor code",
+      "shortName": "TM Monitor code",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "kOT7zixuUh2",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Settlement type",
+      "shortName": "TM Settlement",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Settlement type",
+        "id": "CJyA0pUvHAZ"
+      },
+      "id": "GswnT0GrHwM",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Social mobilizer assigned",
+      "shortName": "TM SM assigned",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No / NA",
+        "id": "x4k6SX8Kjnw"
+      },
+      "id": "JF6M7tMU4cR",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Tally sheet marked correctly",
+      "shortName": "TM Tally correct",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "qpHWDF4SULz",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team asks about AFP cases",
+      "shortName": "TM Asks AFP",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "Udb7noR1EzT",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team attended training",
+      "shortName": "TM Trained",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No / NA",
+        "id": "x4k6SX8Kjnw"
+      },
+      "id": "HdiscKWy6nR",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team door marking correct",
+      "shortName": "TM Door marking",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "acJd1lUVmPp",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team explains vaccine benefits to caregiver",
+      "shortName": "TM Explains vacc",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "KSOJJ9Gag1j",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team finger marking correct",
+      "shortName": "TM Finger marking",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "Fu0BqNN1zek",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team gender",
+      "shortName": "TM Gender",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Team gender",
+        "id": "o3X6KnOHx62"
+      },
+      "id": "X8YxtJbmyof",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team gives OPV vaccine correctly",
+      "shortName": "TM OPV correct",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "kn3enRTbejF",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team has itinerary and map",
+      "shortName": "TM Itinerary",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "I0PrnOnfymh",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team knows location of assigned area",
+      "shortName": "TM Knows area",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "FonWfMZ6RhS",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team members adults >= 18 years",
+      "shortName": "TM Adults 18",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "YGiyXrXEwIz",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team number",
+      "shortName": "TM Team number",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "INTEGER",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "BAdz6mLw0zA",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team records HHs to revisit for missed/refusals",
+      "shortName": "TM Records HH",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "l0oGJQ95cd2",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team records zero dose children",
+      "shortName": "TM Zero dose",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "kzbmcSCtMqK",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team type",
+      "shortName": "TM Team type",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Team type",
+        "id": "sn1CDRrGSES"
+      },
+      "id": "KwGZQ8uM1OX",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team vaccinates sick/asleep/newborn children",
+      "shortName": "TM Sick newborn",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "qVVo50Gm0sY",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team visited by supervisor yesterday",
+      "shortName": "TM Supervisor visit",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No / NA",
+        "id": "x4k6SX8Kjnw"
+      },
+      "id": "kR4V84edU7B",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Team wears apron",
+      "shortName": "TM Apron",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "ZOYD8iG3Ltf",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - VVM usable",
+      "shortName": "TM VVM",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "rkg8qUrVz52",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "TM - Vials used matches children vaccinated",
+      "shortName": "TM Vials match",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Yes / No",
+        "id": "qkv7Ern8brc"
+      },
+      "id": "dwQiwYXXGf9",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": null,
+      "name": "Target population 0-59 months",
+      "shortName": "Target pop 0-59m",
+      "legendSets": [],
+      "aggregationType": "SUM",
+      "valueType": "INTEGER",
+      "domainType": "AGGREGATE",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "ngStJImm1i5",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_TEAM_NAME",
+      "name": "Team name",
+      "shortName": "Team name",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "JpqeQRiV9zk",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "SOM_DE_VACCINE_TYPE",
+      "name": "Vaccine type",
+      "shortName": "Vaccine type",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": "Vaccine type",
+        "id": "DYGXnKpfaRW"
+      },
+      "id": "Rf22mjIuhMt",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    },
+    {
+      "code": "RCA_VILLAGE_NAME",
+      "name": "Village name",
+      "shortName": "Village name",
+      "legendSets": [],
+      "aggregationType": "NONE",
+      "valueType": "TEXT",
+      "domainType": "TRACKER",
+      "zeroIsSignificant": false,
+      "optionSet": {
+        "name": null,
+        "id": null
+      },
+      "id": "bvxIXqBnYTs",
+      "categoryCombo": {
+        "name": "default",
+        "id": "bjDvmb4bfuf"
+      }
+    }
+  ]
+}
