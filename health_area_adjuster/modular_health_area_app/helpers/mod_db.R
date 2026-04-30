@@ -47,7 +47,7 @@ db_connect <- function() {
 # =============================================================================
 
 db_get_users <- function(pool) {
-  .db_query(pool, "SELECT username, password, display_name, role FROM users ORDER BY username")
+  .db_query(pool, "SELECT username, password, display_name, role, temp_password FROM users ORDER BY username")
 }
 
 db_get_user_districts <- function(pool, username = NULL) {
@@ -84,19 +84,28 @@ db_get_allowed_districts <- function(pool, username, role) {
 }
 
 db_upsert_user <- function(pool, username, password, display_name, role) {
-  # Always store a bcrypt hash — never plain text
-  hashed <- bcrypt::hashpw(password)
-  conn   <- pool::poolCheckout(pool)
-  on.exit(pool::poolReturn(conn))
-  DBI::dbExecute(conn, "
-    INSERT INTO users (username, password, display_name, role, updated_at)
-    VALUES ($1, $2, $3, $4, NOW())
-    ON CONFLICT (username) DO UPDATE SET
-      password     = EXCLUDED.password,
-      display_name = EXCLUDED.display_name,
-      role         = EXCLUDED.role,
-      updated_at   = NOW()
-  ", list(username, hashed, display_name, role))
+  if (nzchar(password %||% '')) {
+    # Password provided — hash it and update everything including temp_password
+    hashed <- bcrypt::hashpw(password)
+    conn   <- pool::poolCheckout(pool)
+    on.exit(pool::poolReturn(conn))
+    DBI::dbExecute(conn, "
+      INSERT INTO users (username, password, temp_password, display_name, role, updated_at)
+      VALUES ($1, $2, $3, $4, $5, NOW())
+      ON CONFLICT (username) DO UPDATE SET
+        password      = EXCLUDED.password,
+        temp_password = EXCLUDED.temp_password,
+        display_name  = EXCLUDED.display_name,
+        role          = EXCLUDED.role,
+        updated_at    = NOW()
+    ", list(username, hashed, password, display_name, role))
+  } else {
+    # No password provided — update only display_name and role, leave password untouched
+    .db_execute(pool, "
+      UPDATE users SET display_name = ?dn, role = ?r, updated_at = NOW()
+      WHERE username = ?u
+    ", list(dn = display_name, r = role, u = username))
+  }
 }
 
 db_delete_user <- function(pool, username) {

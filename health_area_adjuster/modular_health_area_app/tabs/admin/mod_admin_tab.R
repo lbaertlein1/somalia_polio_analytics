@@ -115,10 +115,16 @@ adminTabServer <- function(id, districts_shp) {
         }
       }, integer(1))
       
+      # Show temp_password (plain text for sharing) — clears after first login
+      share_pw <- vapply(seq_len(nrow(df)), function(i) {
+        tp <- df$temp_password[i] %||% ''
+        if (nzchar(tp)) tp else '— logged in'
+      }, character(1))
+      
       display <- data.frame(
         Username       = df$username,
         `Display name` = df$display_name,
-        Password       = df$password,
+        `Share password` = share_pw,
         Role           = df$role,
         Districts      = ifelse(df$role == 'admin',
                                 paste0(n_dists, ' (all)'),
@@ -194,7 +200,7 @@ adminTabServer <- function(id, districts_shp) {
       ud             <- store$ud_df
       current_uname  <- if (is_edit) df$username[idx]     else ''
       current_dname  <- if (is_edit) df$display_name[idx] else ''
-      current_pass   <- if (is_edit) df$password[idx]     else ''
+      current_pass   <- if (is_edit) df$temp_password[idx] %||% '' else ''
       current_role   <- if (is_edit) df$role[idx]         else 'user'
       current_dists  <- if (is_edit && current_role != 'admin')
         ud$district_name[ud$username == current_uname]
@@ -213,7 +219,7 @@ adminTabServer <- function(id, districts_shp) {
           column(4,
                  textInput(session$ns('new_username'),  'Username',     value = current_uname, width = '100%'),
                  textInput(session$ns('new_dispname'),  'Display name', value = current_dname, width = '100%'),
-                 textInput(session$ns('new_password'),  'Password',     value = current_pass,  width = '100%'),
+                 textInput(session$ns('new_password'),  'Password',     value = current_pass, placeholder = 'Enter password', width = '100%'),
                  selectInput(session$ns('new_role'), 'Role',
                              choices = c('user', 'admin'), selected = current_role, width = '100%')
           ),
@@ -261,6 +267,10 @@ adminTabServer <- function(id, districts_shp) {
       }
       
       if (is.null(idx)) {
+        if (!nzchar(password)) {
+          showNotification('Password is required for new users.', type = 'error', duration = 4)
+          return()
+        }
         df <- rbind(df, data.frame(
           username     = uname,
           password     = password,
@@ -272,7 +282,8 @@ adminTabServer <- function(id, districts_shp) {
         old_uname            <- df$username[idx]
         df$username[idx]     <- uname
         df$display_name[idx] <- if (nzchar(dispname)) dispname else uname
-        df$password[idx]     <- password
+        # Only update password if a new one was entered — blank means keep existing
+        if (nzchar(password)) df$password[idx] <- password
         df$role[idx]         <- role
         ud$username[ud$username == old_uname] <- uname
         ud <- ud[ud$username != uname, , drop = FALSE]
@@ -286,7 +297,10 @@ adminTabServer <- function(id, districts_shp) {
         ))
       }
       
-      .write_users(df); .write_ud(ud)
+      # Only upsert the user that was changed — not all users.
+      # Upserting all users would re-hash already-hashed passwords for unchanged users.
+      db_upsert_user(pool, uname, password, if (nzchar(dispname)) dispname else uname, role)
+      .write_ud(ud)
       store$refreshed <- store$refreshed + 1L
       removeModal()
       showNotification(
