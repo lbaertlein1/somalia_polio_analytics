@@ -21,7 +21,7 @@ db_connect <- function() {
     sslmode  = Sys.getenv('DB_SSL', 'require'),
     minSize  = 1L,
     maxSize  = 5L,
-    idleTimeout = 1800000L
+    idleTimeout = 300000L
   )
 }
 
@@ -60,12 +60,21 @@ db_get_user_districts <- function(pool, username = NULL) {
 }
 
 db_validate_credentials <- function(pool, uname, pword) {
+  # Fetch the stored hash for this username (never compare plain text)
   row <- .db_query(pool,
-                   "SELECT username, display_name, role FROM users
-     WHERE username = ?u AND password = ?p",
-                   list(u = uname, p = pword))
+                   "SELECT username, display_name, role, password FROM users
+     WHERE username = ?u",
+                   list(u = uname))
   if (nrow(row) == 0) return(NULL)
-  row[1L, ]
+  stored <- row$password[1L]
+  # Support both bcrypt hashes ($2b$...) and legacy plain text during migration
+  valid <- if (startsWith(stored, '$2')) {
+    tryCatch(bcrypt::checkpw(pword, stored), error = function(e) FALSE)
+  } else {
+    identical(pword, stored)   # legacy fallback — removed once migration runs
+  }
+  if (!isTRUE(valid)) return(NULL)
+  row[1L, c('username', 'display_name', 'role')]
 }
 
 db_get_allowed_districts <- function(pool, username, role) {
@@ -75,7 +84,9 @@ db_get_allowed_districts <- function(pool, username, role) {
 }
 
 db_upsert_user <- function(pool, username, password, display_name, role) {
-  conn <- pool::poolCheckout(pool)
+  # Always store a bcrypt hash — never plain text
+  hashed <- bcrypt::hashpw(password)
+  conn   <- pool::poolCheckout(pool)
   on.exit(pool::poolReturn(conn))
   DBI::dbExecute(conn, "
     INSERT INTO users (username, password, display_name, role, updated_at)
@@ -85,7 +96,7 @@ db_upsert_user <- function(pool, username, password, display_name, role) {
       display_name = EXCLUDED.display_name,
       role         = EXCLUDED.role,
       updated_at   = NOW()
-  ", list(username, password, display_name, role))
+  ", list(username, hashed, display_name, role))
 }
 
 db_delete_user <- function(pool, username) {

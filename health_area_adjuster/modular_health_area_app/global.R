@@ -17,6 +17,7 @@ library(zip)
 library(pool)
 library(DBI)
 library(RPostgres)
+library(bcrypt)
 
 `%||%` <- function(a, b) if (!is.null(a)) a else b
 

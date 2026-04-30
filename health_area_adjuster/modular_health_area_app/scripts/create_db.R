@@ -1,5 +1,6 @@
 library(DBI)
 library(RPostgres)
+library(bcrypt)
 
 # =============================================================================
 # CONFIGURATION — set these before running
@@ -135,13 +136,14 @@ dbExecute(con, "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO shiny_a
 # =============================================================================
 
 tryCatch({
-  dbExecute(con, sprintf(
-    "INSERT INTO users (username, password, display_name, role)
-     VALUES ('admin', '%s', 'Admin', 'admin')
+  hashed_admin <- bcrypt::hashpw(ADMIN_PASSWORD)
+  DBI::dbExecute(con,
+                 "INSERT INTO users (username, password, display_name, role)
+     VALUES ($1, $2, 'Admin', 'admin')
      ON CONFLICT (username) DO NOTHING",
-    ADMIN_PASSWORD
-  ))
-  cat("\nAdmin user seeded.\n")
+                 list('admin', hashed_admin)
+  )
+  cat("\nAdmin user seeded (password hashed).\n")
 }, error = function(e) cat("Admin user error:", e$message, "\n"))
 
 
