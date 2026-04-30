@@ -1,182 +1,135 @@
 # =============================================================================
 # download_helpers.R
-# Shared zip-building logic for district microplan downloads.
-#
-# Used by:
-#   mod_microplan_tab.R  — downloads live session data
-#   mod_admin_tab.R      — downloads from saved session snapshots
-#
-# Phase 6: replace data-extraction logic with DB queries; this function
-#           signature and zip structure stay the same.
-#
-# Zip contents:
-#   health_areas.csv    — one row per health area
-#   supervisors.csv     — one row per supervisor, linked by health_area_uid
-#   health_areas.shp    — area boundary polygons (+ .dbf/.prj/.shx)
-#   sia_sites.shp       — SIA coordination site points (+ .dbf/.prj/.shx)
+# Replaces build_district_zip — outputs GeoJSON + CSV instead of shapefiles
 # =============================================================================
 
-#' Build a district microplan zip file
+#' Write district download files to a temp directory and zip them.
 #'
-#' @param file         Output path for the .zip file
-#' @param district_name, zone, region  Character strings for metadata
-#' @param saved_dfa_sf sf object — health area polygons (or NULL)
-#' @param planning_data Named list of per-area planning data (or empty list)
-#' @param facility_data data.frame of facilities including lat/lon and
-#'                      polio_sia_coordination_site column (or NULL)
-build_district_zip <- function(
-    file,
-    district_name,
-    zone            = '',
-    region          = '',
-    saved_dfa_sf    = NULL,
-    planning_data   = list(),
-    facility_data   = NULL
-) {
+#' Output files:
+#'   health_areas.geojson       — health area polygons with planning attributes
+#'   sia_coordination_sites.geojson — SIA coordination site points
+#'   microplan.csv              — tabular planning data (one row per health area)
+#'   facilities.csv             — all facility records
+
+build_district_download <- function(file,
+                                    district_name,
+                                    zone          = '',
+                                    region        = '',
+                                    saved_dfa_sf  = NULL,
+                                    planning_data = list(),
+                                    facility_data = NULL) {
+  
   tmp <- tempfile()
-  dir.create(tmp, recursive = TRUE)
+  dir.create(tmp)
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
-
+  
   slug <- gsub('[^A-Za-z0-9]', '_', tolower(trimws(district_name)))
-
-  # ── UIDs ───────────────────────────────────────────────────────────────────
-  .uid <- function(area_name) {
-    paste0(slug, '__', gsub('[^A-Za-z0-9]', '_', tolower(trimws(area_name))))
-  }
-
-  # ── 1. health_areas.csv ────────────────────────────────────────────────────
-  area_names <- if (!is.null(saved_dfa_sf) && nrow(saved_dfa_sf) > 0) {
-    unique(saved_dfa_sf$dfa_name)
-  } else {
-    names(planning_data)
-  }
-  area_names <- setdiff(area_names, extra_dfa_names)
-
-  ha_rows <- lapply(area_names, function(a) {
-    d <- planning_data[[a]] %||% list()
-    data.frame(
-      uid           = .uid(a),
-      zone          = zone,
-      region        = region,
-      district      = district_name,
-      area_name     = a,
-      u5_pop        = d$u5_pop        %||% NA_real_,
-      n_teams       = d$n_teams       %||% NA_integer_,
-      n_supervisors = d$n_supervisors %||% NA_integer_,
-      complete      = isTRUE(d$complete),
-      notes         = d$notes         %||% '',
-      stringsAsFactors = FALSE
-    )
-  })
-
-  ha_df <- if (length(ha_rows) > 0) dplyr::bind_rows(ha_rows) else
-    data.frame(uid = character(0), zone = character(0), region = character(0),
-               district = character(0), area_name = character(0),
-               u5_pop = numeric(0), n_teams = integer(0),
-               n_supervisors = integer(0), complete = logical(0),
-               notes = character(0), stringsAsFactors = FALSE)
-
-  write.csv(ha_df, file.path(tmp, 'health_areas.csv'), row.names = FALSE)
-
-  # ── 2. supervisors.csv ─────────────────────────────────────────────────────
-  sup_rows <- lapply(area_names, function(a) {
-    d    <- planning_data[[a]] %||% list()
-    sups <- d$supervisors %||% list()
-    if (length(sups) == 0) return(NULL)
-    lapply(seq_along(sups), function(i) {
-      s <- sups[[i]] %||% list()
-      data.frame(
-        health_area_uid    = .uid(a),
-        supervisor_number  = i,
-        name               = s$name  %||% '',
-        role               = s$role  %||% '',
-        phone              = s$phone %||% '',
-        email              = s$email %||% '',
-        stringsAsFactors   = FALSE
-      )
-    })
-  })
-
-  sup_rows_flat <- Filter(Negate(is.null), unlist(sup_rows, recursive = FALSE))
-  sup_df <- if (length(sup_rows_flat) > 0) dplyr::bind_rows(sup_rows_flat) else
-    data.frame(health_area_uid = character(0), supervisor_number = integer(0),
-               name = character(0), role = character(0),
-               phone = character(0), email = character(0),
-               stringsAsFactors = FALSE)
-
-  write.csv(sup_df, file.path(tmp, 'supervisors.csv'), row.names = FALSE)
-
-  # ── 3. health_areas.shp ───────────────────────────────────────────────────
+  
+  # ── Health areas GeoJSON ───────────────────────────────────────────────────
   if (!is.null(saved_dfa_sf) && nrow(saved_dfa_sf) > 0) {
-    tryCatch({
-      shp <- sf::st_transform(saved_dfa_sf, 4326)
-
-      # Normalise geometry — shapefiles require POLYGON/MULTIPOLYGON
-      shp <- tryCatch(sf::st_collection_extract(shp, 'POLYGON'), error = function(e) shp)
-      shp <- tryCatch(sf::st_cast(shp, 'MULTIPOLYGON', warn = FALSE), error = function(e) shp)
-
-      shp$uid      <- vapply(shp$dfa_name, .uid, character(1))
-      shp$district <- district_name
-      shp$region   <- region
-      shp$zone     <- zone
-
-      shp <- shp |> dplyr::select(uid, area_name = dfa_name,
-                                   district, region, zone, geometry)
-
-      shp_path <- file.path(tmp, 'health_areas.shp')
-      shp_path <- normalizePath(shp_path, mustWork = FALSE)
-      sf::write_sf(shp, shp_path, delete_dsn = TRUE)
-      
-    }, error = function(e) {
-      cat('[download] health_areas.shp write error:', e$message, '\n')
-    })
-  }
-
-  # ── 4. sia_sites.shp ──────────────────────────────────────────────────────
-  if (!is.null(facility_data) && nrow(facility_data) > 0) {
-    tryCatch({
-      sia <- facility_data[
-        !is.na(facility_data$polio_sia_coordination_site) &
-        facility_data$polio_sia_coordination_site == 'Yes', ,
-        drop = FALSE
-      ]
-
-      # Ensure lat/lon are present
-      if (nrow(sia) > 0 && all(c('lat', 'lon') %in% names(sia))) {
-        sia_sf <- sf::st_as_sf(
-          data.frame(
-            name     = sia$facility_name %||% '',
-            district = district_name,
-            region   = region,
-            zone     = zone,
-            lat      = as.numeric(sia$lat),
-            lon      = as.numeric(sia$lon),
-            stringsAsFactors = FALSE
-          ),
-          coords = c('lon', 'lat'),
-          crs    = 4326
+    sf_out <- saved_dfa_sf |>
+      dplyr::mutate(
+        zone_name     = zone,
+        region_name   = region,
+        district_name = district_name
+      )
+    
+    # Join planning data as properties
+    if (length(planning_data) > 0) {
+      plan_df <- dplyr::bind_rows(lapply(names(planning_data), function(a) {
+        d <- planning_data[[a]]
+        data.frame(
+          dfa_name      = a,
+          u5_pop        = as.numeric(d$u5_pop        %||% NA),
+          n_teams       = as.integer(d$n_teams       %||% NA),
+          n_supervisors = as.integer(d$n_supervisors %||% NA),
+          complete      = isTRUE(d$complete),
+          notes         = trimws(d$notes %||% ''),
+          stringsAsFactors = FALSE
         )
-        sf::write_sf(sia_sf, file.path(tmp, 'sia_sites.shp'), delete_dsn = TRUE)
-      }
-    }, error = function(e) {
-      cat('[download] sia_sites.shp write error:', e$message, '\n')
-    })
+      }))
+      sf_out <- sf_out |> dplyr::left_join(plan_df, by = 'dfa_name')
+    }
+    
+    sf_out <- sf::st_transform(sf_out, 4326)
+    sf::st_write(sf_out,
+                 file.path(tmp, 'health_areas.geojson'),
+                 driver = 'GeoJSON', delete_dsn = TRUE, quiet = TRUE)
   }
-
-  # ── Zip everything ─────────────────────────────────────────────────────────
-  all_files <- list.files(tmp, full.names = TRUE)
-  if (length(all_files) == 0) {
+  
+  # ── SIA coordination sites GeoJSON ────────────────────────────────────────
+  if (!is.null(facility_data)) {
+    fac_df <- if (inherits(facility_data, 'sf')) {
+      sf::st_drop_geometry(facility_data)
+    } else {
+      facility_data
+    }
+    
+    sia_df <- fac_df[
+      !is.na(fac_df$polio_sia_coordination_site) &
+        fac_df$polio_sia_coordination_site == 'Yes', ,
+      drop = FALSE
+    ]
+    
+    if (nrow(sia_df) > 0 && all(c('lon', 'lat') %in% names(sia_df))) {
+      sia_sf <- sf::st_as_sf(sia_df, coords = c('lon', 'lat'), crs = 4326, remove = FALSE) |>
+        dplyr::mutate(zone_name = zone, region_name = region, district_name = district_name)
+      sf::st_write(sia_sf,
+                   file.path(tmp, 'sia_coordination_sites.geojson'),
+                   driver = 'GeoJSON', delete_dsn = TRUE, quiet = TRUE)
+    }
+    
+    # ── All facilities CSV ───────────────────────────────────────────────────
+    fac_out <- fac_df |>
+      dplyr::mutate(zone_name = zone, region_name = region, district_name = district_name) |>
+      dplyr::select(zone_name, region_name, district_name,
+                    dplyr::any_of(c('facility_id', 'facility_name', 'facility_type',
+                                    'hf_ownership', 'polio_sia_coordination_site',
+                                    'operational', 'lat', 'lon')))
+    write.csv(fac_out, file.path(tmp, 'facilities.csv'), row.names = FALSE)
+  }
+  
+  # ── Microplan CSV ──────────────────────────────────────────────────────────
+  if (length(planning_data) > 0) {
+    mp_rows <- dplyr::bind_rows(lapply(names(planning_data), function(a) {
+      d   <- planning_data[[a]]
+      sup <- d$supervisors %||% list()
+      sup_cols <- list()
+      for (s_i in seq_len(min(length(sup), 10L))) {
+        s <- sup[[s_i]] %||% list()
+        sup_cols[[paste0('supervisor_', s_i, '_name')]]  <- s$name  %||% ''
+        sup_cols[[paste0('supervisor_', s_i, '_role')]]  <- s$role  %||% ''
+        sup_cols[[paste0('supervisor_', s_i, '_phone')]] <- s$phone %||% ''
+        sup_cols[[paste0('supervisor_', s_i, '_email')]] <- s$email %||% ''
+      }
+      base <- data.frame(
+        zone_name     = zone,
+        region_name   = region,
+        district_name = district_name,
+        area_name     = a,
+        u5_pop        = as.numeric(d$u5_pop        %||% NA),
+        n_teams       = as.integer(d$n_teams       %||% NA),
+        n_supervisors = as.integer(d$n_supervisors %||% NA),
+        complete      = isTRUE(d$complete),
+        notes         = trimws(d$notes %||% ''),
+        stringsAsFactors = FALSE
+      )
+      if (length(sup_cols) > 0)
+        base <- cbind(base, as.data.frame(sup_cols, stringsAsFactors = FALSE))
+      base
+    }))
+    write.csv(mp_rows, file.path(tmp, 'microplan.csv'), row.names = FALSE)
+  }
+  
+  # ── Zip ────────────────────────────────────────────────────────────────────
+  out_files <- list.files(tmp, full.names = TRUE)
+  if (length(out_files) == 0) {
     write.csv(data.frame(message = 'No data available.'), file, row.names = FALSE)
     return(invisible(NULL))
   }
-
   tryCatch(
-    zip::zip(zipfile = file, files = all_files, mode = 'cherry-pick'),
-    error = function(e) {
-      # Fallback: base R zip
-      zip(zipfile = file, files = all_files, flags = '-j')
-    }
+    zip::zip(zipfile = file, files = out_files, mode = 'cherry-pick'),
+    error = function(e) zip(zipfile = file, files = out_files, flags = '-j')
   )
-
   invisible(NULL)
 }

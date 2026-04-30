@@ -8,23 +8,43 @@ orientationTabUI <- function(id) {
   fluidRow(
     
     column(
-      width = 2,
+      width = 3,
       
-      div(class = 'rightbar-title', style = 'margin-top: 4px;', 'Orientation'),
+      div(class = 'rightbar-title', style = 'margin-top: 4px;', 'Landmarks'),
       
       tags$p(
-        style = 'font-size: 12px; color: #475569; line-height: 1.6;',
-        'Get familiar with the map before moving to facility mapping.'
+        style = 'font-size: 12px; color: #475569; line-height: 1.6; margin-bottom: 8px;',
+        'Use this map to orient the group to the district before starting health area planning.'
       ),
       
-      tags$ul(
-        style = 'font-size: 12px; color: #475569; padding-left: 16px; line-height: 1.8;',
-        tags$li('Click anywhere on the map to drop a landmark.'),
-        tags$li('Drag a pin to reposition it.'),
-        tags$li('Rename landmarks in the table on the right.')
+      div(
+        style = paste0('background:#f0fdf4;border-left:3px solid #0d9488;',
+                       'border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:10px;'),
+        tags$p(
+          style = 'font-size: 11px; font-weight: 600; color: #0f172a; margin: 0 0 3px;',
+          'What is a landmark?'
+        ),
+        tags$p(
+          style = 'font-size: 11px; color: #475569; line-height: 1.5; margin: 0;',
+          'Any recognisable reference point such as a town, village, school, mosque, ',
+          'road junction, or river crossing. Landmarks are only used to help the group ',
+          'navigate the map during this session.'
+        )
       ),
       
-      tags$hr(style = 'margin: 10px 0;'),
+      tags$p(
+        style = 'font-size: 11px; color: #475569; line-height: 1.6; margin-bottom: 6px;',
+        tags$strong('To add a landmark:'), ' click anywhere on the map to drop a pin. ',
+        'Drag to reposition it. Edit the name in the table on the right.'
+      ),
+      
+      tags$p(
+        style = 'font-size: 11px; color: #94a3b8; line-height: 1.5; margin-bottom: 8px;',
+        'Take time to explore the map — zoom in and out, pan around, and switch ',
+        'base layers using the control in the top right to find the view that works best.'
+      ),
+      
+      tags$hr(style = 'margin: 8px 0;'),
       
       uiOutput(ns('landmark_count')),
       
@@ -65,7 +85,7 @@ orientationTabUI <- function(id) {
     ),
     
     column(
-      width = 7,
+      width = 6,
       div(
         style = 'height: calc(100vh - 120px); position: relative;',
         leaflet::leafletOutput(ns('map'), width = '100%', height = '100%')
@@ -98,6 +118,7 @@ orientationTabServer <- function(
     region,
     district,
     district_ready,
+    active_tab       = reactive(NULL),
     submit_stage_fn  = NULL,
     save_snapshot_fn = NULL,   # kept for compatibility, no-op
     restore_r        = reactive(NULL)
@@ -141,7 +162,14 @@ orientationTabServer <- function(
         safe_make_valid()
       
       req(nrow(sf) >= 1)
-      sf::st_transform(sf, 4326)
+      sf <- sf::st_transform(sf, 4326)
+      # safe_make_valid can return GEOMETRYCOLLECTION — extract polygons only
+      # so leaflet::addPolygons doesn't error on geometry type mismatch
+      sf <- tryCatch(
+        sf::st_collection_extract(sf, 'POLYGON'),
+        error = function(e) sf
+      )
+      sf
     })
     
     # ── Clear landmarks when district changes ─────────────────────────────────
@@ -166,10 +194,9 @@ orientationTabServer <- function(
     
     # ── Base map ──────────────────────────────────────────────────────────────
     output$map <- leaflet::renderLeaflet({
-      req(district_sf())
-      
-      bbox <- sf::st_bbox(district_sf())
-      
+      # No reactive dependencies here — base tiles only.
+      # District boundary and fitBounds are handled by the observe block below
+      # so they re-fire on every district change without destroying the widget.
       leaflet::leaflet(
         options = leaflet::leafletOptions(zoomSnap = 0.25)
       ) |>
@@ -184,10 +211,6 @@ orientationTabServer <- function(
           baseGroups = c('OpenStreetMap', 'ESRI Satellite', 'CARTO Light'),
           options    = leaflet::layersControlOptions(collapsed = TRUE)
         ) |>
-        leaflet::fitBounds(
-          lng1 = bbox[['xmin']], lat1 = bbox[['ymin']],
-          lng2 = bbox[['xmax']], lat2 = bbox[['ymax']]
-        ) |>
         leaflet::addScaleBar(
           position = 'bottomright',
           options  = leaflet::scaleBarOptions(imperial = FALSE, maxWidth = 200)
@@ -200,6 +223,8 @@ orientationTabServer <- function(
     # ── District boundary ─────────────────────────────────────────────────────
     observe({
       req(district_sf())
+      cat('[orientation] boundary observer fired, district:', isolate(district()), '\n')
+      bbox <- sf::st_bbox(district_sf())
       leaflet::leafletProxy('map', session = session) |>
         leaflet::clearGroup('district') |>
         leaflet::addPolygons(
@@ -211,6 +236,40 @@ orientationTabServer <- function(
           opacity = 1
         )
     })
+    
+    # fitBounds must fire when the tab becomes visible (leaflet ignores fitBounds
+    # on a hidden container). Two explicit observers handle the two triggers:
+    # (1) user switches to this tab, (2) district changes while tab is already active.
+    
+    .do_fit_bounds <- function(bbox, source) {
+      cat('[orientation fitBounds] source:', source,
+          '| xmin:', round(bbox[['xmin']], 3),
+          '| xmax:', round(bbox[['xmax']], 3),
+          '| ymin:', round(bbox[['ymin']], 3),
+          '| ymax:', round(bbox[['ymax']], 3), '\n')
+      leaflet::leafletProxy('map', session = session) |>
+        leaflet::fitBounds(
+          lng1 = bbox[['xmin']], lat1 = bbox[['ymin']],
+          lng2 = bbox[['xmax']], lat2 = bbox[['ymax']]
+        )
+    }
+    
+    observeEvent(active_tab(), {
+      cat('[orientation] active_tab changed to:', active_tab(), '\n')
+      req(identical(active_tab(), 'tab_orientation'))
+      sf <- district_sf()
+      req(!is.null(sf))
+      cat('[orientation] tab active, district_sf nrow:', nrow(sf), '\n')
+      bbox <- sf::st_bbox(sf)
+      shinyjs::delay(500, .do_fit_bounds(bbox, 'tab_switch'))
+    }, ignoreInit = TRUE)
+    
+    observeEvent(district_sf(), {
+      cat('[orientation] district_sf changed, active_tab:', isolate(active_tab()), '\n')
+      req(identical(isolate(active_tab()), 'tab_orientation'))
+      bbox <- sf::st_bbox(district_sf())
+      .do_fit_bounds(bbox, 'district_change')
+    }, ignoreInit = TRUE)
     
     # ── Draw / redraw all landmark markers ────────────────────────────────────
     .redraw_markers <- function() {

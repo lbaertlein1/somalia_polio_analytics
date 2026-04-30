@@ -7,44 +7,79 @@ facilityTabUI <- function(id) {
   
   fluidRow(
     column(
-      width = 2,
+      width = 3,
       
-      div(class = 'rightbar-title', 'Health Facility Mapping'),
-      tags$ul(
-        tags$li('Drag a pin to correct its GPS location.'),
-        tags$li('Rename a facility in the table.'),
-        tags$li('Mark facilities as SIA Coordination Sites in the table.')
+      div(class = 'rightbar-title', 'SIA Coordination Sites'),
+      
+      div(
+        style = paste0('background:#f0fdf4;border-left:3px solid #0d9488;',
+                       'border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:8px;'),
+        tags$p(
+          style = 'font-size: 11px; font-weight: 600; color: #0f172a; margin: 0 0 2px;',
+          'Goal: identify SIA coordination sites'
+        ),
+        tags$p(
+          style = 'font-size: 11px; color: #475569; line-height: 1.5; margin: 0;',
+          'The facilities where vaccination teams assemble, collect supplies, and report back. ',
+          'One coordination site anchors one health area.'
+        )
+      ),
+      
+      tags$p(
+        style = 'font-size: 11px; color: #475569; line-height: 1.6; margin-bottom: 5px;',
+        'Review the listed facilities. Correct GPS by dragging pins on the map. ',
+        'Tick the ', tags$strong('checkbox'), ' in the table to mark a facility as a coordination site.'
+      ),
+      
+      tags$p(
+        style = 'font-size: 11px; color: #64748b; line-height: 1.5; margin-bottom: 8px;',
+        tags$strong('When selecting, consider: '),
+        'location & catchment population; cold storage, electricity & assembly space; ',
+        'availability of an SIA coordinator or supervisor.'
       ),
       
       uiOutput(ns('odk_status')),
-      tags$hr(),
       
       actionButton(
-        ns('add_sia_site'), 'Add SIA Coordination Site',
-        icon = icon('map-pin'), width = '100%', class = 'btn-default'
+        ns('add_sia_site'),
+        tagList(icon('map-pin'), 'Add Non-Facility Site'),
+        width = '100%', class = 'btn-default btn-sm'
       ),
-      div(style = 'margin-top: 6px; font-size: 12px; color: #666;',
-          'Click this button, then click the map to place a new site.'),
-      tags$hr(),
+      tags$p(
+        style = 'font-size: 11px; color: #94a3b8; margin: 4px 0 8px;',
+        'Only if the coordination site is not listed as a health facility. ',
+        'Click the button then click the map to place it.'
+      ),
       
       checkboxInput(
         ns('show_pop_raster'),
         'Show WorldPop U5 Population',
         value = FALSE
       ),
-      tags$hr(),
       
-      actionButton(ns('submit_facilities'), 'Submit Facility Locations',
-                   class = 'btn-primary', width = '100%',
+      tags$hr(style = 'margin: 6px 0;'),
+      
+      actionButton(ns('submit_facilities'), 'Submit',
+                   class = 'btn-primary btn-sm', width = '100%',
                    icon = icon('check-circle')),
       div(
-        style = 'font-size: 11px; color: #64748b; margin-top: 5px; line-height: 1.4;',
-        'Saves facility locations to the database.'
+        style = 'font-size: 11px; color: #64748b; margin-top: 4px;',
+        'Saves coordination site selections to the database.'
+      ),
+      
+      tags$hr(style = 'margin: 8px 0;'),
+      
+      actionButton(
+        ns('continue_to_areas'),
+        'Continue →',
+        class = 'btn btn-default btn-sm',
+        width = '100%',
+        style = 'font-weight: 600;'
       )
     ),
     
     column(
-      width = 7,
+      width = 6,
       div(style = 'height: calc(100vh - 120px);', facilityMapUI(ns('map')))
     ),
     
@@ -59,7 +94,6 @@ facilityTabUI <- function(id) {
     )
   )
 }
-
 
 # =============================================================================
 
@@ -125,7 +159,7 @@ facilityTabServer <- function(
       
       req(nrow(district_sf) >= 1)
       
-      district_sf |>
+      result_sf <- district_sf |>
         dplyr::summarise(
           admin_id           = dplyr::first(admin_id),
           district_name      = dplyr::first(district_name),
@@ -139,6 +173,9 @@ facilityTabServer <- function(
         ) |>
         sf::st_as_sf() |>
         safe_make_valid()
+      result_sf <- tryCatch(sf::st_collection_extract(result_sf, 'POLYGON'),
+                            error = function(e) result_sf)
+      result_sf
     })
     
     # -------------------------------------------------------------------------
@@ -406,6 +443,22 @@ facilityTabServer <- function(
       selected_id_r   = selected_id,
       on_data_change  = update_facility_data
     )
+    
+    # -------------------------------------------------------------------------
+    # Continue button — validates SIA sites then navigates
+    # -------------------------------------------------------------------------
+    observeEvent(input$continue_to_areas, {
+      df    <- facility_data()
+      seeds <- df |> dplyr::filter(polio_sia_coordination_site == "Yes")
+      if (nrow(seeds) == 0) {
+        showNotification(
+          "Please mark at least one SIA coordination site before continuing.",
+          type = "warning", duration = 4
+        )
+        return()
+      }
+      session$sendCustomMessage('switch_tab', list(value = 'tab_health_area_mapping'))
+    }, ignoreInit = TRUE)
     
     # -------------------------------------------------------------------------
     # Submit — passes coordination sites locally AND writes to DB

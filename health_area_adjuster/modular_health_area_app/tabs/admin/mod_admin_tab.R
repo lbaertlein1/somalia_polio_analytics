@@ -650,7 +650,7 @@ adminTabServer <- function(id, districts_shp) {
         fac_df    <- if (length(fac_parts) > 0)
           sf::st_drop_geometry(do.call(rbind, fac_parts)) else NULL
         
-        build_district_zip(
+        build_district_download(
           file          = file,
           district_name = rs$district,
           zone          = di$zone_name[1]   %||% '',
@@ -685,8 +685,8 @@ adminTabServer <- function(id, districts_shp) {
         on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
         
         # ── Accumulators ───────────────────────────────────────────────────────
-        all_areas_sf    <- list()   # sf objects — combined to health_areas.shp
-        all_sia_sf      <- list()   # sf point objects — combined to sia_coordination_sites.shp
+        all_areas_sf    <- list()   # sf objects — combined to health_areas.geojson
+        all_sia_sf      <- list()   # sf point objects — combined to sia_coordination_sites.geojson
         all_microplan   <- list()   # data.frames — combined to microplan.csv
         all_facilities  <- list()   # data.frames — combined to facilities.csv
         
@@ -796,7 +796,7 @@ adminTabServer <- function(id, districts_shp) {
           return()
         }
         
-        # ── Write combined shapefile ──────────────────────────────────────────
+        # ── Write health areas GeoJSON ─────────────────────────────────────────────────────────────────────────────
         if (length(all_areas_sf) > 0) {
           combined_sf <- tryCatch({
             do.call(rbind, all_areas_sf) |> sf::st_transform(4326)
@@ -805,15 +805,15 @@ adminTabServer <- function(id, districts_shp) {
           if (!is.null(combined_sf)) {
             tryCatch(
               sf::st_write(combined_sf,
-                           file.path(tmp, 'health_areas.shp'),
-                           delete_layer = TRUE, quiet = TRUE),
+                           file.path(tmp, 'health_areas.geojson'),
+                           driver = 'GeoJSON', delete_dsn = TRUE, quiet = TRUE),
               error = function(e)
-                cat('[download_all] shapefile write error:', e$message, '\n')
+                cat('[download_all] health_areas GeoJSON error:', e$message, '\n')
             )
           }
         }
         
-        # ── Write SIA coordination sites shapefile ────────────────────────────
+        # ── Write SIA coordination sites GeoJSON ────────────────────────────
         if (length(all_sia_sf) > 0) {
           combined_sia <- tryCatch({
             do.call(rbind, all_sia_sf) |> sf::st_transform(4326)
@@ -821,10 +821,10 @@ adminTabServer <- function(id, districts_shp) {
           if (!is.null(combined_sia)) {
             tryCatch(
               sf::st_write(combined_sia,
-                           file.path(tmp, 'sia_coordination_sites.shp'),
-                           delete_layer = TRUE, quiet = TRUE),
+                           file.path(tmp, 'sia_coordination_sites.geojson'),
+                           driver = 'GeoJSON', delete_dsn = TRUE, quiet = TRUE),
               error = function(e)
-                cat('[download_all] sia shapefile error:', e$message, '\n')
+                cat('[download_all] sia GeoJSON error:', e$message, '\n')
             )
           }
         }

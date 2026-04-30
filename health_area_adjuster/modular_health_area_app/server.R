@@ -52,6 +52,7 @@ app_server <- function(input, output, session) {
     region           = intro$region,
     district         = intro$district,
     district_ready   = intro$district_ready,
+    active_tab       = reactive(input$main_tabs),
     submit_stage_fn  = submit_fn,
     restore_r        = reactive(NULL)
   )

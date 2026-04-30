@@ -1,8 +1,8 @@
 healthAreaTabUI <- function(id) {
   ns <- NS(id)
   fluidRow(
-    column(width = 2, healthAreaControlsUI(ns('controls'))),
-    column(width = 7, div(style = 'height: calc(100vh - 120px);', healthAreaMapUI(ns('map')))),
+    column(width = 3, healthAreaControlsUI(ns('controls'))),
+    column(width = 6, div(style = 'height: calc(100vh - 120px);', healthAreaMapUI(ns('map')))),
     column(width = 3,
            div(style = 'overflow-y: auto; height: calc(100vh - 120px);',
                healthAreaPopulationUI(ns('population'))))
@@ -25,7 +25,7 @@ healthAreaTabServer <- function(
     
     controls      <- healthAreaControlsServer("controls")
     map_mod       <- healthAreaMapServer("map")
-    active_dfa_rv <- reactiveVal(starter_dfa_names[1])
+    active_dfa_rv <- reactiveVal('Inaccessible')
     restore_just_applied     <- reactiveVal(FALSE)
     pending_action           <- reactiveVal(NULL)
     pending_restore          <- reactiveVal(NULL)
@@ -135,7 +135,8 @@ healthAreaTabServer <- function(
           zone_id = dplyr::first(zone_id), zone_name = dplyr::first(zone_name),
           geometry = sf::st_union(geometry), .groups = "drop"
         ) |> sf::st_as_sf()
-      dsf       <- safe_make_valid(dsf)
+      dsf <- safe_make_valid(dsf)
+      dsf <- tryCatch(sf::st_collection_extract(dsf, 'POLYGON'), error = function(e) dsf)
       max_dim_m <- calc_district_max_dim(dsf)
       list(district_sf = dsf, max_dim_m = max_dim_m,
            grid_limits = calc_grid_limits(max_dim_m), brush_limits = calc_brush_limits(max_dim_m))
@@ -405,6 +406,18 @@ healthAreaTabServer <- function(
       req(!is.null(rv$grid_sf), !is.null(rv$district_sf))
       pending_action("submit_areas")
       send_paint_message("paint_request_assignments")
+    }, ignoreInit = TRUE)
+    
+    # ── Continue → microplan ─────────────────────────────────────────────────
+    observeEvent(controls$continue_click(), {
+      if (is.null(rv$saved_dfa_sf)) {
+        showNotification(
+          'Please save your health area boundaries before continuing.',
+          type = 'warning', duration = 4
+        )
+        return()
+      }
+      session$sendCustomMessage('switch_tab', list(value = 'tab_microplan'))
     }, ignoreInit = TRUE)
     
     # ── Reset ─────────────────────────────────────────────────────────────────

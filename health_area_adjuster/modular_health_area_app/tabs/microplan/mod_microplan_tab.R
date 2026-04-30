@@ -10,40 +10,55 @@ microplanTabUI <- function(id) {
   
   fluidRow(
     column(
-      width = 2,
+      width = 3,
       
-      div(class = 'rightbar-title', style = 'margin-top: 4px;', 'Microplan Preparation'),
+      div(class = 'rightbar-title', style = 'margin-top: 4px;', 'Microplan Prep'),
       
-      tags$p(style = 'font-size: 12px; color: #475569; line-height: 1.6;',
-             'Click any health area on the map to enter planning data.'),
-      
-      tags$ul(
-        style = 'font-size: 12px; color: #475569; padding-left: 16px; line-height: 1.8;',
-        tags$li('Suggested values are pre-filled.'),
-        tags$li('Edit any field as needed.'),
-        tags$li('Areas turn teal when marked complete.')
+      div(
+        style = paste0('background:#f0fdf4;border-left:3px solid #0d9488;',
+                       'border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:8px;'),
+        tags$p(
+          style = 'font-size: 11px; font-weight: 600; color: #0f172a; margin: 0 0 2px;',
+          'Complete planning data for each health area'
+        ),
+        tags$p(
+          style = 'font-size: 11px; color: #475569; line-height: 1.5; margin: 0;',
+          'Click a health area on the map to open its planning form. ',
+          'Areas turn ', tags$strong(style = 'color:#0d9488;', 'teal'), ' when marked complete.'
+        )
       ),
       
-      tags$hr(style = 'margin: 10px 0;'),
+      tags$p(
+        style = 'font-size: 11px; color: #475569; line-height: 1.7; margin-bottom: 8px;',
+        tags$strong('For each area, enter:'),
+        tags$br(),
+        '• Under-5 population (pre-filled from WorldPop)',
+        tags$br(),
+        '• Number of vaccination teams',
+        tags$br(),
+        '• Number of supervisors and their contact details',
+        tags$br(),
+        '• Tick ', tags$strong('Mark as complete'), ' when finished'
+      ),
       
       uiOutput(ns('progress_summary')),
       
-      tags$hr(style = 'margin: 10px 0;'),
+      tags$hr(style = 'margin: 8px 0;'),
       
       downloadButton(ns('download_data'), 'Download data',
                      class = 'btn btn-default btn-sm', style = 'width: 100%;'),
       
-      tags$hr(style = 'margin: 10px 0;'),
+      tags$hr(style = 'margin: 8px 0;'),
       
       actionButton(ns('submit_microplan'), 'Submit Microplan Prep',
                    class = 'btn btn-primary btn-sm', width = '100%',
                    icon = icon('check-circle')),
-      div(style = 'font-size: 11px; color: #64748b; margin-top: 5px; line-height: 1.4;',
+      div(style = 'font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4;',
           'Saves all planning data to the database.')
     ),
     
     column(
-      width = 10,
+      width = 9,
       div(
         style = 'position: relative; height: calc(100vh - 120px);',
         leaflet::leafletOutput(ns('map'), width = '100%', height = '100%'),
@@ -346,12 +361,19 @@ microplanTabServer <- function(
     output$supervisor_fields <- renderUI({
       n <- max(1L, min(as.integer(input$modal_n_supervisors %||% 1L), 20L))
       area_name <- isolate(editing_area())
-      existing  <- if (!is.null(area_name))
+      saved <- if (!is.null(area_name))
         isolate(rv$planning_data[[area_name]]$supervisors) %||% list()
       else list()
       
       rows <- lapply(seq_len(n), function(i) {
-        prev <- if (i <= length(existing)) existing[[i]] else list()
+        # Read currently-typed values first (preserves data when count changes).
+        # Only fall back to saved data if the field is empty/unset.
+        cur_name  <- isolate(input[[paste0('sup_name_',  i)]]) %||% ''
+        cur_role  <- isolate(input[[paste0('sup_role_',  i)]]) %||% ''
+        cur_phone <- isolate(input[[paste0('sup_phone_', i)]]) %||% ''
+        cur_email <- isolate(input[[paste0('sup_email_', i)]]) %||% ''
+        prev      <- if (i <= length(saved)) saved[[i]] else list()
+        
         fluidRow(
           style = 'margin-bottom: 6px;',
           column(1, div(style = paste0(
@@ -359,16 +381,16 @@ microplanTabServer <- function(
             'display:flex;align-items:center;justify-content:center;',
             'font-size:11px;font-weight:700;margin-top:4px;'), i)),
           column(3, textInput(session$ns(paste0('sup_name_',  i)), NULL,
-                              value = prev$name  %||% '',
+                              value = if (nzchar(cur_name))  cur_name  else prev$name  %||% '',
                               placeholder = paste0('Supervisor ', i, ' name'), width = '100%')),
           column(2, textInput(session$ns(paste0('sup_role_',  i)), NULL,
-                              value = prev$role  %||% '',
+                              value = if (nzchar(cur_role))  cur_role  else prev$role  %||% '',
                               placeholder = 'Role / title', width = '100%')),
           column(3, textInput(session$ns(paste0('sup_phone_', i)), NULL,
-                              value = prev$phone %||% '',
+                              value = if (nzchar(cur_phone)) cur_phone else prev$phone %||% '',
                               placeholder = 'Phone', width = '100%')),
           column(3, textInput(session$ns(paste0('sup_email_', i)), NULL,
-                              value = prev$email %||% '',
+                              value = if (nzchar(cur_email)) cur_email else prev$email %||% '',
                               placeholder = 'Email', width = '100%'))
         )
       })
@@ -435,14 +457,15 @@ microplanTabServer <- function(
       content = function(file) {
         di <- sf::st_drop_geometry(districts_shp) |>
           dplyr::filter(district_name == district()) |> dplyr::slice(1)
-        build_district_zip(
+        fac <- tryCatch(facility_data_r(), error = function(e) NULL)
+        build_district_download(
           file          = file,
           district_name = district() %||% '',
           zone          = di$zone_name[1]   %||% '',
           region        = di$region_name[1] %||% '',
           saved_dfa_sf  = tryCatch(saved_dfa_sf_r(), error = function(e) NULL),
           planning_data = rv$planning_data,
-          facility_data = tryCatch(facility_data_r(), error = function(e) NULL)
+          facility_data = fac
         )
       }
     )
