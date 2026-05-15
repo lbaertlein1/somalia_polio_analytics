@@ -156,6 +156,7 @@ facilityMapServer <- function(
           lng     = row$lon[[1]],
           lat     = row$lat[[1]],
           layerId = row$facility_id[[1]],
+          group   = 'facilities',
           icon    = make_facility_icon(is_selected, is_sia),
           options = leaflet::markerOptions(draggable = TRUE, riseOnHover = TRUE),
           popup   = popup_html,
@@ -466,7 +467,7 @@ facilityMapServer <- function(
       }
       
       proxy <- leaflet::leafletProxy('map', session = session) |>
-        leaflet::clearMarkers()
+        leaflet::clearGroup('facilities')
       
       if (nrow(df) > 0) {
         selected_id <- selected_id_r()

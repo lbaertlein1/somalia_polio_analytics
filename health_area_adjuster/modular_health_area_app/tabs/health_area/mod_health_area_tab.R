@@ -31,6 +31,7 @@ healthAreaTabServer <- function(
     pending_restore          <- reactiveVal(NULL)
     areas_regenerated_counter <- reactiveVal(0L)
     changed_areas_rv          <- reactiveVal(character(0))
+    last_scene_key            <- reactiveVal(NULL)
     
     normalize_dfa_names <- function(x) {
       x <- unique(as.character(x)); x <- x[!is.na(x) & nzchar(x)]
@@ -100,11 +101,27 @@ healthAreaTabServer <- function(
     recompute_population_table <- function(assignments) {
       req(!is.null(rv$grid_sf), length(assignments) == nrow(rv$grid_sf))
       req("u5_pop" %in% names(rv$grid_sf))
+      
+      current_names <- rv$dfa_names %||% all_dfa_names
+      
+      # Guard: reject assignments that contain names not in current_names.
+      # This happens when a stale JS paint_request_assignments response arrives
+      # from the previous scene after the new scene has already been loaded.
+      # Bailing out silently keeps the pop table at its last valid state until
+      # the next well-formed response arrives.
+      known_assigned <- assignments[!is.na(assignments) & nzchar(assignments)]
+      unknown        <- setdiff(unique(known_assigned), current_names)
+      if (length(unknown) > 0) {
+        cat(sprintf('[recompute_pop] skipped — %d unrecognised DFA name(s) in assignments: %s\n',
+                    length(unknown), paste(unknown, collapse = ', ')))
+        return(invisible(NULL))
+      }
+      
       df <- data.frame(area_name = assignments, est_u5_pop = rv$grid_sf$u5_pop,
                        stringsAsFactors = FALSE) |>
+        dplyr::filter(!is.na(area_name), nzchar(area_name)) |>
         dplyr::group_by(area_name) |>
         dplyr::summarise(est_u5_pop = round(sum(est_u5_pop, na.rm = TRUE), 0), .groups = "drop")
-      current_names   <- rv$dfa_names %||% all_dfa_names
       missing_classes <- setdiff(current_names, df$area_name)
       if (length(missing_classes) > 0)
         df <- dplyr::bind_rows(df, data.frame(area_name = missing_classes, est_u5_pop = 0,
@@ -148,6 +165,16 @@ healthAreaTabServer <- function(
       rv$grid_limits       <- db$grid_limits
       rv$brush_limits      <- db$brush_limits
       controls$set_brush_limits(db$brush_limits)
+    }, ignoreInit = TRUE)
+    
+    # Clear saved areas immediately on district change so downstream tabs
+    # (microplan) never render stale polygons from the previous district.
+    # This fires regardless of which tab is currently visible.
+    observeEvent(district(), {
+      rv$saved_dfa_sf        <- NULL
+      rv$current_assignments <- NULL
+      rv$pop_table           <- NULL
+      last_scene_key(NULL)   # force full reset next time health areas tab opens
     }, ignoreInit = TRUE)
     
     observeEvent(controls$brush_minus_click(), {
@@ -211,7 +238,7 @@ healthAreaTabServer <- function(
       district_sf       = reactive({ req(district_base()); district_base()$district_sf }),
       grid_n            = reactive({ req(district_base()); district_base()$grid_limits$value }),
       n_dfa             = n_start_dfas,
-      seed              = reactive({ req(district()); sum(utf8ToInt(district())) })(),
+      seed              = reactive({ req(district()); sum(utf8ToInt(district())) }),
       facility_seed_sf  = facility_seed_sf,
       facility_name_col = "facility_name"
     )
@@ -332,6 +359,7 @@ healthAreaTabServer <- function(
     
     observeEvent(selected_scene(), {
       sc <- selected_scene()
+      
       if (isTRUE(restore_just_applied())) {
         restore_just_applied(FALSE)
         rv$neighbors_list      <- sc$neighbors_list
@@ -345,33 +373,54 @@ healthAreaTabServer <- function(
         if (tab_active()) send_current_scene()
         return()
       }
-      rv$dfa_names   <- sc$dfa_names
-      rv$district_sf <- sc$district_sf
-      rv$grid_sf     <- sc$grid_sf
+      
+      # Build a key that identifies what DATA drives this scene.
+      # It changes when the district or SIA seed locations change, but NOT
+      # when the user simply switches tabs (tab_active() flip).
+      seed_key <- if (!is.null(sc$seed_points) && length(sc$seed_points) > 0) {
+        paste(sort(vapply(sc$seed_points, function(p)
+          paste0(round(p$lon %||% 0, 5), ',', round(p$lat %||% 0, 5)),
+          character(1)
+        )), collapse = '|')
+      } else ''
+      new_key      <- paste0(isolate(district()), '|', seed_key)
+      scene_is_new <- !identical(last_scene_key(), new_key)
+      last_scene_key(new_key)
+      
+      # Always refresh spatial/structural data (cheap; needed by send_current_scene)
+      rv$dfa_names           <- sc$dfa_names
+      rv$district_sf         <- sc$district_sf
+      rv$grid_sf             <- sc$grid_sf
+      rv$initial_assignments <- sc$initial_assignments
+      rv$neighbors_list      <- sc$neighbors_list
+      rv$edge_list           <- sc$edge_list
+      rv$pop_overlay_sf      <- sc$pop_overlay_sf
+      rv$friction_overlay_sf <- sc$friction_overlay_sf
+      rv$friction_path       <- sc$friction_path
+      rv$max_dim_m           <- sc$max_dim_m
+      rv$seed_points         <- sc$seed_points
+      
       if (!active_dfa_rv() %in% rv$dfa_names) active_dfa_rv(rv$dfa_names[[1]])
       if (!"u5_pop" %in% names(rv$grid_sf) || all(rv$grid_sf$u5_pop == 0, na.rm = TRUE))
         rv$grid_sf$u5_pop <- calculate_grid_cell_population(rv$grid_sf, get_u5_worldpop())
-      rv$initial_assignments  <- sc$initial_assignments
-      rv$neighbors_list       <- sc$neighbors_list
-      rv$edge_list            <- sc$edge_list
-      rv$pop_overlay_sf       <- sc$pop_overlay_sf
-      rv$friction_overlay_sf  <- sc$friction_overlay_sf
-      rv$friction_path        <- sc$friction_path
-      if (is.null(pending_restore())) rv$pop_table <- NULL
-      rv$max_dim_m            <- sc$max_dim_m
-      rv$seed_points          <- sc$seed_points
+      
       snap <- pending_restore()
       if (!is.null(snap)) {
         pending_restore(NULL)
         .apply_restore(snap)
-      } else {
-        had_areas <- !is.null(rv$saved_dfa_sf)   # were areas already drawn?
+      } else if (scene_is_new) {
+        # Genuinely new scene (different district or different SIA sites) — full reset
+        had_areas              <- !is.null(rv$saved_dfa_sf)
         rv$current_assignments <- sc$initial_assignments
         rv$saved_dfa_sf        <- NULL
+        rv$pop_table           <- NULL
         recompute_population_table(sc$initial_assignments)
         if (tab_active()) send_current_scene()
-        # Signal microplan to clear all planning data (SIA sites changed mid-session)
         if (had_areas) areas_regenerated_counter(areas_regenerated_counter() + 1L)
+      } else {
+        # Same scene — tab just became visible again; restore painted state as-is.
+        # observeEvent(active_tab()) handles the re-send, so just ensure pop table is current.
+        recompute_population_table(rv$current_assignments %||% sc$initial_assignments)
       }
     }, ignoreInit = FALSE)
     
@@ -449,6 +498,21 @@ healthAreaTabServer <- function(
         if (is.null(val) || !nzchar(val)) rv$initial_assignments[as.integer(cell_id)]
         else as.character(val)
       }, character(1))
+      
+      # Reject stale JS responses: if any non-empty assignment name is not in
+      # rv$dfa_names the JS scene is out of sync with the current R scene.
+      # Clear pending_action so the app doesn't get stuck, then wait for the
+      # next (fresh) response.
+      if (!is.null(rv$dfa_names)) {
+        known_assigned <- ordered_assignments[!is.na(ordered_assignments) & nzchar(ordered_assignments)]
+        unknown        <- setdiff(unique(known_assigned), rv$dfa_names)
+        if (length(unknown) > 0) {
+          cat(sprintf('[assignments] stale response (%d unknown name(s)), discarding\n',
+                      length(unknown)))
+          pending_action(NULL)
+          return()
+        }
+      }
       
       rv$current_assignments <- ordered_assignments
       act <- pending_action()
@@ -534,6 +598,11 @@ healthAreaTabServer <- function(
       areas_regenerated     = areas_regenerated_counter,
       changed_areas         = changed_areas_rv,
       restore_from_snapshot = function(snap) {
+        # Always restore saved_dfa_sf immediately — the microplan tab reads it
+        # directly and must not have to wait for the health area grid to compute.
+        if (!is.null(snap$saved_dfa_sf) && nrow(snap$saved_dfa_sf) > 0)
+          rv$saved_dfa_sf <- snap$saved_dfa_sf
+        
         if (!is.null(rv$grid_sf)) .apply_restore(snap)
         else pending_restore(snap)
       }

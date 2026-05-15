@@ -158,7 +158,8 @@ adminTabServer <- function(id, districts_shp) {
                     ), escape = FALSE)
     })
     
-    editing_user <- reactiveVal(NULL)
+    editing_user   <- reactiveVal(NULL)
+    deleting_uname <- reactiveVal(NULL)
     
     observeEvent(input$add_user_btn,  { editing_user(NULL); .show_user_modal(NULL) })
     observeEvent(input$edit_user_row, {
@@ -175,6 +176,7 @@ adminTabServer <- function(id, districts_shp) {
         showNotification('Cannot delete the admin account.', type = 'error', duration = 4)
         return()
       }
+      deleting_uname(uname)
       showModal(modalDialog(
         title = 'Confirm delete', size = 's', easyClose = TRUE,
         footer = tagList(
@@ -187,7 +189,8 @@ adminTabServer <- function(id, districts_shp) {
     }, ignoreInit = TRUE)
     
     observeEvent(input$confirm_delete, {
-      db_delete_user(pool, uname)
+      db_delete_user(pool, deleting_uname())
+      deleting_uname(NULL)
       store$refreshed <- store$refreshed + 1L
       removeModal()
     }, ignoreInit = TRUE)
@@ -271,21 +274,13 @@ adminTabServer <- function(id, districts_shp) {
           showNotification('Password is required for new users.', type = 'error', duration = 4)
           return()
         }
-        df <- rbind(df, data.frame(
-          username     = uname,
-          password     = password,
-          display_name = if (nzchar(dispname)) dispname else uname,
-          role         = role,
-          stringsAsFactors = FALSE
-        ))
+        # New user — db_upsert_user handles the write; no local df manipulation needed
       } else {
-        old_uname            <- df$username[idx]
-        df$username[idx]     <- uname
-        df$display_name[idx] <- if (nzchar(dispname)) dispname else uname
-        # Only update password if a new one was entered — blank means keep existing
-        if (nzchar(password)) df$password[idx] <- password
-        df$role[idx]         <- role
-        ud$username[ud$username == old_uname] <- uname
+        # For edits, only need old_uname to fix ud if the username changed
+        old_uname <- df$username[idx]
+        if (old_uname != uname) {
+          ud$username[ud$username == old_uname] <- uname
+        }
         ud <- ud[ud$username != uname, , drop = FALSE]
       }
       
@@ -320,8 +315,8 @@ adminTabServer <- function(id, districts_shp) {
       tryCatch({
         # All districts as the base (so unsubmitted districts still appear)
         all_dists <- sf::st_drop_geometry(districts_shp) |>
-          dplyr::distinct(district_name, region_name, zone_name) |>
-          dplyr::arrange(zone_name, region_name, district_name)
+          dplyr::distinct(district_name, region_name) |>
+          dplyr::arrange(region_name, district_name)
         
         subs <- db_get_all_submissions(pool)
         
@@ -424,7 +419,6 @@ adminTabServer <- function(id, districts_shp) {
       display <- data.frame(
         District         = pd$district_name,
         Region           = pd$region_name,
-        Zone             = pd$zone_name,
         Landmarks        = vapply(pd$has_landmarks,  .stage_html, character(1)),
         Facilities       = vapply(pd$has_facilities, .stage_html, character(1)),
         `Health Areas`   = vapply(pd$has_areas,      .stage_html, character(1)),
@@ -881,50 +875,26 @@ adminTabServer <- function(id, districts_shp) {
   
   .slug_css <- function(x) gsub('[^A-Za-z0-9]', '_', tolower(trimws(x)))
   
-  zones    <- sort(unique(as.character(stats::na.omit(districts_shp$zone_name))))
+  regions  <- sort(unique(as.character(stats::na.omit(districts_shp$region_name))))
   input_id <- ns_fn('selected_districts')
   
-  zone_blocks <- lapply(zones, function(zone) {
-    zone_cls <- .slug_css(zone)
-    regions  <- sort(unique(districts_shp$region_name[districts_shp$zone_name == zone]))
-    n_z_dist <- length(unique(districts_shp$district_name[districts_shp$zone_name == zone]))
+  region_blocks <- lapply(regions, function(region) {
+    region_cls <- .slug_css(region)
+    dists      <- sort(unique(districts_shp$district_name[
+      districts_shp$region_name == region
+    ]))
     
-    region_blocks <- lapply(regions, function(region) {
-      region_cls <- .slug_css(region)
-      dists      <- sort(unique(districts_shp$district_name[
-        districts_shp$zone_name == zone & districts_shp$region_name == region
-      ]))
-      
-      dist_items <- lapply(dists, function(dist) {
-        tags$label(
-          style = 'display:block;padding:2px 0 2px 24px;font-size:12px;font-weight:400;cursor:pointer;',
-          tags$input(
-            type    = 'checkbox',
-            class   = paste('dist-cb', region_cls, zone_cls),
-            value   = dist,
-            style   = 'margin-right:6px;cursor:pointer;vertical-align:middle;',
-            checked = if (dist %in% selected_dists) 'checked' else NULL
-          ),
-          dist
-        )
-      })
-      
-      tags$details(
-        style = 'margin-bottom:2px;',
-        tags$summary(
-          style = paste0('padding:4px 8px;cursor:pointer;list-style:none;',
-                         'display:flex;align-items:center;gap:6px;'),
-          tags$input(
-            type        = 'checkbox',
-            class       = paste('region-cb', zone_cls),
-            `data-rcls` = region_cls,
-            style       = 'cursor:pointer;flex-shrink:0;vertical-align:middle;',
-            onclick     = 'event.stopPropagation();'
-          ),
-          tags$span(style = 'font-size:12px;font-weight:600;color:#334155;', region),
-          tags$span(style = 'font-size:11px;color:#94a3b8;margin-left:auto;', length(dists))
+    dist_items <- lapply(dists, function(dist) {
+      tags$label(
+        style = 'display:block;padding:2px 0 2px 24px;font-size:12px;font-weight:400;cursor:pointer;',
+        tags$input(
+          type    = 'checkbox',
+          class   = paste('dist-cb', region_cls),
+          value   = dist,
+          style   = 'margin-right:6px;cursor:pointer;vertical-align:middle;',
+          checked = if (dist %in% selected_dists) 'checked' else NULL
         ),
-        div(style = 'padding-left:6px;', do.call(tagList, dist_items))
+        dist
       )
     })
     
@@ -935,23 +905,23 @@ adminTabServer <- function(id, districts_shp) {
                        'list-style:none;display:flex;align-items:center;gap:8px;'),
         tags$input(
           type        = 'checkbox',
-          class       = 'zone-cb',
-          `data-zcls` = zone_cls,
+          class       = 'region-cb',
+          `data-rcls` = region_cls,
           style       = 'cursor:pointer;flex-shrink:0;vertical-align:middle;',
           onclick     = 'event.stopPropagation();'
         ),
-        tags$span(style = 'font-size:12px;font-weight:700;color:#1e293b;', zone),
+        tags$span(style = 'font-size:12px;font-weight:700;color:#1e293b;', region),
         tags$span(style = 'font-size:11px;color:#94a3b8;margin-left:auto;',
-                  paste0(n_z_dist, ' districts'))
+                  paste0(length(dists), ' districts'))
       ),
-      div(style = 'padding:6px 8px;', do.call(tagList, region_blocks))
+      div(style = 'padding:6px 8px;', do.call(tagList, dist_items))
     )
   })
   
   div(
     class         = 'district-tree',
     `data-inp-id` = input_id,
-    do.call(tagList, zone_blocks),
+    do.call(tagList, region_blocks),
     
     tags$script(HTML(sprintf("
       (function() {
@@ -963,16 +933,7 @@ adminTabServer <- function(id, districts_shp) {
           Shiny.setInputValue(INP, sel, {priority:'event'});
         }
 
-        $(document).on('change', '.district-tree[data-inp-id=\"'+INP+'\"] .zone-cb', function(e) {
-          e.stopPropagation();
-          var $t = $(this).closest('.district-tree');
-          var zcls = $(this).data('zcls');
-          var chk  = $(this).is(':checked');
-          $t.find('.'+zcls).prop('checked', chk);
-          sync($t);
-        });
-
-        $(document).on('change', '.district-tree[data-inp-id=\"'+INP+'\"] .region-cb', function(e) {
+        $(document).on('change', '.district-tree[data-inp-id=\\\"'+INP+'\\\"] .region-cb', function(e) {
           e.stopPropagation();
           var $t = $(this).closest('.district-tree');
           var rcls = $(this).data('rcls');
@@ -981,13 +942,13 @@ adminTabServer <- function(id, districts_shp) {
           sync($t);
         });
 
-        $(document).on('change', '.district-tree[data-inp-id=\"'+INP+'\"] .dist-cb', function() {
+        $(document).on('change', '.district-tree[data-inp-id=\\\"'+INP+'\\\"] .dist-cb', function() {
           var $t = $(this).closest('.district-tree');
           sync($t);
         });
 
         setTimeout(function() {
-          var $t = $('.district-tree[data-inp-id=\"'+INP+'\"]');
+          var $t = $('.district-tree[data-inp-id=\\\"'+INP+'\\\"]');
           if ($t.length) sync($t);
         }, 150);
 

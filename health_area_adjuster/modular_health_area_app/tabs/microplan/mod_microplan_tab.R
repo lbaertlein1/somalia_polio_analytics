@@ -105,17 +105,37 @@ microplanTabServer <- function(
       )
     }, ignoreInit = TRUE)
     
-    # Health area boundaries changed -> clear planning data for affected areas only
+    # Health area boundaries changed — refresh WorldPop population estimate only.
+    # All other submitted data (supervisors, teams, notes, completion) is preserved.
+    # Areas with no submitted data are left alone — .get_area_data() will supply
+    # fresh defaults from the updated pop_table when their modal is opened.
     observeEvent(changed_areas_r(), {
       changed <- changed_areas_r()
       if (length(changed) == 0) return()
-      for (a in changed) rv$planning_data[[a]] <- NULL
+      
+      pt <- tryCatch(pop_table_r(), error = function(e) NULL)
+      
+      n_updated <- 0L
+      for (a in changed) {
+        existing <- rv$planning_data[[a]]
+        if (is.null(existing)) next   # no submitted data — nothing to patch
+        
+        new_u5_pop <- 0
+        if (!is.null(pt) && nrow(pt) > 0) {
+          m <- pt[pt$area_name == a, , drop = FALSE]
+          if (nrow(m) > 0) new_u5_pop <- as.numeric(m$est_u5_pop[1])
+        }
+        rv$planning_data[[a]]$u5_pop <- new_u5_pop
+        n_updated <- n_updated + 1L
+      }
+      
       n <- length(changed)
       showNotification(
-        paste0(n, ' health area', if (n > 1) 's' else '',
-               ' boundary changed — planning data cleared for ',
-               if (n > 1) 'those areas' else 'that area', '.'),
-        type = 'warning', duration = 5
+        paste0(n, ' health area', if (n > 1) 's' else '', ' boundary changed',
+               if (n_updated > 0)
+                 ' — WorldPop population estimate updated in planning data.'
+               else '.'),
+        type = 'message', duration = 5
       )
     }, ignoreInit = TRUE)
     
@@ -212,6 +232,12 @@ microplanTabServer <- function(
     
     last_fitted_district <- reactiveVal(NULL)
     
+    # Reset on every district change so fitBounds always fires when
+    # saved areas become available for the new district.
+    observeEvent(district(), {
+      last_fitted_district(NULL)
+    }, ignoreInit = TRUE)
+    
     observe({
       sf_obj <- tryCatch(saved_dfa_sf_r(), error = function(e) NULL)
       force(reactiveValuesToList(rv))
@@ -234,13 +260,16 @@ microplanTabServer <- function(
       }
       
       district_outline <- tryCatch({
-        districts_shp |>
+        out <- districts_shp |>
           dplyr::filter(district_name == current_district) |>
           dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
           sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326)
+        # safe_make_valid can return GEOMETRYCOLLECTION — extract polygons only
+        tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
       }, error = function(e) NULL)
       
-      if (!is.null(district_outline) && nrow(district_outline) > 0)
+      if (!is.null(district_outline) && nrow(district_outline) > 0 &&
+          any(sf::st_geometry_type(district_outline) %in% c('POLYGON', 'MULTIPOLYGON')))
         proxy <- proxy |> leaflet::addPolygons(
           data = district_outline, color = '#1e293b', weight = 2.5, fill = FALSE, opacity = 1)
       
@@ -249,6 +278,8 @@ microplanTabServer <- function(
         area_geom <- tryCatch(sf::st_collection_extract(sf_obj[i, ], 'POLYGON'),
                               error = function(e) sf_obj[i, ])
         if (is.null(area_geom) || nrow(area_geom) == 0) next
+        # Skip non-polygon geometries (GEOMETRYCOLLECTION slivers, etc.)
+        if (!any(sf::st_geometry_type(area_geom) %in% c('POLYGON', 'MULTIPOLYGON'))) next
         
         proxy <- proxy |>
           leaflet::addPolygons(
@@ -289,6 +320,18 @@ microplanTabServer <- function(
     
     .show_area_modal <- function(area_name) {
       d <- .get_area_data(area_name)
+      
+      # Look up the current WorldPop estimate from the population table so the
+      # subheader always reflects the latest boundary, even if d$u5_pop was
+      # manually overridden by the user in a prior edit.
+      pt          <- tryCatch(pop_table_r(), error = function(e) NULL)
+      wp_estimate <- d$u5_pop   # default: whatever is stored
+      if (!is.null(pt) && nrow(pt) > 0) {
+        m <- pt[pt$area_name == area_name, , drop = FALSE]
+        if (nrow(m) > 0) wp_estimate <- as.numeric(m$est_u5_pop[1])
+      }
+      wp_hint <- paste0('WorldPop estimate: ', format(round(wp_estimate), big.mark = ','))
+      
       showModal(modalDialog(
         title = tags$span(
           tags$span(style = 'font-weight:700;color:#0f172a;', area_name),
@@ -309,7 +352,7 @@ microplanTabServer <- function(
                                      tags$label('U5 Population',
                                                 style = 'font-size:12px;font-weight:600;color:#334155;'),
                                      div(style = 'font-size:11px;color:#94a3b8;margin-bottom:4px;',
-                                         'From WorldPop estimate'),
+                                         wp_hint),
                                      numericInput(session$ns('modal_u5_pop'), NULL,
                                                   value = d$u5_pop, min = 0, step = 10, width = '100%')
                               ),
@@ -358,22 +401,50 @@ microplanTabServer <- function(
       ))
     }
     
-    output$supervisor_fields <- renderUI({
-      n <- max(1L, min(as.integer(input$modal_n_supervisors %||% 1L), 20L))
-      area_name <- isolate(editing_area())
-      saved <- if (!is.null(area_name))
-        isolate(rv$planning_data[[area_name]]$supervisors) %||% list()
+    # ── Supervisor draft ───────────────────────────────────────────────────────
+    # Stores in-progress supervisor values independently of the Shiny input
+    # store, so they survive renderUI refreshes when the count changes.
+    supervisor_draft <- reactiveVal(list())
+    
+    # Initialise from saved data whenever the modal opens for a new area.
+    observeEvent(editing_area(), {
+      area_name  <- editing_area()
+      saved_sups <- if (!is.null(area_name))
+        rv$planning_data[[area_name]]$supervisors %||% list()
       else list()
+      supervisor_draft(saved_sups)
+    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+    
+    # Snapshot current input values into the draft BEFORE renderUI re-renders.
+    # Shiny runs observers before render functions in the same flush cycle,
+    # so this always executes first when modal_n_supervisors changes.
+    observeEvent(input$modal_n_supervisors, {
+      current <- supervisor_draft()
+      for (i in seq_len(20L)) {
+        nm <- input[[paste0('sup_name_',  i)]]
+        ro <- input[[paste0('sup_role_',  i)]]
+        ph <- input[[paste0('sup_phone_', i)]]
+        em <- input[[paste0('sup_email_', i)]]
+        # Only update a slot when at least one of its inputs is known to the server
+        if (!is.null(nm) || !is.null(ro) || !is.null(ph) || !is.null(em)) {
+          prev <- if (i <= length(current)) current[[i]] else list()
+          current[[i]] <- list(
+            name  = if (!is.null(nm) && nzchar(nm)) nm else prev$name  %||% '',
+            role  = if (!is.null(ro) && nzchar(ro)) ro else prev$role  %||% '',
+            phone = if (!is.null(ph) && nzchar(ph)) ph else prev$phone %||% '',
+            email = if (!is.null(em) && nzchar(em)) em else prev$email %||% ''
+          )
+        }
+      }
+      supervisor_draft(current)
+    }, ignoreInit = TRUE, ignoreNULL = TRUE)
+    
+    output$supervisor_fields <- renderUI({
+      n     <- max(1L, min(as.integer(input$modal_n_supervisors %||% 1L), 20L))
+      draft <- supervisor_draft()
       
       rows <- lapply(seq_len(n), function(i) {
-        # Read currently-typed values first (preserves data when count changes).
-        # Only fall back to saved data if the field is empty/unset.
-        cur_name  <- isolate(input[[paste0('sup_name_',  i)]]) %||% ''
-        cur_role  <- isolate(input[[paste0('sup_role_',  i)]]) %||% ''
-        cur_phone <- isolate(input[[paste0('sup_phone_', i)]]) %||% ''
-        cur_email <- isolate(input[[paste0('sup_email_', i)]]) %||% ''
-        prev      <- if (i <= length(saved)) saved[[i]] else list()
-        
+        sup <- if (i <= length(draft)) draft[[i]] else list()
         fluidRow(
           style = 'margin-bottom: 6px;',
           column(1, div(style = paste0(
@@ -381,16 +452,16 @@ microplanTabServer <- function(
             'display:flex;align-items:center;justify-content:center;',
             'font-size:11px;font-weight:700;margin-top:4px;'), i)),
           column(3, textInput(session$ns(paste0('sup_name_',  i)), NULL,
-                              value = if (nzchar(cur_name))  cur_name  else prev$name  %||% '',
+                              value = sup$name  %||% '',
                               placeholder = paste0('Supervisor ', i, ' name'), width = '100%')),
           column(2, textInput(session$ns(paste0('sup_role_',  i)), NULL,
-                              value = if (nzchar(cur_role))  cur_role  else prev$role  %||% '',
+                              value = sup$role  %||% '',
                               placeholder = 'Role / title', width = '100%')),
           column(3, textInput(session$ns(paste0('sup_phone_', i)), NULL,
-                              value = if (nzchar(cur_phone)) cur_phone else prev$phone %||% '',
+                              value = sup$phone %||% '',
                               placeholder = 'Phone', width = '100%')),
           column(3, textInput(session$ns(paste0('sup_email_', i)), NULL,
-                              value = if (nzchar(cur_email)) cur_email else prev$email %||% '',
+                              value = sup$email %||% '',
                               placeholder = 'Email', width = '100%'))
         )
       })
@@ -461,7 +532,7 @@ microplanTabServer <- function(
         build_district_download(
           file          = file,
           district_name = district() %||% '',
-          zone          = di$zone_name[1]   %||% '',
+          zone          = '',
           region        = di$region_name[1] %||% '',
           saved_dfa_sf  = tryCatch(saved_dfa_sf_r(), error = function(e) NULL),
           planning_data = rv$planning_data,

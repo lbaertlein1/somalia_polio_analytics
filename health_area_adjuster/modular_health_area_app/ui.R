@@ -124,7 +124,7 @@ app_ui <- function() {
           type = 'tabs',
           
           tabPanel(title = 'Introduction',    value = 'tab_intro',
-                   introTabUI('intro', zone_choices = zone_choices)),
+                   introTabUI('intro')),
           
           tabPanel(title = 'Landmarks',       value = 'tab_orientation',
                    orientationTabUI('orientation')),

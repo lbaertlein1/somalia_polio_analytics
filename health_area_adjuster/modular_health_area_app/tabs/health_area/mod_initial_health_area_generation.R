@@ -408,6 +408,39 @@ initialHealthAreaGenerationServer <- function(
         }
       }
       
+      # ── Post-BFS: fill any unassigned (NA) cells ──────────────────────────
+      # Cells remain NA when the BFS never reached them — typically isolated
+      # diagonal slivers or cells cut off by impassable barriers.
+      # Strategy: iterative neighbour-flood until nothing changes, then
+      # fall back to the globally most-common area for any true islands.
+      unassigned <- which(is.na(owner))
+      if (length(unassigned) > 0) {
+        max_passes <- nrow(grid_sf)
+        pass       <- 0L
+        while (length(unassigned) > 0 && pass < max_passes) {
+          pass     <- pass + 1L
+          progress <- FALSE
+          for (cell_i in unassigned) {
+            nbrs          <- neighbors_list[[as.character(grid_sf$cell_id[cell_i])]]
+            assigned_nbrs <- nbrs[!is.na(owner[nbrs])]
+            if (length(assigned_nbrs) > 0) {
+              best_nbr      <- assigned_nbrs[which.min(best_cost[assigned_nbrs])]
+              owner[cell_i] <- owner[best_nbr]
+              progress      <- TRUE
+            }
+          }
+          unassigned <- which(is.na(owner))
+          if (!progress) break
+        }
+        # Last resort for truly disconnected islands: assign to most common area
+        if (length(unassigned) > 0) {
+          fallback        <- names(which.max(table(owner[!is.na(owner)])))
+          owner[unassigned] <- fallback
+          cat('[propagate_assignments] fallback assigned', length(unassigned),
+              'disconnected cell(s) to:', fallback, '\n')
+        }
+      }
+      
       list(assignments = owner, cumulative_cost = best_cost, seeds_sf = site_sf, seed_cell_id = seed_cells)
     }
     
@@ -455,6 +488,8 @@ initialHealthAreaGenerationServer <- function(
     
     scene <- reactive({
       req(district_sf()); req(nrow(district_sf()) > 0); req(grid_n())
+      
+      seed_val <- if (shiny::is.reactive(seed)) seed() else as.integer(seed)
       
       district_sf_value    <- safe_make_valid(district_sf())
       grid_info            <- make_paint_grid(district_sf = district_sf_value, grid_n = grid_n())
@@ -515,7 +550,7 @@ initialHealthAreaGenerationServer <- function(
           grid_sf = grid_sf_value, district_sf = district_sf_value,
           neighbors_list = neighbors_list_value, cell_friction_raw = cell_friction_raw_value,
           barrier_crossing_list = barrier_crossing_list_value,
-          n_dfa = n_dfa, seed = seed, barrier_penalty = barrier_penalty,
+          n_dfa = n_dfa, seed = seed_val, barrier_penalty = barrier_penalty,
           compactness_penalty = compactness_penalty, max_cost = max_cost, starter_rings = 2
         ), shared_pop_args))
       }

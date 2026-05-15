@@ -182,5 +182,5 @@ if (!is.null(bridges) && nrow(bridges) > 0) {
 
 message("Saving...")
 saveWidget(m, "friction_layers_preview.html", selfcontained = FALSE)
-browseURL("friction_layers_preview.html")
+# browseURL("friction_layers_preview.html")
 message("Done.")

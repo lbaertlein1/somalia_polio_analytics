@@ -2,7 +2,7 @@
 # mod_intro_tab.R
 # =============================================================================
 
-introTabUI <- function(id, zone_choices) {
+introTabUI <- function(id) {
   ns <- NS(id)
   
   fluidRow(
@@ -12,11 +12,6 @@ introTabUI <- function(id, zone_choices) {
       width = 2,
       
       div(class = 'rightbar-title', style = 'margin-top: 4px;', 'Select District'),
-      
-      div(class = 'mini-label', 'Zone'),
-      selectInput(ns('zone'), NULL,
-                  choices  = c(setNames('', 'Select zone...'), zone_choices),
-                  selected = '', width = '100%'),
       
       div(class = 'mini-label', 'Region'),
       selectInput(ns('region'), NULL,
@@ -107,7 +102,7 @@ introTabUI <- function(id, zone_choices) {
                        div(
                          style = 'display: flex; flex-direction: column; gap: 10px;',
                          .intro_step('1', 'Select your district',
-                                     'Choose your zone, region, and district from the panel on the left, then click Continue.'),
+                                     'Choose your region and district from the panel on the left, then click Continue.'),
                          .intro_step('2', 'Add landmarks',
                                      paste0('Familiarise the group with the district. Drop optional landmark pins to mark ',
                                             'recognisable reference points such as schools, hospitals, or road junctions. ',
@@ -223,50 +218,40 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
       districts_shp |> dplyr::filter(district_name %in% allowed)
     })
     
+    # Populate regions directly (no zone step)
     observeEvent(allowed_shp(), {
-      zones <- sort(unique(as.character(stats::na.omit(allowed_shp()$zone_name))))
-      updateSelectInput(session, 'zone',
-                        choices = c(setNames('', 'Select zone...'), zones), selected = '')
+      regions <- sort(unique(as.character(stats::na.omit(allowed_shp()$region_name))))
       updateSelectInput(session, 'region',
-                        choices = setNames('', 'Select region...'), selected = '')
+                        choices  = c(setNames('', 'Select region...'), regions), selected = '')
       updateSelectInput(session, 'district',
-                        choices = setNames('', 'Select district...'), selected = '')
+                        choices  = setNames('', 'Select district...'), selected = '')
     }, ignoreInit = FALSE)
     
-    observeEvent(input$zone, {
-      if (!nzchar(input$zone %||% '')) {
-        updateSelectInput(session, 'region',
-                          choices = setNames('', 'Select region...'), selected = '')
-        updateSelectInput(session, 'district',
-                          choices = setNames('', 'Select district...'), selected = '')
-        return()
-      }
-      regions <- allowed_shp() |>
-        dplyr::filter(zone_name == input$zone) |>
-        dplyr::pull(region_name) |>
-        as.character() |> unique() |> sort()
-      updateSelectInput(session, 'region',
-                        choices = c(setNames('', 'Select region...'), regions), selected = '')
-      updateSelectInput(session, 'district',
-                        choices = setNames('', 'Select district...'), selected = '')
-    }, ignoreInit = FALSE)
-    
-    observeEvent(list(input$zone, input$region), {
-      if (!nzchar(input$zone %||% '') || !nzchar(input$region %||% '')) {
+    observeEvent(input$region, {
+      if (!nzchar(input$region %||% '')) {
         updateSelectInput(session, 'district',
                           choices = setNames('', 'Select district...'), selected = '')
         return()
       }
       dists <- allowed_shp() |>
-        dplyr::filter(zone_name == input$zone, region_name == input$region) |>
+        dplyr::filter(region_name == input$region) |>
         dplyr::pull(district_name) |>
         as.character() |> unique() |> sort()
       updateSelectInput(session, 'district',
                         choices = c(setNames('', 'Select district...'), dists), selected = '')
     }, ignoreInit = FALSE)
     
+    # Derive zone internally from the selected district (needed by downstream modules
+    # for friction-surface path lookups etc.; not shown to the user).
+    zone_derived <- reactive({
+      req(nzchar(input$district %||% ''))
+      d <- allowed_shp() |> dplyr::filter(district_name == input$district)
+      if (nrow(d) == 0) return('')
+      as.character(d$zone_name[1]) %||% ''
+    })
+    
     list(
-      zone           = reactive(input$zone),
+      zone           = zone_derived,
       region         = reactive(input$region),
       district       = reactive(input$district),
       district_ready = reactive(nzchar(input$district %||% ''))

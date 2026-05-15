@@ -3,7 +3,7 @@ app_server <- function(input, output, session) {
   # ===========================================================================
   # Auth
   # ===========================================================================
-  auth <- authServer('auth', users_df, user_districts_df)
+  auth <- authServer('auth')
   
   observeEvent(auth$logged_in, {
     req(isTRUE(auth$logged_in))
