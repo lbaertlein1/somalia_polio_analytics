@@ -211,7 +211,7 @@ facilityTabServer <- function(
       district_pop <- districts_shp |>
         sf::st_drop_geometry() |>
         dplyr::filter(district_name == district()) |>
-        dplyr::pull(u5_pop_2025) |>
+        dplyr::pull(WP_U5) |>
         sum(na.rm = TRUE)
       
       n_recommended <- max(1L, ceiling(district_pop / 2000))

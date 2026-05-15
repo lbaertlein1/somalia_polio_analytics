@@ -67,17 +67,14 @@ roads <- osm_lines |>
   filter(
     !is.na(highway),
     highway %in% c(
-      "motorway", "trunk", "primary", "secondary", "tertiary",
-      "unclassified", "residential", "track", "path", "service"
+      "motorway", "trunk", "primary", "secondary", "tertiary"
     )
   ) |>
   mutate(
     road_class = case_when(
       highway %in% c("motorway", "trunk", "primary") ~ "primary",
-      highway %in% c("secondary", "tertiary") ~ "secondary",
-      highway %in% c("unclassified", "residential") ~ "minor",
-      highway %in% c("track", "path", "service") ~ "track",
-      TRUE ~ "minor"
+      highway %in% c("secondary", "tertiary")        ~ "secondary",
+      TRUE                                            ~ "secondary"
     )
   ) |>
   st_make_valid()
@@ -86,20 +83,16 @@ message("Road rows: ", nrow(roads))
 
 # -------------------------------------------------------------------
 # RIVERS / WATERWAYS
+# Somalia: only named rivers included — streams/canals are dry most of the year
 # -------------------------------------------------------------------
 message("Extracting rivers...")
 
 rivers <- osm_lines |>
   filter(
     !is.na(waterway),
-    waterway %in% c("river", "stream", "canal", "drain", "ditch")
+    waterway == "river"
   ) |>
-  mutate(
-    river_type = case_when(
-      waterway == "river" ~ "major",
-      TRUE ~ "minor"
-    )
-  ) |>
+  mutate(river_type = "major") |>
   st_make_valid()
 
 message("River rows: ", nrow(rivers))
@@ -136,23 +129,13 @@ message("Bridge rows: ", nrow(bridges))
 
 # -------------------------------------------------------------------
 # WATER BODIES
+# Somalia: only permanent open water included — wetlands are seasonal
 # -------------------------------------------------------------------
 message("Extracting water bodies...")
 
 water_bodies <- osm_polys |>
-  filter(
-    (!is.na(natural) & natural %in% c("water", "wetland"))
-  ) |>
-  mutate(
-    water_class = case_when(
-      
-      natural == "water" ~ "major",
-      
-      natural == "wetland" ~ "minor",
-      
-      TRUE ~ "minor"
-    )
-  ) %>%
+  filter(!is.na(natural) & natural == "water") |>
+  mutate(water_class = "major") |>
   st_make_valid()
 
 message("Water body rows: ", nrow(water_bodies))

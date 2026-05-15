@@ -39,7 +39,7 @@ cfg <- list(
   districts_file = "data/districts_shp.Rds",
   
   # Output folder
-  output_dir = "C:/Users/epuser/Documents/Github/somalia_polio_analytics/health_area_adjuster/modular_health_area_app/data/friction/district_standardized",
+  output_dir = "data/friction/district_standardized",
   
   # Write options
   overwrite = TRUE
@@ -157,19 +157,19 @@ message_line("Friction raster loaded: ", basename(cfg$friction_file))
 
 zone_col <- find_name_col(
   districts_sf,
-  c("zone_name", "ZONE_NAME", "zone", "ZONE", "NAME_LZ"),
+  c("DISP_LS"),
   "zone"
 )
 
 region_col <- find_name_col(
   districts_sf,
-  c("region_name", "REGION_NAME", "region", "REGION", "NAME_L1"),
+  c("DISP_L1"),
   "region"
 )
 
 district_col <- find_name_col(
   districts_sf,
-  c("district_name", "DISTRICT_NAME", "district", "DISTRICT", "NAME_L2"),
+  c("DISP_L2"),
   "district"
 )
 
@@ -304,3 +304,4 @@ message_line("Finished.")
 message_line("Saved rasters to: ", normalizePath(cfg$output_dir))
 message_line("Saved log: ", normalizePath(log_file))
 message_line("------------------------------------------------------------")
+
