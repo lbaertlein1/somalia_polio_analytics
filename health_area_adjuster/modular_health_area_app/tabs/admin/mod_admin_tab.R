@@ -313,51 +313,83 @@ adminTabServer <- function(id, districts_shp) {
       input$refresh_progress; store$refreshed
       
       tryCatch({
-        # All districts as the base (so unsubmitted districts still appear)
+        # Base: all districts from shapefile (unsubmitted districts still appear)
         all_dists <- sf::st_drop_geometry(districts_shp) |>
           dplyr::distinct(district_name, region_name) |>
           dplyr::arrange(region_name, district_name)
         
         subs <- db_get_all_submissions(pool)
         
+        # Rows for unsubmitted districts
+        empty_row <- dplyr::tibble(
+          planning_label = character(0),
+          district_name  = character(0),
+          submitted_by   = character(0),
+          last_submitted = character(0),
+          has_landmarks  = logical(0),
+          has_facilities = logical(0),
+          has_areas      = logical(0),
+          has_microplan  = logical(0),
+          status         = character(0)
+        )
+        
         if (is.null(subs) || nrow(subs) == 0) {
-          return(all_dists |> dplyr::mutate(
-            has_landmarks  = FALSE,
-            has_facilities = FALSE,
-            has_areas      = FALSE,
-            has_microplan  = FALSE,
-            status         = 'Not started',
-            submitted_by   = '',
-            last_submitted = ''
-          ))
+          return(
+            all_dists |>
+              dplyr::mutate(
+                planning_label = district_name,
+                has_landmarks  = FALSE, has_facilities = FALSE,
+                has_areas      = FALSE, has_microplan  = FALSE,
+                status         = 'Not started',
+                submitted_by   = '', last_submitted = ''
+              )
+          )
         }
         
+        # Extract base district name from planning label
+        # "Kismayo — Urban" -> "Kismayo", "Dolow" -> "Dolow"
         subs_clean <- subs |>
           dplyr::mutate(
+            planning_label = district_name,
+            district_name  = sub(' — .*$', '', district_name),
             last_submitted = tryCatch(
               format(last_submitted_at, '%d %b %Y, %H:%M'),
               error = function(e) ''
             ),
             status = dplyr::case_when(
-              has_microplan               ~ 'Complete',
+              has_microplan                              ~ 'Complete',
               has_areas | has_facilities | has_landmarks ~ 'In progress',
-              TRUE                        ~ 'Not started'
+              TRUE                                       ~ 'Not started'
             )
           ) |>
-          dplyr::select(district_name, submitted_by, last_submitted,
+          dplyr::select(planning_label, district_name, submitted_by, last_submitted,
                         has_landmarks, has_facilities, has_areas, has_microplan, status)
         
-        all_dists |>
-          dplyr::left_join(subs_clean, by = 'district_name') |>
+        # Districts with submissions
+        submitted_districts <- unique(subs_clean$district_name)
+        
+        # Districts without any submission — add as not started rows
+        unsubmitted <- all_dists |>
+          dplyr::filter(!district_name %in% submitted_districts) |>
           dplyr::mutate(
-            has_landmarks  = tidyr::replace_na(has_landmarks,  FALSE),
-            has_facilities = tidyr::replace_na(has_facilities, FALSE),
-            has_areas      = tidyr::replace_na(has_areas,      FALSE),
-            has_microplan  = tidyr::replace_na(has_microplan,  FALSE),
-            status         = tidyr::replace_na(status,         'Not started'),
-            submitted_by   = tidyr::replace_na(submitted_by,   ''),
-            last_submitted = tidyr::replace_na(last_submitted, '')
+            planning_label = district_name,
+            has_landmarks  = FALSE, has_facilities = FALSE,
+            has_areas      = FALSE, has_microplan  = FALSE,
+            status         = 'Not started',
+            submitted_by   = '', last_submitted = ''
           )
+        
+        # Join region to submissions
+        subs_with_region <- subs_clean |>
+          dplyr::left_join(
+            sf::st_drop_geometry(districts_shp) |>
+              dplyr::distinct(district_name, region_name),
+            by = 'district_name'
+          )
+        
+        dplyr::bind_rows(subs_with_region, unsubmitted) |>
+          dplyr::arrange(region_name, district_name, planning_label)
+        
       }, error = function(e) {
         cat('[progress] ERROR:', e$message, '\n')
         NULL
@@ -417,8 +449,8 @@ adminTabServer <- function(id, districts_shp) {
       }
       
       display <- data.frame(
-        District         = pd$district_name,
-        Region           = pd$region_name,
+        District         = pd$planning_label,
+        Region           = pd$region_name %||% '',
         Landmarks        = vapply(pd$has_landmarks,  .stage_html, character(1)),
         Facilities       = vapply(pd$has_facilities, .stage_html, character(1)),
         `Health Areas`   = vapply(pd$has_areas,      .stage_html, character(1)),
@@ -426,8 +458,8 @@ adminTabServer <- function(id, districts_shp) {
         Status           = .status_html(pd$status),
         `Last submitted` = pd$last_submitted,
         User             = pd$submitted_by,
-        Review           = mapply(.review_btn, pd$district_name, pd$status, SIMPLIFY = TRUE),
-        Reject           = mapply(.reject_btn, pd$district_name, pd$status, SIMPLIFY = TRUE),
+        Review           = mapply(.review_btn, pd$planning_label, pd$status, SIMPLIFY = TRUE),
+        Reject           = mapply(.reject_btn, pd$planning_label, pd$status, SIMPLIFY = TRUE),
         stringsAsFactors = FALSE, check.names = FALSE
       )
       
@@ -649,8 +681,10 @@ adminTabServer <- function(id, districts_shp) {
       content = function(file) {
         rs   <- review_session()
         snap <- rs$snap
+        # Strip planning unit suffix to get base district name for shapefile lookup
+        base_district <- sub(' — .*$', '', rs$district %||% '')
         di   <- sf::st_drop_geometry(districts_shp) |>
-          dplyr::filter(district_name == rs$district) |>
+          dplyr::filter(district_name == base_district) |>
           dplyr::slice(1)
         
         fac_parts <- Filter(Negate(is.null), list(snap$odk_sf, snap$app_sf))
@@ -699,9 +733,13 @@ adminTabServer <- function(id, districts_shp) {
         all_facilities  <- list()   # data.frames — combined to facilities.csv
         
         for (i in seq_len(nrow(pd))) {
-          dname  <- pd$district_name[i]
-          zone   <- pd$zone_name[i]   %||% ''
-          region <- pd$region_name[i] %||% ''
+          dname        <- pd$planning_label[i]   # DB key (e.g. "Kismayo — Urban")
+          base_district <- sub(' — .*$', '', dname)
+          di   <- sf::st_drop_geometry(districts_shp) |>
+            dplyr::filter(district_name == base_district) |>
+            dplyr::slice(1)
+          zone   <- di$zone_name[1]   %||% ''
+          region <- di$region_name[1] %||% pd$region_name[i] %||% ''
           
           sub <- tryCatch(
             db_get_submission_for_review(pool, dname),

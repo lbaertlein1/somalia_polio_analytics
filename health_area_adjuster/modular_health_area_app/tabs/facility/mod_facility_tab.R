@@ -9,14 +9,14 @@ facilityTabUI <- function(id) {
     column(
       width = 3,
       
-      div(class = 'rightbar-title', 'SIA Coordination Sites'),
+      div(class = 'rightbar-title', 'Outreach Coordination Sites'),
       
       div(
         style = paste0('background:#f0fdf4;border-left:3px solid #0d9488;',
                        'border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:8px;'),
         tags$p(
           style = 'font-size: 11px; font-weight: 600; color: #0f172a; margin: 0 0 2px;',
-          'Goal: identify SIA coordination sites'
+          'Goal: identify outreach coordination sites'
         ),
         tags$p(
           style = 'font-size: 11px; color: #475569; line-height: 1.5; margin: 0;',
@@ -35,13 +35,13 @@ facilityTabUI <- function(id) {
         style = 'font-size: 11px; color: #64748b; line-height: 1.5; margin-bottom: 8px;',
         tags$strong('When selecting, consider: '),
         'location & catchment population; cold storage, electricity & assembly space; ',
-        'availability of an SIA coordinator or supervisor.'
+        'availability of an outreach coordinator or supervisor.'
       ),
       
       uiOutput(ns('odk_status')),
       
       actionButton(
-        ns('add_sia_site'),
+        ns('add_outreach_site'),
         tagList(icon('map-pin'), 'Add Non-Facility Site'),
         width = '100%', class = 'btn-default btn-sm'
       ),
@@ -86,7 +86,7 @@ facilityTabUI <- function(id) {
     column(
       width = 3,
       div(class = 'rightbar-title', 'Facilities'),
-      uiOutput(ns('sia_counts_card')),
+      uiOutput(ns('outreach_counts_card')),
       div(
         style = 'overflow-y: auto; height: 75vh;',
         facilityTableUI(ns('table'))
@@ -102,10 +102,12 @@ facilityTabServer <- function(
     zone, region, district, district_ready,
     active_tab,
     submitted_facilities,
-    submit_stage_fn  = NULL,
-    landmarks_r      = reactive(NULL),
-    save_snapshot_fn = NULL,   # kept for compatibility, no-op
-    restore_r        = reactive(NULL)
+    submit_stage_fn    = NULL,
+    landmarks_r        = reactive(NULL),
+    subdivisions_r     = reactive(NULL),
+    planning_area_sf_r = reactive(NULL),
+    save_snapshot_fn   = NULL,   # kept for compatibility, no-op
+    restore_r          = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -144,8 +146,24 @@ facilityTabServer <- function(
     # -------------------------------------------------------------------------
     district_base <- reactive({
       req(isTRUE(district_ready()))
+      # Use planning area (urban/rural/full) when provided
+      pa <- tryCatch(planning_area_sf_r(), error = function(e) NULL)
+      if (!is.null(pa) && nrow(pa) > 0) {
+        pa <- sf::st_transform(pa, 3857)
+        pa <- tryCatch(sf::st_collection_extract(pa, 'POLYGON'), error = function(e) pa)
+        # Attach density from districts_shp for buffer calculation
+        density <- tryCatch({
+          districts_shp |>
+            sf::st_drop_geometry() |>
+            dplyr::filter(district_name == district()) |>
+            dplyr::pull(u5_pop_density_km2) |>
+            (\(x) x[1])()
+        }, error = function(e) NA_real_)
+        pa$u5_pop_density_km2 <- density
+        pa$district_name      <- district()
+        return(pa)
+      }
       req(zone(), region(), district())
-      
       district_sf <- districts_shp |>
         dplyr::filter(
           zone_name     == zone(),
@@ -156,9 +174,7 @@ facilityTabServer <- function(
           admin_id, district_name, region_id, region_name,
           zone_id, zone_name, u5_pop_density_km2, geometry
         )
-      
       req(nrow(district_sf) >= 1)
-      
       result_sf <- district_sf |>
         dplyr::summarise(
           admin_id           = dplyr::first(admin_id),
@@ -201,20 +217,40 @@ facilityTabServer <- function(
     })
     
     # -------------------------------------------------------------------------
-    # SIA coordination site count card
+    # Outreach coordination site count card
     # -------------------------------------------------------------------------
-    output$sia_counts_card <- renderUI({
-      df <- facility_data()
+    # Planning area population — extracted directly from WorldPop raster.
+    # Falls back to WP_U5 from districts_shp if raster unavailable.
+    planning_area_pop <- reactive({
+      pa <- tryCatch(planning_area_sf_r(), error = function(e) NULL)
+      if (is.null(pa)) pa <- tryCatch(district_base(), error = function(e) NULL)$district_sf
       
-      n_selected <- sum(df$polio_sia_coordination_site == "Yes", na.rm = TRUE)
+      # WorldPop extract — fast single polygon sum
+      if (!is.null(u5_rast) && !is.null(pa)) {
+        pop <- tryCatch({
+          pa_proj <- sf::st_transform(pa, sf::st_crs(terra::crs(u5_rast)))
+          val <- exactextractr::exact_extract(
+            raster::raster(u5_rast), pa_proj, fun = "sum"
+          )
+          round(sum(val, na.rm = TRUE))
+        }, error = function(e) NULL)
+        if (!is.null(pop) && pop > 0) return(pop)
+      }
       
-      district_pop <- districts_shp |>
+      # Fallback: WP_U5 from districts_shp (full district total)
+      districts_shp |>
         sf::st_drop_geometry() |>
         dplyr::filter(district_name == district()) |>
         dplyr::pull(WP_U5) |>
         sum(na.rm = TRUE)
+    })
+    
+    output$outreach_counts_card <- renderUI({
+      df <- facility_data()
       
-      n_recommended <- max(1L, ceiling(district_pop / 2000))
+      n_selected   <- sum(df$polio_sia_coordination_site == "Yes", na.rm = TRUE)
+      planning_pop <- planning_area_pop()
+      n_recommended <- max(1L, ceiling(planning_pop / 2000))
       count_color   <- if (n_selected >= n_recommended) "#388e3c" else "#e53935"
       
       div(
@@ -223,7 +259,7 @@ facilityTabServer <- function(
                  background: #fafafa;',
         div(
           style = 'font-weight: 600; font-size: 12px; color: #555; margin-bottom: 6px;',
-          'SIA Coordination Sites'
+          'Outreach Coordination Sites'
         ),
         div(
           style = 'display: flex; gap: 8px;',
@@ -277,6 +313,22 @@ facilityTabServer <- function(
           district_name = district()
         )
         
+        # Filter to planning area (urban/rural) if a sub-district unit is selected
+        if (!is.null(fresh) && nrow(fresh) > 0) {
+          pa <- tryCatch(planning_area_sf_r(), error = function(e) NULL)
+          if (!is.null(pa) && nrow(pa) > 0) {
+            fresh_pts <- sf::st_as_sf(
+              fresh[!is.na(fresh$lat) & !is.na(fresh$lon), , drop = FALSE],
+              coords = c("lon", "lat"), crs = 4326, remove = FALSE
+            ) |> sf::st_transform(sf::st_crs(pa))
+            inside <- lengths(sf::st_within(fresh_pts,
+                                            sf::st_union(sf::st_make_valid(pa)))) > 0
+            fresh <- fresh[!is.na(fresh$lat) & !is.na(fresh$lon), , drop = FALSE][inside, , drop = FALSE]
+            cat("[facilityTab] planning area filter: kept", nrow(fresh),
+                "of", nrow(fresh_pts), "facilities\n")
+          }
+        }
+        
         if (is.null(fresh) || nrow(fresh) == 0) {
           rv$odk_error <- paste0('No MHFL records found for "', district(), '".')
           rv$odk_sf    <- NULL
@@ -328,22 +380,22 @@ facilityTabServer <- function(
     })
     
     # -------------------------------------------------------------------------
-    # Add SIA coordination site
+    # Add outreach coordination site
     # -------------------------------------------------------------------------
-    observeEvent(input$add_sia_site, {
+    observeEvent(input$add_outreach_site, {
       adding_facility(TRUE)
       showNotification(
-        'Click on the map to place the new SIA coordination site.',
+        'Click on the map to place the new outreach coordination site.',
         type = 'message', duration = 4
       )
     })
     
-    add_new_sia_site <- function(lat, lon) {
+    add_new_outreach_site <- function(lat, lon) {
       new_id <- paste0('app_', format(Sys.time(), '%Y%m%d%H%M%S'), '_', sample(1000:9999, 1))
       
       new_row <- data.frame(
         facility_id                 = new_id,
-        facility_name               = paste('SIA Site',
+        facility_name               = paste('Outreach Site',
                                             if (!is.null(rv$app_sf)) nrow(rv$app_sf) + 1L else 1L),
         facility_type               = NA_character_,
         hf_ownership                = NA_character_,
@@ -362,7 +414,7 @@ facilityTabServer <- function(
       
       selected_id(new_id)
       adding_facility(FALSE)
-      showNotification('SIA coordination site added.', type = 'message', duration = 3)
+      showNotification('Outreach coordination site added.', type = 'message', duration = 3)
     }
     
     # -------------------------------------------------------------------------
@@ -429,12 +481,13 @@ facilityTabServer <- function(
       facility_data_r        = facility_data,
       selected_id_r          = selected_id,
       on_marker_drag         = update_marker_position,
-      on_add_facility        = add_new_sia_site,
+      on_add_facility        = add_new_outreach_site,
       adding_facility_r      = adding_facility,
       show_buffer            = TRUE,
       all_district_densities = all_district_densities,
       show_pop_r             = reactive(isTRUE(input$show_pop_raster)),
-      landmarks_r            = landmarks_r
+      landmarks_r            = landmarks_r,
+      subdivisions_r         = subdivisions_r
     )
     
     facilityTableServer(
@@ -445,14 +498,14 @@ facilityTabServer <- function(
     )
     
     # -------------------------------------------------------------------------
-    # Continue button — validates SIA sites then navigates
+    # Continue button — validates outreach coordination sites then navigates
     # -------------------------------------------------------------------------
     observeEvent(input$continue_to_areas, {
       df    <- facility_data()
       seeds <- df |> dplyr::filter(polio_sia_coordination_site == "Yes")
       if (nrow(seeds) == 0) {
         showNotification(
-          "Please mark at least one SIA coordination site before continuing.",
+          "Please mark at least one outreach coordination site before continuing.",
           type = "warning", duration = 4
         )
         return()

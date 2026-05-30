@@ -79,6 +79,8 @@ microplanTabServer <- function(
     saved_dfa_sf_r,
     pop_table_r,
     facility_data_r     = reactive(NULL),
+    subdivisions_r      = reactive(NULL),
+    planning_area_sf_r  = reactive(NULL),
     submit_stage_fn     = NULL,
     save_snapshot_fn    = NULL,   # kept for compatibility, no-op
     areas_regenerated_r = reactive(0L),
@@ -260,12 +262,17 @@ microplanTabServer <- function(
       }
       
       district_outline <- tryCatch({
-        out <- districts_shp |>
-          dplyr::filter(district_name == current_district) |>
-          dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
-          sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326)
-        # safe_make_valid can return GEOMETRYCOLLECTION — extract polygons only
-        tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
+        pa <- tryCatch(planning_area_sf_r(), error = function(e) NULL)
+        if (!is.null(pa) && nrow(pa) > 0) {
+          out <- sf::st_transform(pa, 4326) |> safe_make_valid()
+          tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
+        } else {
+          out <- districts_shp |>
+            dplyr::filter(district_name == current_district) |>
+            dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+            sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326)
+          tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
+        }
       }, error = function(e) NULL)
       
       if (!is.null(district_outline) && nrow(district_outline) > 0 &&

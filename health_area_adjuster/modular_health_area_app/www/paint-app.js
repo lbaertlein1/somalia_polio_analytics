@@ -29,6 +29,7 @@
       districtLayer: null,
       popLayer: null,
       frictionLayer: null,
+      subdivisionLayer: null,
       gridLayer: null,
       savedLayer: null,
       seedLayer: null,
@@ -446,6 +447,11 @@
 
       // Bring all point layers to front in correct order:
       // landmarks → facilities → seeds (seeds always on top)
+      bringSubdivisionToFront: function() {
+        if (this.subdivisionLayer && this.map.hasLayer(this.subdivisionLayer))
+          this.subdivisionLayer.bringToFront();
+      },
+
       bringPointLayersToFront: function() {
         if (this.landmarkLayer) {
           this.landmarkLayer.eachLayer(function(l) { if (l.bringToFront) l.bringToFront(); });
@@ -484,6 +490,10 @@
         if (this.frictionLayer) {
           this.map.removeLayer(this.frictionLayer);
           this.frictionLayer = null;
+        }
+        if (this.subdivisionLayer) {
+          this.map.removeLayer(this.subdivisionLayer);
+          this.subdivisionLayer = null;
         }
         if (this.gridLayer) {
           this.map.removeLayer(this.gridLayer);
@@ -608,6 +618,25 @@
           }
         }
 
+        if (msg.subdivisionGeojson) {
+          console.log('[paint] subdivisionGeojson received, length:', 
+            typeof msg.subdivisionGeojson === 'string' ? msg.subdivisionGeojson.length : 'object');
+          const subdivGeo = (typeof msg.subdivisionGeojson === 'string')
+            ? JSON.parse(msg.subdivisionGeojson)
+            : msg.subdivisionGeojson;
+          console.log('[paint] subdivGeo features:', subdivGeo && subdivGeo.features ? subdivGeo.features.length : 'none');
+          this.subdivisionLayer = L.geoJSON(subdivGeo, {
+            style: {
+              color: '#7c3aed',
+              weight: 2,
+              dashArray: '6 4',
+              fill: false,
+              opacity: 0.85,
+              interactive: false
+            }
+          }).addTo(this.map);
+        }
+
         this.gridLayer = L.geoJSON(gridGeo, {
           style: (feature) => this.styleForFeature(feature),
           onEachFeature: (feature, layer) => {
@@ -646,6 +675,8 @@
         if (this.savedLayer && this.savedLayer.bringToFront) {
           this.savedLayer.bringToFront();
         }
+        // Subdivision boundaries sit above grid/saved but below point markers
+        this.bringSubdivisionToFront();
 
         this.drawSeedPoints(msg.seedPoints || []);
         this.drawFacilityPoints(msg.facilityPoints || []);
@@ -667,6 +698,7 @@
           if (this.savedLayer && this.savedLayer.bringToFront) {
             this.savedLayer.bringToFront();
           }
+          this.bringSubdivisionToFront();
           this.bringPointLayersToFront();
         }, 150);
 

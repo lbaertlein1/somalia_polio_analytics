@@ -23,6 +23,8 @@ introTabUI <- function(id) {
                   choices  = setNames('', 'Select district...'),
                   selected = '', width = '100%'),
       
+      uiOutput(ns('planning_unit_ui')),
+      
       tags$hr(style = 'margin: 12px 0;'),
       
       tags$button(
@@ -218,7 +220,7 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
       districts_shp |> dplyr::filter(district_name %in% allowed)
     })
     
-    # Populate regions directly (no zone step)
+    # Populate regions
     observeEvent(allowed_shp(), {
       regions <- sort(unique(as.character(stats::na.omit(allowed_shp()$region_name))))
       updateSelectInput(session, 'region',
@@ -241,8 +243,7 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
                         choices = c(setNames('', 'Select district...'), dists), selected = '')
     }, ignoreInit = FALSE)
     
-    # Derive zone internally from the selected district (needed by downstream modules
-    # for friction-surface path lookups etc.; not shown to the user).
+    # Zone derived internally
     zone_derived <- reactive({
       req(nzchar(input$district %||% ''))
       d <- allowed_shp() |> dplyr::filter(district_name == input$district)
@@ -250,11 +251,122 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
       as.character(d$zone_name[1]) %||% ''
     })
     
+    # District sf (full polygon, used to compute planning unit geometries)
+    district_sf_full <- reactive({
+      req(nzchar(input$district %||% ''))
+      dsf <- districts_shp |>
+        dplyr::filter(district_name == input$district) |>
+        dplyr::summarise(
+          district_name = dplyr::first(district_name),
+          geometry      = sf::st_union(geometry),
+          .groups       = 'drop'
+        ) |>
+        sf::st_as_sf() |>
+        safe_make_valid()
+      sf::st_transform(dsf, 4326)
+    })
+    
+    # Subdivisions for selected district (from cache via subdivision_helpers)
+    subdivisions_rv <- reactiveVal(NULL)
+    
+    subdivisions_fetched <- reactiveVal(FALSE)
+    
+    observeEvent(input$district, {
+      # Reset all planning unit state immediately on district change
+      subdivisions_rv(NULL)
+      urban_hull_rv(NULL)
+      rural_remain_rv(NULL)
+      subdivisions_fetched(FALSE)
+      req(nzchar(input$district %||% ''))
+      dsf <- tryCatch(district_sf_full(), error = function(e) NULL)
+      if (is.null(dsf)) { subdivisions_fetched(TRUE); return() }
+      subs <- tryCatch(
+        fetch_subdivisions_for_district(dsf),
+        error = function(e) NULL
+      )
+      subdivisions_rv(subs)
+      if (is.null(subs) || nrow(subs) == 0) subdivisions_fetched(TRUE)
+      # fetched(TRUE) for subdivision districts fires in observeEvent(subdivisions_rv())
+    }, ignoreInit = TRUE)
+    
+    # Urban hull and rural remainder — computed once per district
+    urban_hull_rv    <- reactiveVal(NULL)
+    rural_remain_rv  <- reactiveVal(NULL)
+    
+    observeEvent(subdivisions_rv(), {
+      subs <- subdivisions_rv()
+      dsf  <- tryCatch(district_sf_full(), error = function(e) NULL)
+      if (is.null(subs) || nrow(subs) == 0 || is.null(dsf)) {
+        urban_hull_rv(NULL); rural_remain_rv(NULL)
+        subdivisions_fetched(TRUE)
+        return()
+      }
+      hull  <- compute_urban_hull(subs, dsf)
+      rural <- compute_rural_remainder(dsf, hull)
+      urban_hull_rv(hull)
+      rural_remain_rv(rural)
+      subdivisions_fetched(TRUE)
+    }, ignoreInit = TRUE)
+    
+    # Planning unit selector — only shown when subdivisions exist
+    output$planning_unit_ui <- renderUI({
+      req(nzchar(input$district %||% ''))
+      hull <- urban_hull_rv()
+      if (is.null(hull)) return(NULL)
+      tagList(
+        tags$hr(style = 'margin: 8px 0;'),
+        div(class = 'mini-label', 'Planning area'),
+        selectInput(
+          session$ns('planning_unit'), NULL,
+          choices = c(
+            'Urban area',
+            if (!is.null(rural_remain_rv())) 'Rural area'
+          ),
+          selected = 'Urban area',
+          width = '100%'
+        )
+      )
+    })
+    
+    # Effective planning area sf — the polygon passed to all downstream modules
+    planning_area_sf <- reactive({
+      req(nzchar(input$district %||% ''))
+      unit <- input$planning_unit %||% 'Urban area'
+      if (unit == 'Urban area' && !is.null(urban_hull_rv()))
+        return(urban_hull_rv())
+      if (unit == 'Rural area' && !is.null(rural_remain_rv()))
+        return(rural_remain_rv())
+      # No subdivisions — use full district
+      district_sf_full()
+    })
+    
+    # Planning label — used as DB key and in filenames
+    planning_label <- reactive({
+      req(nzchar(input$district %||% ''))
+      unit <- input$planning_unit %||% 'Urban area'
+      # When subdivisions exist, always append the planning unit label
+      if (!is.null(urban_hull_rv()))
+        return(paste0(input$district, ' — ', unit))
+      input$district
+    })
+    
+    # planning_ready: TRUE when district selected AND subdivision fetch complete.
+    # This ensures the session manager checks the DB with the correct planning
+    # label (e.g. "Kismayo — Urban") rather than firing before urban/rural
+    # options are available.
+    planning_ready <- reactive({
+      nzchar(input$district %||% '') && isTRUE(subdivisions_fetched())
+    })
+    
     list(
-      zone           = zone_derived,
-      region         = reactive(input$region),
-      district       = reactive(input$district),
-      district_ready = reactive(nzchar(input$district %||% ''))
+      zone              = zone_derived,
+      region            = reactive(input$region),
+      district          = reactive(input$district),
+      district_ready    = planning_ready,       # kept for API compat
+      planning_ready    = planning_ready,
+      planning_label    = planning_label,
+      planning_area_sf  = planning_area_sf,
+      subdivisions_r    = subdivisions_rv
     )
   })
 }

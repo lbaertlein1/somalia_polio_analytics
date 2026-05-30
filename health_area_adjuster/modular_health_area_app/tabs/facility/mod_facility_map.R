@@ -50,8 +50,9 @@ facilityMapServer <- function(
     adding_facility_r,
     show_buffer = TRUE,
     all_district_densities,
-    show_pop_r  = reactive(FALSE),
-    landmarks_r = reactive(NULL)   # data frame: landmark_id, landmark_name, lat, lon
+    show_pop_r     = reactive(FALSE),
+    landmarks_r    = reactive(NULL),   # data frame: landmark_id, landmark_name, lat, lon
+    subdivisions_r = reactive(NULL)
 ) {
   
   moduleServer(id, function(input, output, session) {
@@ -145,7 +146,7 @@ facilityMapServer <- function(
         htmltools::htmlEscape(.na_dash(row$hf_ownership[[1]])), '</td></tr>',
         '<tr><td style="color:#64748b;padding-right:10px;">Incharge</td><td>',
         htmltools::htmlEscape(.na_dash(row$incharge_name[[1]])), '</td></tr>',
-        '<tr><td style="color:#64748b;padding-right:10px;">SIA Site</td><td>',
+        '<tr><td style="color:#64748b;padding-right:10px;">Coord. Site</td><td>',
         htmltools::htmlEscape(.na_dash(row$polio_sia_coordination_site[[1]])),
         '</td></tr>',
         '</table></div>'
@@ -259,7 +260,7 @@ facilityMapServer <- function(
                       font-size:12px;line-height:1.8;border:1px solid #ccc;">
             <b>Facilities</b><br>
             <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png"
-                 height="20"> SIA Coordination Site<br>
+                 height="20"> Outreach Coordination Site<br>
             <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"
                  height="20"> Not a Coordination Site<br>
             <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
@@ -386,7 +387,7 @@ facilityMapServer <- function(
         'font-size:12px;line-height:1.8;border:1px solid #ccc;">',
         '<b>Facilities</b><br>',
         '<img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png"',
-        ' height="20"> SIA Coordination Site<br>',
+        ' height="20"> Outreach Coordination Site<br>',
         '<img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"',
         ' height="20"> Not a Coordination Site<br>',
         '<img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"',
@@ -645,5 +646,37 @@ facilityMapServer <- function(
           )
       }
     })
+    
+    # ── Subdivision boundaries ────────────────────────────────────────────────
+    # Use observeEvent on both district_sf AND subdivisions_r so the layer
+    # redraws when either changes. district_sf() guard ensures the map exists.
+    .draw_subdivision_boundaries <- function() {
+      proxy <- leaflet::leafletProxy('map', session = session) |>
+        leaflet::clearGroup('subdivisions')
+      subs <- tryCatch(subdivisions_r(), error = function(e) NULL)
+      if (is.null(subs) || nrow(subs) == 0) return()
+      proxy |>
+        leaflet::addPolygons(
+          data        = subs,
+          group       = 'subdivisions',
+          color       = '#7c3aed',
+          weight      = 2,
+          dashArray   = '6,4',
+          fill        = FALSE,
+          opacity     = 0.8,
+          label       = subs$subdivision_name,
+          labelOptions = leaflet::labelOptions(
+            noHide    = TRUE,
+            direction = 'center',
+            textOnly  = TRUE,
+            style     = list('font-size' = '11px', 'font-weight' = '700',
+                             'color' = '#7c3aed')
+          )
+        )
+    }
+    observeEvent(district_sf(), { .draw_subdivision_boundaries() },
+                 ignoreNULL = TRUE, ignoreInit = FALSE)
+    observeEvent(subdivisions_r(), { .draw_subdivision_boundaries() },
+                 ignoreNULL = FALSE, ignoreInit = FALSE)
   })
 }

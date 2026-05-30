@@ -17,6 +17,8 @@ healthAreaTabServer <- function(
     coordination_sites  = NULL,
     all_facilities_r    = reactive(NULL),
     landmarks_r         = reactive(NULL),
+    subdivisions_r      = reactive(NULL),
+    planning_area_sf_r  = reactive(NULL),
     submit_stage_fn     = NULL,
     save_snapshot_fn    = NULL,
     restore_r           = reactive(NULL)
@@ -62,7 +64,7 @@ healthAreaTabServer <- function(
       grid_sf = NULL, initial_assignments = NULL, current_assignments = NULL,
       saved_dfa_sf = NULL, neighbors_list = NULL, edge_list = NULL,
       pop_overlay_sf = NULL, friction_overlay_sf = NULL, pop_table = NULL,
-      max_dim_m = NULL, grid_limits = NULL, brush_limits = NULL,
+      max_dim_m = NULL, brush_limits = NULL,
       seed_points = NULL, dfa_names = all_dfa_names, friction_path = NULL
     )
     
@@ -82,12 +84,8 @@ healthAreaTabServer <- function(
       pop_table            = reactive(rv$pop_table)
     )
     
-    u5_worldpop_rv <- reactiveVal(NULL)
-    get_u5_worldpop <- function() {
-      if (is.null(u5_worldpop_rv()))
-        u5_worldpop_rv(load_worldpop_u5_raster(t_u1_1to4_file = worldpop_t_u1_1to4_file))
-      u5_worldpop_rv()
-    }
+    # Use globally loaded raster from global.R (avoids redundant loading)
+    get_u5_worldpop <- function() u5_rast
     
     send_paint_message <- function(type, payload = list()) {
       session$sendCustomMessage(type, c(list(
@@ -140,7 +138,20 @@ healthAreaTabServer <- function(
     }
     
     district_base <- reactive({
-      req(isTRUE(district_ready())); req(zone(), region(), district())
+      req(isTRUE(district_ready()))
+      # Use planning area (urban/rural/full) when provided
+      pa <- tryCatch(planning_area_sf_r(), error = function(e) NULL)
+      if (!is.null(pa) && nrow(pa) > 0) {
+        # max_dim needs 3857 (metres); district_sf must be 4326 for JS canvas
+        dsf_3857  <- sf::st_transform(pa, 3857)
+        dsf_3857  <- safe_make_valid(dsf_3857)
+        dsf_3857  <- tryCatch(sf::st_collection_extract(dsf_3857, 'POLYGON'), error = function(e) dsf_3857)
+        max_dim_m <- calc_district_max_dim(dsf_3857)
+        dsf_4326  <- sf::st_transform(dsf_3857, 4326)
+        return(list(district_sf = dsf_4326, max_dim_m = max_dim_m,
+                    brush_limits = calc_brush_limits(max_dim_m)))
+      }
+      req(zone(), region(), district())
       dsf <- districts_shp |>
         dplyr::filter(zone_name == zone(), region_name == region(), district_name == district()) |>
         dplyr::select(admin_id, district_name, region_id, region_name, zone_id, zone_name, geometry)
@@ -156,13 +167,12 @@ healthAreaTabServer <- function(
       dsf <- tryCatch(sf::st_collection_extract(dsf, 'POLYGON'), error = function(e) dsf)
       max_dim_m <- calc_district_max_dim(dsf)
       list(district_sf = dsf, max_dim_m = max_dim_m,
-           grid_limits = calc_grid_limits(max_dim_m), brush_limits = calc_brush_limits(max_dim_m))
+           brush_limits = calc_brush_limits(max_dim_m))
     })
     
     observeEvent(district_base(), {
       db <- district_base()
       rv$district_base_sf <- db$district_sf
-      rv$grid_limits       <- db$grid_limits
       rv$brush_limits      <- db$brush_limits
       controls$set_brush_limits(db$brush_limits)
     }, ignoreInit = TRUE)
@@ -177,19 +187,10 @@ healthAreaTabServer <- function(
       last_scene_key(NULL)   # force full reset next time health areas tab opens
     }, ignoreInit = TRUE)
     
-    observeEvent(controls$brush_minus_click(), {
-      bl <- rv$brush_limits; req(!is.null(bl), !is.null(controls$brush_m()))
-      updateSliderInput(session, "controls-brush_m_ui",
-                        value = clamp_num(controls$brush_m() - bl$step, bl$min, bl$max))
-    })
-    observeEvent(controls$brush_plus_click(), {
-      bl <- rv$brush_limits; req(!is.null(bl), !is.null(controls$brush_m()))
-      updateSliderInput(session, "controls-brush_m_ui",
-                        value = clamp_num(controls$brush_m() + bl$step, bl$min, bl$max))
-    })
     observeEvent(controls$brush_m(), {
       req(tab_active(), isTRUE(district_ready()))
-      send_paint_message("paint_set_brush", list(value = controls$brush_m()))
+      # Slider is in diameter; JS expects radius
+      send_paint_message("paint_set_brush", list(value = controls$brush_m() / 2))
     }, ignoreInit = TRUE)
     observeEvent(controls$boundary_only(), {
       req(tab_active(), isTRUE(district_ready()))
@@ -233,14 +234,48 @@ healthAreaTabServer <- function(
       sf::st_as_sf(df, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
     })
     
+    # Full district sf — always the complete district polygon from districts_shp,
+    # used for friction path lookup regardless of planning unit.
+    full_district_sf_r <- reactive({
+      req(district_ready(), zone(), region(), district())
+      dsf <- districts_shp |>
+        dplyr::filter(zone_name == zone(), region_name == region(),
+                      district_name == district()) |>
+        dplyr::summarise(
+          admin_id = dplyr::first(admin_id), district_name = dplyr::first(district_name),
+          region_id = dplyr::first(region_id), region_name = dplyr::first(region_name),
+          zone_id = dplyr::first(zone_id), zone_name = dplyr::first(zone_name),
+          geometry = sf::st_union(geometry), .groups = "drop"
+        ) |> sf::st_as_sf() |> safe_make_valid()
+      dsf
+    })
+    
+    # Subdivision boundary lines — derived once per district, used as soft
+    # barriers in the health area generation (penalty = 0.99 raw friction).
+    subdivision_boundary_lines_r <- reactive({
+      subs <- tryCatch(subdivisions_r(), error = function(e) NULL)
+      subdivisions_to_boundary_lines(subs)
+    })
+    
     initial_scene <- initialHealthAreaGenerationServer(
       "initial_scene",
-      district_sf       = reactive({ req(district_base()); district_base()$district_sf }),
-      grid_n            = reactive({ req(district_base()); district_base()$grid_limits$value }),
-      n_dfa             = n_start_dfas,
-      seed              = reactive({ req(district()); sum(utf8ToInt(district())) }),
-      facility_seed_sf  = facility_seed_sf,
-      facility_name_col = "facility_name"
+      district_sf                  = reactive({ req(district_base()); district_base()$district_sf }),
+      friction_district_sf         = full_district_sf_r,
+      grid_n                       = reactive({
+        req(district_base())
+        max_dim  <- district_base()$max_dim_m
+        # Target ~25k cells regardless of district size.
+        # Cellsize = max_dim / 160, snapped to nearest 50m, floored at 50m.
+        cellsize <- max(50, round(max_dim / 160 / 50) * 50)
+        as.integer(round(max_dim / cellsize))
+      }),
+      n_dfa                        = n_start_dfas,
+      seed                         = reactive({ req(district()); sum(utf8ToInt(district())) }),
+      facility_seed_sf             = facility_seed_sf,
+      facility_name_col            = "facility_name",
+      subdivision_lines_sf         = subdivision_boundary_lines_r,
+      subdivision_boundary_penalty = 0.99,
+      u5_rast                      = u5_rast
     )
     
     # Deferred: only computes when health area tab is active
@@ -305,25 +340,33 @@ healthAreaTabServer <- function(
       if (!is.null(lm_df) && nrow(lm_df) > 0)
         landmark_pts <- lapply(seq_len(nrow(lm_df)), function(i)
           list(lat = lm_df$lat[i], lon = lm_df$lon[i], name = lm_df$landmark_name[i]))
+      # Subdivision boundaries — subdivisions_r() already returns NULL for
+      # rural planning units, so subdivision_boundary_lines_r() will be NULL too.
+      subdiv_geojson <- tryCatch({
+        bl <- subdivision_boundary_lines_r()
+        if (!is.null(bl) && nrow(bl) > 0) as_geojson_text(bl) else NULL
+      }, error = function(e) NULL)
+      
       send_paint_message("show_loading")
       send_paint_message("paint_load_scene", list(
-        districtGeojson    = as_geojson_text(rv$district_sf),
-        gridGeojson        = as_geojson_text(rv$grid_sf),
-        popGeojson         = pop_geojson,
-        frictionGeojson    = friction_geojson,
-        showPop            = isolate(controls$show_pop_raster()),
-        showFriction       = isolate(controls$show_friction_raster()),
-        initialAssignments = init_named,
-        dfaColors          = as.list(current_fill_colors()),
-        activeDfa          = active_dfa_rv(),
-        neighbors          = rv$neighbors_list,
-        edgeCells          = rv$edge_list,
-        brushSize          = controls$brush_m(),
-        boundaryOnly       = controls$boundary_only(),
-        seedPoints         = rv$seed_points,
-        facilityPoints     = facility_pts,
-        landmarkPoints     = landmark_pts,
-        savedGeojson       = as_geojson_text(saved_sf)
+        districtGeojson      = as_geojson_text(rv$district_sf),
+        gridGeojson          = as_geojson_text(rv$grid_sf),
+        popGeojson           = pop_geojson,
+        frictionGeojson      = friction_geojson,
+        subdivisionGeojson   = subdiv_geojson,
+        showPop              = isolate(controls$show_pop_raster()),
+        showFriction         = isolate(controls$show_friction_raster()),
+        initialAssignments   = init_named,
+        dfaColors            = as.list(current_fill_colors()),
+        activeDfa            = active_dfa_rv(),
+        neighbors            = rv$neighbors_list,
+        edgeCells            = rv$edge_list,
+        brushSize            = controls$brush_m() / 2,  # diameter -> radius for JS
+        boundaryOnly         = controls$boundary_only(),
+        seedPoints           = rv$seed_points,
+        facilityPoints       = facility_pts,
+        landmarkPoints       = landmark_pts,
+        savedGeojson         = as_geojson_text(saved_sf)
       ))
     }
     

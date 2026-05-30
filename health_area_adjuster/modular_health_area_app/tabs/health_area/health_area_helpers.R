@@ -255,6 +255,11 @@ make_start_assignment <- function(grid_sf, district_sf, n_dfa = 5, seed = 1) {
 build_dfa_polygons_from_assignments <- function(grid_sf, assignments, district_sf) {
   stopifnot(length(assignments) == nrow(grid_sf))
   
+  # Normalise CRS — grid_sf may be 3857 (planning area path) or 4326
+  target_crs <- sf::st_crs(grid_sf)
+  if (!identical(sf::st_crs(district_sf), target_crs))
+    district_sf <- sf::st_transform(district_sf, target_crs)
+  
   out <- grid_sf |>
     mutate(dfa_name = assignments) |>
     dplyr::select(cell_id, centroid_lon, centroid_lat, dfa_name, geometry) |>
@@ -274,6 +279,10 @@ build_dfa_polygons_from_assignments <- function(grid_sf, assignments, district_s
 
 smooth_dfa_boundaries <- function(dfa_sf, district_sf, iterations = 1) {
   dfa_sf <- safe_make_valid(dfa_sf)
+  
+  # Normalise CRS
+  if (!identical(sf::st_crs(dfa_sf), sf::st_crs(district_sf)))
+    district_sf <- sf::st_transform(district_sf, sf::st_crs(dfa_sf))
   
   dfa_sf <- rmapshaper::ms_smooth(
     dfa_sf,

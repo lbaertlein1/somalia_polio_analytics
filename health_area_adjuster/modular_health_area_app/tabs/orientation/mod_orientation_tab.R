@@ -118,10 +118,12 @@ orientationTabServer <- function(
     region,
     district,
     district_ready,
-    active_tab       = reactive(NULL),
-    submit_stage_fn  = NULL,
-    save_snapshot_fn = NULL,   # kept for compatibility, no-op
-    restore_r        = reactive(NULL)
+    active_tab         = reactive(NULL),
+    submit_stage_fn    = NULL,
+    save_snapshot_fn   = NULL,   # kept for compatibility, no-op
+    restore_r          = reactive(NULL),
+    subdivisions_r     = reactive(NULL),
+    planning_area_sf_r = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -142,8 +144,14 @@ orientationTabServer <- function(
     # ── District boundary reactive ────────────────────────────────────────────
     district_sf <- reactive({
       req(isTRUE(district_ready()))
+      # Use planning area (urban/rural/full) when provided by intro module
+      pa <- tryCatch(planning_area_sf_r(), error = function(e) NULL)
+      if (!is.null(pa) && nrow(pa) > 0) {
+        pa <- sf::st_transform(pa, 4326)
+        pa <- tryCatch(sf::st_collection_extract(pa, 'POLYGON'), error = function(e) pa)
+        return(pa)
+      }
       req(zone(), region(), district())
-      
       sf <- districts_shp |>
         dplyr::filter(
           zone_name     == zone(),
@@ -160,15 +168,9 @@ orientationTabServer <- function(
         ) |>
         sf::st_as_sf() |>
         safe_make_valid()
-      
       req(nrow(sf) >= 1)
       sf <- sf::st_transform(sf, 4326)
-      # safe_make_valid can return GEOMETRYCOLLECTION — extract polygons only
-      # so leaflet::addPolygons doesn't error on geometry type mismatch
-      sf <- tryCatch(
-        sf::st_collection_extract(sf, 'POLYGON'),
-        error = function(e) sf
-      )
+      sf <- tryCatch(sf::st_collection_extract(sf, 'POLYGON'), error = function(e) sf)
       sf
     })
     
@@ -270,6 +272,52 @@ orientationTabServer <- function(
       bbox <- sf::st_bbox(district_sf())
       .do_fit_bounds(bbox, 'district_change')
     }, ignoreInit = TRUE)
+    
+    # ── Subdivision boundaries ────────────────────────────────────────────────
+    observe({
+      proxy <- leaflet::leafletProxy('map', session = session) |>
+        leaflet::clearGroup('subdivisions')
+      subs <- tryCatch(subdivisions_r(), error = function(e) NULL)
+      if (is.null(subs) || nrow(subs) == 0) return()
+      
+      # Draw outlines
+      proxy <- proxy |>
+        leaflet::addPolygons(
+          data      = subs,
+          group     = 'subdivisions',
+          color     = '#7c3aed',
+          weight    = 2,
+          dashArray = '6,4',
+          fill      = FALSE,
+          opacity   = 0.8
+        )
+      
+      # Labels at point-on-surface (avoids centroid falling outside polygon)
+      label_pts <- tryCatch(
+        sf::st_point_on_surface(sf::st_transform(subs, 3857)) |>
+          sf::st_transform(4326),
+        error = function(e) suppressWarnings(sf::st_centroid(subs))
+      )
+      coords <- sf::st_coordinates(label_pts)
+      for (i in seq_len(nrow(subs))) {
+        proxy <- proxy |>
+          leaflet::addMarkers(
+            lng   = coords[i, 1],
+            lat   = coords[i, 2],
+            group = 'subdivisions',
+            icon  = leaflet::makeIcon(
+              iconUrl   = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+              iconWidth = 1, iconHeight = 1
+            ),
+            label        = subs$subdivision_name[i],
+            labelOptions = leaflet::labelOptions(
+              noHide    = TRUE, direction = 'center', textOnly = TRUE,
+              style     = list('font-size' = '11px', 'font-weight' = '700',
+                               'color' = '#7c3aed')
+            )
+          )
+      }
+    })
     
     # ── Draw / redraw all landmark markers ────────────────────────────────────
     .redraw_markers <- function() {

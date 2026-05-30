@@ -27,8 +27,8 @@ app_server <- function(input, output, session) {
   session_mgr <- sessionManagerServer(
     id               = 'session_mgr',
     username_r       = reactive(auth$username),
-    district_r       = reactive(intro$district()),
-    district_ready_r = reactive(intro$district_ready())
+    district_r       = reactive(intro$planning_label()),
+    district_ready_r = reactive(intro$planning_ready())
   )
   
   # Convenience wrapper — the only path that writes to DB
@@ -43,18 +43,30 @@ app_server <- function(input, output, session) {
     allowed_districts_r = reactive(auth$allowed_districts)
   )
   
+  # Subdivisions and planning area sf come directly from intro module.
+  # Subdivision boundaries are suppressed for rural planning units —
+  # rural area already excludes the urban zone so boundaries are irrelevant.
+  subdivisions_r <- reactive({
+    label <- tryCatch(intro$planning_label(), error = function(e) '') %||% ''
+    if (grepl('— Rural', label, fixed = TRUE)) return(NULL)
+    tryCatch(intro$subdivisions_r(), error = function(e) NULL)
+  })
+  planning_area_sf <- intro$planning_area_sf
+  
   # ===========================================================================
   # Orientation tab
   # ===========================================================================
   orientation <- orientationTabServer(
     'orientation',
-    zone             = intro$zone,
-    region           = intro$region,
-    district         = intro$district,
-    district_ready   = intro$district_ready,
-    active_tab       = reactive(input$main_tabs),
-    submit_stage_fn  = submit_fn,
-    restore_r        = reactive(NULL)
+    zone               = intro$zone,
+    region             = intro$region,
+    district           = intro$district,
+    district_ready     = intro$planning_ready,
+    active_tab         = reactive(input$main_tabs),
+    submit_stage_fn    = submit_fn,
+    restore_r          = reactive(NULL),
+    subdivisions_r     = subdivisions_r,
+    planning_area_sf_r = planning_area_sf
   )
   
   # ===========================================================================
@@ -67,11 +79,13 @@ app_server <- function(input, output, session) {
     zone                 = intro$zone,
     region               = intro$region,
     district             = intro$district,
-    district_ready       = intro$district_ready,
+    district_ready       = intro$planning_ready,
     active_tab           = reactive(input$main_tabs),
     submitted_facilities = submitted_facilities,
     submit_stage_fn      = submit_fn,
     landmarks_r          = orientation$landmarks_r,
+    subdivisions_r       = subdivisions_r,
+    planning_area_sf_r   = planning_area_sf,
     restore_r            = reactive(NULL)
   )
   
@@ -80,16 +94,18 @@ app_server <- function(input, output, session) {
   # ===========================================================================
   health_area <- healthAreaTabServer(
     'health_area',
-    zone             = intro$zone,
-    region           = intro$region,
-    district         = intro$district,
-    district_ready   = intro$district_ready,
-    active_tab       = reactive(input$main_tabs),
-    facility_data    = submitted_facilities,
-    all_facilities_r = facility$facility_data,
-    landmarks_r      = orientation$landmarks_r,
-    submit_stage_fn  = submit_fn,
-    restore_r        = reactive(NULL)
+    zone               = intro$zone,
+    region             = intro$region,
+    district           = intro$district,
+    district_ready     = intro$planning_ready,
+    active_tab         = reactive(input$main_tabs),
+    facility_data      = submitted_facilities,
+    all_facilities_r   = facility$facility_data,
+    landmarks_r        = orientation$landmarks_r,
+    subdivisions_r     = subdivisions_r,
+    planning_area_sf_r = planning_area_sf,
+    submit_stage_fn    = submit_fn,
+    restore_r          = reactive(NULL)
   )
   
   # ===========================================================================
@@ -100,10 +116,12 @@ app_server <- function(input, output, session) {
     zone                = intro$zone,
     region              = intro$region,
     district            = intro$district,
-    district_ready      = intro$district_ready,
+    district_ready      = intro$planning_ready,
     saved_dfa_sf_r      = health_area$saved_dfa_sf_r,
     pop_table_r         = health_area$pop_table_r,
     facility_data_r     = facility$facility_data,
+    subdivisions_r      = subdivisions_r,
+    planning_area_sf_r  = planning_area_sf,
     submit_stage_fn     = submit_fn,
     areas_regenerated_r = health_area$areas_regenerated,
     changed_areas_r     = health_area$changed_areas,
@@ -154,7 +172,7 @@ app_server <- function(input, output, session) {
   }
   
   observe({
-    ready <- isTRUE(intro$district_ready())
+    ready <- isTRUE(intro$planning_ready())
     set_tab_enabled('tab_orientation',             ready)
     set_tab_enabled('tab_health_facility_mapping', ready)
     set_tab_enabled('tab_health_area_mapping',     ready)
@@ -164,7 +182,7 @@ app_server <- function(input, output, session) {
   observeEvent(input$main_tabs, {
     locked <- c('tab_orientation', 'tab_health_facility_mapping',
                 'tab_health_area_mapping', 'tab_microplan')
-    if (input$main_tabs %in% locked && !isTRUE(intro$district_ready())) {
+    if (input$main_tabs %in% locked && !isTRUE(intro$planning_ready())) {
       updateTabsetPanel(session, 'main_tabs', selected = 'tab_intro')
       showNotification('Select a district on the Introduction tab first.',
                        type = 'message', duration = 3)

@@ -57,76 +57,96 @@ get_allowed_distance_m <- function(district_density) {
 #   ODK_USERNAME=your_email@example.com
 #   ODK_PASSWORD=your_password
 
-# -----------------------------------------------------------------------------
-# Form config
-# TODO: confirm zone_name strings match those in districts_shp
-# -----------------------------------------------------------------------------
-ODK_FORMS <- list(
-  puntland = list(
-    svc     = "https://emro.nafundi.com/v1/projects/9/forms/puntland_mhfl_facility_survey.svc",
-    form_id = "puntland_mhfl_facility_survey",
-    zones   = c("Puntland")
-  ),
-  somalia = list(
-    svc     = "https://emro.nafundi.com/v1/projects/9/forms/somalia_mhfl_facility_survey.svc",
-    form_id = "somalia_mhfl_facility_survey",
-    zones   = c("South West State", "Hir-Shabelle State", "Galmudug State",
-                "Jubaland State", "Banadir", "Somaliland")
-  )
+# =============================================================================
+# fetch_facilities_odk()
+# Pull facility data from the master HF registry (Entity List / OData).
+# One endpoint covers all zones — no zone routing needed.
+#
+# Filtering uses the same two-rule spatial logic as the previous form-based
+# fetch:
+#   Rule 1: facility GPS falls within the district polygon
+#   Rule 2: facility GPS within the density-based buffer AND registry district
+#            field (uppercased) matches the district name
+#
+# Credentials: ODK_USERNAME / ODK_PASSWORD in .Renviron
+# =============================================================================
+
+REGISTRY_BASE_URL <- paste0(
+  "https://emro.nafundi.com/v1/projects/31/datasets/",
+  "master_hf_registry.svc/Entities"
 )
 
-odk_form_config <- function(zone_name) {
-  for (cfg in ODK_FORMS) {
-    if (zone_name %in% cfg$zones) return(cfg)
+# Internal: fetch all OData pages for the registry, returning a single
+# data frame. No server-side filtering — spatial clip happens after.
+.fetch_registry_all_pages <- function() {
+  un   <- trimws(Sys.getenv("ODK_USERNAME"))
+  pw   <- trimws(Sys.getenv("ODK_PASSWORD"))
+  auth <- httr::authenticate(un, pw)
+  
+  url      <- paste0(REGISTRY_BASE_URL, "?%24top=500")
+  all_rows <- list()
+  
+  repeat {
+    resp <- tryCatch(
+      httr::GET(url, auth, httr::timeout(30)),
+      error = function(e) stop("Registry request failed: ", conditionMessage(e))
+    )
+    if (httr::http_error(resp)) {
+      stop("Registry returned HTTP ", httr::status_code(resp), ": ",
+           httr::content(resp, as = "text", encoding = "UTF-8"))
+    }
+    parsed <- jsonlite::fromJSON(
+      httr::content(resp, as = "text", encoding = "UTF-8"),
+      simplifyDataFrame = TRUE
+    )
+    rows <- parsed[["value"]]
+    if (!is.null(rows) && nrow(rows) > 0)
+      all_rows[[length(all_rows) + 1]] <- rows
+    
+    next_link <- parsed[["@odata.nextLink"]]
+    if (is.null(next_link) || !nzchar(next_link)) break
+    url <- next_link
   }
-  warning("Zone '", zone_name, "' not matched in ODK_FORMS — defaulting to Somalia form.")
-  ODK_FORMS$somalia
+  
+  if (length(all_rows) == 0) return(NULL)
+  dplyr::bind_rows(all_rows)
 }
 
-# -----------------------------------------------------------------------------
-# fetch_facilities_odk()
-# Pull MHFL submissions for a given zone/district.
-# Returns a clean sf object matching the app schema, or NULL if none found.
-# Uses wkt = TRUE to avoid handle_ru_geopoints duplicate-column bug.
-# -----------------------------------------------------------------------------
+# Cache the full registry pull within a session so repeated district
+# selections do not re-fetch. Cleared on app restart.
+.registry_cache <- new.env(parent = emptyenv())
+
+.get_registry <- function() {
+  if (!is.null(.registry_cache$data)) return(.registry_cache$data)
+  cat("[fetch_facilities_odk] fetching full registry...
+")
+  df <- .fetch_registry_all_pages()
+  .registry_cache$data <- df
+  cat("[fetch_facilities_odk] registry cached, n =",
+      if (is.null(df)) 0 else nrow(df), "
+")
+  df
+}
+
 fetch_facilities_odk <- function(zone_name, district_name) {
   
-  cfg <- odk_form_config(zone_name)
+  raw <- .get_registry()
+  if (is.null(raw) || nrow(raw) == 0) return(NULL)
   
-  ruODK::ru_setup(
-    svc     = cfg$svc,
-    un      = trimws(Sys.getenv("ODK_USERNAME")),
-    pw      = trimws(Sys.getenv("ODK_PASSWORD")),
-    tz      = "Africa/Mogadishu",
-    verbose = FALSE
-  )
-  
-  raw <- ruODK::odata_submission_get(
-    table    = "Submissions",
-    wkt      = TRUE,
-    download = FALSE
-  )
-  
-  if ("system_review_state" %in% colnames(raw)) {
-    raw <- raw |>
-      dplyr::filter(is.na(system_review_state) | system_review_state != "rejected")
-  }
-  
-  # Deduplicate by submission — repeat groups (e.g. partners_support_repeat)
-  # cause one submission to expand into many rows. Keep one row per instanceID.
-  raw <- raw |>
-    dplyr::distinct(meta_instance_id, .keep_all = TRUE)
+  # Drop rows without valid GPS
+  has_coords <- !is.na(suppressWarnings(as.numeric(raw$gps_latitude))) &
+    !is.na(suppressWarnings(as.numeric(raw$gps_longitude))) &
+    suppressWarnings(as.numeric(raw$gps_latitude))  != 0 &
+    suppressWarnings(as.numeric(raw$gps_longitude)) != 0
+  raw_coords <- raw[has_coords, , drop = FALSE]
+  if (nrow(raw_coords) == 0) return(NULL)
   
   # -------------------------------------------------------------------------
   # Spatial filtering — two inclusion rules (either is sufficient):
   #   Rule 1: facility GPS falls within the district polygon
-  #   Rule 2: facility GPS falls within 10 km of the district polygon AND
-  #            the ODK district field matches the crosswalk entry
-  #
-  # Using a fixed 10 km buffer here (not the density-based drag buffer).
+  #   Rule 2: facility GPS falls within the density-based buffer AND
+  #            the registry district field matches the district name
   # -------------------------------------------------------------------------
-  
-  # Local alias avoids dplyr column-name shadowing on 'district_name'
   .shp <- district_name
   
   district_rows <- districts_shp |>
@@ -137,25 +157,13 @@ fetch_facilities_odk <- function(zone_name, district_name) {
     sf::st_union() |>
     sf::st_make_valid()
   
-  # Use the same density-based buffer as the drag-validation logic
   density              <- district_rows$u5_pop_density_km2[1]
   buffer_m             <- get_allowed_distance_m(density)
   district_buffer_proj <- sf::st_buffer(district_geom_proj, dist = buffer_m)
   
-  # ODK slug(s) for this shapefile district (usually one, may be zero for unmapped)
-  odk_districts <- DISTRICT_CROSSWALK |>
-    dplyr::filter(shp_district == .shp) |>
-    dplyr::pull(odk_district)
-  
-  # Only rows with valid GPS can be spatially tested
-  has_coords <- !is.na(raw$geolocation_gps_latitude) & !is.na(raw$geolocation_gps_longitude)
-  raw_coords <- raw[has_coords, , drop = FALSE]
-  
-  if (nrow(raw_coords) == 0) return(NULL)
-  
   raw_pts <- sf::st_as_sf(
     raw_coords,
-    coords = c("geolocation_gps_longitude", "geolocation_gps_latitude"),
+    coords = c("gps_longitude", "gps_latitude"),
     crs    = 4326,
     remove = FALSE
   ) |>
@@ -163,54 +171,46 @@ fetch_facilities_odk <- function(zone_name, district_name) {
   
   within_polygon <- lengths(sf::st_within(raw_pts, district_geom_proj)) > 0
   within_buffer  <- lengths(sf::st_within(raw_pts, district_buffer_proj)) > 0
-  name_matches   <- raw_coords$facility_identification_district %in% odk_districts
+  name_matches   <- tolower(trimws(raw_coords$district)) ==
+    tolower(trimws(district_name))
   
   keep <- within_polygon | (within_buffer & name_matches)
   
   cat(
     "[fetch_facilities_odk] district:", district_name,
-    "| density:", round(density, 3),
+    "| density:", round(as.numeric(density), 3),
     "| buffer_km:", round(buffer_m / 1000, 1),
     "| within polygon:", sum(within_polygon),
     "| buffer+name match:", sum(within_buffer & name_matches),
-    "| total kept:", sum(keep), "\n"
+    "| total kept:", sum(keep), "
+"
   )
   
-  raw <- raw_coords[keep, , drop = FALSE]
+  raw_coords <- raw_coords[keep, , drop = FALSE]
+  if (nrow(raw_coords) == 0) return(NULL)
   
-  if (nrow(raw) == 0) return(NULL)
-  
-  out <- raw |>
+  out <- raw_coords |>
     dplyr::transmute(
-      facility_id   = facility_identification_facility_id,
-      # Coalesce through the name chain: final -> correct -> manual -> base
-      # facility_name_final is only populated when enumerator confirms/edits
-      facility_name = dplyr::coalesce(
-        dplyr::na_if(trimws(facility_identification_facility_name_final), ""),
-        dplyr::na_if(trimws(facility_identification_facility_name_correct), ""),
-        dplyr::na_if(trimws(facility_identification_facility_name_manual), ""),
-        dplyr::na_if(trimws(facility_identification_facility_name), ""),
+      facility_id                 = facility_id,
+      facility_name               = dplyr::coalesce(
+        dplyr::na_if(trimws(facility_name), ""),
         paste("Unnamed facility", dplyr::row_number())
       ),
-      facility_type               = label_facility_type(facility_identification_facility_type),
-      hf_ownership                = label_ownership(facility_identification_hf_ownership),
-      region                      = facility_identification_region,
-      district                    = facility_identification_district,
-      incharge_name               = contacts_incharge_name,
-      lat                         = geolocation_gps_latitude,
-      lon                         = geolocation_gps_longitude,
+      facility_type               = facility_type,
+      hf_ownership                = ownership,
+      region                      = region,
+      district                    = district,
+      incharge_name               = NA_character_,
+      lat                         = as.numeric(gps_latitude),
+      lon                         = as.numeric(gps_longitude),
       polio_sia_coordination_site = "No",
-      # ODK Central submission detail page — user clicks Edit Submission from here.
       odk_edit_link               = paste0(
-        "https://emro.nafundi.com/#/projects/9/forms/",
-        cfg$form_id,
-        "/submissions/",
-        meta_instance_id
+        "https://emro.nafundi.com/#/projects/31/entity-lists/",
+        "master_hf_registry/entities/",
+        `__id`
       )
     ) |>
     dplyr::filter(!is.na(lat), !is.na(lon)) |>
-    # If the same facility_id was surveyed multiple times, keep the most recent
-    # submission (system_submission_date desc, already ordered by ODK response)
     dplyr::distinct(facility_id, .keep_all = TRUE)
   
   if (nrow(out) == 0) return(NULL)

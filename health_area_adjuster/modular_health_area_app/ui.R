@@ -100,9 +100,9 @@ app_ui <- function() {
           
           div(
             id = 'header-title',
-            tags$span('Somalia Polio Vaccination Campaigns:',
+            tags$span('Somalia District Health Area Planning',
                       style = 'font-size: 14px; line-height: 1;'),
-            tags$span('District Health Area Planning',
+            tags$span('Vaccination Campaigns & Outreach',
                       style = 'color: #0d9488; font-size: 14px; line-height: 1;')
           ),
           
@@ -112,11 +112,8 @@ app_ui <- function() {
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_orientation',   'Landmarks'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_facility_mapping', 'Facilities'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_area_mapping',     'Health Areas'),
-            tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_microplan',     'Microplan Prep')
+            tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_microplan',     'Planning Data')
           )
-          # ,
-          # 
-          # div(id = 'header-right', uiOutput('nav_info', inline = TRUE))
         ),
         
         tabsetPanel(
@@ -135,7 +132,7 @@ app_ui <- function() {
           tabPanel(title = 'Health Areas',    value = 'tab_health_area_mapping',
                    healthAreaTabUI('health_area')),
           
-          tabPanel(title = 'Microplan Prep',  value = 'tab_microplan',
+          tabPanel(title = 'Planning Data',   value = 'tab_microplan',
                    microplanTabUI('microplan'))
         )
       )

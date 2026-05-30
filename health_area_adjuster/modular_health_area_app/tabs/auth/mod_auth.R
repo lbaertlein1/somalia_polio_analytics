@@ -40,15 +40,15 @@ authUI <- function(id) {
         tags$div(
           tags$h4(
             style = 'margin:0 0 2px;color:#0f172a;font-size:18px;font-weight:600;',
-            'Somalia Polio Vaccination Campaigns:'
-          ),
-          tags$h4(
-            style = 'margin:0 0 4px;color:#0f172a;font-size:18px;font-weight:600;',
-            'District Health Area Planning'
+            'Somalia District Health Area Planning'
           )
         ),
         tags$p(
-          style = 'margin:0;color:#64748b;font-size:13px;',
+          style = 'margin:4px 0 0;color:#64748b;font-size:12px;line-height:1.5;',
+          'Supporting immunization campaigns and public health outreach'
+        ),
+        tags$p(
+          style = 'margin:8px 0 0;color:#94a3b8;font-size:13px;',
           'Sign in to continue'
         )
       ),

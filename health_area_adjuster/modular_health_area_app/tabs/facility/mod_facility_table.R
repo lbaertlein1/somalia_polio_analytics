@@ -1,7 +1,7 @@
 # =============================================================================
 # mod_facility_table.R  —  two-table facility panel
-#   Top:    SIA coordination sites  (uncheck to remove)
-#   Bottom: remaining facilities    (check to add as SIA site)
+#   Top:    Outreach coordination sites  (uncheck to remove)
+#   Bottom: remaining facilities         (check to add as coordination site)
 # =============================================================================
 
 facilityTableUI <- function(id) {
@@ -12,7 +12,7 @@ facilityTableUI <- function(id) {
                      'text-transform:uppercase;letter-spacing:.06em;',
                      'margin-bottom:6px;padding-bottom:4px;',
                      'border-bottom:2px solid #0d9488;'),
-      'SIA Coordination Sites'
+      'Outreach Coordination Sites'
     ),
     rhandsontable::rHandsontableOutput(ns("sia_table"), width = "100%", height = "auto"),
     uiOutput(ns("sia_empty_msg")),
@@ -55,7 +55,7 @@ facilityTableServer <- function(id, facility_data_r, selected_id_r, on_data_chan
         dplyr::transmute(
           facility_id_internal = as.character(facility_id),
           `Facility Name`      = facility_name,
-          `SIA Site`           = sia_val
+          `Coord. Site`        = sia_val
         )
     }
     
@@ -96,7 +96,7 @@ facilityTableServer <- function(id, facility_data_r, selected_id_r, on_data_chan
                                width = 1, readOnly = TRUE, renderer = rnd$blank) |>
         rhandsontable::hot_col("Facility Name",
                                width = 160, readOnly = FALSE, renderer = rnd$text) |>
-        rhandsontable::hot_col("SIA Site",
+        rhandsontable::hot_col("Coord. Site",
                                type = "checkbox",
                                checkedTemplate   = TRUE,
                                uncheckedTemplate = FALSE,
@@ -131,7 +131,7 @@ facilityTableServer <- function(id, facility_data_r, selected_id_r, on_data_chan
       req(!is.null(edited), !is.null(original))
       ids <- edited$facility_id_internal
       
-      sia_logical <- edited$`SIA Site`
+      sia_logical <- edited$`Coord. Site`
       # For SIA table: changed_ids are the rows that are now FALSE (unchecked)
       # For All table: changed_ids are the rows that are now TRUE (checked)
       flipped_to <- if (new_sia_status == "No") FALSE else TRUE
@@ -168,7 +168,7 @@ facilityTableServer <- function(id, facility_data_r, selected_id_r, on_data_chan
       df <- facility_data_r()
       if (is.null(df) || nrow(.sia_rows(df)) > 0) return(NULL)
       div(style = 'font-size:11px;color:#94a3b8;padding:6px 2px;font-style:italic;',
-          'No SIA coordination sites selected yet.')
+          'No outreach coordination sites selected yet.')
     })
     
     output$sia_table <- renderRHandsontable({
@@ -201,7 +201,7 @@ facilityTableServer <- function(id, facility_data_r, selected_id_r, on_data_chan
       df <- facility_data_r()
       if (is.null(df) || nrow(.non_sia_rows(df)) > 0) return(NULL)
       div(style = 'font-size:11px;color:#94a3b8;padding:6px 2px;font-style:italic;',
-          'All facilities are SIA coordination sites.')
+          'All facilities are outreach coordination sites.')
     })
     
     output$all_table <- renderRHandsontable({

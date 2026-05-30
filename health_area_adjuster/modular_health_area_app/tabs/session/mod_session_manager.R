@@ -32,6 +32,8 @@ sessionToolbarUI <- function(id) {
 }
 
 
+# district_r is now the planning label (e.g. "Kismayo — Urban", "Dolow")
+# passed from intro$planning_label() in server.R
 sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
   moduleServer(id, function(input, output, session) {
     
@@ -42,9 +44,12 @@ sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
       restore_counter = 0L      # incremented only on "Resume" — never on submit
     )
     
-    # ── On district selection: check for existing submission ──────────────────
+    # ── On planning label change: check for existing submission ─────────────────
+    # Fires when district changes OR when user switches between Full/Urban/Rural.
+    # district_ready_r() gates on subdivision fetch completing, so planning_label
+    # is stable by the time this fires.
     
-    observeEvent(district_ready_r(), {
+    observeEvent(list(district_r(), district_ready_r()), {
       req(isTRUE(district_ready_r()))
       req(nzchar(district_r() %||% ''))
       
@@ -57,7 +62,7 @@ sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
         rv$pending_saved <- submission
         .show_resume_modal(submission)
       } else {
-        rv$active <- TRUE
+        rv$active         <- TRUE
         rv$restore_snap   <- NULL
         rv$pending_saved  <- NULL
       }
