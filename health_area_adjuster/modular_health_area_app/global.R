@@ -69,36 +69,7 @@ source('helpers/download_helpers.R', local = TRUE)
 source('helpers/mod_db.R', local = TRUE)
 source("helpers/subdivision_helpers.R")
 
-if (!exists("bfs_propagate_cpp", mode = "function")) {
-  Rcpp::cppFunction(
-    code      = paste(readLines("bfs_propagate.cpp"), collapse = "
-"),
-    depends   = "Rcpp",
-    includes  = "#include <queue>
-#include <vector>
-#include <cmath>
-#include <limits>
-#include <string>",
-    rebuild   = FALSE
-  )
-}
-
-# =============================================================================
-# WorldPop raster — loaded once at startup, used for population estimates
-# across facility and health area tabs.
-# =============================================================================
-u5_rast <- tryCatch(
-  load_worldpop_u5_raster(t_u1_1to4_file = worldpop_t_u1_1to4_file),
-  error = function(e) {
-    message("WorldPop raster not loaded: ", e$message)
-    NULL
-  }
-)
-if (is.null(u5_rast)) {
-  message("WARNING: WorldPop raster is NULL — population features disabled. File: ", worldpop_t_u1_1to4_file)
-} else {
-  cat("WorldPop raster loaded:", worldpop_t_u1_1to4_file, "\n")
-}
+sourceCpp("bfs_propagate.cpp")
 
 # =============================================================================
 # Districts shapefile
@@ -165,3 +136,20 @@ source('tabs/microplan/mod_microplan_tab.R', local = TRUE)
 
 # Also add at the bottom:
 source('tabs/admin/mod_admin_tab.R', local = TRUE)
+
+# =============================================================================
+# WorldPop raster — loaded after helpers are sourced (load_worldpop_u5_raster
+# is defined in health_area_helpers.R)
+# =============================================================================
+u5_rast <- tryCatch(
+  load_worldpop_u5_raster(t_u1_1to4_file = worldpop_t_u1_1to4_file),
+  error = function(e) {
+    message("WorldPop raster not loaded: ", e$message)
+    NULL
+  }
+)
+if (is.null(u5_rast)) {
+  message("WARNING: WorldPop raster is NULL — population features disabled. File: ", worldpop_t_u1_1to4_file)
+} else {
+  cat("WorldPop raster loaded:", worldpop_t_u1_1to4_file, "\n")
+}

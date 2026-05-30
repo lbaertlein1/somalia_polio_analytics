@@ -372,6 +372,13 @@ facilityTabServer <- function(
       needs_odk_fetch(TRUE)
     }, ignoreInit = FALSE)
     
+    # Also re-fetch when planning area changes (urban/rural switch)
+    observeEvent(planning_area_sf_r(), {
+      req(isTRUE(district_ready()))
+      req(nzchar(district() %||% ''))
+      needs_odk_fetch(TRUE)
+    }, ignoreInit = TRUE)
+    
     observe({
       req(isTRUE(needs_odk_fetch()))
       req(identical(active_tab(), "tab_health_facility_mapping"))

@@ -511,9 +511,15 @@ facilityMapServer <- function(
         crs = 4326
       )
       
-      district_geom <- district_sf() |>
-        sf::st_transform(4326) |>
-        sf::st_union()
+      district_geom <- tryCatch({
+        d <- district_sf() |> sf::st_transform(4326) |> safe_make_valid()
+        # s2 on shinyapps.io is strict about degenerate vertices — disable for union
+        old_s2 <- sf::sf_use_s2(FALSE)
+        on.exit(sf::sf_use_s2(old_s2), add = TRUE)
+        sf::st_union(d)
+      }, error = function(e) {
+        district_sf() |> sf::st_transform(4326) |> sf::st_union()
+      })
       
       inside_district <- lengths(sf::st_within(clicked_pt, district_geom)) > 0
       
