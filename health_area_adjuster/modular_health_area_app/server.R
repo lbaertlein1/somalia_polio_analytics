@@ -22,19 +22,6 @@ app_server <- function(input, output, session) {
   }, ignoreInit = TRUE, once = TRUE)
   
   # ===========================================================================
-  # Session manager
-  # ===========================================================================
-  session_mgr <- sessionManagerServer(
-    id               = 'session_mgr',
-    username_r       = reactive(auth$username),
-    district_r       = reactive(intro$planning_label()),
-    district_ready_r = reactive(intro$planning_ready())
-  )
-  
-  # Convenience wrapper — the only path that writes to DB
-  submit_fn <- function(stage, data) session_mgr$submit_stage(stage, data)
-  
-  # ===========================================================================
   # Intro tab
   # ===========================================================================
   intro <- introTabServer(
@@ -44,14 +31,26 @@ app_server <- function(input, output, session) {
   )
   
   # Subdivisions and planning area sf come directly from intro module.
-  # Subdivision boundaries are suppressed for rural planning units —
-  # rural area already excludes the urban zone so boundaries are irrelevant.
   subdivisions_r <- reactive({
     label <- tryCatch(intro$planning_label(), error = function(e) '') %||% ''
     if (grepl('— Rural', label, fixed = TRUE)) return(NULL)
     tryCatch(intro$subdivisions_r(), error = function(e) NULL)
   })
   planning_area_sf <- intro$planning_area_sf
+  
+  # ===========================================================================
+  # Session manager
+  # ===========================================================================
+  session_mgr <- sessionManagerServer(
+    id               = 'session_mgr',
+    username_r       = reactive(auth$username),
+    district_r       = reactive(intro$planning_label()),
+    district_ready_r = reactive(intro$planning_ready()),
+    is_practice_r    = intro$is_practice          # <-- new
+  )
+  
+  # Convenience wrapper — the only path that writes to DB
+  submit_fn <- function(stage, data) session_mgr$submit_stage(stage, data)
   
   # ===========================================================================
   # Orientation tab
@@ -141,9 +140,6 @@ app_server <- function(input, output, session) {
     health_area$restore_from_snapshot(snap)
     microplan$restore_from_snapshot(snap)
     
-    # Restore submitted_facilities so the health area module receives the
-    # correct SIA coordination sites as seed points for the painted scene.
-    # Without this, the scene uses 5 random seeds instead of the saved sites.
     fac_sf <- tryCatch({
       parts <- Filter(Negate(is.null), list(snap$odk_sf, snap$app_sf))
       parts <- Filter(function(x) inherits(x, 'sf') && nrow(x) > 0, parts)

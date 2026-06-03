@@ -421,6 +421,7 @@ facilityTabServer <- function(
       
       selected_id(new_id)
       adding_facility(FALSE)
+      editing_locked(FALSE)
       showNotification('Outreach coordination site added.', type = 'message', duration = 3)
     }
     
@@ -447,6 +448,7 @@ facilityTabServer <- function(
           rv$app_sf$geometry[idx] <- new_geom
         }
       }
+      editing_locked(FALSE)
     }
     
     # -------------------------------------------------------------------------
@@ -472,6 +474,7 @@ facilityTabServer <- function(
       
       rv$odk_sf <- apply_edits(rv$odk_sf)
       rv$app_sf <- apply_edits(rv$app_sf)
+      editing_locked(FALSE)
     }
     
     # -------------------------------------------------------------------------
@@ -505,8 +508,22 @@ facilityTabServer <- function(
     )
     
     # -------------------------------------------------------------------------
-    # Continue button — validates outreach coordination sites then navigates
+    # Continue button — warns if unsubmitted edits exist
     # -------------------------------------------------------------------------
+    .do_continue_to_areas <- function() {
+      session$sendCustomMessage('switch_tab', list(value = 'tab_health_area_mapping'))
+    }
+    
+    .do_submit_and_continue_facilities <- function() {
+      df    <- facility_data()
+      seeds <- df |> dplyr::filter(polio_sia_coordination_site == "Yes")
+      submitted_facilities(seeds)
+      editing_locked(TRUE)
+      if (!is.null(submit_stage_fn))
+        submit_stage_fn('facilities', list(odk_sf = rv$odk_sf, app_sf = rv$app_sf))
+      .do_continue_to_areas()
+    }
+    
     observeEvent(input$continue_to_areas, {
       df    <- facility_data()
       seeds <- df |> dplyr::filter(polio_sia_coordination_site == "Yes")
@@ -517,7 +534,37 @@ facilityTabServer <- function(
         )
         return()
       }
-      session$sendCustomMessage('switch_tab', list(value = 'tab_health_area_mapping'))
+      # Warn if edits haven't been submitted yet
+      if (!isTRUE(editing_locked())) {
+        showModal(modalDialog(
+          title     = 'Unsaved facility edits',
+          size      = 's', easyClose = FALSE, footer = NULL,
+          div(style = 'font-size:13px;color:#475569;margin-bottom:16px;',
+              'You have unsaved facility selections. Submit them now to keep your work, or continue without saving.'),
+          div(style = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;',
+              actionButton(session$ns('fac_continue_cancel'),        'Cancel',               class = 'btn btn-default'),
+              actionButton(session$ns('fac_continue_without_save'),  'Continue without saving', class = 'btn btn-default'),
+              actionButton(session$ns('fac_submit_and_continue'),    'Submit & Continue',    class = 'btn btn-primary',
+                           style = 'font-weight:600;')
+          )
+        ))
+        return()
+      }
+      .do_continue_to_areas()
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$fac_continue_cancel, {
+      removeModal()
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$fac_continue_without_save, {
+      removeModal()
+      .do_continue_to_areas()
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$fac_submit_and_continue, {
+      removeModal()
+      .do_submit_and_continue_facilities()
     }, ignoreInit = TRUE)
     
     # -------------------------------------------------------------------------

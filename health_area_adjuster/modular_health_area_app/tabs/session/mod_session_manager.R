@@ -1,21 +1,20 @@
 # =============================================================================
 # mod_session_manager.R
 #
-# Saving is now purely local (in-memory, within the browser session).
-# DB writes happen ONLY via submit_stage(), called by each tab's Submit button.
+# Versioned saving:
+#   - Each district+mode has an independent version chain.
+#   - DB writes happen ONLY via submit_stage(), called by each tab's Submit button.
+#   - "Start new" archives the current version before clearing state.
+#   - Practice and Actual sessions are stored and retrieved independently.
 #
-# On district select:
-#   - Checks district_submissions for a prior submission for this district.
+# On district/mode change:
+#   - Checks district_submissions for a current submission matching district+mode.
 #   - If found → show modal: Resume / Start new
 #   - If not found → start silently
-#
-# Resume restores from the last submitted state (district_submissions).
 # =============================================================================
 
 
 sessionToolbarUI <- function(id) {
-  # Toolbar is now minimal — no save button since saving is local only.
-  # Kept as a visible district/user indicator once a district is selected.
   ns <- NS(id)
   
   shinyjs::hidden(
@@ -32,39 +31,57 @@ sessionToolbarUI <- function(id) {
 }
 
 
-# district_r is now the planning label (e.g. "Kismayo — Urban", "Dolow")
-# passed from intro$planning_label() in server.R
-sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
+# district_r       — planning label e.g. "Kismayo — Urban"
+# is_practice_r    — reactive logical from intro module
+sessionManagerServer <- function(id, username_r, district_r, district_ready_r,
+                                 is_practice_r = NULL) {
   moduleServer(id, function(input, output, session) {
+    
+    # Resolve default inside moduleServer where reactive context is available
+    .is_practice <- if (is.null(is_practice_r)) reactiveVal(FALSE) else is_practice_r
     
     rv <- reactiveValues(
       active          = FALSE,
-      pending_saved   = NULL,   # submission data shown in resume modal
+      pending_saved   = NULL,   # submission shown in resume modal
       restore_snap    = NULL,   # set only on "Resume" click
-      restore_counter = 0L      # incremented only on "Resume" — never on submit
+      restore_counter = 0L      # incremented only on "Resume"
     )
     
-    # ── On planning label change: check for existing submission ─────────────────
-    # Fires when district changes OR when user switches between Full/Urban/Rural.
-    # district_ready_r() gates on subdivision fetch completing, so planning_label
-    # is stable by the time this fires.
+    # ── On district or mode change: check for existing submission ─────────────
     
-    observeEvent(list(district_r(), district_ready_r()), {
+    # Track which district+mode the session was last activated for so that
+    # re-fires of district_ready_r() don't reset an already-active session.
+    last_activated_key <- reactiveVal(NULL)
+    
+    observeEvent(list(district_r(), district_ready_r(), .is_practice()), {
       req(isTRUE(district_ready_r()))
       req(nzchar(district_r() %||% ''))
       
+      session_key <- paste0(district_r(), '|', .is_practice())
+      
+      # Already active for this exact district+mode — don't re-check DB
+      if (isTRUE(rv$active) && identical(last_activated_key(), session_key)) return()
+      
       submission <- tryCatch(
-        db_get_district_submission(pool, district_r()),
+        db_get_district_submission(pool, district_r(), .is_practice()),
         error = function(e) { cat('[session] DB check error:', e$message, '\n'); NULL }
       )
       
       if (!is.null(submission)) {
         rv$pending_saved <- submission
-        .show_resume_modal(submission)
+        .show_resume_modal(submission, .is_practice())
       } else {
-        rv$active         <- TRUE
-        rv$restore_snap   <- NULL
-        rv$pending_saved  <- NULL
+        rv$active        <- TRUE
+        rv$restore_snap  <- NULL
+        rv$pending_saved <- NULL
+        last_activated_key(session_key)
+      }
+    }, ignoreInit = TRUE)
+    
+    # Keep last_activated_key in sync when session becomes active via Resume/Start new
+    observeEvent(rv$active, {
+      if (isTRUE(rv$active)) {
+        last_activated_key(paste0(district_r() %||% '', '|', .is_practice()))
       }
     }, ignoreInit = TRUE)
     
@@ -73,10 +90,14 @@ sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
     .check <- function(flag) if (isTRUE(flag)) '\u2713' else '\u2013'
     .col   <- function(flag) if (isTRUE(flag)) '#166534' else '#94a3b8'
     
-    .show_resume_modal <- function(sub) {
+    .show_resume_modal <- function(sub, practice) {
       saved_time <- tryCatch(
         format(sub$last_submitted_at, '%d %b %Y, %H:%M'),
         error = function(e) 'unknown time'
+      )
+      started_time <- tryCatch(
+        format(sub$first_submitted_at, '%d %b %Y, %H:%M'),
+        error = function(e) 'unknown'
       )
       
       stage_items <- list(
@@ -93,8 +114,28 @@ sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
         )
       })
       
+      mode_badge <- if (practice) {
+        tags$span(
+          style = paste0(
+            'background:#fef9c3;color:#854d0e;border:1px solid #fde68a;',
+            'border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;',
+            'margin-left:6px;vertical-align:middle;'
+          ),
+          'PRACTICE'
+        )
+      } else {
+        tags$span(
+          style = paste0(
+            'background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;',
+            'border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;',
+            'margin-left:6px;vertical-align:middle;'
+          ),
+          'ACTUAL'
+        )
+      }
+      
       showModal(modalDialog(
-        title     = 'Resume previous submission?',
+        title     = tagList('Resume previous submission?', mode_badge),
         easyClose = FALSE,
         footer    = NULL,
         size      = 'm',
@@ -111,10 +152,14 @@ sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
           div(style = 'margin-bottom: 6px;', do.call(tagList, stage_tags)),
           div(
             style = 'font-size:11px;color:#94a3b8;',
-            paste0('Last submitted: ', saved_time,
-                   if (nzchar(sub$submitted_by %||% ''))
-                     paste0(' by ', sub$submitted_by)
-                   else '')
+            paste0(
+              'Started: ', started_time, '  \u00b7  ',
+              'Last submitted: ', saved_time,
+              if (nzchar(sub$submitted_by %||% ''))
+                paste0('  \u00b7  by ', sub$submitted_by)
+              else '',
+              '  \u00b7  v', sub$version
+            )
           )
         ),
         
@@ -128,21 +173,35 @@ sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
       ))
     }
     
+    # ── Resume ────────────────────────────────────────────────────────────────
+    
     observeEvent(input$resume_btn, {
       sub <- rv$pending_saved
       req(!is.null(sub))
       rv$active          <- TRUE
       rv$restore_snap    <- sub$snap
-      rv$restore_counter <- rv$restore_counter + 1L   # triggers restore in tabs
+      rv$restore_counter <- rv$restore_counter + 1L
       rv$pending_saved   <- NULL
       removeModal()
       showNotification('Previous submission restored.', type = 'message', duration = 2)
     }, ignoreInit = TRUE)
     
+    # ── Start new: archive current, clear state ───────────────────────────────
+    
     observeEvent(input$new_session_btn, {
-      rv$active         <- TRUE
-      rv$restore_snap   <- NULL
-      rv$pending_saved  <- NULL
+      dname    <- district_r() %||% ''
+      practice <- .is_practice()
+      
+      if (nzchar(dname)) {
+        tryCatch(
+          db_archive_current_submission(pool, dname, practice),
+          error = function(e) cat('[session] archive error:', e$message, '\n')
+        )
+      }
+      
+      rv$active        <- TRUE
+      rv$restore_snap  <- NULL
+      rv$pending_saved <- NULL
       removeModal()
     }, ignoreInit = TRUE)
     
@@ -155,25 +214,41 @@ sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
     
     output$session_label <- renderUI({
       req(rv$active)
-      tags$span(
-        style = 'color:#64748b;font-size:12px;',
-        sprintf('%s  \u00b7  %s',
-                district_r() %||% '',
-                username_r()  %||% '')
+      practice <- .is_practice()
+      badge <- if (practice)
+        tags$span(
+          style = paste0(
+            'background:#fef9c3;color:#854d0e;border:1px solid #fde68a;',
+            'border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;',
+            'margin-left:6px;'
+          ),
+          'PRACTICE'
+        )
+      else NULL
+      
+      tagList(
+        tags$span(
+          style = 'color:#64748b;font-size:12px;',
+          sprintf('%s  \u00b7  %s',
+                  district_r() %||% '',
+                  username_r()  %||% '')
+        ),
+        badge
       )
     })
     
     # ── submit_stage: the ONLY function that writes to DB ─────────────────────
-    # Called by each tab's Submit button handler.
-    # stage = "landmarks" | "facilities" | "areas" | "microplan"
-    # data  = list with the stage's fields
     
     submit_stage <- function(stage, data) {
-      req(isTRUE(rv$active))
-      req(nzchar(district_r() %||% ''))
+      if (!nzchar(district_r() %||% '')) {
+        showNotification('No district selected.',
+                         type = 'warning', duration = 4)
+        return(invisible(NULL))
+      }
       
       tryCatch({
-        db_submit_stage(pool, district_r(), username_r() %||% '', stage, data)
+        db_submit_stage(pool, district_r(), username_r() %||% '', stage, data,
+                        is_practice = .is_practice())
         stage_label <- switch(stage,
                               landmarks  = 'Landmarks',
                               facilities = 'Facilities',
@@ -195,20 +270,15 @@ sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
       invisible(NULL)
     }
     
-    # ── save_snapshot: local only, no DB write ────────────────────────────────
-    # Kept so existing save_snapshot_fn calls in tab modules don't error.
-    # Does nothing — inter-tab state flows through reactive parameters.
+    # ── save_snapshot: no-op kept for compat ─────────────────────────────────
     
-    save_snapshot <- function(snapshot_data, trigger = 'local') {
-      invisible(NULL)
-    }
+    save_snapshot <- function(snapshot_data, trigger = 'local') invisible(NULL)
     
     # ── Public interface ──────────────────────────────────────────────────────
     
     list(
       active = reactive(rv$active),
       
-      # Fires ONLY when user clicks "Resume" — tab restore observers use this
       restore_snapshot = reactive({
         rv$restore_counter
         if (rv$restore_counter < 1L) return(NULL)
@@ -216,8 +286,8 @@ sessionManagerServer <- function(id, username_r, district_r, district_ready_r) {
       }),
       
       submit_stage   = submit_stage,
-      save_snapshot  = save_snapshot,                    # no-op, kept for compat
-      set_collect_fn = function(fn) invisible(NULL)      # no-op, kept for compat
+      save_snapshot  = save_snapshot,
+      set_collect_fn = function(fn) invisible(NULL)
     )
   })
 }

@@ -27,6 +27,15 @@ introTabUI <- function(id) {
       
       tags$hr(style = 'margin: 12px 0;'),
       
+      # ── Practice / Actual toggle ──────────────────────────────────────────
+      div(class = 'mini-label', 'Session type'),
+      radioButtons(
+        ns('mode_click'), label = NULL,
+        choices  = c('Actual' = 'actual', 'Practice' = 'practice'),
+        selected = 'actual',
+        inline   = TRUE
+      ),
+      
       tags$button(
         id       = ns('continue'),
         class    = 'btn btn-primary btn-block intro-continue-btn',
@@ -61,7 +70,6 @@ introTabUI <- function(id) {
         
         tags$hr(style = 'border-color: #e2e8f0; margin-bottom: 24px;'),
         
-        # ── Objective ─────────────────────────────────────────────────────────
         .intro_section('Objective',
                        tags$p(
                          style = 'font-size: 13px; color: #475569; line-height: 1.7; margin: 0;',
@@ -71,7 +79,6 @@ introTabUI <- function(id) {
                        )
         ),
         
-        # ── Key concepts ──────────────────────────────────────────────────────
         .intro_section('Key concepts',
                        tagList(
                          .concept_block(
@@ -99,7 +106,6 @@ introTabUI <- function(id) {
                        )
         ),
         
-        # ── How it works ──────────────────────────────────────────────────────
         .intro_section('How it works',
                        div(
                          style = 'display: flex; flex-direction: column; gap: 10px;',
@@ -123,7 +129,6 @@ introTabUI <- function(id) {
                        )
         ),
         
-        # ── Video ─────────────────────────────────────────────────────────────
         .intro_section('Overview video',
                        tagList(
                          tags$iframe(
@@ -134,7 +139,7 @@ introTabUI <- function(id) {
                            frameborder     = '0',
                            allowfullscreen = NA,
                            style           = 'border: 1px solid #e2e8f0; border-radius: 6px;
-                                 background: #f1f5f9; display: block;'
+                    background: #f1f5f9; display: block;'
                          ),
                          tags$p(
                            style = 'font-size: 12px; color: #94a3b8; margin-top: 6px;',
@@ -184,7 +189,8 @@ introTabUI <- function(id) {
       xmlns = 'http://www.w3.org/2000/svg', viewBox = '0 0 12 12',
       width = '12', height = '12', fill = 'none',
       tags$path(d = 'M2 6l3 3 5-5', stroke = '#fff',
-                `stroke-width` = '1.5', `stroke-linecap` = 'round')
+                `stroke-width` = '2', `stroke-linecap` = 'round',
+                `stroke-linejoin` = 'round')
     )
   } else { num }
   
@@ -220,7 +226,69 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
       districts_shp |> dplyr::filter(district_name %in% allowed)
     })
     
-    # Populate regions
+    # ── Practice / Actual mode ────────────────────────────────────────────────
+    
+    # TRUE = practice, FALSE = actual
+    is_practice_rv <- reactiveVal(FALSE)
+    
+    # Pending mode change (waiting for user confirmation if session active)
+    pending_mode_rv <- reactiveVal(NULL)
+    
+    observeEvent(input$mode_click, {
+      new_mode <- input$mode_click == 'practice'
+      if (new_mode == is_practice_rv()) return()   # no change
+      
+      # If a district is already selected, warn before switching
+      if (nzchar(input$district %||% '')) {
+        pending_mode_rv(new_mode)
+        showModal(modalDialog(
+          title     = 'Switch session type?',
+          easyClose = FALSE,
+          footer    = NULL,
+          size      = 's',
+          div(
+            style = 'font-size: 13px; color: #475569; margin-bottom: 16px;',
+            if (new_mode)
+              'Switching to Practice mode will clear your current session. Practice data is saved separately and will not affect actual submissions.'
+            else
+              'Switching to Actual mode will clear your current session. Any unsaved changes will be lost.'
+          ),
+          div(
+            style = 'display:flex;gap:10px;justify-content:flex-end;',
+            actionButton(session$ns('mode_switch_cancel'), 'Cancel',
+                         class = 'btn btn-default'),
+            actionButton(session$ns('mode_switch_confirm'), 'Switch',
+                         class = 'btn btn-warning', style = 'font-weight:600;')
+          )
+        ))
+      } else {
+        # No active district — switch silently
+        .apply_mode(new_mode)
+      }
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$mode_switch_confirm, {
+      new_mode <- pending_mode_rv()
+      req(!is.null(new_mode))
+      pending_mode_rv(NULL)
+      removeModal()
+      .apply_mode(new_mode)
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$mode_switch_cancel, {
+      pending_mode_rv(NULL)
+      removeModal()
+      # Revert radio to current mode
+      updateRadioButtons(session, 'mode_click',
+                         selected = if (is_practice_rv()) 'practice' else 'actual')
+    }, ignoreInit = TRUE)
+    
+    .apply_mode <- function(new_mode) {
+      is_practice_rv(new_mode)
+    }
+    
+    # ── Region / district selectors ───────────────────────────────────────────
+    
     observeEvent(allowed_shp(), {
       regions <- sort(unique(as.character(stats::na.omit(allowed_shp()$region_name))))
       updateSelectInput(session, 'region',
@@ -243,7 +311,8 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
                         choices = c(setNames('', 'Select district...'), dists), selected = '')
     }, ignoreInit = FALSE)
     
-    # Zone derived internally
+    # ── Zone ─────────────────────────────────────────────────────────────────
+    
     zone_derived <- reactive({
       req(nzchar(input$district %||% ''))
       d <- allowed_shp() |> dplyr::filter(district_name == input$district)
@@ -251,7 +320,8 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
       as.character(d$zone_name[1]) %||% ''
     })
     
-    # District sf (full polygon, used to compute planning unit geometries)
+    # ── District sf ──────────────────────────────────────────────────────────
+    
     district_sf_full <- reactive({
       req(nzchar(input$district %||% ''))
       dsf <- districts_shp |>
@@ -266,32 +336,26 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
       sf::st_transform(dsf, 4326)
     })
     
-    # Subdivisions for selected district (from cache via subdivision_helpers)
-    subdivisions_rv <- reactiveVal(NULL)
+    # ── Subdivisions ─────────────────────────────────────────────────────────
     
+    subdivisions_rv     <- reactiveVal(NULL)
     subdivisions_fetched <- reactiveVal(FALSE)
     
     observeEvent(input$district, {
-      # Reset all planning unit state immediately on district change
       subdivisions_rv(NULL)
       urban_hull_rv(NULL)
       rural_remain_rv(NULL)
       subdivisions_fetched(FALSE)
       req(nzchar(input$district %||% ''))
-      dsf <- tryCatch(district_sf_full(), error = function(e) NULL)
+      dsf  <- tryCatch(district_sf_full(), error = function(e) NULL)
       if (is.null(dsf)) { subdivisions_fetched(TRUE); return() }
-      subs <- tryCatch(
-        fetch_subdivisions_for_district(dsf),
-        error = function(e) NULL
-      )
+      subs <- tryCatch(fetch_subdivisions_for_district(dsf), error = function(e) NULL)
       subdivisions_rv(subs)
       if (is.null(subs) || nrow(subs) == 0) subdivisions_fetched(TRUE)
-      # fetched(TRUE) for subdivision districts fires in observeEvent(subdivisions_rv())
     }, ignoreInit = TRUE)
     
-    # Urban hull and rural remainder — computed once per district
-    urban_hull_rv    <- reactiveVal(NULL)
-    rural_remain_rv  <- reactiveVal(NULL)
+    urban_hull_rv   <- reactiveVal(NULL)
+    rural_remain_rv <- reactiveVal(NULL)
     
     observeEvent(subdivisions_rv(), {
       subs <- subdivisions_rv()
@@ -308,7 +372,8 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
       subdivisions_fetched(TRUE)
     }, ignoreInit = TRUE)
     
-    # Planning unit selector — only shown when subdivisions exist
+    # ── Planning unit UI ─────────────────────────────────────────────────────
+    
     output$planning_unit_ui <- renderUI({
       req(nzchar(input$district %||% ''))
       hull <- urban_hull_rv()
@@ -318,55 +383,45 @@ introTabServer <- function(id, districts_shp, allowed_districts_r = reactive('AL
         div(class = 'mini-label', 'Planning area'),
         selectInput(
           session$ns('planning_unit'), NULL,
-          choices = c(
-            'Urban area',
-            if (!is.null(rural_remain_rv())) 'Rural area'
-          ),
+          choices  = c('Urban area', if (!is.null(rural_remain_rv())) 'Rural area'),
           selected = 'Urban area',
-          width = '100%'
+          width    = '100%'
         )
       )
     })
     
-    # Effective planning area sf — the polygon passed to all downstream modules
     planning_area_sf <- reactive({
       req(nzchar(input$district %||% ''))
       unit <- input$planning_unit %||% 'Urban area'
-      if (unit == 'Urban area' && !is.null(urban_hull_rv()))
-        return(urban_hull_rv())
-      if (unit == 'Rural area' && !is.null(rural_remain_rv()))
-        return(rural_remain_rv())
-      # No subdivisions — use full district
+      if (unit == 'Urban area' && !is.null(urban_hull_rv()))   return(urban_hull_rv())
+      if (unit == 'Rural area' && !is.null(rural_remain_rv())) return(rural_remain_rv())
       district_sf_full()
     })
     
-    # Planning label — used as DB key and in filenames
     planning_label <- reactive({
       req(nzchar(input$district %||% ''))
       unit <- input$planning_unit %||% 'Urban area'
-      # When subdivisions exist, always append the planning unit label
       if (!is.null(urban_hull_rv()))
         return(paste0(input$district, ' — ', unit))
       input$district
     })
     
-    # planning_ready: TRUE when district selected AND subdivision fetch complete.
-    # This ensures the session manager checks the DB with the correct planning
-    # label (e.g. "Kismayo — Urban") rather than firing before urban/rural
-    # options are available.
     planning_ready <- reactive({
       nzchar(input$district %||% '') && isTRUE(subdivisions_fetched())
     })
     
+    # ── Public interface ──────────────────────────────────────────────────────
+    
     list(
-      zone              = zone_derived,
-      region            = reactive(input$region),
-      district          = reactive(input$district),
-      district_ready    = planning_ready,       # kept for API compat
-      planning_ready    = planning_ready,
-      planning_label    = planning_label,
-      planning_area_sf  = planning_area_sf,
-      subdivisions_r    = subdivisions_rv
+      zone             = zone_derived,
+      region           = reactive(input$region),
+      district         = reactive(input$district),
+      district_ready   = planning_ready,
+      planning_ready   = planning_ready,
+      planning_label   = planning_label,
+      planning_area_sf = planning_area_sf,
+      subdivisions_r   = subdivisions_rv,
+      is_practice      = is_practice_rv          # <-- new: passed to session_mgr
     )
   })
 }

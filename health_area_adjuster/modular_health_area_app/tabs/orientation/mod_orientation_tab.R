@@ -72,15 +72,11 @@ orientationTabUI <- function(id) {
       
       tags$hr(style = 'margin: 10px 0;'),
       
-      tags$button(
-        id      = ns('continue'),
-        class   = 'btn btn-default btn-block',
-        type    = 'button',
-        style   = 'font-weight: 600; font-size: 13px; height: 36px; width: 100%;',
-        onclick = paste0(
-          "$('#main_tabs a[data-value=\"tab_health_facility_mapping\"]').tab('show');"
-        ),
-        'Continue \u2192'
+      actionButton(
+        ns('continue'),
+        'Continue →',
+        class = 'btn btn-default btn-block',
+        style = 'font-weight: 600; font-size: 13px; height: 36px; width: 100%;'
       )
     ),
     
@@ -127,7 +123,8 @@ orientationTabServer <- function(
 ) {
   moduleServer(id, function(input, output, session) {
     
-    updating_table <- reactiveVal(FALSE)
+    updating_table           <- reactiveVal(FALSE)
+    landmarks_submitted_to_db <- reactiveVal(FALSE)
     
     rv <- reactiveValues(
       landmarks = data.frame(
@@ -184,6 +181,7 @@ orientationTabServer <- function(
         stringsAsFactors = FALSE
       )
       selected_id(NULL)
+      landmarks_submitted_to_db(FALSE)
     }, ignoreInit = TRUE)
     
     # ── Restore ───────────────────────────────────────────────────────────────
@@ -385,6 +383,7 @@ orientationTabServer <- function(
       ))
       
       selected_id(new_id)
+      landmarks_submitted_to_db(FALSE)
     })
     
     # ── Drag → update position ────────────────────────────────────────────────
@@ -397,6 +396,7 @@ orientationTabServer <- function(
       
       rv$landmarks$lat[idx] <- as.numeric(info$lat)
       rv$landmarks$lon[idx] <- as.numeric(info$lng)
+      landmarks_submitted_to_db(FALSE)
     })
     
     # ── Click pin → select in table ───────────────────────────────────────────
@@ -416,16 +416,20 @@ orientationTabServer <- function(
         stringsAsFactors = FALSE
       )
       selected_id(NULL)
+      landmarks_submitted_to_db(FALSE)
     })
     
     # ── Submit landmarks → DB ─────────────────────────────────────────────────
     observeEvent(input$submit_landmarks, {
       if (!is.null(submit_stage_fn)) {
         submit_stage_fn('landmarks', list(landmarks = rv$landmarks))
+        landmarks_submitted_to_db(TRUE)
       } else {
         showNotification('Submit not configured.', type = 'warning', duration = 3)
       }
     }, ignoreInit = TRUE)
+    
+    
     
     # ── Landmark count display ────────────────────────────────────────────────
     output$landmark_count <- renderUI({
@@ -538,6 +542,7 @@ orientationTabServer <- function(
       
       if (!identical(edited$Name, rv$landmarks$landmark_name)) {
         rv$landmarks$landmark_name <- edited$Name
+        landmarks_submitted_to_db(FALSE)
       }
     })
     
@@ -549,11 +554,62 @@ orientationTabServer <- function(
       
       del_id       <- lm$landmark_id[idx]
       rv$landmarks <- lm[-idx, , drop = FALSE]
+      landmarks_submitted_to_db(FALSE)
       
       if (!is.null(selected_id()) && identical(selected_id(), del_id)) {
         selected_id(NULL)
       }
     })
+    
+    # ── Continue → facilities ────────────────────────────────────────────────
+    
+    .do_continue_to_facilities <- function() {
+      shinyjs::runjs(paste0("$('#main_tabs a[data-value=",
+                            '"tab_health_facility_mapping"',
+                            "]').tab('show');"))
+    }
+    
+    .do_submit_and_continue_landmarks <- function() {
+      if (!is.null(submit_stage_fn)) {
+        submit_stage_fn('landmarks', list(landmarks = rv$landmarks))
+        landmarks_submitted_to_db(TRUE)
+      }
+      .do_continue_to_facilities()
+    }
+    
+    observeEvent(input$continue, {
+      has_landmarks <- nrow(rv$landmarks) > 0
+      if (has_landmarks && !isTRUE(landmarks_submitted_to_db())) {
+        showModal(modalDialog(
+          title     = 'Unsaved landmark edits',
+          size      = 's', easyClose = FALSE, footer = NULL,
+          div(style = 'font-size:13px;color:#475569;margin-bottom:16px;',
+              'You have landmarks that have not been submitted to the database. Submit them now to keep your work, or continue without saving.'),
+          div(style = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;',
+              actionButton(session$ns('lm_continue_cancel'),       'Cancel',                  class = 'btn btn-default'),
+              actionButton(session$ns('lm_continue_without_save'), 'Continue without saving', class = 'btn btn-default'),
+              actionButton(session$ns('lm_submit_and_continue'),   'Submit & Continue',       class = 'btn btn-primary',
+                           style = 'font-weight:600;')
+          )
+        ))
+        return()
+      }
+      .do_continue_to_facilities()
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$lm_continue_cancel, {
+      removeModal()
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$lm_continue_without_save, {
+      removeModal()
+      .do_continue_to_facilities()
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$lm_submit_and_continue, {
+      removeModal()
+      .do_submit_and_continue_landmarks()
+    }, ignoreInit = TRUE)
     
     # ── Return ────────────────────────────────────────────────────────────────
     list(

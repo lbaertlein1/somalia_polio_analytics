@@ -34,6 +34,7 @@ healthAreaTabServer <- function(
     areas_regenerated_counter <- reactiveVal(0L)
     changed_areas_rv          <- reactiveVal(character(0))
     last_scene_key            <- reactiveVal(NULL)
+    areas_submitted_to_db     <- reactiveVal(FALSE)   # TRUE after submit, FALSE after any assignment change
     
     normalize_dfa_names <- function(x) {
       x <- unique(as.character(x)); x <- x[!is.na(x) & nzchar(x)]
@@ -501,6 +502,28 @@ healthAreaTabServer <- function(
     }, ignoreInit = TRUE)
     
     # ── Continue → microplan ─────────────────────────────────────────────────
+    .do_continue_to_microplan <- function() {
+      session$sendCustomMessage('switch_tab', list(value = 'tab_microplan'))
+    }
+    
+    .do_submit_and_continue_areas <- function() {
+      req(!is.null(rv$grid_sf), !is.null(rv$district_sf))
+      pending_action("submit_areas")
+      send_paint_message("paint_request_assignments")
+      # Navigation happens after assignments come back and submit completes
+      # via a one-shot observer below
+      areas_continue_after_submit(TRUE)
+    }
+    
+    areas_continue_after_submit <- reactiveVal(FALSE)
+    
+    observeEvent(areas_submitted_to_db(), {
+      if (isTRUE(areas_continue_after_submit()) && isTRUE(areas_submitted_to_db())) {
+        areas_continue_after_submit(FALSE)
+        .do_continue_to_microplan()
+      }
+    }, ignoreInit = TRUE)
+    
     observeEvent(controls$continue_click(), {
       if (is.null(rv$saved_dfa_sf)) {
         showNotification(
@@ -509,7 +532,36 @@ healthAreaTabServer <- function(
         )
         return()
       }
-      session$sendCustomMessage('switch_tab', list(value = 'tab_microplan'))
+      if (!isTRUE(areas_submitted_to_db())) {
+        showModal(modalDialog(
+          title     = 'Unsaved health area edits',
+          size      = 's', easyClose = FALSE, footer = NULL,
+          div(style = 'font-size:13px;color:#475569;margin-bottom:16px;',
+              'Your health area boundaries have not been submitted to the database. Submit them now to keep your work, or continue without saving.'),
+          div(style = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;',
+              actionButton(session$ns('ha_continue_cancel'),       'Cancel',                  class = 'btn btn-default'),
+              actionButton(session$ns('ha_continue_without_save'), 'Continue without saving', class = 'btn btn-default'),
+              actionButton(session$ns('ha_submit_and_continue'),   'Submit & Continue',       class = 'btn btn-primary',
+                           style = 'font-weight:600;')
+          )
+        ))
+        return()
+      }
+      .do_continue_to_microplan()
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$ha_continue_cancel, {
+      removeModal()
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$ha_continue_without_save, {
+      removeModal()
+      .do_continue_to_microplan()
+    }, ignoreInit = TRUE)
+    
+    observeEvent(input$ha_submit_and_continue, {
+      removeModal()
+      .do_submit_and_continue_areas()
     }, ignoreInit = TRUE)
     
     # ── Reset ─────────────────────────────────────────────────────────────────
@@ -559,6 +611,11 @@ healthAreaTabServer <- function(
       
       rv$current_assignments <- ordered_assignments
       act <- pending_action()
+      
+      # Only mark as unsubmitted when user actively saves (paints new boundaries).
+      # Passive captures (colour changes, tab focus) should not reset this flag.
+      if (identical(act, 'save'))
+        areas_submitted_to_db(FALSE)
       
       if (identical(act, "capture")) {
         recompute_population_table(ordered_assignments)
@@ -613,6 +670,7 @@ healthAreaTabServer <- function(
             dfa_names           = rv$dfa_names,
             current_assignments = ordered_assignments
           ))
+          areas_submitted_to_db(TRUE)
         }
       }
       

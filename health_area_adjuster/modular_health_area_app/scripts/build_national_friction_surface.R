@@ -74,13 +74,13 @@ rules <- list(
     max_combined_penalty = 0.15
   ),
   roads = list(
-    primary      = 0.65,
-    secondary    = 0.75,
+    primary      = 0.35,
+    secondary    = 0.50,
     min_buffer_m = 15,
     max_buffer_m = 80
   ),
   rivers          = list(major = 0.99, buffer_m = 400),
-  bridges         = list(primary = 0.18, secondary = 0.22),
+  bridges         = list(primary = 0.35, secondary = 0.50),
   water           = list(major_cost = 1.00),
   district_boundary = list(cost = 1.00, buffer_m = 100)
 )
@@ -249,23 +249,23 @@ if (!is.null(roads) && nrow(roads) > 0) {
     rules$roads$primary, rules$roads$secondary
   )
   
-  road_mid          <- sf::st_point_on_surface(roads)
-  roads$pop_local   <- terra::extract(pop_cost, terra::vect(road_mid))[, 2]
+  road_mid        <- sf::st_point_on_surface(roads)
+  roads$pop_local <- terra::extract(pop_cost, terra::vect(road_mid))[, 2]
   rm(pop_cost, road_mid); gc()
   
   roads$buffer_m <- dplyr::case_when(
-    is.na(roads$pop_local)    ~ 35,
-    roads$pop_local <= 0.40   ~ 60,
-    roads$pop_local <= 0.50   ~ 35,
-    TRUE                      ~ 15
+    is.na(roads$pop_local)  ~ 100,
+    roads$pop_local <= 0.40 ~ 200,
+    roads$pop_local <= 0.50 ~ 120,
+    TRUE                    ~ 60
   )
   
   roads_buf <- sf::st_make_valid(
     do.call(rbind, lapply(split(roads, roads$buffer_m), function(x)
       sf::st_buffer(x, dist = unique(x$buffer_m)[1])))
   )
-  rm(roads); gc()
   
+  # --- binary rasterization (hard road cost within buffer) ---
   road_r   <- terra::rasterize(terra::vect(roads_buf), friction,
                                field = "friction_val", fun = "min",
                                background = NA)
@@ -273,6 +273,21 @@ if (!is.null(roads) && nrow(roads) > 0) {
   
   friction <- terra::ifel(!is.na(road_r), friction * road_r, friction)
   rm(road_r); gc()
+  
+  # --- gradient falloff: taper cost reduction beyond buffer edge ---
+  roads_vect <- terra::vect(roads)
+  road_dist  <- terra::distance(friction, roads_vect)
+  rm(roads_vect); gc()
+  
+  road_bonus <- terra::ifel(
+    road_dist < 500,
+    (1 - rules$roads$primary) * exp(-road_dist / 200),
+    0
+  )
+  rm(road_dist); gc()
+  
+  friction <- terra::clamp(friction - road_bonus, 0, 1)
+  rm(road_bonus); gc()
   
   write_step(friction, "02_after_roads")
   
