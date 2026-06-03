@@ -57,7 +57,8 @@ rules <- list(
     smoothing_radius_m = 500,
     min_cost           = 0.35,
     max_cost           = 0.85,
-    zero_pop_cost      = 0.35
+    zero_pop_cost      = 0.35,
+    zero_pop_surcharge    = 0.25
   ),
   land_surface = list(
     lulc_penalties = list(
@@ -126,7 +127,6 @@ read_vector <- function(path) {
 # =============================================================================
 # SETUP
 # =============================================================================
-
 dir.create(cfg$output_dir, recursive = TRUE, showWarnings = FALSE)
 wipe_terra_tmp()
 
@@ -141,12 +141,20 @@ country_vect         <- terra::vect(country_union)
 # Build template from WorldPop
 wp       <- terra::rast(cfg$worldpop_file)
 wp_proj  <- terra::project(wp, cfg$target_crs); rm(wp); gc()
-template <- terra::rast(ext = terra::ext(wp_proj),
+template <- terra::rast(ext        = terra::ext(wp_proj),
                         resolution = cfg$target_resolution_m,
-                        crs = cfg$target_crs)
+                        crs        = cfg$target_crs)
 template <- terra::resample(wp_proj, template)
 names(template) <- "u5_pop"
 rm(wp_proj); gc()
+
+# Fill interior NA cells — WorldPop uses NA for zero-population cells,
+# which would create holes throughout the friction surface.
+# Replace any NA inside the country boundary with 0.
+country_fill <- terra::rasterize(country_vect, template,
+                                 field = 0, background = NA)
+template     <- terra::cover(template, country_fill)
+rm(country_fill); gc()
 
 terra::writeRaster(template,
                    file.path(cfg$output_dir, "somalia_template_100m.tif"),
@@ -175,6 +183,12 @@ rm(pop_log); gc()
 
 pop_cost <- p$min_cost + pop_norm * (p$max_cost - p$min_cost)
 pop_cost <- terra::ifel(pop_smooth <= 0.01, p$zero_pop_cost, pop_cost)
+pop_cost <- terra::ifel(
+  pop_smooth <= 0.01,
+  pop_cost + p$zero_pop_surcharge,
+  pop_cost
+)
+pop_cost <- terra::clamp(pop_cost, 0, 1)
 rm(pop_norm, pop_smooth); gc()
 
 write_step(pop_cost, "01_population_cost")
@@ -286,7 +300,7 @@ if (!is.null(roads) && nrow(roads) > 0) {
   )
   rm(road_dist); gc()
   
-  friction <- terra::clamp(friction - road_bonus, 0, 1)
+  friction <- terra::clamp(friction - road_bonus, 0.05, 1)
   rm(road_bonus); gc()
   
   write_step(friction, "02_after_roads")
@@ -417,6 +431,8 @@ friction  <- read_step("06_after_boundary")
 country_r <- terra::rasterize(country_vect, friction, field = 1, background = NA)
 friction  <- terra::mask(friction, country_r)
 rm(country_r); gc()
+
+friction <- terra::clamp(friction, lower = 0.05, upper = 1)
 
 out_file  <- file.path(cfg$output_dir, "somalia_friction_100m.tif")
 terra::writeRaster(friction, out_file, overwrite = TRUE,
