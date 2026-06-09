@@ -1,0 +1,5 @@
+.Renviron
+data/*.rds
+.Rhistory
+.RData
+rsconnect/
