@@ -1,5 +1,5 @@
 # app.R
-source("global.R")
+# Note: global.R is sourced automatically by Shiny — do not source it here
 
 ui <- tagList(
   tags$head(
@@ -67,7 +67,16 @@ ui <- tagList(
       });
       document.getElementById('tab-' + id).classList.add('active');
       btn.classList.add('active');
-      setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 100);
+      // Invalidate all Leaflet maps so they redraw correctly
+      setTimeout(function() {
+        window.dispatchEvent(new Event('resize'));
+        if (window.HTMLWidgets) {
+          document.querySelectorAll('.leaflet').forEach(function(el) {
+            var map = el._leaflet_map;
+            if (map) map.invalidateSize();
+          });
+        }
+      }, 150);
     }
 
     function setYear(yr, btn) {
@@ -78,21 +87,43 @@ ui <- tagList(
       document.getElementById('date-stamp').textContent = DATE_LABELS[yr];
       Shiny.setInputValue('year_filter', yr, {priority: 'event'});
     }
+
+    // File download handler from Shiny server
+    Shiny.addCustomMessageHandler('download_file', function(msg) {
+      var blob = new Blob([msg.content], {type: 'text/plain'});
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = msg.filename;
+      a.click();
+    });
+
+    // Set initial year value so all outputs render on load
+    Shiny.addCustomMessageHandler('init_year', function(msg) {
+      Shiny.setInputValue('year_filter', 'all', {priority: 'event'});
+    });
   "))
 )
 
 server <- function(input, output, session) {
+  
+  # Fire initial year value so all outputs render immediately on load
+  observe({
+    session$sendCustomMessage("init_year", list())
+  })
   
   year_r <- reactive({
     if (is.null(input$year_filter) || input$year_filter == "") "all"
     else input$year_filter
   })
   
+  # Generate all AI insights on load / year change
+  insights <- generate_all_insights(nomad_data, year_r, session)
+  
   kpi_server(     "kpi", nomad_data, year_r)
-  movement_server("mov", nomad_data, year_r)
-  zerodose_server("zd",  nomad_data, year_r)
-  access_server(  "acc", nomad_data, year_r)
-  report_server(  "rep", nomad_data, year_r)
+  movement_server("mov", nomad_data, year_r, insights)
+  zerodose_server("zd",  nomad_data, year_r, insights)
+  access_server(  "acc", nomad_data, year_r, insights)
+  report_server(  "rep", nomad_data, year_r, insights)
 }
 
 shinyApp(ui, server)

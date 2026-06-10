@@ -3,20 +3,17 @@
 # Fetches both ODK forms, joins to ArcGIS district geometry, aggregates all
 # dashboard data objects, and writes data/nomad_data.rds
 #
-# Run locally:  source("R/data_pull.R")   or   source("refresh_data.R")
+# Run locally:  source("odk_credentials.R"); source("refresh_data.R")
+# Called by global.R automatically when ODK has newer data
 # ─────────────────────────────────────────────────────────────────────────────
 
-library(ruODK)
-library(dplyr)
-library(tidyr)
-library(lubridate)
-library(sf)
-library(httr)
-library(jsonlite)
-library(stringr)
-library(purrr)
+# Load libs if not already loaded (handles standalone sourcing)
+for (pkg in c("ruODK","dplyr","tidyr","lubridate","sf","httr","jsonlite","stringr","purrr","readxl")) {
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+  library(pkg, character.only = TRUE)
+}
 
-source("R/utils.R")
+if (!exists("normalise_district", mode = "function")) source("R/utils.R")
 
 message("── [1/6] Authenticating with ODK Central ──")
 ruODK::ru_setup(
@@ -80,6 +77,74 @@ outreach_raw <- ruODK::odata_submission_get(
   download     = FALSE,
 )
 
+# ── Merge KoBoToolbox historical outreach data ────────────────────────────────
+# The outreach form was previously on KoBoToolbox (same form ID ae2VmS6pPZjpYMec7Ck3eR).
+# Historical export saved as data/kobo_outreach.xlsx — map label headers to
+# the same ruodk column names produced by the ODK fetch above, then bind rows.
+
+kobo_path <- "data/kobo_outreach.xlsx"
+
+# ── Helper: flexible column rename ───────────────────────────────────────────
+rename_flexible <- function(df, pattern, new_name) {
+  col <- grep(pattern, names(df), value = TRUE, ignore.case = TRUE)[1]
+  if (!is.na(col) && col != new_name) dplyr::rename(df, !!new_name := dplyr::all_of(col))
+  else df
+}
+
+if (file.exists(kobo_path)) {
+  message("  Merging KoBoToolbox historical outreach (", kobo_path, ")...")
+  library(readxl)
+  kobo_raw <- readxl::read_excel(kobo_path)
+  
+  # Map KoBoToolbox label headers → ruodk column names
+  kobo_renamed <- kobo_raw |>
+    dplyr::rename(
+      out_date       = today,
+      out_district_raw = District,
+      vaccinated     = `Total number of children vaccinated during the outreach session?`,
+      zd_ri          = `Number of children with zero dose routine immunization (excluding Polio) found in the settlement`,
+      zd_polio       = `Number of children with zero polio doses found in the settlement`,
+      out_lat        = `_Geo-reference of the settlement outreach_latitude`,
+      out_lon        = `_Geo-reference of the settlement outreach_longitude`,
+      system_submission_date = `_submission_time`,
+      id             = `_id`
+    ) |>
+    dplyr::mutate(
+      id                     = as.character(paste0("kobo_", id)),
+      source                 = "kobo",
+      system_submission_date = lubridate::as_datetime(system_submission_date)
+    )
+  
+  # Rename ODK columns to final names BEFORE binding with KoBoToolbox
+  message("  ODK outreach cols: ", paste(sort(names(outreach_raw)), collapse = ", "))
+  outreach_raw <- outreach_raw |>
+    rename_flexible("^a_district$",                       "out_district_raw") |>
+    rename_flexible("b_total_number_of_chil",             "vaccinated") |>
+    rename_flexible("c_number_of_childr.*settlement$",    "zd_ri") |>
+    rename_flexible("c_number_of_childr.*settlement_001", "zd_polio") |>
+    rename_flexible("^today$",                            "out_date") |>
+    rename_flexible("latitude",                           "out_lat") |>
+    rename_flexible("longitude",                          "out_lon")
+  message("  ODK outreach cols after rename: ", paste(sort(names(outreach_raw)), collapse = ", "))
+  
+  # Add source tag to ODK data
+  outreach_raw <- outreach_raw |>
+    dplyr::mutate(
+      id                     = as.character(id),
+      source                 = "odk",
+      system_submission_date = lubridate::as_datetime(system_submission_date)
+    )
+  
+  # Bind — bind_rows fills missing columns with NA automatically
+  outreach_raw <- dplyr::bind_rows(outreach_raw, kobo_renamed)
+  message("  Combined outreach records: ", nrow(outreach_raw),
+          " (ODK + KoBoToolbox)")
+  message("  Merged outreach cols: ", paste(sort(names(outreach_raw)), collapse = ", "))
+} else {
+  message("  No KoBoToolbox file found at ", kobo_path, " — using ODK data only.")
+  message("  ODK-only outreach cols: ", paste(sort(names(outreach_raw)), collapse = ", "))
+}
+
 message("── [4/6] Loading district geometry from ArcGIS ──")
 arcgis_url <- paste0(
   "https://services.arcgis.com/5T5nSi527N4F7luB/ArcGIS/rest/services/",
@@ -112,14 +177,6 @@ if (!is.null(districts_sf)) {
 message("── [5/6] Cleaning and joining ──")
 
 # ── Camp enumeration cleaning ─────────────────────────────────────────────────
-# Field name aliases — ruODK flattens group-repeat paths with underscores or
-# dots depending on version. We use rename_with + a flexible matcher.
-rename_flexible <- function(df, pattern, new_name) {
-  col <- grep(pattern, names(df), value = TRUE, ignore.case = TRUE)[1]
-  if (!is.na(col) && col != new_name) dplyr::rename(df, !!new_name := dplyr::all_of(col))
-  else df
-}
-
 camps <- camps_raw |>
   # ── Exact ruodk_name mappings confirmed from form_schema() ──────────────────
   # Movement
@@ -151,6 +208,8 @@ camps <- camps_raw |>
   rename_flexible("transport_name_migratory_route",         "route_name") |>
   # District fields from tribe_subtribe group (fallback)
   rename_flexible("tribe_subtribe_district",             "recorded_district") |>
+  
+  
   dplyr::mutate(
     # Coerce numeric
     pop_0to11     = suppressWarnings(as.numeric(pop_0to11)),
@@ -163,7 +222,7 @@ camps <- camps_raw |>
     exit_date_raw = as.character(exit_date),
     season = dplyr::case_when(
       grepl("deyr|oct|nov",          exit_date_raw, ignore.case = TRUE) ~ "Deyr",
-      grepl("guul|guu|mar|apr|may",  exit_date_raw, ignore.case = TRUE) ~ "Guu'l",
+      grepl("guul|guu|mar|apr|may",  exit_date_raw, ignore.case = TRUE) ~ "Guul",
       grepl("jilaal|dec|jan|feb",    exit_date_raw, ignore.case = TRUE) ~ "Jilaal",
       grepl("xaaga|hagaa|jun|jul|aug|sep", exit_date_raw, ignore.case = TRUE) ~ "Xaaga",
       TRUE ~ NA_character_
@@ -250,59 +309,24 @@ transport <- camps |>
   dplyr::filter(!is.na(route_name), trimws(route_name) != "")
 
 # ── Outreach sessions cleaning ────────────────────────────────────────────────
+# All column renaming was done before the bind_rows merge above
 outreach <- outreach_raw |>
-  # ── Exact ruodk_name mappings confirmed from form_schema() ──────────────────
-  # District — at /A/district → ruodk_name a_district
-  rename_flexible("^a_district$",                        "out_district_raw") |>
-  # GPS — Geo_reference_hh geopoint → ruodk_name geo_reference_hh
-  rename_flexible("geo_reference_hh",                    "out_gps_raw") |>
-  # Total children vaccinated at session — /B/Total_number_of_chil...
-  rename_flexible("b_total_number_of_chil",              "vaccinated") |>
-  # ZD RI excl. polio — /C/Number_of_children_w_nd_in_the_settlement (first)
-  # ZD Polio          — /C/Number_of_children_w_nd_in_the_settlement_001
-  rename_flexible("c_number_of_childr.*settlement$",     "zd_ri") |>
-  rename_flexible("c_number_of_childr.*settlement_001",  "zd_polio") |>
-  # Date
-  rename_flexible("^today$",                             "out_date") |>
   dplyr::mutate(
     out_district = normalise_district(out_district_raw),
     zd_ri        = suppressWarnings(as.numeric(zd_ri)),
     zd_polio     = suppressWarnings(as.numeric(zd_polio)),
     vaccinated   = suppressWarnings(as.numeric(vaccinated)),
-    out_date     = lubridate::as_date(coalesce(
+    out_date     = lubridate::as_date(dplyr::coalesce(
       suppressWarnings(lubridate::ymd(as.character(out_date))),
       lubridate::as_date(system_submission_date)
     )),
-    year         = lubridate::year(out_date),
-    month_num    = lubridate::month(out_date),
-    month_label  = format(out_date, "%b-%y")
+    year        = lubridate::year(out_date),
+    month_num   = lubridate::month(out_date),
+    month_label = format(out_date, "%b-%y")
   )
 
-# Extract outreach GPS
-# ruODK splits geopoint into *-Latitude / *-Longitude columns
-out_lat_col <- grep("geo_reference.*latitude|geo_reference.*lat$",
-                    names(outreach), ignore.case = TRUE, value = TRUE)[1]
-out_lon_col <- grep("geo_reference.*longitude|geo_reference.*lon$",
-                    names(outreach), ignore.case = TRUE, value = TRUE)[1]
-
-if (!is.na(out_lat_col) && !is.na(out_lon_col)) {
-  outreach <- outreach |>
-    dplyr::mutate(
-      out_lat = suppressWarnings(as.numeric(.data[[out_lat_col]])),
-      out_lon = suppressWarnings(as.numeric(.data[[out_lon_col]]))
-    )
-} else if ("out_gps_raw" %in% names(outreach)) {
-  outreach <- outreach |>
-    dplyr::mutate(
-      out_lat = suppressWarnings(as.numeric(purrr::map_chr(
-        strsplit(as.character(out_gps_raw), " "), ~ .x[1]))),
-      out_lon = suppressWarnings(as.numeric(purrr::map_chr(
-        strsplit(as.character(out_gps_raw), " "), ~ .x[2])))
-    )
-} else {
-  outreach <- outreach |> dplyr::mutate(out_lat = NA_real_, out_lon = NA_real_)
-  message("  WARNING: no GPS columns found in outreach form")
-}
+# out_lat / out_lon already extracted via rename_flexible above
+message("  Outreach cols after cleaning: ", paste(sort(names(outreach)), collapse = ", "))
 
 # Spatial district assignment for outreach
 if (!is.null(districts_sf) &&
@@ -423,7 +447,10 @@ out_monthly <- outreach |>
     vaccinated = sum(vaccinated, na.rm = TRUE),
     .groups    = "drop"
   ) |>
-  dplyr::arrange(year, month_num)
+  dplyr::arrange(year, month_num) |>
+  dplyr::mutate(
+    month_label = factor(month_label, levels = unique(month_label), ordered = TRUE)
+  )
 
 # ── Outreach by district (per year) ──────────────────────────────────────────
 out_by_dist <- purrr::map(years, function(yr) {
@@ -496,7 +523,12 @@ out_gps <- outreach |>
   dplyr::filter(!is.na(out_lat), !is.na(out_lon), out_lat != 0) |>
   dplyr::select(id, lat = out_lat, lon = out_lon,
                 district = out_district, year, vaccinated,
-                month_label)
+                month_label) |>
+  dplyr::mutate(
+    month_label = factor(month_label,
+                         levels = levels(out_monthly$month_label),
+                         ordered = TRUE)
+  )
 
 # ── District centroids for flow arrows ───────────────────────────────────────
 centroids <- if (!is.null(districts_sf)) {
@@ -561,7 +593,11 @@ nomad_data <- list(
   centroids        = centroids,
   districts_geojson = districts_geojson,
   states_geojson    = states_geojson,
-  pulled_at        = Sys.time()
+  pulled_at         = Sys.time(),
+  latest_submission = max(
+    suppressWarnings(lubridate::as_datetime(camps$system_submission_date)),
+    na.rm = TRUE
+  )
 )
 
 if (!dir.exists("data")) dir.create("data")

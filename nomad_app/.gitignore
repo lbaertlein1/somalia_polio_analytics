@@ -3,3 +3,4 @@ data/*.rds
 .Rhistory
 .RData
 rsconnect/
+odk_credentials.R

@@ -112,10 +112,34 @@ body {
 
 /* ── Layout ───────────────────────────────────────────────────────────────── */
 .app-wrap { padding: 20px 24px; max-width: 1500px; margin: 0 auto; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
+.tab-content {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+}
+.tab-content.active {
+  position: relative;
+  visibility: visible;
+  pointer-events: auto;
+  height: auto;
+  overflow: visible;
+}
+.tab-panel {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+}
+.tab-panel.active {
+  position: relative;
+  visibility: visible;
+  pointer-events: auto;
+  height: auto;
+  overflow: visible;
+}
 .g2 {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 16px; margin-bottom: 16px;
@@ -219,6 +243,7 @@ body {
   padding: 7px 0; border-bottom: 1px solid #f1f5f9;
 }
 .route-row:last-child { border-bottom: none; }
+.route-rank  { font-size: 10px; color: var(--muted); font-family: "JetBrains Mono", monospace; width: 18px; flex-shrink: 0; }
 .route-name  { flex: 1; font-size: 12px; }
 .route-bar   { width: 80px; height: 5px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
 .route-fill  { height: 100%; border-radius: 3px; background: #0d9488; }
@@ -257,3 +282,100 @@ tr:hover td { background: #fafbfc; }
   .kpi-card       { min-width: 40%; }
   .app-wrap       { padding: 12px; }
 }
+
+/* ── Grid additions ───────────────────────────────────────────────────────── */
+.g3 {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px; margin-bottom: 16px;
+}
+
+/* ── Status badges ────────────────────────────────────────────────────────── */
+.bdg {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .03em;
+}
+.b-tel { background: #e6f7f6; color: #0d9488; }
+.b-red { background: #fef2f2; color: #dc2626; }
+.b-org { background: #fffbeb; color: #d97706; }
+.b-blu { background: #eff6ff; color: #2563eb; }
+.b-grn { background: #ecfdf5; color: #059669; }
+.b-gry { background: #f1f5f9; color: #718096; }
+
+/* ── ZD table ─────────────────────────────────────────────────────────────── */
+.zd-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.zd-tbl th {
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e5ea;
+  font-weight: 600;
+  color: #718096;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.zd-tbl td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.zd-tbl tr:last-child td { border-bottom: none; }
+.zd-tbl tr:hover td { background: #f8fafc; }
+.tr { text-align: right; }
+.tc { text-align: center; }
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ── Responsive g3 ────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .g3 { grid-template-columns: 1fr; }
+}
+
+/* ── AI Insight button + states ───────────────────────────────────────────── */
+.insight-btn {
+  display:       inline-flex;
+  align-items:   center;
+  gap:           4px;
+  padding:       3px 10px;
+  border:        1px solid #0d9488;
+  border-radius: 20px;
+  background:    #fff;
+  color:         #0d9488;
+  font-size:     11px;
+  font-weight:   500;
+  font-family:   'Inter', sans-serif;
+  cursor:        pointer;
+  transition:    all .15s;
+  white-space:   nowrap;
+  flex-shrink:   0;
+}
+.insight-btn:hover {
+  background: #0d9488;
+  color:      #fff;
+}
+.insight-placeholder {
+  padding:   12px 0;
+  color:     var(--muted);
+  font-size: 12px;
+  font-style: italic;
+}
+.insight-loading {
+  display:     flex;
+  align-items: center;
+  padding:     12px 0;
+}
+.spinner {
+  width:        16px;
+  height:       16px;
+  border:       2px solid #e5e7eb;
+  border-top:   2px solid #0d9488;
+  border-radius: 50%;
+  animation:    spin .7s linear infinite;
+  flex-shrink:  0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
