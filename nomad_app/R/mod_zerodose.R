@@ -120,8 +120,9 @@ zerodose_server <- function(id, data, year_filter, insights = NULL) {
           barmode = "group",
           yaxis   = list(title = "", automargin = TRUE),
           xaxis   = list(title = "Zero-dose children"),
-          legend  = list(orientation = "h", y = -0.15),
-          margin  = list(l = 10)
+          legend  = list(orientation = "h", y = 1.08, x = 0,
+                         xanchor = "left", yanchor = "bottom"),
+          margin  = list(l = 10, b = 40, t = 30)
         ) |>
         plotly::config(displayModeBar = FALSE)
     })
