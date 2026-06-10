@@ -12,16 +12,8 @@ movement_ui <- function(id) {
                 div(class = "card-header",
                     span(class = "card-title", "District Movement Map"),
                     div(class = "map-controls",
-                        div(class = "map-toggle",
-                            tags$input(type = "checkbox", id = ns("show_camps"),
-                                       checked = NA),
-                            tags$label(`for` = ns("show_camps"), "Nomadic camps visited")
-                        ),
-                        div(class = "map-toggle",
-                            tags$input(type = "checkbox", id = ns("show_flows"),
-                                       checked = NA),
-                            tags$label(`for` = ns("show_flows"), "Cross-district flows")
-                        ),
+                        checkboxInput(ns("show_camps"), "Nomadic camps visited", value = TRUE),
+                        checkboxInput(ns("show_flows"), "Cross-district flows",  value = TRUE),
                         tags$select(id = ns("basemap"),
                                     tags$option(value = "carto-light",   "Light"),
                                     tags$option(value = "carto-dark",    "Dark"),
@@ -109,15 +101,9 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
     ns <- session$ns
     yr <- reactive(year_filter())
     
-    # ── Checkbox state (plain HTML checkboxes — read via JS input binding) ───
-    show_camps <- reactive({
-      v <- input$show_camps
-      if (is.null(v)) TRUE else isTRUE(v)
-    })
-    show_flows <- reactive({
-      v <- input$show_flows
-      if (is.null(v)) TRUE else isTRUE(v)
-    })
+    # ── Checkbox reactives ────────────────────────────────────────────────────
+    show_camps <- reactive({ isTRUE(input$show_camps) })
+    show_flows <- reactive({ isTRUE(input$show_flows) })
     
     # ── Base map ──────────────────────────────────────────────────────────────
     output$mov_map <- renderLeaflet({
@@ -163,6 +149,9 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
     # ── Reactive layers ───────────────────────────────────────────────────────
     observe({
       req(yr())
+      # Also depend on checkbox state so toggling redraws layers
+      sc <- show_camps()
+      sf <- show_flows()
       proxy <- leafletProxy(ns("mov_map"))
       proxy |> clearGroup("camps") |> clearGroup("flows") |>
         clearGroup("indegree_circles")
@@ -215,7 +204,7 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
       }
       
       # Camp GPS dots
-      if (show_camps()) {
+      if (sc) {
         gps <- data$camp_gps
         if (!is.null(gps) && nrow(gps) > 0) {
           gps_yr <- if (yr() == "all") gps else gps[gps$year == as.integer(yr()), ]
@@ -231,7 +220,7 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
       }
       
       # Flow arrows (cross-district only, count >= 3)
-      if (show_flows() && !is.null(fl) && nrow(fl) > 0 &&
+      if (sf && !is.null(fl) && nrow(fl) > 0 &&
           !is.null(cen) && nrow(cen) > 0) {
         cross <- fl[!is.na(fl$prev_c) & !is.na(fl$next_c) &
                       fl$prev_c != fl$next_c & fl$count >= 3, ]

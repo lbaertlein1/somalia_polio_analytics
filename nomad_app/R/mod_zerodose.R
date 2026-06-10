@@ -340,20 +340,39 @@ zerodose_server <- function(id, data, year_filter, insights = NULL) {
     
     # ── District monthly vaccinated line chart ────────────────────────────────
     output$dist_monthly <- plotly::renderPlotly({
-      # Per-district monthly data not yet available in pipeline
-      # Would require aggregating outreach by district x month in data_pull.R
-      plotly::plot_ly() |>
-        plotly::layout(
-          annotations = list(list(
-            text      = "Per-district monthly breakdown coming soon",
-            showarrow = FALSE,
-            xref      = "paper", yref = "paper",
-            x = 0.5, y = 0.5,
-            font = list(size = 13, color = "#718096")
-          )),
-          xaxis = list(visible = FALSE),
-          yaxis = list(visible = FALSE)
-        ) |>
+      d <- data$dist_monthly
+      if (is.null(d) || nrow(d) == 0) {
+        return(plotly::plot_ly() |>
+                 plotly::layout(annotations = list(list(
+                   text = "No district monthly data available",
+                   showarrow = FALSE, xref = "paper", yref = "paper",
+                   x = 0.5, y = 0.5, font = list(size = 13, color = "#718096")
+                 )), xaxis = list(visible = FALSE), yaxis = list(visible = FALSE)) |>
+                 plotly::config(displayModeBar = FALSE))
+      }
+      month_order <- as.character(levels(d$month_label))
+      d$month_label <- as.character(d$month_label)
+      dists <- unique(d$out_district)
+      cols  <- c("#0d9488","#2563eb","#d97706","#dc2626","#7c3aed","#059669","#ea580c")
+      p <- plotly::plot_ly()
+      for (i in seq_along(dists)) {
+        dd <- d[d$out_district == dists[i], ]
+        p <- plotly::add_trace(p,
+                               x    = dd$month_label,
+                               y    = dd$vaccinated,
+                               type = "scatter", mode = "lines+markers",
+                               name = dists[i],
+                               line = list(color = cols[((i-1) %% length(cols)) + 1], width = 1.5),
+                               marker = list(size = 3)
+        )
+      }
+      plotly::layout(p,
+                     xaxis  = list(title = "", tickangle = -35,
+                                   categoryorder = "array", categoryarray = month_order),
+                     yaxis  = list(title = "Children vaccinated"),
+                     legend = list(orientation = "h", y = -0.25),
+                     margin = list(b = 80)
+      ) |>
         plotly::config(displayModeBar = FALSE)
     })
   })

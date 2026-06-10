@@ -217,7 +217,18 @@ camps <- camps_raw |>
     pop_total     = suppressWarnings(as.numeric(pop_total)),
     zd_0to11      = suppressWarnings(as.numeric(zd_0to11)),
     zd_12to59     = suppressWarnings(as.numeric(zd_12to59)),
-    hf_travel_min = suppressWarnings(as.numeric(hf_travel_min)),
+    hf_travel_min = suppressWarnings({
+      # Field is free-text with 680+ variants: "120mins", "120 minutes", "2hrs", etc.
+      # Extract leading integer, then convert hours to minutes
+      raw <- as.character(hf_travel_min)
+      # Normalise: strip spaces, lowercase
+      raw <- tolower(trimws(raw))
+      # Extract numeric value
+      num <- suppressWarnings(as.numeric(stringr::str_extract(raw, "^[0-9]+")))
+      # If value looks like hours (<=5 with "hr"/"hour" in string), convert
+      is_hrs <- grepl("hr|hour", raw)
+      dplyr::if_else(is_hrs & !is.na(num) & num <= 12, num * 60L, num)
+    }),
     # exit_date is free-text ("August 2025", "Deyr 2024" etc.) — extract season directly
     exit_date_raw = as.character(exit_date),
     season = dplyr::case_when(
@@ -420,21 +431,21 @@ seasons <- purrr::map(years, function(yr) {
 
 # ── Top migratory routes ──────────────────────────────────────────────────────
 routes <- purrr::map(years, function(yr) {
-  filter_year(camps, yr) |>
+  d <- filter_year(camps, yr) |>
     dplyr::filter(!is.na(route_name), trimws(route_name) != "") |>
     dplyr::count(route_name, name = "count") |>
     dplyr::arrange(dplyr::desc(count)) |>
-    dplyr::slice_head(n = 10) |>
-    purrr::transpose() |>
-    purrr::map(~ list(n = .x$route_name, c = .x$count))
+    dplyr::slice_head(n = 10)
+  if (nrow(d) == 0) return(list())
+  lapply(seq_len(nrow(d)), function(i) list(n = d$route_name[i], c = d$count[i]))
 }) |> purrr::set_names(years)
 
 # ── Cross-border (Dolow + Elwak camp counts) ─────────────────────────────────
 cross_border <- purrr::map(years, function(yr) {
   c_yr <- filter_year(camps, yr)
   list(
-    dolow = sum(c_yr$district == "Dolow", na.rm = TRUE),
-    elwak = sum(c_yr$district == "Elwak", na.rm = TRUE)
+    dolow = sum(!is.na(c_yr$prev_district) & c_yr$prev_district == "Dolow", na.rm = TRUE),
+    elwak = sum(!is.na(c_yr$prev_district) & c_yr$prev_district == "Elwak", na.rm = TRUE)
   )
 }) |> purrr::set_names(years)
 
@@ -505,15 +516,92 @@ hf_access <- purrr::map(years, function(yr) {
 }) |> purrr::set_names(years)
 
 # ── Challenge categories ──────────────────────────────────────────────────────
+# Field is free-text multi-response. Map to canonical categories per field guide.
+categorise_challenge <- function(x) {
+  x <- tolower(trimws(x))
+  cats <- c(
+    "No nearby HF"          = "no.*(hf|health|facilit|clinic|hospital)",
+    "Distance to HF"        = "dist|far|remote|kilomet|km|long way",
+    "Lack of transport"     = "transport|vehicle|car|road|access",
+    "Security concerns"     = "securi|insecur|conflict|risk|danger|armed",
+    "Community awareness"   = "aware|knowled|inform|educat|communit",
+    "Vaccinators absent"    = "vaccin.*absent|no.*vaccin|vaccin.*not|staff.*absent|absent.*vaccin",
+    "Other"                 = "."
+  )
+  # Return first matching category
+  for (nm in names(cats)) {
+    if (grepl(cats[nm], x, ignore.case = TRUE)) return(nm)
+  }
+  "Other"
+}
+
 challenges <- purrr::map(years, function(yr) {
-  filter_year(camps, yr) |>
-    dplyr::filter(!is.na(challenge), challenge != "") |>
-    dplyr::count(challenge, name = "n") |>
-    dplyr::arrange(dplyr::desc(n)) |>
-    dplyr::slice_head(n = 10)
+  d <- filter_year(camps, yr) |>
+    dplyr::filter(!is.na(challenge), trimws(challenge) != "")
+  if (nrow(d) == 0) return(data.frame(challenge = character(), n = integer()))
+  d |>
+    dplyr::mutate(
+      challenge_cat = sapply(challenge, categorise_challenge)
+    ) |>
+    dplyr::count(challenge = challenge_cat, name = "n") |>
+    dplyr::arrange(dplyr::desc(n))
 }) |> purrr::set_names(years)
 
-# ── GPS points for maps ───────────────────────────────────────────────────────
+# ── Settlement / transport / route type aggregations (for Access tab donuts) ──
+settlement_counts <- camps |>
+  dplyr::filter(!is.na(settlement_type), trimws(settlement_type) != "") |>
+  dplyr::mutate(
+    cat = dplyr::case_when(
+      grepl("settlement|urban|town|village", settlement_type, ignore.case = TRUE) ~ "Settlement",
+      grepl("camp|idp|temp", settlement_type, ignore.case = TRUE) ~ "Camp",
+      TRUE ~ "Other"
+    )
+  ) |>
+  dplyr::count(cat, name = "n")
+
+transport_counts <- camps |>
+  dplyr::filter(!is.na(transport_infra), trimws(transport_infra) != "") |>
+  dplyr::mutate(
+    cat = dplyr::case_when(
+      grepl("livestock|foot|walk|camel|donkey", transport_infra, ignore.case = TRUE) ~ "Livestock/foot",
+      grepl("bus|truck|car|vehicle|motor", transport_infra, ignore.case = TRUE) ~ "Bus/vehicle",
+      TRUE ~ "Other"
+    )
+  ) |>
+  dplyr::count(cat, name = "n")
+
+route_type_counts <- camps |>
+  dplyr::filter(!is.na(route_type), trimws(route_type) != "") |>
+  dplyr::mutate(
+    cat = dplyr::case_when(
+      grepl("foot|path|track|trail|bush", route_type, ignore.case = TRUE) ~ "Footpath",
+      grepl("highway|main|road|tarmac|paved", route_type, ignore.case = TRUE) ~ "Highway",
+      grepl("border|crossing|cross", route_type, ignore.case = TRUE) ~ "Border crossing",
+      TRUE ~ "Other"
+    )
+  ) |>
+  dplyr::count(cat, name = "n")
+
+# ── District monthly vaccinated (top 5 districts by total) ───────────────────
+top5_dists <- outreach |>
+  dplyr::filter(!is.na(out_district)) |>
+  dplyr::group_by(out_district) |>
+  dplyr::summarise(total = sum(vaccinated, na.rm = TRUE), .groups = "drop") |>
+  dplyr::arrange(dplyr::desc(total)) |>
+  dplyr::slice_head(n = 5) |>
+  dplyr::pull(out_district)
+
+dist_monthly <- outreach |>
+  dplyr::filter(!is.na(out_date), out_district %in% top5_dists) |>
+  dplyr::group_by(out_district, month_label, year, month_num) |>
+  dplyr::summarise(vaccinated = sum(vaccinated, na.rm = TRUE), .groups = "drop") |>
+  dplyr::arrange(year, month_num) |>
+  dplyr::mutate(
+    month_label = factor(month_label,
+                         levels = levels(out_monthly$month_label),
+                         ordered = TRUE)
+  )
+
 camp_gps <- camps |>
   dplyr::filter(!is.na(lat), !is.na(lon), lat != 0, lon != 0) |>
   dplyr::select(id, lat, lon, district, year,
@@ -575,21 +663,25 @@ if (!is.null(districts_sf)) {
 
 # ── Bundle and save ───────────────────────────────────────────────────────────
 nomad_data <- list(
-  kpi              = kpi,
-  zd_by_dist       = zd_by_dist,
-  flows            = flows,
-  indegree         = indegree,
-  seasons          = seasons,
-  routes           = routes,
-  cross_border     = cross_border,
-  out_monthly      = out_monthly,
-  out_by_dist      = out_by_dist,
-  perf_table       = perf_table,
-  zd_ri_pol        = zd_ri_pol,
-  hf_access        = hf_access,
-  challenges       = challenges,
-  camp_gps         = camp_gps,
-  out_gps          = out_gps,
+  kpi               = kpi,
+  zd_by_dist        = zd_by_dist,
+  flows             = flows,
+  indegree          = indegree,
+  seasons           = seasons,
+  routes            = routes,
+  cross_border      = cross_border,
+  out_monthly       = out_monthly,
+  dist_monthly      = dist_monthly,
+  out_by_dist       = out_by_dist,
+  perf_table        = perf_table,
+  zd_ri_pol         = zd_ri_pol,
+  hf_access         = hf_access,
+  challenges        = challenges,
+  settlement_counts = settlement_counts,
+  transport_counts  = transport_counts,
+  route_type_counts = route_type_counts,
+  camp_gps          = camp_gps,
+  out_gps           = out_gps,
   centroids        = centroids,
   districts_geojson = districts_geojson,
   states_geojson    = states_geojson,

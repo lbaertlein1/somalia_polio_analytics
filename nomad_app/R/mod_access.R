@@ -142,16 +142,25 @@ access_server <- function(id, data, year_filter, insights = NULL) {
     })
     
     output$sett_donut  <- plotly::renderPlotly({
-      donut(c("Settlement","Camp","Other"), c(3716,215,7),
-            c("#2563eb","#d97706","#9ca3af"))
+      d <- data$settlement_counts
+      if (is.null(d) || nrow(d) == 0)
+        d <- data.frame(cat = c("Settlement","Camp","Other"), n = c(3716,215,7))
+      cols <- c("Settlement"="#2563eb","Camp"="#d97706","Other"="#9ca3af")
+      donut(d$cat, d$n, unname(cols[d$cat]))
     })
     output$trans_donut <- plotly::renderPlotly({
-      donut(c("Livestock/foot","Other","Bus"), c(3811,76,51),
-            c("#0d9488","#9ca3af","#3b82f6"))
+      d <- data$transport_counts
+      if (is.null(d) || nrow(d) == 0)
+        d <- data.frame(cat = c("Livestock/foot","Bus/vehicle","Other"), n = c(3811,51,76))
+      cols <- c("Livestock/foot"="#0d9488","Bus/vehicle"="#3b82f6","Other"="#9ca3af")
+      donut(d$cat, d$n, unname(cols[match(d$cat, names(cols))]))
     })
     output$rtype_donut <- plotly::renderPlotly({
-      donut(c("Footpath","Highway","Other","Border crossing"), c(3460,392,52,34),
-            c("#0d9488","#f97316","#9ca3af","#dc2626"))
+      d <- data$route_type_counts
+      if (is.null(d) || nrow(d) == 0)
+        d <- data.frame(cat = c("Footpath","Highway","Border crossing","Other"), n = c(3460,392,34,52))
+      cols <- c("Footpath"="#0d9488","Highway"="#f97316","Border crossing"="#dc2626","Other"="#9ca3af")
+      donut(d$cat, d$n, unname(cols[match(d$cat, names(cols))]))
     })
   })
 }
