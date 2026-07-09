@@ -3,15 +3,21 @@
 # Quick-look demo dashboard for "Vaccine Buddy" carrier-tracker telemetry
 # (ODK Central form: vaccine_buddy_events_aug2025_nopv2_snid, EMRO project 32)
 #
-# Pulls data live from ODK Central via ruODK. Credentials are hardcoded
-# placeholders below (ODK_USERNAME / ODK_PASSWORD) for quick-demo simplicity
-# -- fill them in before running/deploying.
+# Pulls data live from ODK Central's OData API directly via httr + jsonlite
+# (NOT ruODK -- ruODK pulls in sf/raster/terra/GDAL transitively, which was
+# failing to build on shinyapps.io's server; a known unresolved issue as of
+# this writing: https://forum.posit.co/t/deployment-fails-on-shinyapps-io-because-of-terra/214331).
+# Central supports HTTP Basic Auth directly on its API/OData endpoints, so no
+# session-token exchange is needed. Credentials are hardcoded placeholders
+# below (ODK_USERNAME / ODK_PASSWORD) for quick-demo simplicity -- fill them
+# in before running/deploying.
 #
 # Deploy target: shinyapps.io
 # =============================================================================
 
 library(shiny)
-library(ruODK)
+library(httr)
+library(jsonlite)
 library(leaflet)
 library(dplyr)
 library(tidyr)
@@ -29,8 +35,8 @@ ODK_TZ <- "Africa/Mogadishu"
 # shinyapps.io, anyone with the app URL can see the data (not the code/
 # credentials themselves, but be aware this is not a secure pattern for
 # anything beyond a throwaway demo).
-ODK_USERNAME <- "username"
-ODK_PASSWORD <- "password"
+ODK_USERNAME <- "your_email@example.com"
+ODK_PASSWORD <- "your_password"
 
 # Default value for the "Max GPS accuracy to include" slider (meters). Field
 # data for this form ranges from ~0.5m to ~645m, with the bulk of fixes under
@@ -38,15 +44,15 @@ ODK_PASSWORD <- "password"
 # line, adjustable live via the slider.
 ACCURACY_THRESHOLD_DEFAULT <- 50
 
-# Name of the nested repeat table ("entry" group) as exposed in the OData
-# service document for this form (visible in ruODK::odata_service_get()$name
-# after connecting). If ODK Central names it differently, update this.
+# Name of the nested repeat table ("entry" group) as exposed at the OData
+# service root (i.e. GET {svc}/Submissions.entry). If ODK Central names it
+# differently, update this.
 ENTRY_TABLE <- "Submissions.entry"
 
 # --- small helper: find a column by fuzzy name match ------------------------
 # Used so the app degrades gracefully (with a clear error) instead of failing
-# silently if ruODK's auto-generated column names differ slightly from what
-# we saw in a CSV export (e.g. "gps_point-Latitude" vs "gps_point_latitude").
+# silently if a column name differs slightly from what we saw in a CSV export
+# (e.g. "gps_point-Latitude" vs "gps_point_latitude").
 pick_col <- function(df, patterns) {
   nms <- names(df)
   for (p in patterns) {
@@ -54,6 +60,131 @@ pick_col <- function(df, patterns) {
     if (length(hit) >= 1) return(hit[1])
   }
   NA_character_
+}
+
+# --- small helper: find a key in a raw parsed-JSON record -------------------
+# Same idea as pick_col() above but for a single OData JSON record (a named
+# list) rather than a data frame -- used for Central's system-generated keys
+# (__id, the parent-link key) whose exact naming we can't verify without a
+# live connection, so we match flexibly rather than hardcoding a guess.
+find_json_key <- function(rec, patterns) {
+  nms <- names(rec)
+  for (p in patterns) {
+    hit <- nms[grepl(p, nms, ignore.case = TRUE)]
+    if (length(hit) >= 1) return(hit[1])
+  }
+  NA_character_
+}
+
+# --- OData fetch/parse helpers (replace ruODK) ------------------------------
+# Fetches every page of an OData entity set via Basic Auth, following
+# "@odata.nextLink" until exhausted, and returns the raw parsed JSON records
+# (a list of named lists) -- deliberately NOT auto-flattened into a data
+# frame, since jsonlite's auto-simplification of nested/nullable fields
+# (like the geopoint) is fragile. Parsing into a data frame happens
+# separately, field by field, in odata_parse_main()/odata_parse_entry().
+odata_fetch_all <- function(url, user, pass) {
+  records <- list()
+  next_url <- url
+  while (!is.null(next_url)) {
+    resp <- httr::GET(next_url, httr::authenticate(user, pass, type = "basic"))
+    httr::stop_for_status(resp, task = paste("fetch", next_url))
+    parsed <- jsonlite::fromJSON(
+      httr::content(resp, as = "text", encoding = "UTF-8"),
+      simplifyVector = FALSE
+    )
+    records <- c(records, parsed[["value"]])
+    
+    nxt <- parsed[["@odata.nextLink"]]
+    if (is.null(nxt)) {
+      next_url <- NULL
+    } else if (grepl("^https?://", nxt)) {
+      next_url <- nxt
+    } else if (startsWith(nxt, "/")) {
+      next_url <- paste0(ODK_BASE_URL, nxt)
+    } else {
+      # relative to the .svc endpoint's own directory
+      base_dir <- sub("/[^/]*$", "", url)
+      next_url <- paste0(base_dir, "/", nxt)
+    }
+  }
+  records
+}
+
+# Pulls one field out of a single parsed OData record, returning NA if the
+# field is absent or JSON null (rather than erroring on a missing list key).
+odata_field <- function(rec, name, numeric = FALSE) {
+  val <- rec[[name]]
+  if (is.null(val)) {
+    if (numeric) return(NA_real_)
+    return(NA_character_)
+  }
+  if (numeric) return(suppressWarnings(as.numeric(val)))
+  as.character(val)
+}
+
+# Parses the main "Submissions" entity set into a data frame with the same
+# column names entry_clean() below already expects.
+odata_parse_main <- function(records) {
+  if (length(records) == 0) {
+    return(data.frame(id = character(0), device_id = character(0),
+                      team_name = character(0), campaign_name = character(0),
+                      stringsAsFactors = FALSE))
+  }
+  id_key <- find_json_key(records[[1]], c("^__id$", "^id$"))
+  dplyr::bind_rows(lapply(records, function(rec) {
+    data.frame(
+      id = if (!is.na(id_key)) odata_field(rec, id_key) else NA_character_,
+      device_id = odata_field(rec, "device_id"),
+      team_name = odata_field(rec, "team_name"),
+      campaign_name = odata_field(rec, "campaign_name"),
+      stringsAsFactors = FALSE
+    )
+  }))
+}
+
+# Parses the "Submissions.entry" repeat-group entity set into a data frame
+# with the same column names entry_clean() below already expects (matching
+# what ruODK used to produce from the same source data).
+odata_parse_entry <- function(records) {
+  if (length(records) == 0) {
+    return(data.frame(
+      id = character(0), entry_id = character(0), timestamp = character(0),
+      gps_point_coordinates_1 = numeric(0), gps_point_coordinates_2 = numeric(0),
+      lid_open = character(0), lid_close = character(0), temp_c = numeric(0),
+      battery_percent = numeric(0), gps_accuracy_m = numeric(0),
+      submissions_id = character(0), stringsAsFactors = FALSE
+    ))
+  }
+  id_key <- find_json_key(records[[1]], c("^__id$", "^id$"))
+  parent_key <- find_json_key(records[[1]], c("submissions.*id", "parent"))
+  
+  dplyr::bind_rows(lapply(records, function(rec) {
+    gp <- rec[["gps_point"]]
+    lon <- NA_real_
+    lat <- NA_real_
+    if (!is.null(gp) && !is.null(gp[["coordinates"]])) {
+      coords <- gp[["coordinates"]]
+      if (length(coords) >= 2) {
+        lon <- suppressWarnings(as.numeric(coords[[1]]))
+        lat <- suppressWarnings(as.numeric(coords[[2]]))
+      }
+    }
+    data.frame(
+      id = if (!is.na(id_key)) odata_field(rec, id_key) else NA_character_,
+      entry_id = odata_field(rec, "entry_id"),
+      timestamp = odata_field(rec, "timestamp"),
+      gps_point_coordinates_1 = lon,
+      gps_point_coordinates_2 = lat,
+      lid_open = odata_field(rec, "lid_open"),
+      lid_close = odata_field(rec, "lid_close"),
+      temp_c = odata_field(rec, "temp_c", numeric = TRUE),
+      battery_percent = odata_field(rec, "battery_percent", numeric = TRUE),
+      gps_accuracy_m = odata_field(rec, "gps_accuracy_m", numeric = TRUE),
+      submissions_id = if (!is.na(parent_key)) odata_field(rec, parent_key) else NA_character_,
+      stringsAsFactors = FALSE
+    )
+  }))
 }
 
 # --- small helper: aggregate coincident events -----------------------------
@@ -199,18 +330,15 @@ server <- function(input, output, session) {
         svc_url <- sprintf("%s/v1/projects/%s/forms/%s.svc",
                            ODK_BASE_URL, ODK_PROJECT_ID, ODK_FORM_ID)
         
-        ruODK::ru_setup(
-          svc = svc_url,
-          un  = ODK_USERNAME,
-          pw  = ODK_PASSWORD,
-          tz  = ODK_TZ
-        )
-        
         incProgress(0.3, detail = "Fetching main submissions table")
-        main_df <- ruODK::odata_submission_get()
+        main_records <- odata_fetch_all(paste0(svc_url, "/Submissions"),
+                                        ODK_USERNAME, ODK_PASSWORD)
+        main_df <- odata_parse_main(main_records)
         
         incProgress(0.3, detail = "Fetching entry (repeat) table")
-        entry_df <- ruODK::odata_submission_get(table = ENTRY_TABLE)
+        entry_records <- odata_fetch_all(paste0(svc_url, "/", ENTRY_TABLE),
+                                         ODK_USERNAME, ODK_PASSWORD)
+        entry_df <- odata_parse_entry(entry_records)
         
         incProgress(0.2, detail = "Done")
         
@@ -243,9 +371,10 @@ server <- function(input, output, session) {
   })
   
   # --- Clean / join main + entry tables ----------------------------------
-  # This is where we resolve ruODK's actual column names. If a pull
-  # succeeds but this step errors, the message below will list the actual
-  # column names found so you can adjust the `pick_col` patterns above.
+  # This is where we resolve the actual column names coming back from the
+  # OData parse helpers above. If a pull succeeds but this step errors, the
+  # message below will list the actual column names found so you can adjust
+  # the `pick_col` patterns above.
   entry_clean <- reactive({
     req(rv$main, rv$entry_raw)
     
@@ -255,11 +384,10 @@ server <- function(input, output, session) {
     id_col_main       <- pick_col(main, c("^id$", "instance_id", "uuid"))
     parent_col_entry  <- pick_col(entry, c("submissions_id", "parent_key", "^parent"))
     
-    # GPS coordinates: ODK Central's OData feed encodes geopoints as GeoJSON,
-    # which ruODK flattens to coordinates_1/2/3 in [longitude, latitude,
-    # altitude] order (GeoJSON convention) rather than separate lat/lon
-    # columns. Prefer flat lat/lon names if they ever appear; otherwise use
-    # the GeoJSON coordinate columns.
+    # GPS coordinates: ODK Central's OData feed encodes geopoints as GeoJSON
+    # ([longitude, latitude, altitude] order); odata_parse_entry() above
+    # flattens these into coordinates_1/2 columns. Prefer flat lat/lon names
+    # if they ever appear; otherwise use the GeoJSON coordinate columns.
     lat_col <- pick_col(entry, c("^lat$", "^latitude$", "_latitude$"))
     lon_col <- pick_col(entry, c("^lon$", "^longitude$", "_longitude$"))
     geo_lon_col <- pick_col(entry, c("coordinates_1$"))
@@ -274,18 +402,22 @@ server <- function(input, output, session) {
     battery_col       <- pick_col(entry, c("battery"))
     accuracy_col      <- pick_col(entry, c("^gps_accuracy_m$", "properties_accuracy", "accuracy"))
     
-    validate(need(!is.na(id_col_main),
-                  paste("Could not find a submission id column in the main table. Columns found:",
-                        paste(names(main), collapse = ", "))))
-    validate(need(!is.na(parent_col_entry),
-                  paste("Could not find the parent-link column in the entry table. Columns found:",
-                        paste(names(entry), collapse = ", "))))
-    validate(need(!is.na(lat_col) && !is.na(lon_col),
-                  paste("Could not find latitude/longitude columns in the entry table. Columns found:",
-                        paste(names(entry), collapse = ", "))))
-    validate(need(!is.na(ts_col),
-                  paste("Could not find a timestamp column in the entry table. Columns found:",
-                        paste(names(entry), collapse = ", "))))
+    if (is.na(id_col_main)) {
+      stop("Could not find a submission id column in the main table. Columns found: ",
+           paste(names(main), collapse = ", "))
+    }
+    if (is.na(parent_col_entry)) {
+      stop("Could not find the parent-link column in the entry table. Columns found: ",
+           paste(names(entry), collapse = ", "))
+    }
+    if (is.na(lat_col) || is.na(lon_col)) {
+      stop("Could not find latitude/longitude columns in the entry table. Columns found: ",
+           paste(names(entry), collapse = ", "))
+    }
+    if (is.na(ts_col)) {
+      stop("Could not find a timestamp column in the entry table. Columns found: ",
+           paste(names(entry), collapse = ", "))
+    }
     
     # Rename to stable internal names (base R rename, avoids tidy-eval quirks)
     names(main)[names(main) == id_col_main] <- "parent_id"
@@ -307,9 +439,10 @@ server <- function(input, output, session) {
     
     device_col <- pick_col(main, c("^device_id$", "device"))
     team_col   <- pick_col(main, c("^team_name$", "team"))
-    validate(need(!is.na(device_col),
-                  paste("Could not find device_id column in the main table. Columns found:",
-                        paste(names(main), collapse = ", "))))
+    if (is.na(device_col)) {
+      stop("Could not find device_id column in the main table. Columns found: ",
+           paste(names(main), collapse = ", "))
+    }
     
     main_small <- main[, c("parent_id", device_col, if (!is.na(team_col)) team_col)]
     names(main_small)[names(main_small) == device_col] <- "device_id"
@@ -379,12 +512,21 @@ server <- function(input, output, session) {
       ungroup()
   })
   
+  # Safe wrapper around entry_clean() that returns NULL instead of
+  # propagating a stop() error -- used by observers below, which shouldn't
+  # crash the whole app session over a genuine data-shape problem. The
+  # map/table outputs still call entry_clean()/entry_active() directly and
+  # will display the real error text in their own output area as usual.
+  entry_clean_safe <- reactive({
+    tryCatch(entry_clean(), error = function(e) NULL)
+  })
+  
   # --- Set date range bounds once data loads -----------------------------
   # Min/max reflect the full pulled dataset (so the picker can navigate to
   # any date with data), but the initial start/end both default to July 9.
-  observeEvent(entry_clean(), {
-    df <- entry_clean()
-    if (nrow(df) == 0) return()
+  observeEvent(entry_clean_safe(), {
+    df <- entry_clean_safe()
+    if (is.null(df) || nrow(df) == 0) return()
     rng <- range(df$ts, na.rm = TRUE)
     default_date <- as.Date("2026-07-09")
     updateDateRangeInput(session, "date_range",
@@ -418,7 +560,8 @@ server <- function(input, output, session) {
   # entry_thresholded()/entry_filtered()), so it does NOT recompute every
   # time the accuracy slider moves -- only when the date range changes.
   date_filtered_devices <- reactive({
-    df <- entry_clean()
+    df <- entry_clean_safe()
+    req(df)
     req(input$date_range)
     if (any(is.na(input$date_range))) return(sort(unique(df$device_id)))
     start <- as.POSIXct(input$date_range[1], tz = ODK_TZ)
@@ -552,13 +695,13 @@ server <- function(input, output, session) {
   # --- Map -------------------------------------------------------------------
   output$map <- renderLeaflet({
     df <- entry_active()
-    validate(need(nrow(df) > 0, "No data for the selected date range yet."))
+    shiny::validate(shiny::need(nrow(df) > 0, "No data for the selected date range yet."))
     
     vis <- visible_devices()
     shown_devices <- names(vis)[vis]
     df <- df %>% filter(device_id %in% shown_devices)
     
-    validate(need(nrow(df) > 0, "No devices currently toggled on \u2014 check a box in the table."))
+    shiny::validate(shiny::need(nrow(df) > 0, "No devices currently toggled on \u2014 check a box in the table."))
     
     # Devices actually present after the date range + accuracy threshold are
     # applied (a "selected" device can still have zero rows here, e.g. if it
