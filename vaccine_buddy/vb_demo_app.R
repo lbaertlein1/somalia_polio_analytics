@@ -3,14 +3,14 @@
 # Quick-look demo dashboard for "Vaccine Buddy" carrier-tracker telemetry
 # (ODK Central form: vaccine_buddy_events_aug2025_nopv2_snid, EMRO project 32)
 #
-# Pulls data live from ODK Central's OData API directly via httr + jsonlite
-# (NOT ruODK -- ruODK pulls in sf/raster/terra/GDAL transitively, which was
-# failing to build on shinyapps.io's server; a known unresolved issue as of
-# this writing: https://forum.posit.co/t/deployment-fails-on-shinyapps-io-because-of-terra/214331).
-# Central supports HTTP Basic Auth directly on its API/OData endpoints, so no
-# session-token exchange is needed. Credentials are hardcoded placeholders
-# below (ODK_USERNAME / ODK_PASSWORD) for quick-demo simplicity -- fill them
-# in before running/deploying.
+# DEMO MODE: This version does NOT pull live from ODK Central. Data was
+# pulled once and filtered to July 9, 2026 only, then saved as two CSVs
+# (data/snapshot_main.csv, data/snapshot_entry.csv) shaped exactly like what
+# odata_parse_main()/odata_parse_entry() would have produced from a live
+# pull. pull_data() below just reads those files. The original live-pull
+# implementation (odata_fetch_all/odata_parse_main/odata_parse_entry, ODK
+# Central connection details) is left in place but unused, so this can be
+# switched back to live mode later by restoring the pull_data() body.
 #
 # Deploy target: shinyapps.io
 # =============================================================================
@@ -25,18 +25,20 @@ library(lubridate)
 library(DT)
 
 # --- ODK Central / form location -------------------------------------------
+# (unused in demo mode -- kept for switching back to live mode later)
 ODK_BASE_URL <- "https://emro.nafundi.com"
 ODK_PROJECT_ID <- 32
 ODK_FORM_ID <- "vaccine_buddy_events_aug2025_nopv2_snid"
 ODK_TZ <- "Africa/Mogadishu"
 
 # --- Credentials (demo only) -------------------------------------------
-# Quick-demo shortcut: fill these in directly. Since this gets deployed to
-# shinyapps.io, anyone with the app URL can see the data (not the code/
-# credentials themselves, but be aware this is not a secure pattern for
-# anything beyond a throwaway demo).
+# (unused in demo mode)
 ODK_USERNAME <- "your_email@example.com"
 ODK_PASSWORD <- "your_password"
+
+# --- Demo snapshot file locations -------------------------------------------
+SNAPSHOT_MAIN_PATH  <- "data/snapshot_main.csv"
+SNAPSHOT_ENTRY_PATH <- "data/snapshot_entry.csv"
 
 # Default value for the "Max GPS accuracy to include" slider (meters). Field
 # data for this form ranges from ~0.5m to ~645m, with the bulk of fixes under
@@ -63,10 +65,7 @@ pick_col <- function(df, patterns) {
 }
 
 # --- small helper: find a key in a raw parsed-JSON record -------------------
-# Same idea as pick_col() above but for a single OData JSON record (a named
-# list) rather than a data frame -- used for Central's system-generated keys
-# (__id, the parent-link key) whose exact naming we can't verify without a
-# live connection, so we match flexibly rather than hardcoding a guess.
+# (unused in demo mode -- kept for switching back to live mode later)
 find_json_key <- function(rec, patterns) {
   nms <- names(rec)
   for (p in patterns) {
@@ -77,12 +76,7 @@ find_json_key <- function(rec, patterns) {
 }
 
 # --- OData fetch/parse helpers (replace ruODK) ------------------------------
-# Fetches every page of an OData entity set via Basic Auth, following
-# "@odata.nextLink" until exhausted, and returns the raw parsed JSON records
-# (a list of named lists) -- deliberately NOT auto-flattened into a data
-# frame, since jsonlite's auto-simplification of nested/nullable fields
-# (like the geopoint) is fragile. Parsing into a data frame happens
-# separately, field by field, in odata_parse_main()/odata_parse_entry().
+# (unused in demo mode -- kept for switching back to live mode later)
 odata_fetch_all <- function(url, user, pass) {
   records <- list()
   next_url <- url
@@ -111,8 +105,7 @@ odata_fetch_all <- function(url, user, pass) {
   records
 }
 
-# Pulls one field out of a single parsed OData record, returning NA if the
-# field is absent or JSON null (rather than erroring on a missing list key).
+# (unused in demo mode -- kept for switching back to live mode later)
 odata_field <- function(rec, name, numeric = FALSE) {
   val <- rec[[name]]
   if (is.null(val)) {
@@ -123,8 +116,7 @@ odata_field <- function(rec, name, numeric = FALSE) {
   as.character(val)
 }
 
-# Parses the main "Submissions" entity set into a data frame with the same
-# column names entry_clean() below already expects.
+# (unused in demo mode -- kept for switching back to live mode later)
 odata_parse_main <- function(records) {
   if (length(records) == 0) {
     return(data.frame(id = character(0), device_id = character(0),
@@ -143,9 +135,7 @@ odata_parse_main <- function(records) {
   }))
 }
 
-# Parses the "Submissions.entry" repeat-group entity set into a data frame
-# with the same column names entry_clean() below already expects (matching
-# what ruODK used to produce from the same source data).
+# (unused in demo mode -- kept for switching back to live mode later)
 odata_parse_entry <- function(records) {
   if (length(records) == 0) {
     return(data.frame(
@@ -252,7 +242,7 @@ ui <- fluidPage(
   titlePanel("RAAD Somalia"),
   tags$p(
     style = "color:#666; margin-top:-6px; margin-bottom:8px; font-size:0.85rem;",
-    "Vaccine carrier tracker telemetry \u2014 quick-look demo (pulled live from ODK Central)"
+    "Vaccine carrier tracker telemetry \u2014 quick-look demo (July 9, 2026 snapshot)"
   ),
   
   sidebarLayout(
@@ -321,24 +311,21 @@ server <- function(input, output, session) {
   # named logical vector: device_id -> currently shown on map?
   visible_devices <- reactiveVal(setNames(logical(0), character(0)))
   
-  # --- Connect & pull ---------------------------------------------------
+  # --- Load bundled July 9 snapshot (DEMO MODE -- no live ODK pull) ------
+  # Reads the two pre-shaped CSVs bundled with the app instead of hitting
+  # ODK Central. Column shapes match exactly what odata_parse_main()/
+  # odata_parse_entry() above would have produced from a live pull, so
+  # entry_clean() and everything downstream needs no changes at all.
   pull_data <- function() {
-    withProgress(message = "Pulling data from ODK Central...", value = 0.1, {
+    withProgress(message = "Loading July 9 snapshot...", value = 0.1, {
       
       tryCatch({
         
-        svc_url <- sprintf("%s/v1/projects/%s/forms/%s.svc",
-                           ODK_BASE_URL, ODK_PROJECT_ID, ODK_FORM_ID)
+        incProgress(0.4, detail = "Reading bundled submissions snapshot")
+        main_df <- read.csv(SNAPSHOT_MAIN_PATH, stringsAsFactors = FALSE)
         
-        incProgress(0.3, detail = "Fetching main submissions table")
-        main_records <- odata_fetch_all(paste0(svc_url, "/Submissions"),
-                                        ODK_USERNAME, ODK_PASSWORD)
-        main_df <- odata_parse_main(main_records)
-        
-        incProgress(0.3, detail = "Fetching entry (repeat) table")
-        entry_records <- odata_fetch_all(paste0(svc_url, "/", ENTRY_TABLE),
-                                         ODK_USERNAME, ODK_PASSWORD)
-        entry_df <- odata_parse_entry(entry_records)
+        incProgress(0.4, detail = "Reading bundled entry snapshot")
+        entry_df <- read.csv(SNAPSHOT_ENTRY_PATH, stringsAsFactors = FALSE)
         
         incProgress(0.2, detail = "Done")
         
@@ -362,11 +349,11 @@ server <- function(input, output, session) {
   output$status_box <- renderUI({
     if (!is.null(rv$error)) {
       tags$div(style = "color:#b00; margin-top:8px;",
-               paste("Connection/pull failed:", rv$error))
+               paste("Snapshot load failed:", rv$error))
     } else if (isTRUE(rv$connected)) {
-      tags$div(style = "color:#0a0; margin-top:8px;", "Connected \u2014 data loaded.")
+      tags$div(style = "color:#0a0; margin-top:8px;", "Loaded \u2014 July 9 snapshot data.")
     } else {
-      tags$div(style = "color:#666; margin-top:8px;", "Not connected yet.")
+      tags$div(style = "color:#666; margin-top:8px;", "Not loaded yet.")
     }
   })
   
