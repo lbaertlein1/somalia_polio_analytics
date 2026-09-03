@@ -20,15 +20,14 @@ app_ui <- function() {
       tags$script(HTML("
         $(document).ready(function() {
 
-          // Intro continue button — enable when district selected
-          $(document).on('change', 'select[id$=\"-district\"]', function() {
-            var $btn = $('.intro-continue-btn');
-            if ($(this).val() && $(this).val() !== '') {
-              $btn.prop('disabled', false).css('opacity', '1');
-            } else {
-              $btn.prop('disabled', true).css('opacity', '0.45');
-            }
-          });
+          // NOTE: the v1 version of this file auto-enabled the intro
+          // Continue button here based on the district <select> alone.
+          // v2 requires BOTH a campaign and a district, and that's now
+          // handled correctly on the R side via shinyjs::toggleState in
+          // mod_intro_tab_v2.R (driven by planning_ready(), which checks
+          // both). That old watcher is deliberately removed — leaving it
+          // in would re-enable the button on district selection alone and
+          // fight the correct R-side logic.
 
           // Header tab click
           $(document).on('click', '.hdr-tab:not(.hdr-tab-locked)', function() {
@@ -62,7 +61,7 @@ app_ui <- function() {
               $t.removeAttr('title');
             } else {
               $t.addClass('hdr-tab-locked');
-              $t.attr('title', msg.title || 'Select a district first');
+              $t.attr('title', msg.title || 'Select a campaign and district first');
             }
           });
 
@@ -112,7 +111,7 @@ app_ui <- function() {
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_orientation',   'Landmarks'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_facility_mapping', 'Facilities'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_area_mapping',     'Health Areas'),
-            tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_microplan',     'Planning Data')
+            tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_team_area_mapping',       'Team Areas')
           )
         ),
         
@@ -132,8 +131,8 @@ app_ui <- function() {
           tabPanel(title = 'Health Areas',    value = 'tab_health_area_mapping',
                    healthAreaTabUI('health_area')),
           
-          tabPanel(title = 'Planning Data',   value = 'tab_microplan',
-                   microplanTabUI('microplan'))
+          tabPanel(title = 'Team Areas',      value = 'tab_team_area_mapping',
+                   teamAreaTabUI('team_area'))
         )
       )
     )

@@ -1,14 +1,13 @@
 // bfs_propagate.cpp
 //
-// Compiled Dijkstra/BFS implementation for health area boundary propagation.
-// Replaces the interpreted R loop in propagate_assignments().
+// Compiled Dijkstra/BFS implementation for health area / team area boundary
+// propagation. Used identically for both — a team-area call passes the
+// health area's own cells as the universe and its boundary as a hard
+// barrier, but the algorithm itself doesn't know the difference.
 //
-// Key differences from the R version:
-//   - Uses std::priority_queue (binary min-heap) instead of which.min() — 
-//     O(log n) per push/pop vs O(n) per iteration in R
-//   - All indexing is 0-based internally; R layer handles 1-based conversion
-//   - friction_to_cost() is inlined
-//   - Population saturation penalty is tracked per area
+// v2: compactness_pen and max_cost_val removed. Both were always inert in
+// every call site in the v1 app (compactness_pen = 0, max_cost = Inf), so
+// this is pure simplification — no behavior change.
 //
 // [[Rcpp::depends(Rcpp)]]
 
@@ -66,8 +65,6 @@ struct QEntry {
 //                      subdivision crossings for each cell (soft penalty)
 //   subdiv_penalty   : double, raw friction addition for subdivision crossings
 //   base_step_fric   : double
-//   compactness_pen  : double (0 = disabled)
-//   max_cost         : double (Inf = no cap)
 //   use_pop          : bool
 //   cell_pop         : NumericVector length n_cells (ignored if !use_pop)
 //   target_pop       : double (ignored if !use_pop)
@@ -92,8 +89,6 @@ List bfs_propagate_cpp(
     List           subdiv_mat,          // 1-based, length n_cells; empty = no subdivisions
     double         subdiv_penalty,
     double         base_step_fric,
-    double         compactness_pen,
-    double         max_cost_val,
     bool           use_pop,
     NumericVector  cell_pop,
     double         target_pop,
@@ -105,15 +100,14 @@ List bfs_propagate_cpp(
   const double INF = std::numeric_limits<double>::infinity();
   const bool has_barriers  = (barrier_mat.size()  == (size_t)n_cells);
   const bool has_subdiv    = (subdiv_mat.size()   == (size_t)n_cells);
-  const bool has_compact   = (compactness_pen > 0.0);
-  
+
   std::vector<double> best_cost(n_cells, INF);
   std::vector<int>    owner(n_cells, -1);
   std::vector<bool>   visited(n_cells, false);
   std::vector<double> area_pop(n_areas, 0.0);
-  
+
   std::priority_queue<QEntry, std::vector<QEntry>, std::greater<QEntry>> pq;
-  
+
   // ── Seed initialisation ───────────────────────────────────────────────────
   for (int a = 0; a < n_areas; a++) {
     IntegerVector starters = starter_cells_list[a];
@@ -127,18 +121,18 @@ List bfs_propagate_cpp(
       }
     }
   }
-  
+
   // ── Main Dijkstra loop ────────────────────────────────────────────────────
   while (!pq.empty()) {
     QEntry top = pq.top(); pq.pop();
     int    ci      = top.cell;
     double cost_i  = top.cost;
     int    owner_i = top.owner;
-    
+
     if (visited[ci]) continue;
     if (cost_i > best_cost[ci] + 1e-9) continue;
     visited[ci] = true;
-    
+
     // Population saturation penalty for this area
     double pop_pen = 0.0;
     if (use_pop && target_pop > 0.0) {
@@ -146,13 +140,13 @@ List bfs_propagate_cpp(
       if (excess > 0.0)
         pop_pen = std::min(pop_sat_max, pop_sat_weight * excess);
     }
-    
+
     IntegerVector nbrs = neighbors[ci];
-    
+
     for (int ni = 0; ni < nbrs.size(); ni++) {
       int nbr = nbrs[ni] - 1;   // to 0-based
       if (visited[nbr]) continue;
-      
+
       // Hard barrier check
       if (has_barriers) {
         IntegerVector blist = barrier_mat[ci];
@@ -162,7 +156,7 @@ List bfs_propagate_cpp(
         }
         if (blocked) continue;
       }
-      
+
       // Subdivision soft penalty
       double sdiv_pen = 0.0;
       if (has_subdiv && subdiv_penalty > 0.0) {
@@ -171,26 +165,15 @@ List bfs_propagate_cpp(
           if (slist[s] - 1 == nbr) { sdiv_pen = subdiv_penalty; break; }
         }
       }
-      
-      // Compactness penalty
-      double shape_pen = 0.0;
-      if (has_compact) {
-        IntegerVector nbrs2 = neighbors[nbr];
-        int same = 0;
-        for (int m = 0; m < nbrs2.size(); m++)
-          if (owner[nbrs2[m] - 1] == owner_i) same++;
-          if (same < 2) shape_pen = compactness_pen;
-      }
-      
+
       double avg_raw = (cell_friction_raw[ci] + cell_friction_raw[nbr]) * 0.5;
       double eff     = avg_raw + base_step_fric + pop_pen + sdiv_pen;
       if (eff > 1.0) eff = 1.0;
-      
-      double move_cost = friction_to_cost(eff) + shape_pen;
+
+      double move_cost = friction_to_cost(eff);
       double new_cost  = best_cost[ci] + move_cost;
-      
-      if (new_cost < best_cost[nbr] &&
-          (max_cost_val == INF || new_cost <= max_cost_val)) {
+
+      if (new_cost < best_cost[nbr]) {
         best_cost[nbr] = new_cost;
         owner[nbr]     = owner_i;
         pq.push({new_cost, nbr, owner_i});
@@ -198,7 +181,7 @@ List bfs_propagate_cpp(
       }
     }
   }
-  
+
   // Return 1-based owners (-1 stays -1 for unassigned; R layer handles flood fill)
   IntegerVector r_owner(n_cells);
   NumericVector r_cost(n_cells);
@@ -206,7 +189,7 @@ List bfs_propagate_cpp(
     r_owner[i] = owner[i];      // 0-based area index, -1 = unassigned
     r_cost[i]  = best_cost[i];
   }
-  
+
   return List::create(
     Named("owner")     = r_owner,
     Named("best_cost") = r_cost

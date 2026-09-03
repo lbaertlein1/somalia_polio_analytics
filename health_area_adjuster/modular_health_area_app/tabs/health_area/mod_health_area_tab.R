@@ -66,8 +66,11 @@ healthAreaTabServer <- function(
       saved_dfa_sf = NULL, neighbors_list = NULL, edge_list = NULL,
       pop_overlay_sf = NULL, friction_overlay_sf = NULL, pop_table = NULL,
       max_dim_m = NULL, brush_limits = NULL,
-      seed_points = NULL, dfa_names = all_dfa_names, friction_path = NULL
+      seed_points = NULL, dfa_names = all_dfa_names, friction_path = NULL,
+      smoothed_dfa_sf = NULL   # vertex-refined boundary; NULL until first refined+saved
     )
+
+    in_vertex_mode <- reactiveVal(FALSE)
     
     observeEvent(controls$help_click(), { show_help_modal(session) })
     
@@ -82,7 +85,8 @@ healthAreaTabServer <- function(
       active_dfa_rv        = active_dfa_rv,
       show_pop_raster      = controls$show_pop_raster,
       show_friction_raster = controls$show_friction_raster,
-      pop_table            = reactive(rv$pop_table)
+      pop_table            = reactive(rv$pop_table),
+      in_vertex_mode       = in_vertex_mode
     )
     
     # Use globally loaded raster from global.R (avoids redundant loading)
@@ -185,6 +189,8 @@ healthAreaTabServer <- function(
       rv$saved_dfa_sf        <- NULL
       rv$current_assignments <- NULL
       rv$pop_table           <- NULL
+      rv$smoothed_dfa_sf     <- NULL
+      in_vertex_mode(FALSE)
       last_scene_key(NULL)   # force full reset next time health areas tab opens
     }, ignoreInit = TRUE)
     
@@ -494,6 +500,12 @@ healthAreaTabServer <- function(
     })
     
     # ── Submit (save + write to DB) ───────────────────────────────────────────
+    # No longer gated on in_vertex_mode() -- submitting always finalizes
+    # whatever the current boundary state is (see the assignments()
+    # observer below), whether that means silently converting a never-
+    # refined grid boundary or using an actively-open refinement's current
+    # edits directly. There is no "you forgot to save your refinements
+    # first" state left to guard against.
     observeEvent(controls$submit_click(), {
       req(isTRUE(district_ready()), tab_active())
       req(!is.null(rv$grid_sf), !is.null(rv$district_sf))
@@ -501,17 +513,22 @@ healthAreaTabServer <- function(
       send_paint_message("paint_request_assignments")
     }, ignoreInit = TRUE)
     
-    # ── Continue → microplan ─────────────────────────────────────────────────
-    .do_continue_to_microplan <- function() {
-      session$sendCustomMessage('switch_tab', list(value = 'tab_microplan'))
+    # ── Continue → Team Areas ─────────────────────────────────────────────────
+    # Was .do_continue_to_microplan(), targeting the now-deleted
+    # 'tab_microplan' -- this file was left unchanged when the v2 rewrite
+    # replaced Microplanning with Team Areas, so Continue silently never
+    # navigated anywhere correct. Team Areas' own tab_active() check is
+    # against 'tab_team_area_mapping' (see mod_team_area_tab.R).
+    .do_continue_to_team_areas <- function() {
+      session$sendCustomMessage('switch_tab', list(value = 'tab_team_area_mapping'))
     }
     
     .do_submit_and_continue_areas <- function() {
       req(!is.null(rv$grid_sf), !is.null(rv$district_sf))
       pending_action("submit_areas")
       send_paint_message("paint_request_assignments")
-      # Navigation happens after assignments come back and submit completes
-      # via a one-shot observer below
+      # Navigation happens once the vertex-converted boundary comes back
+      # and submit completes, via a one-shot observer below.
       areas_continue_after_submit(TRUE)
     }
     
@@ -520,7 +537,7 @@ healthAreaTabServer <- function(
     observeEvent(areas_submitted_to_db(), {
       if (isTRUE(areas_continue_after_submit()) && isTRUE(areas_submitted_to_db())) {
         areas_continue_after_submit(FALSE)
-        .do_continue_to_microplan()
+        .do_continue_to_team_areas()
       }
     }, ignoreInit = TRUE)
     
@@ -547,7 +564,7 @@ healthAreaTabServer <- function(
         ))
         return()
       }
-      .do_continue_to_microplan()
+      .do_continue_to_team_areas()
     }, ignoreInit = TRUE)
     
     observeEvent(input$ha_continue_cancel, {
@@ -556,7 +573,7 @@ healthAreaTabServer <- function(
     
     observeEvent(input$ha_continue_without_save, {
       removeModal()
-      .do_continue_to_microplan()
+      .do_continue_to_team_areas()
     }, ignoreInit = TRUE)
     
     observeEvent(input$ha_submit_and_continue, {
@@ -574,12 +591,124 @@ healthAreaTabServer <- function(
       }
       rv$current_assignments <- rv$initial_assignments
       rv$saved_dfa_sf        <- NULL
+      rv$smoothed_dfa_sf     <- NULL
+      in_vertex_mode(FALSE)
       pending_action(NULL)
       send_paint_message("paint_reset")
       send_paint_message("paint_set_colors",
                          list(colors = as.list(current_fill_colors()), activeDfa = selected_dfa))
       recompute_population_table(rv$initial_assignments)
     })
+
+    # ── Refine boundaries (vertex editing) ──────────────────────────────
+    observeEvent(controls$refine_boundaries_click(), {
+      req(isTRUE(district_ready()), tab_active())
+      if (isTRUE(in_vertex_mode())) {
+        send_paint_message("paint_exit_vertex_mode")
+        in_vertex_mode(FALSE)
+      } else {
+        req(!is.null(rv$grid_sf))
+        send_paint_message("paint_enter_vertex_mode", list(
+          smoothness = controls$vertex_smoothness(),
+          stiffness  = controls$vertex_stiffness()
+        ))
+        in_vertex_mode(TRUE)
+      }
+      controls$set_vertex_mode_ui(in_vertex_mode())
+    }, ignoreInit = TRUE)
+
+    # Live re-simplify / re-stiffen while already in vertex mode. Both
+    # discard in-progress manual edits (they re-derive from the cached raw
+    # trace on the JS side) -- same as re-entering vertex mode does, and
+    # the tradeoff a live regeneration slider inherently makes.
+    observeEvent(controls$vertex_smoothness(), {
+      req(isTRUE(in_vertex_mode()))
+      send_paint_message("paint_set_vertex_smoothness", list(value = controls$vertex_smoothness()))
+    }, ignoreInit = TRUE)
+
+    observeEvent(controls$vertex_stiffness(), {
+      req(isTRUE(in_vertex_mode()))
+      send_paint_message("paint_set_vertex_stiffness", list(value = controls$vertex_stiffness()))
+    }, ignoreInit = TRUE)
+
+    observeEvent(controls$save_refinements_click(), {
+      req(isTRUE(in_vertex_mode()))
+      pending_action("manual_refine_save")
+      send_paint_message("paint_save_vertex_edits")
+      send_paint_message("paint_request_vertex_geojson")
+    }, ignoreInit = TRUE)
+
+    # ── Receive the vertex-refined boundary from JS ─────────────────────
+    # Fires for three distinct reasons, distinguished by pending_action():
+    #   "manual_refine_save" -- user explicitly clicked Save Refinements
+    #                           while in vertex mode; just stores the result.
+    #   "finalize_save"      -- Save was clicked; the app always runs the
+    #                           boundary through vertex conversion as part
+    #                           of finishing -- a gridded boundary is never
+    #                           what should be saved, whether or not the
+    #                           user ever opened Refine Boundaries
+    #                           themselves (see the assignments() observer,
+    #                           which triggers this).
+    #   "finalize_submit"    -- same, but completes with an actual DB write.
+    observeEvent(map_mod$vertex_geojson(), {
+      payload <- map_mod$vertex_geojson()
+      req(!is.null(payload$geojson))
+      act <- pending_action()
+
+      parsed <- tryCatch(geojsonsf::geojson_sf(payload$geojson), error = function(e) e)
+      if (inherits(parsed, "error")) {
+        showNotification(paste("Could not read boundary:", parsed$message), type = "error", duration = 8)
+        pending_action(NULL)
+        return()
+      }
+      # geojson_sf's default geometry CRS is unset; the JS emits lng/lat
+      # (EPSG:4326) coordinates directly (same convention as gridGeojson),
+      # so set it explicitly rather than relying on a default.
+      sf::st_crs(parsed) <- 4326
+
+      if (identical(act, "manual_refine_save")) {
+        rv$saved_dfa_sf    <- parsed
+        rv$smoothed_dfa_sf <- parsed
+        send_paint_message("paint_show_saved", list(geojson = as_geojson_text(parsed)))
+        showNotification("Boundary refinements saved.", type = "message", duration = 2)
+        pending_action(NULL)
+        return()
+      }
+
+      if (identical(act, "finalize_save") || identical(act, "finalize_submit")) {
+        old_saved <- rv$pending_old_saved_dfa_sf
+        rv$saved_dfa_sf    <- parsed
+        rv$smoothed_dfa_sf <- parsed
+        send_paint_message("paint_show_saved", list(geojson = as_geojson_text(parsed)))
+        recompute_population_table(rv$current_assignments)
+        changed_areas_rv(.find_changed_areas(old_saved, parsed))
+
+        # If this conversion ran silently (the user hadn't opened Refine
+        # Boundaries themselves), return them to the paint view they were
+        # actually looking at rather than leaving them in a refinement
+        # screen they never asked to see.
+        if (isTRUE(rv$vertex_mode_silently_entered)) {
+          send_paint_message("paint_exit_vertex_mode")
+          rv$vertex_mode_silently_entered <- FALSE
+        }
+
+        if (identical(act, "finalize_submit")) {
+          if (!is.null(submit_stage_fn)) {
+            submit_stage_fn('areas', list(
+              saved_dfa_sf        = parsed,
+              dfa_names           = rv$dfa_names,
+              current_assignments = rv$current_assignments,
+              smoothed_dfa_sf     = parsed
+            ))
+            areas_submitted_to_db(TRUE)
+          }
+        } else {
+          showNotification("Health area boundaries saved.", type = "message", duration = 2)
+        }
+        pending_action(NULL)
+        return()
+      }
+    }, ignoreInit = TRUE)
     
     # ── Receive assignments from JS ───────────────────────────────────────────
     observeEvent(map_mod$assignments(), {
@@ -632,46 +761,47 @@ healthAreaTabServer <- function(
         return()
       }
       
-      if (identical(act, "save")) {
+      # Save and Submit both always finish by running the CURRENT boundary
+      # through grid -> vertex conversion (trace, simplify, snap-to-true-
+      # boundary) before anything is stored or written to the DB -- a
+      # gridded boundary is never what should be saved or submitted, and
+      # this no longer depends on the user having manually opened Refine
+      # Boundaries at all. build_saved_dfa_sf() still runs first here
+      # purely for the immediate population-table refresh and as the
+      # "before" snapshot for changed-areas comparison; it is NOT what
+      # ends up stored -- the vertex-converted result replaces it once
+      # the conversion round-trip completes (see the vertex_geojson
+      # observer above).
+      if (identical(act, "save") || identical(act, "submit_areas")) {
         saved <- tryCatch(
           build_saved_dfa_sf(grid_sf = rv$grid_sf, assignments = ordered_assignments,
                              district_sf = rv$district_sf),
           error = function(e) e
         )
         if (inherits(saved, "error")) {
-          showNotification(paste("Save failed:", saved$message), type = "error", duration = 8)
+          showNotification(
+            paste(if (identical(act, "save")) "Save failed:" else "Submit failed:", saved$message),
+            type = "error", duration = 8
+          )
           pending_action(NULL); return()
         }
-        old_saved <- rv$saved_dfa_sf
-        rv$saved_dfa_sf <- saved
-        send_paint_message("paint_show_saved", list(geojson = as_geojson_text(saved)))
+        rv$pending_old_saved_dfa_sf <- rv$saved_dfa_sf
         recompute_population_table(ordered_assignments)
-        changed_areas_rv(.find_changed_areas(old_saved, saved))
-      }
-      
-      if (identical(act, "submit_areas")) {
-        saved <- tryCatch(
-          build_saved_dfa_sf(grid_sf = rv$grid_sf, assignments = ordered_assignments,
-                             district_sf = rv$district_sf),
-          error = function(e) e
-        )
-        if (inherits(saved, "error")) {
-          showNotification(paste("Submit failed:", saved$message), type = "error", duration = 8)
-          pending_action(NULL); return()
-        }
-        old_saved <- rv$saved_dfa_sf
-        rv$saved_dfa_sf <- saved
-        send_paint_message("paint_show_saved", list(geojson = as_geojson_text(saved)))
-        recompute_population_table(ordered_assignments)
-        changed_areas_rv(.find_changed_areas(old_saved, saved))
-        if (!is.null(submit_stage_fn)) {
-          submit_stage_fn('areas', list(
-            saved_dfa_sf        = saved,
-            dfa_names           = rv$dfa_names,
-            current_assignments = ordered_assignments
+
+        pending_action(if (identical(act, "save")) "finalize_save" else "finalize_submit")
+        if (!isTRUE(in_vertex_mode())) {
+          # Silent conversion -- deliberately does NOT flip in_vertex_mode()
+          # or update the Refine Boundaries button/sliders, so there's no
+          # UI flicker for a round-trip the user never asked to see.
+          rv$vertex_mode_silently_entered <- TRUE
+          send_paint_message("paint_enter_vertex_mode", list(
+            smoothness = isolate(controls$vertex_smoothness()) %||% 2,
+            stiffness  = isolate(controls$vertex_stiffness()) %||% 6
           ))
-          areas_submitted_to_db(TRUE)
         }
+        send_paint_message("paint_save_vertex_edits")
+        send_paint_message("paint_request_vertex_geojson")
+        return()
       }
       
       if (identical(act, "refresh"))
@@ -703,6 +833,8 @@ healthAreaTabServer <- function(
         # directly and must not have to wait for the health area grid to compute.
         if (!is.null(snap$saved_dfa_sf) && nrow(snap$saved_dfa_sf) > 0)
           rv$saved_dfa_sf <- snap$saved_dfa_sf
+        if (!is.null(snap$smoothed_dfa_sf) && nrow(snap$smoothed_dfa_sf) > 0)
+          rv$smoothed_dfa_sf <- snap$smoothed_dfa_sf
         
         if (!is.null(rv$grid_sf)) .apply_restore(snap)
         else pending_restore(snap)

@@ -1,15 +1,17 @@
 # =============================================================================
-# mod_auth.R  —  full-screen login overlay + user session
+# mod_auth.R  (v2)  —  full-screen login overlay + user session
 #
 # Returns a reactiveValues with:
 #   $logged_in         logical
 #   $username          character
 #   $display_name      character
 #   $role              'admin' | 'user'
-#   $allowed_districts character vector of district_name, OR 'ALL' for admin
 #
-# Phase 6 migration: replace validate_credentials() body with a DB query.
-#   The returned contract (list or NULL) must stay the same.
+# v2 change: $allowed_districts removed. Users are no longer district-
+# scoped — any authenticated user can work on any district. This matches
+# mod_intro_tab_v2.R (which no longer filters districts_shp by an
+# allowed-districts list) and mod_db_v2.R (which has no
+# db_get_allowed_districts / user_districts equivalent at all).
 # =============================================================================
 
 authUI <- function(id) {
@@ -89,13 +91,11 @@ authServer <- function(id) {
       logged_in         = FALSE,
       username          = NULL,
       display_name      = NULL,
-      role              = NULL,
-      allowed_districts = NULL
+      role              = NULL
     )
     
     output$error_msg <- renderUI(NULL)
     
-    # Phase 6: replace this function body with a DBI/pool query.
     validate_credentials <- function(uname, pword) {
       db_validate_credentials(pool, uname, pword)
     }
@@ -122,15 +122,10 @@ authServer <- function(id) {
       
       output$error_msg <- renderUI(NULL)
       
-      role <- match_row$role
-      
-      allowed <- db_get_allowed_districts(pool, uname, role)
-      
       user_session$logged_in         <- TRUE
       user_session$username          <- uname
       user_session$display_name      <- match_row$display_name
-      user_session$role              <- role
-      user_session$allowed_districts <- allowed
+      user_session$role              <- match_row$role
       
     }, ignoreInit = TRUE)
     

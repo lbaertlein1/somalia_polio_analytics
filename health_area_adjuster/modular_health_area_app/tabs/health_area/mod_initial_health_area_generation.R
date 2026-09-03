@@ -4,10 +4,27 @@
 #   Rcpp::sourceCpp("path/to/bfs_propagate.cpp")
 #
 # bfs_propagate_cpp() will then be available in the global environment.
+#
+# v2 changes:
+#   - compactness_penalty / max_cost removed throughout (dead parameters —
+#     always 0 / Inf at every call site in practice; matches the trimmed
+#     bfs_propagate_cpp signature).
+#   - Distance-based friction blending from non-SIA facilities removed
+#     (compute_distance_friction still defined below since it's harmless,
+#     but no longer called from scene() — it was confirmed to be an
+#     unintended exploration, not the intended design).
+#   - This module is deliberately generic about what "district_sf" and
+#     "facility_seed_sf" mean: for Health Areas, district_sf is the whole
+#     district/planning-area polygon and facility_seed_sf is SIA
+#     coordination sites; for Team Areas, district_sf is a single health
+#     area's polygon and facility_seed_sf is population-weighted cluster
+#     centers computed by compute_team_area_seeds() in
+#     team_area_helpers.R. Same module, same propagation logic, different
+#     inputs — instantiate a second copy of this module for Team Areas.
 
 initialHealthAreaGenerationServer <- function(
     id,
-    district_sf,           # planning area sf (urban/rural/full) — used for grid
+    district_sf,           # planning area sf (health area, for Team Areas) — used for grid
     friction_district_sf = NULL,  # full district sf for friction path lookup;
     # defaults to district_sf when NULL
     grid_n,
@@ -19,9 +36,7 @@ initialHealthAreaGenerationServer <- function(
     barrier_penalty = 1e6,
     subdivision_lines_sf = reactive(NULL),
     subdivision_boundary_penalty = 0.99,
-    compactness_penalty = 0,
     allow_diagonal = TRUE,
-    max_cost = Inf,
     friction_dir = file.path(getwd(), "data", "friction", "district_standardized"),
     friction_lookup_csv = file.path(
       getwd(), "data", "friction", "district_standardized", "district_friction_index.csv"
@@ -39,7 +54,19 @@ initialHealthAreaGenerationServer <- function(
     # e.g. 0.4 means at 2x target pop, raw friction increases by 0.4
     pop_saturation_weight = 0.4,
     # Hard cap on how much population saturation can add to raw friction (0-1)
-    pop_saturation_max = 0.4
+    pop_saturation_max = 0.4,
+    # Gate on the scene reactive itself, defaulting to always-on so every
+    # existing caller (Health Areas' own generation) is unaffected. Team
+    # Areas passes its own tab_active() here: without this, scene() runs
+    # its full expensive computation (grid build, friction extraction,
+    # BFS propagation, seed placement) the moment anything reads it --
+    # including just being listed as an observeEvent() trigger elsewhere,
+    # which forces evaluation to check for changes regardless of whether
+    # that tab is even visible. A crash inside scene() (e.g. team seed
+    # placement failing for a sparsely-populated health area) can then
+    # surface while the user is on a completely different tab, since the
+    # computation runs silently in the background either way.
+    active = reactive(TRUE)
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -84,7 +111,16 @@ initialHealthAreaGenerationServer <- function(
       
       grid_sf   <- grid_sf_full[inside, ]
       grid_sf$cell_id  <- seq_len(nrow(grid_sf))
-      
+
+      # row/col in the FULL (unfiltered) grid -- same arithmetic
+      # build_neighbors_list()/build_edge_list() already use internally, just
+      # exposed here as per-cell columns so the vertex-editing JS can identify
+      # each cell's corners without needing any new data pipeline: it derives
+      # vertex identity as "${row}_${col}" directly from these, matching how
+      # build_neighbors_list() itself locates a cell's neighbors.
+      grid_sf$row <- (grid_sf$full_idx - 1L) %/% ncols_full
+      grid_sf$col <- (grid_sf$full_idx - 1L) %% ncols_full
+
       cent_inside <- cent_3857[inside, ]
       coords      <- sf::st_coordinates(sf::st_transform(cent_inside, 4326))
       grid_sf     <- sf::st_transform(grid_sf, 4326)
@@ -279,6 +315,10 @@ initialHealthAreaGenerationServer <- function(
       as.numeric(vals)
     }
     
+    # Retained but no longer called from scene() below — distance-based
+    # friction blending from non-SIA facilities was confirmed to be an
+    # unintended exploration, not the intended design. Left here in case
+    # it's wanted again later, but it is dead code as of v2.
     compute_distance_friction <- function(grid_sf, facility_sf, flat_km = 5, inflect_km = 10, steepness = 2.5) {
       if (is.null(facility_sf) || nrow(facility_sf) == 0) return(rep(0, nrow(grid_sf)))
       grid_cent <- suppressWarnings(sf::st_centroid(sf::st_transform(grid_sf, 3857)))
@@ -453,8 +493,6 @@ initialHealthAreaGenerationServer <- function(
     barrier_penalty              = 0,
     subdivision_crossing_list    = NULL,
     subdivision_boundary_penalty = 0,
-    compactness_penalty          = 0,
-    max_cost                     = Inf,
     starter_rings                = 1,
     cell_pop                     = NULL,
     target_pop                   = NULL,
@@ -514,8 +552,6 @@ initialHealthAreaGenerationServer <- function(
         subdiv_mat        = subdiv_indexed,
         subdiv_penalty    = as.double(subdivision_boundary_penalty),
         base_step_fric    = as.double(base_step_friction),
-        compactness_pen   = as.double(compactness_penalty),
-        max_cost_val      = as.double(max_cost),
         use_pop           = isTRUE(use_pop),
         cell_pop          = if (use_pop) as.numeric(cell_pop) else numeric(n),
         target_pop        = as.double(if (use_pop) target_pop else 0),
@@ -567,7 +603,7 @@ initialHealthAreaGenerationServer <- function(
     grid_sf, district_sf, neighbors_list, cell_friction_raw,
     barrier_crossing_list = NULL, n_dfa = 5, seed = 1,
     subdivision_crossing_list = NULL, subdivision_boundary_penalty = 0,
-    barrier_penalty = 0, compactness_penalty = 0, max_cost = Inf, starter_rings = 1,
+    barrier_penalty = 0, starter_rings = 1,
     cell_pop = NULL, target_pop = NULL, base_step_friction = 0.05,
     pop_saturation_pct = 0.75, pop_saturation_weight = 0.4, pop_saturation_max = 0.4
     ) {
@@ -578,7 +614,7 @@ initialHealthAreaGenerationServer <- function(
         barrier_crossing_list = barrier_crossing_list, barrier_penalty = barrier_penalty,
         subdivision_crossing_list    = subdivision_crossing_list,
         subdivision_boundary_penalty = subdivision_boundary_penalty,
-        compactness_penalty = compactness_penalty, max_cost = max_cost, starter_rings = starter_rings,
+        starter_rings = starter_rings,
         cell_pop = cell_pop, target_pop = target_pop, base_step_friction = base_step_friction,
         pop_saturation_pct = pop_saturation_pct, pop_saturation_weight = pop_saturation_weight,
         pop_saturation_max = pop_saturation_max
@@ -589,7 +625,7 @@ initialHealthAreaGenerationServer <- function(
     grid_sf, district_sf, site_sf, neighbors_list, cell_friction_raw,
     barrier_crossing_list = NULL, name_col = NULL,
     subdivision_crossing_list = NULL, subdivision_boundary_penalty = 0,
-    barrier_penalty = 0, compactness_penalty = 0, max_cost = Inf, starter_rings = 1,
+    barrier_penalty = 0, starter_rings = 1,
     cell_pop = NULL, target_pop = NULL, base_step_friction = 0.05,
     pop_saturation_pct = 0.75, pop_saturation_weight = 0.4, pop_saturation_max = 0.4
     ) {
@@ -604,7 +640,7 @@ initialHealthAreaGenerationServer <- function(
         barrier_crossing_list = barrier_crossing_list, barrier_penalty = barrier_penalty,
         subdivision_crossing_list    = subdivision_crossing_list,
         subdivision_boundary_penalty = subdivision_boundary_penalty,
-        compactness_penalty = compactness_penalty, max_cost = max_cost, starter_rings = starter_rings,
+        starter_rings = starter_rings,
         cell_pop = cell_pop, target_pop = target_pop, base_step_friction = base_step_friction,
         pop_saturation_pct = pop_saturation_pct, pop_saturation_weight = pop_saturation_weight,
         pop_saturation_max = pop_saturation_max
@@ -612,6 +648,7 @@ initialHealthAreaGenerationServer <- function(
     }
     
     scene <- reactive({
+      req(active())
       req(district_sf()); req(nrow(district_sf()) > 0); req(grid_n())
       
       .t <- function(label, expr) {
@@ -665,17 +702,11 @@ initialHealthAreaGenerationServer <- function(
         )
       })
       
+      # Distance-based friction blending from non-SIA facilities has been
+      # removed here (v2) — it was confirmed to be an unintended
+      # exploration, not the intended design. cell_friction_raw_value is
+      # used as-is from the raster.
       facility_sf_value <- facility_seed_sf()
-      
-      if (!is.null(facility_sf_value) && nrow(facility_sf_value) > 0) {
-        cell_friction_raw_value <- .t("distance friction blend", {
-          dist_friction_value <- compute_distance_friction(
-            grid_sf = grid_sf_value, facility_sf = facility_sf_value,
-            flat_km = 5, inflect_km = 10, steepness = 2.5
-          )
-          pmin(1, 0.6 * cell_friction_raw_value + 0.4 * dist_friction_value)
-        })
-      }
       
       cell_pop_value <- .t("population extract", {
         extract_cell_population(grid_sf_value, u5_rast)
@@ -737,7 +768,6 @@ initialHealthAreaGenerationServer <- function(
             subdivision_crossing_list    = subdivision_crossing_list_value,
             subdivision_boundary_penalty = subdivision_boundary_penalty,
             name_col = facility_name_col, barrier_penalty = barrier_penalty,
-            compactness_penalty = compactness_penalty, max_cost = max_cost,
             starter_rings = 2
           ), shared_pop_args))
         })
@@ -751,7 +781,6 @@ initialHealthAreaGenerationServer <- function(
             subdivision_crossing_list    = subdivision_crossing_list_value,
             subdivision_boundary_penalty = subdivision_boundary_penalty,
             n_dfa = n_dfa, seed = seed_val, barrier_penalty = barrier_penalty,
-            compactness_penalty = compactness_penalty, max_cost = max_cost,
             starter_rings = 2
           ), shared_pop_args))
         })

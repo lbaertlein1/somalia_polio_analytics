@@ -1,6 +1,6 @@
-healthAreaMapUI <- function(id) {
+teamAreaMapUI <- function(id) {
   ns <- NS(id)
-  
+
   tagList(
     div(id = ns("paint_map")),
     div(
@@ -16,27 +16,24 @@ healthAreaMapUI <- function(id) {
           font-weight: 600;
           color: #333333;
         ',
-        'Loading district data...'
+        'Loading health area data...'
       )
     )
   )
 }
 
-healthAreaMapServer <- function(id) {
+teamAreaMapServer <- function(id) {
   moduleServer(id, function(input, output, session) {
     list(
       map_ready            = reactive(input$paint_map_ready),
       assignments          = reactive(input$paint_assignments),
-      # New: the vertex-edited boundary GeoJSON emitted by
-      # paint-app.js's emitVertexGeojson(). Input id is constructed on
-      # the JS side as `${assignmentsInputId}_vertex_geojson` -- since
-      # ns() is just string-prefixing, ns("paint_assignments_vertex_geojson")
-      # matches that construction exactly.
+      undo_count           = reactive(input$paint_undo_count),
       vertex_geojson       = reactive(input$paint_assignments_vertex_geojson),
       map_id               = session$ns("paint_map"),
       loading_overlay_id   = session$ns("loading_overlay"),
       ready_input_id       = session$ns("paint_map_ready"),
-      assignments_input_id = session$ns("paint_assignments")
+      assignments_input_id = session$ns("paint_assignments"),
+      undo_count_input_id  = session$ns("paint_undo_count")
     )
   })
 }

@@ -1,47 +1,40 @@
-healthAreaControlsUI <- function(id) {
+teamAreaControlsUI <- function(id) {
   ns <- NS(id)
-  
+
   tagList(
-    
+
     # ── Title row ─────────────────────────────────────────────────────────────
     div(
       style = 'display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;',
-      div(style = 'font-size:14px; font-weight:600; color:#0f172a;', 'Health Areas'),
+      div(style = 'font-size:14px; font-weight:600; color:#0f172a;', 'Team Areas'),
       actionButton(ns('help_btn'), '?', width = '28px',
                    style = 'font-size:11px;padding:0;height:24px;line-height:24px;')
     ),
-    
+
     # ── Instructions ──────────────────────────────────────────────────────────
     div(
       style = paste0('background:#f0fdf4;border-left:3px solid #0d9488;',
                      'border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:8px;'),
       tags$p(
         style = 'font-size: 11px; font-weight: 600; color: #0f172a; margin: 0 0 3px;',
-        'About health areas'
+        'About team areas'
       ),
       tags$p(
         style = 'font-size: 11px; color: #475569; line-height: 1.6; margin: 0;',
-        'Each health area is coordinated by one outreach coordination site, ideally covering ',
-        tags$strong('~2,000 children'), ' with ', tags$strong('~5 outreach teams. '),
-        'Boundaries are generated automatically, then adjusted by the group.'
+        'Each health area is divided into team areas, one per outreach team. ',
+        'Boundaries are generated automatically within the health area, then adjusted by the group.'
       )
     ),
-    
-    tags$p(
-      style = 'font-size: 11px; color: #475569; line-height: 1.7; margin-bottom: 8px;',
-      tags$strong('Suggested approach:'),
-      tags$br(),
-      '1. Click a row in the table on the right to select a health area.',
-      tags$br(),
-      '2. Click and drag on the map to paint that area\'s boundaries.',
-      tags$br(),
-      '3. Start with ', tags$strong('Inaccessible'), ' and ', tags$strong('Unpopulated'), ' areas, then adjust remaining boundaries.',
-      tags$br(),
-      '4. ', tags$strong('Save'), ' to confirm, then ', tags$strong('Submit'), ' when done.'
-    ),
-    
+
     tags$hr(style = 'margin: 6px 0;'),
-    
+
+    # ── Health area selector ─────────────────────────────────────────────────
+    div(class = 'mini-label', 'Health area'),
+    selectInput(ns('health_area'), NULL, choices = character(0), width = '100%'),
+    uiOutput(ns('health_area_status')),
+
+    tags$hr(style = 'margin: 6px 0;'),
+
     # ── Brush size ────────────────────────────────────────────────────────────
     div(
       style = paste0(
@@ -69,8 +62,8 @@ healthAreaControlsUI <- function(id) {
           style = 'flex:1;',
           sliderInput(
             ns('brush_m_ui'), NULL,
-            min = 100, max = 10000, value = 5000,
-            step = 100, width = '100%',
+            min = 50, max = 5000, value = 1000,
+            step = 50, width = '100%',
             ticks = FALSE
           )
         ),
@@ -84,7 +77,7 @@ healthAreaControlsUI <- function(id) {
         )
       )
     ),
-    
+
     # ── Overlay options ───────────────────────────────────────────────────────
     div(
       style = 'margin-bottom:8px;',
@@ -92,10 +85,12 @@ healthAreaControlsUI <- function(id) {
       checkboxInput(ns('show_friction_raster'), 'Show Friction Surface',       value = FALSE),
       checkboxInput(ns('boundary_only'),        'Boundaries only',             value = boundary_only_default)
     ),
-    
-    # ── Save / Reset ──────────────────────────────────────────────────────────
+
+    # ── Undo / Reset / Save ──────────────────────────────────────────────────
     div(
       style = 'display:flex;gap:6px;margin-bottom:8px;',
+      actionButton(ns('undo_btn'), 'Undo',
+                   class = 'btn btn-default btn-sm', style = 'flex:1;', icon = icon('rotate-left')),
       actionButton(ns('reset_btn'), 'Reset',
                    class = 'btn btn-default btn-sm', style = 'flex:1;'),
       actionButton(ns('save_btn'),  'Save',
@@ -103,11 +98,6 @@ healthAreaControlsUI <- function(id) {
     ),
 
     # ── Boundary refinement (vertex editing) ─────────────────────────────
-    # Second step after painting: refine the traced boundary at the vertex
-    # level. refine_boundaries_btn toggles between paint mode and vertex
-    # mode (label/icon updated from the server via set_vertex_mode_ui());
-    # the sliders and save_refinements_btn are only meaningful while in
-    # vertex mode, hidden otherwise.
     div(
       id = ns('refine_controls'),
       actionButton(
@@ -126,61 +116,49 @@ healthAreaControlsUI <- function(id) {
     ),
 
     tags$hr(style = 'margin: 6px 0;'),
-    
+
     actionButton(
-      ns('submit_btn'), 'Submit Health Areas',
+      ns('submit_btn'), 'Submit Team Areas',
       class = 'btn btn-primary btn-sm',
       width = '100%',
       icon  = icon('check-circle')
     ),
     div(
       style = 'font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4;',
-      'Saves boundaries to the database.'
-    ),
-    
-    tags$hr(style = 'margin: 8px 0;'),
-    
-    actionButton(
-      ns('continue_btn'), 'Continue \u2192',
-      class = 'btn btn-default btn-sm',
-      width = '100%',
-      style = 'font-weight: 600;'
+      'Saves team area boundaries for all health areas worked on so far to the database.'
     )
   )
 }
 
 
-healthAreaControlsServer <- function(id) {
+teamAreaControlsServer <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns  # needed for renderUI blocks below, which construct namespaced input ids server-side
-    
-    # Fixed step for +/- buttons (diameter units)
-    BRUSH_STEP <- 100L
-    BRUSH_MIN  <- 100L
-    BRUSH_MAX  <- 10000L
-    
+
+    BRUSH_STEP <- 50L
+    BRUSH_MIN  <- 50L
+    BRUSH_MAX  <- 5000L
+
     observeEvent(input$brush_minus, {
-      val <- input$brush_m_ui %||% 5000L
-      updateSliderInput(session, 'brush_m_ui',
-                        value = max(BRUSH_MIN, val - BRUSH_STEP))
+      val <- input$brush_m_ui %||% 1000L
+      updateSliderInput(session, 'brush_m_ui', value = max(BRUSH_MIN, val - BRUSH_STEP))
     }, ignoreInit = TRUE)
-    
+
     observeEvent(input$brush_plus, {
-      val <- input$brush_m_ui %||% 5000L
-      updateSliderInput(session, 'brush_m_ui',
-                        value = min(BRUSH_MAX, val + BRUSH_STEP))
+      val <- input$brush_m_ui %||% 1000L
+      updateSliderInput(session, 'brush_m_ui', value = min(BRUSH_MAX, val + BRUSH_STEP))
     }, ignoreInit = TRUE)
-    
-    # set_brush_limits kept for API compatibility but is now a no-op —
-    # the slider has a fixed range independent of district size.
-    set_brush_limits <- function(brush_limits) invisible(NULL)
+
+    set_health_area_choices <- function(choices, selected = NULL) {
+      updateSelectInput(session, 'health_area', choices = choices,
+                        selected = selected %||% (if (length(choices) > 0) choices[[1]] else NULL))
+    }
 
     # Drives output$refine_sliders_ui/output$save_refinements_ui below via
     # a plain reactiveVal, rather than toggling visibility with
-    # shinyjs::show/hide -- that depends on shinyjs::useShinyjs() having
-    # been called in the app's UI, which is easy to miss and fails
-    # completely silently (the elements just never appear, with nothing
-    # in the logs). renderUI/uiOutput need no such setup.
+    # shinyjs::show/hide -- same fix as mod_health_area_controls.R's
+    # identical wiring (shinyjs::show/hide silently does nothing without
+    # shinyjs::useShinyjs() set up in the app's UI).
     vertex_mode_active <- reactiveVal(FALSE)
 
     set_vertex_mode_ui <- function(in_vertex_mode) {
@@ -194,10 +172,6 @@ healthAreaControlsServer <- function(id) {
       }
     }
 
-    # isolate()d default preserves whatever the user last had the sliders
-    # set to -- renderUI recreates these sliderInputs fresh every time
-    # vertex_mode_active() flips to TRUE, so without this they'd silently
-    # reset to 2/6 on every re-entry into vertex mode.
     output$refine_sliders_ui <- renderUI({
       req(vertex_mode_active())
       tagList(
@@ -222,18 +196,18 @@ healthAreaControlsServer <- function(id) {
     })
 
     list(
-      brush_m              = reactive(input$brush_m_ui),
-      show_pop_raster      = reactive(isTRUE(input$show_pop_raster)),
-      show_friction_raster = reactive(input$show_friction_raster),
-      boundary_only        = reactive(isTRUE(input$boundary_only)),
-      help_click           = reactive(input$help_btn),
-      save_click           = reactive(input$save_btn),
-      submit_click         = reactive(input$submit_btn),
-      reset_click          = reactive(input$reset_btn),
-      continue_click       = reactive(input$continue_btn),
-      brush_minus_click    = reactive(input$brush_minus),
-      brush_plus_click     = reactive(input$brush_plus),
-      set_brush_limits     = set_brush_limits,
+      health_area           = reactive(input$health_area),
+      set_health_area_choices = set_health_area_choices,
+      brush_m                = reactive(input$brush_m_ui),
+      show_pop_raster        = reactive(isTRUE(input$show_pop_raster)),
+      show_friction_raster   = reactive(input$show_friction_raster),
+      boundary_only          = reactive(isTRUE(input$boundary_only)),
+      help_click              = reactive(input$help_btn),
+      undo_click               = reactive(input$undo_btn),
+      save_click                = reactive(input$save_btn),
+      submit_click               = reactive(input$submit_btn),
+      reset_click                 = reactive(input$reset_btn),
+      set_status_ui                = function(ui) { output$health_area_status <- renderUI(ui) },
       refine_boundaries_click = reactive(input$refine_boundaries_btn),
       save_refinements_click  = reactive(input$save_refinements_btn),
       set_vertex_mode_ui      = set_vertex_mode_ui,

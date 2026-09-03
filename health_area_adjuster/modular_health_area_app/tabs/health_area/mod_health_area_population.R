@@ -15,7 +15,8 @@ healthAreaPopulationServer <- function(
     active_dfa_rv,
     show_pop_raster,
     show_friction_raster,
-    pop_table
+    pop_table,
+    in_vertex_mode = reactive(FALSE)
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -24,7 +25,10 @@ healthAreaPopulationServer <- function(
       if (is.null(df) || nrow(df) == 0) return(NULL)
       
       is_total   <- df$area_name == "District Total"
-      active     <- active_dfa_rv() %||% ""
+      # No row highlighted while refining -- all boundaries are shown
+      # together for editing, with no notion of a single "active" area,
+      # so nothing in the table should read as selected either.
+      active     <- if (isTRUE(in_vertex_mode())) "" else (active_dfa_rv() %||% "")
       sel_row_js <- (which(df$area_name == active) - 1L)
       sel_row_js <- if (length(sel_row_js) == 1) sel_row_js[1] else -1L
       total_row_js <- sum(!is_total)  # last row, 0-indexed
@@ -88,8 +92,12 @@ healthAreaPopulationServer <- function(
         rhandsontable::hot_cols(manualColumnResize = TRUE)
     })
     
-    # Row click -> update active_dfa_rv (skip District Total row)
+    # Row click -> update active_dfa_rv (skip District Total row). Inert
+    # entirely while refining -- clicking the table should do nothing
+    # during vertex editing, since there's no single "active" area concept
+    # there (every area's boundary is shown and editable at once).
     observeEvent(input$selected_row, ignoreInit = TRUE, {
+      req(!isTRUE(in_vertex_mode()))
       df <- pop_table()
       req(!is.null(df))
       row_index <- as.integer(input$selected_row)
@@ -101,7 +109,12 @@ healthAreaPopulationServer <- function(
     # Legend
     output$legend_ui <- renderUI({
       selected_name <- active_dfa_rv() %||% starter_dfa_names[1]
-      show_selected <- !(selected_name %in% c("Inaccessible", "Unpopulated"))
+      # Same rule as the table above: no area reads as "selected" while
+      # refining, so the legend's highlighted-area row is hidden entirely
+      # rather than frozen at whatever was active before Refine Boundaries
+      # was clicked.
+      show_selected <- !isTRUE(in_vertex_mode()) &&
+        !(selected_name %in% c("Inaccessible", "Unpopulated"))
       
       raster_cols     <- pop_palette(5)
       raster_labels   <- c("Low", "", "", "", "High")

@@ -11,8 +11,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // bfs_propagate_cpp
-List bfs_propagate_cpp(int n_cells, List neighbors, NumericVector cell_friction_raw, IntegerVector seed_cells, List starter_cells_list, List barrier_mat, List subdiv_mat, double subdiv_penalty, double base_step_fric, double compactness_pen, double max_cost_val, bool use_pop, NumericVector cell_pop, double target_pop, double pop_sat_pct, double pop_sat_weight, double pop_sat_max, int n_areas);
-RcppExport SEXP _bfsprop_bfs_propagate_cpp(SEXP n_cellsSEXP, SEXP neighborsSEXP, SEXP cell_friction_rawSEXP, SEXP seed_cellsSEXP, SEXP starter_cells_listSEXP, SEXP barrier_matSEXP, SEXP subdiv_matSEXP, SEXP subdiv_penaltySEXP, SEXP base_step_fricSEXP, SEXP compactness_penSEXP, SEXP max_cost_valSEXP, SEXP use_popSEXP, SEXP cell_popSEXP, SEXP target_popSEXP, SEXP pop_sat_pctSEXP, SEXP pop_sat_weightSEXP, SEXP pop_sat_maxSEXP, SEXP n_areasSEXP) {
+List bfs_propagate_cpp(int n_cells, List neighbors, NumericVector cell_friction_raw, IntegerVector seed_cells, List starter_cells_list, List barrier_mat, List subdiv_mat, double subdiv_penalty, double base_step_fric, bool use_pop, NumericVector cell_pop, double target_pop, double pop_sat_pct, double pop_sat_weight, double pop_sat_max, int n_areas);
+RcppExport SEXP _bfsprop_bfs_propagate_cpp(SEXP n_cellsSEXP, SEXP neighborsSEXP, SEXP cell_friction_rawSEXP, SEXP seed_cellsSEXP, SEXP starter_cells_listSEXP, SEXP barrier_matSEXP, SEXP subdiv_matSEXP, SEXP subdiv_penaltySEXP, SEXP base_step_fricSEXP, SEXP use_popSEXP, SEXP cell_popSEXP, SEXP target_popSEXP, SEXP pop_sat_pctSEXP, SEXP pop_sat_weightSEXP, SEXP pop_sat_maxSEXP, SEXP n_areasSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -25,8 +25,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< List >::type subdiv_mat(subdiv_matSEXP);
     Rcpp::traits::input_parameter< double >::type subdiv_penalty(subdiv_penaltySEXP);
     Rcpp::traits::input_parameter< double >::type base_step_fric(base_step_fricSEXP);
-    Rcpp::traits::input_parameter< double >::type compactness_pen(compactness_penSEXP);
-    Rcpp::traits::input_parameter< double >::type max_cost_val(max_cost_valSEXP);
     Rcpp::traits::input_parameter< bool >::type use_pop(use_popSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type cell_pop(cell_popSEXP);
     Rcpp::traits::input_parameter< double >::type target_pop(target_popSEXP);
@@ -34,13 +32,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type pop_sat_weight(pop_sat_weightSEXP);
     Rcpp::traits::input_parameter< double >::type pop_sat_max(pop_sat_maxSEXP);
     Rcpp::traits::input_parameter< int >::type n_areas(n_areasSEXP);
-    rcpp_result_gen = Rcpp::wrap(bfs_propagate_cpp(n_cells, neighbors, cell_friction_raw, seed_cells, starter_cells_list, barrier_mat, subdiv_mat, subdiv_penalty, base_step_fric, compactness_pen, max_cost_val, use_pop, cell_pop, target_pop, pop_sat_pct, pop_sat_weight, pop_sat_max, n_areas));
+    rcpp_result_gen = Rcpp::wrap(bfs_propagate_cpp(n_cells, neighbors, cell_friction_raw, seed_cells, starter_cells_list, barrier_mat, subdiv_mat, subdiv_penalty, base_step_fric, use_pop, cell_pop, target_pop, pop_sat_pct, pop_sat_weight, pop_sat_max, n_areas));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_bfsprop_bfs_propagate_cpp", (DL_FUNC) &_bfsprop_bfs_propagate_cpp, 18},
+    {"_bfsprop_bfs_propagate_cpp", (DL_FUNC) &_bfsprop_bfs_propagate_cpp, 16},
     {NULL, NULL, 0}
 };
 

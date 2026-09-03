@@ -188,7 +188,9 @@ make_fill_colors <- function(active_dfa, dfa_names = all_dfa_names) {
   out
 }
 
-make_paint_grid <- function(district_sf, grid_n = 150) {
+make_paint_grid <- function(district_sf, grid_n = NULL,
+                            target_cell_m = 75,
+                            max_cells = 40000) {
   district_sf <- safe_make_valid(district_sf)
   district_3857 <- st_transform(district_sf, 3857)
   
@@ -197,7 +199,20 @@ make_paint_grid <- function(district_sf, grid_n = 150) {
   height_m <- bbox$ymax - bbox$ymin
   max_dim <- max(width_m, height_m)
   
-  cellsize <- max_dim / grid_n
+  # Target cell size, scaled up if district is too large
+  area_m2     <- as.numeric(sf::st_area(sf::st_union(district_3857)))
+  n_at_target <- area_m2 / (target_cell_m^2)
+  
+  if (!is.null(grid_n)) {
+    cellsize <- max_dim / grid_n  # legacy override
+  } else if (n_at_target > max_cells) {
+    cellsize <- sqrt(area_m2 / max_cells)
+    message('[make_paint_grid] district too large for ', target_cell_m,
+            'm grid (', round(n_at_target), ' cells) — using ',
+            round(cellsize), 'm cells (', max_cells, ' cell cap)')
+  } else {
+    cellsize <- target_cell_m
+  }
   
   raw_grid <- st_make_grid(
     district_3857,
@@ -218,6 +233,9 @@ make_paint_grid <- function(district_sf, grid_n = 150) {
   grid_sf <- grid_sf |>
     filter(inside) |>
     mutate(cell_id = seq_len(n()))
+  
+  message('[make_paint_grid] cells inside district: ', nrow(grid_sf),
+          ' (', round(cellsize), 'm)')
   
   cent_wgs84 <- st_transform(cent_3857[inside, ], 4326)
   coords <- st_coordinates(cent_wgs84)
@@ -613,6 +631,21 @@ build_saved_dfa_sf <- function(
     district_sf,
     outer_buffer_m = 500
 ) {
+  # Strip district_sf down to geometry only. Health Areas passes the raw
+  # district polygon here (no attribute columns to worry about), but Team
+  # Areas passes selected_health_area_sf() -- a row filtered from
+  # saved_dfa_sf_r() that still carries its OWN dfa_name column (the
+  # health area's name). Every st_intersection() below joins this against
+  # an object that ALSO has a dfa_name column (the one this function is
+  # building), and sf/dplyr silently rename colliding columns to
+  # dfa_name.x/dfa_name.y rather than erroring -- so every later
+  # dplyr::select(dfa_name) call fails with "Column `dfa_name` doesn't
+  # exist", but only when called from Team Areas, since Health Areas'
+  # district_sf never had a colliding column to trigger it. Only
+  # district_sf's geometry is ever used here, so dropping every attribute
+  # column up front is safe regardless of which caller's data it came from.
+  district_sf <- sf::st_geometry(district_sf) |> sf::st_sf()
+
   # Original exact partition
   raw <- build_dfa_polygons_from_assignments(
     grid_sf = grid_sf,

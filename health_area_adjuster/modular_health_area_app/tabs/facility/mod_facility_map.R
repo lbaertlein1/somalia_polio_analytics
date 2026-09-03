@@ -444,8 +444,9 @@ facilityMapServer <- function(
           group       = 'pop_raster',
           fillColor   = ~fill_color,
           fillOpacity = 0.6,
-          stroke      = FALSE,
-          options     = leaflet::pathOptions(interactive = FALSE)
+          stroke      = FALSE
+          # ,
+          # options     = leaflet::pathOptions(interactive = FALSE)
         )
       
       cat('[facilityMap] population overlay drawn, n =', nrow(pop_sf), '\n')
@@ -641,7 +642,7 @@ facilityMapServer <- function(
             fillColor   = '#7c3aed',
             fillOpacity = 1,
             weight      = 0,
-            options     = leaflet::pathOptions(interactive = FALSE),
+            # options     = leaflet::pathOptions(interactive = FALSE),
             label       = lm$landmark_name[i],
             labelOptions = leaflet::labelOptions(
               noHide    = TRUE,
