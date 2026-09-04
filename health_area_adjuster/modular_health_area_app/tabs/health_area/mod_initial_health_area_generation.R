@@ -22,6 +22,391 @@
 #     team_area_helpers.R. Same module, same propagation logic, different
 #     inputs — instantiate a second copy of this module for Team Areas.
 
+# ── Extracted to top level (was nested inside this module's moduleServer) ──
+# get_unique_seed_cells / expand_seed_starter_cells / propagate_assignments
+# used to be private to this module. Moved here, unchanged apart from
+# propagate_assignments' starter_cells_list_override parameter -- an
+# optional way to seed BFS growth from an existing set of cells per area
+# rather than a single point. Currently unused (no caller passes a
+# non-NULL value; it was added for team-area reconciliation, since
+# removed in favor of a simpler model), but left in place since it's
+# fully inert at its NULL default and removing it isn't worth the risk
+# to this core, actively-used seeding path for every health-area and
+# team-area generation. Neither function references anything from the
+# module's closure -- both were already "pure" with respect to their own
+# explicit parameters, so this move changes nothing about their behavior
+# for existing callers.
+
+get_unique_seed_cells <- function(grid_sf, site_sf) {
+  # Ensure both are in the same CRS before computing distances
+  grid_cents <- suppressWarnings(sf::st_centroid(grid_sf))
+  if (!identical(sf::st_crs(site_sf), sf::st_crs(grid_cents)))
+    site_sf <- sf::st_transform(site_sf, sf::st_crs(grid_cents))
+  dist_mat <- as.matrix(sf::st_distance(site_sf, grid_cents))
+  chosen <- integer(nrow(site_sf)); used <- integer(0)
+  for (i in seq_len(nrow(site_sf))) {
+    ord  <- order(dist_mat[i, ])
+    pick <- ord[which(!(ord %in% used))[1]]
+    if (length(pick) == 0 || is.na(pick)) pick <- ord[1]
+    chosen[i] <- pick; used <- c(used, pick)
+  }
+  chosen
+}
+
+make_random_sites <- function(district_sf, n_dfa = 5, seed = 1) {
+  set.seed(seed)
+  pts <- sf::st_sample(district_sf, size = n_dfa, exact = TRUE)
+  sf::st_sf(dfa_name = paste("Health Area", seq_len(n_dfa)), geometry = pts, crs = sf::st_crs(district_sf))
+}
+
+normalize_sites <- function(site_sf, grid_sf, name_col = NULL) {
+  stopifnot(!is.null(site_sf), nrow(site_sf) > 0)
+  site_sf <- sf::st_as_sf(site_sf) |> safe_make_valid() |> sf::st_transform(sf::st_crs(grid_sf))
+  if (is.null(name_col)) {
+    if ("dfa_name" %in% names(site_sf))           name_col <- "dfa_name"
+    else if ("facility_name" %in% names(site_sf)) name_col <- "facility_name"
+  }
+  site_sf$dfa_name <- if (is.null(name_col)) paste("Health Area", seq_len(nrow(site_sf))) else as.character(site_sf[[name_col]])
+  site_sf
+}
+
+snap_seeds_into_district <- function(site_sf, district_sf, grid_sf, cell_friction_raw = NULL,
+                                     inward_buffer_m = 500, max_snap_friction = 0.98) {
+  stopifnot(nrow(grid_sf) > 0)
+  # Dissolve to single row — planning area sf (rural remainder) may have
+  # multiple rows if st_difference produced a multipart result
+  if (nrow(district_sf) > 1)
+    district_sf <- district_sf |>
+      dplyr::summarise(geometry = sf::st_union(geometry), .groups = "drop") |>
+      sf::st_as_sf()
+  site_3857     <- sf::st_transform(site_sf, 3857)
+  district_3857 <- sf::st_transform(safe_make_valid(district_sf), 3857)
+  grid_cent     <- suppressWarnings(sf::st_centroid(sf::st_transform(grid_sf, 3857)))
+  district_inner <- suppressWarnings(sf::st_buffer(district_3857, -inward_buffer_m))
+  if (nrow(district_inner) == 0 || any(sf::st_is_empty(district_inner)))
+    district_inner <- suppressWarnings(sf::st_buffer(district_3857, -250))
+  if (nrow(district_inner) == 0 || any(sf::st_is_empty(district_inner)))
+    district_inner <- district_3857
+  seed_inside   <- lengths(sf::st_within(site_3857, district_3857)) > 0
+  candidate_idx <- which(lengths(sf::st_within(grid_cent, district_inner)) > 0)
+  if (length(candidate_idx) == 0)
+    candidate_idx <- which(lengths(sf::st_within(grid_cent, district_3857)) > 0)
+  if (length(candidate_idx) == 0) stop("No candidate grid centroids for seed snapping.")
+  if (!is.null(cell_friction_raw) && length(cell_friction_raw) == nrow(grid_sf)) {
+    keep <- cell_friction_raw[candidate_idx] <= max_snap_friction
+    if (any(keep)) candidate_idx <- candidate_idx[keep]
+  }
+  candidate_cent <- grid_cent[candidate_idx, ]
+  for (i in which(!seed_inside)) {
+    d <- as.numeric(sf::st_distance(site_3857[i, ], candidate_cent))
+    sf::st_geometry(site_3857)[[i]] <- sf::st_geometry(grid_cent)[[candidate_idx[which.min(d)]]]
+  }
+  sf::st_transform(site_3857, sf::st_crs(district_sf))
+}
+
+expand_seed_starter_cells <- function(seed_cells, neighbors_list, starter_rings = 1) {
+  out <- vector("list", length(seed_cells))
+  for (i in seq_along(seed_cells)) {
+    visited <- frontier <- unique(seed_cells[i])
+    for (r in seq_len(max(1L, starter_rings))) {
+      nxt <- setdiff(unique(unlist(neighbors_list[as.character(frontier)], use.names = FALSE)), visited)
+      if (length(nxt) == 0) break
+      visited <- unique(c(visited, nxt)); frontier <- nxt
+    }
+    out[[i]] <- sort(unique(visited))
+  }
+  out
+}
+
+# =========================================================================
+# propagate_assignments
+#
+# Wrapper around the compiled C++ Dijkstra implementation (bfs_propagate_cpp).
+# The C++ function handles the hot loop; this R wrapper handles:
+#   - seed cell expansion (expand_seed_starter_cells)
+#   - converting list-of-names neighbors to indexed form
+#   - mapping integer area indices back to area name strings
+#   - post-BFS flood fill for any unassigned cells
+#
+# All penalties operate in raw friction (0-1) space BEFORE friction_to_cost.
+# =========================================================================
+propagate_assignments <- function(
+grid_sf,
+site_sf,
+neighbors_list,
+cell_friction_raw,
+barrier_crossing_list        = NULL,
+barrier_penalty              = 0,
+subdivision_crossing_list    = NULL,
+subdivision_boundary_penalty = 0,
+starter_rings                = 1,
+cell_pop                     = NULL,
+target_pop                   = NULL,
+base_step_friction           = 0.05,
+pop_saturation_pct           = 0.75,
+pop_saturation_weight        = 0.4,
+pop_saturation_max           = 0.4,
+# Optional starter-region override: when supplied, this REPLACES the
+# normal single-seed-plus-ring-expansion starter computation entirely --
+# each element is the FULL set of already-assigned cell indices for that
+# area, not just a ring around one point. Growth still happens via the
+# same weighted BFS from there outward. Must be a list of length
+# nrow(site_sf), same area order as site_sf. Barrier-crossing filtering
+# (which assumes a single seed cell) is skipped entirely when this is
+# supplied. Currently unused by any caller (see the header comment
+# above) -- kept as general-purpose infrastructure, inert at its NULL
+# default.
+starter_cells_list_override  = NULL
+) {
+  stopifnot(nrow(grid_sf) > 0, nrow(site_sf) > 0)
+  stopifnot(length(cell_friction_raw) == nrow(grid_sf))
+  if (!is.null(starter_cells_list_override))
+    stopifnot(length(starter_cells_list_override) == nrow(site_sf))
+  
+  n          <- nrow(grid_sf)
+  area_names <- as.character(site_sf$dfa_name)
+  n_areas    <- length(area_names)
+  # A representative cell per area is still needed even with an override --
+  # only used below for barrier-crossing filtering (inactive whenever an
+  # override is supplied) and as a fallback identity, never for BFS growth
+  # itself when starter_cells_list_override is set.
+  seed_cells <- if (!is.null(starter_cells_list_override))
+    vapply(starter_cells_list_override, function(x) as.integer(x[1]), integer(1))
+  else get_unique_seed_cells(grid_sf, site_sf)
+  
+  use_pop <- !is.null(cell_pop) && !is.null(target_pop) &&
+    pop_saturation_weight > 0 && target_pop > 0 &&
+    length(cell_pop) == n
+  
+  # neighbors_list and crossing lists are already positional integer lists
+  # keyed by cell_id string — unname them for C++ (which needs plain lists)
+  nbrs_indexed    <- unname(neighbors_list)
+  barrier_indexed <- if (!is.null(barrier_crossing_list))
+    unname(barrier_crossing_list) else vector("list", 0)
+  subdiv_indexed  <- if (!is.null(subdivision_crossing_list))
+    unname(subdivision_crossing_list) else vector("list", 0)
+  
+  # ── Expand seed starter cells, UNLESS an override region was supplied ──
+  if (!is.null(starter_cells_list_override)) {
+    starter_cells_indexed <- lapply(starter_cells_list_override, as.integer)
+  } else {
+    starter_cells_list <- expand_seed_starter_cells(seed_cells, neighbors_list, starter_rings)
+    
+    # Filter starters that cross hard barriers away from their seed
+    starter_cells_indexed <- lapply(seq_len(n_areas), function(i) {
+      starters <- starter_cells_list[[i]]
+      if (!is.null(barrier_crossing_list) && length(starters) > 1) {
+        keep <- starters[1]
+        seed_nbrs <- neighbors_list[[as.character(grid_sf$cell_id[seed_cells[i]])]]
+        for (cand in starters[-1]) {
+          if (!(cand %in% seed_nbrs &&
+                cand %in% barrier_crossing_list[[seed_cells[i]]])) {
+            keep <- c(keep, cand)
+          }
+        }
+        starters <- unique(keep)
+      }
+      as.integer(starters)
+    })
+  }
+  
+  # ── Call C++ BFS ───────────────────────────────────────────────────────
+  cpp_result <- bfs_propagate_cpp(
+    n_cells           = n,
+    neighbors         = nbrs_indexed,
+    cell_friction_raw = as.numeric(cell_friction_raw),
+    seed_cells        = as.integer(seed_cells),
+    starter_cells_list = starter_cells_indexed,
+    barrier_mat       = barrier_indexed,
+    subdiv_mat        = subdiv_indexed,
+    subdiv_penalty    = as.double(subdivision_boundary_penalty),
+    base_step_fric    = as.double(base_step_friction),
+    use_pop           = isTRUE(use_pop),
+    cell_pop          = if (use_pop) as.numeric(cell_pop) else numeric(n),
+    target_pop        = as.double(if (use_pop) target_pop else 0),
+    pop_sat_pct       = as.double(pop_saturation_pct),
+    pop_sat_weight    = as.double(pop_saturation_weight),
+    pop_sat_max       = as.double(pop_saturation_max),
+    n_areas           = as.integer(n_areas)
+  )
+  
+  # Map 0-based area indices back to area name strings
+  owner_idx  <- cpp_result$owner      # 0-based, -1 = unassigned
+  best_cost  <- cpp_result$best_cost
+  
+  owner <- ifelse(owner_idx >= 0L, area_names[owner_idx + 1L], NA_character_)
+  
+  # ── Post-BFS: flood fill any unassigned cells ──────────────────────────
+  unassigned <- which(is.na(owner))
+  if (length(unassigned) > 0) {
+    max_passes <- n
+    pass       <- 0L
+    while (length(unassigned) > 0 && pass < max_passes) {
+      pass     <- pass + 1L
+      progress <- FALSE
+      for (cell_i in unassigned) {
+        nbrs          <- nbrs_indexed[[cell_i]]
+        assigned_nbrs <- nbrs[!is.na(owner[nbrs])]
+        if (length(assigned_nbrs) > 0) {
+          best_nbr      <- assigned_nbrs[which.min(best_cost[assigned_nbrs])]
+          owner[cell_i] <- owner[best_nbr]
+          progress      <- TRUE
+        }
+      }
+      unassigned <- which(is.na(owner))
+      if (!progress) break
+    }
+    if (length(unassigned) > 0) {
+      fallback          <- names(which.max(table(owner[!is.na(owner)])))
+      owner[unassigned] <- fallback
+      cat("[propagate_assignments] fallback assigned", length(unassigned),
+          "disconnected cell(s) to:", fallback, "\n")
+    }
+  }
+  
+  list(assignments = owner, cumulative_cost = best_cost,
+       seeds_sf = site_sf, seed_cell_id = seed_cells)
+}
+
+# ── Also extracted to top level, same reasoning as above ──────────────────
+# make_paint_grid / build_neighbors_list / extract_cell_friction_from_raster /
+# extract_cell_population -- pulled out so team-area reconciliation could
+# reuse them from team_area_helpers.R (since removed in favor of a
+# simpler model with no reconciliation at all). Left at top level rather
+# than reverted back into the module's closure -- no caller outside this
+# module uses them anymore, but they're still exactly what scene() itself
+# calls below, so there's nothing to gain from moving them back and real
+# risk in doing so. All four are pure w.r.t. their own explicit
+# parameters (no closure captures) -- this scope changes nothing about
+# their behavior. safe_make_valid used by make_paint_grid is already
+# global (app_helpers.R), not duplicated here.
+
+make_paint_grid <- function(district_sf, grid_n = 150) {
+  district_sf   <- safe_make_valid(district_sf)
+  district_3857 <- sf::st_transform(district_sf, 3857)
+  bbox     <- sf::st_bbox(district_3857)
+  max_dim  <- max(bbox$xmax - bbox$xmin, bbox$ymax - bbox$ymin)
+  cellsize <- max_dim / grid_n
+  
+  raw_grid <- sf::st_make_grid(district_3857, cellsize = cellsize,
+                               what = "polygons", square = TRUE)
+  
+  # Record full grid dimensions BEFORE filtering — needed for arithmetic
+  # neighbour lookup. st_make_grid fills bbox row-by-row (bottom to top),
+  # ncols = ceil((xmax-xmin)/cellsize), nrows = ceil((ymax-ymin)/cellsize).
+  ncols_full <- ceiling((bbox$xmax - bbox$xmin) / cellsize)
+  nrows_full <- ceiling((bbox$ymax - bbox$ymin) / cellsize)
+  n_full     <- ncols_full * nrows_full
+  
+  full_idx <- seq_along(raw_grid)   # 1-based index in full grid
+  
+  grid_sf_full <- sf::st_sf(
+    full_idx = full_idx,
+    geometry = raw_grid,
+    crs      = sf::st_crs(district_3857)
+  )
+  
+  cent_3857 <- suppressWarnings(sf::st_centroid(grid_sf_full))
+  inside    <- lengths(sf::st_within(cent_3857, district_3857)) > 0
+  
+  grid_sf   <- grid_sf_full[inside, ]
+  grid_sf$cell_id  <- seq_len(nrow(grid_sf))
+
+  # row/col in the FULL (unfiltered) grid -- same arithmetic
+  # build_neighbors_list()/build_edge_list() already use internally, just
+  # exposed here as per-cell columns so the vertex-editing JS can identify
+  # each cell's corners without needing any new data pipeline: it derives
+  # vertex identity as "${row}_${col}" directly from these, matching how
+  # build_neighbors_list() itself locates a cell's neighbors.
+  grid_sf$row <- (grid_sf$full_idx - 1L) %/% ncols_full
+  grid_sf$col <- (grid_sf$full_idx - 1L) %% ncols_full
+
+  cent_inside <- cent_3857[inside, ]
+  coords      <- sf::st_coordinates(sf::st_transform(cent_inside, 4326))
+  grid_sf     <- sf::st_transform(grid_sf, 4326)
+  grid_sf$centroid_lon <- coords[, 1]
+  grid_sf$centroid_lat <- coords[, 2]
+  
+  list(
+    grid_sf     = grid_sf,
+    max_dim_m   = as.numeric(max_dim),
+    ncols_full  = as.integer(ncols_full),
+    nrows_full  = as.integer(nrows_full),
+    inside_mask = inside   # logical length n_full; TRUE = cell kept
+  )
+}
+
+build_neighbors_list <- function(grid_sf, allow_diagonal = TRUE,
+                                 ncols_full = NULL, inside_mask = NULL) {
+  # Fast arithmetic path: for a regular square grid, neighbours are at
+  # known index offsets in the full (unfiltered) grid. No spatial ops needed.
+  # Falls back to st_touches if grid metadata is unavailable.
+  if (!is.null(ncols_full) && !is.null(inside_mask)) {
+    n        <- nrow(grid_sf)
+    # Map from filtered position (1-based) to full-grid index (1-based)
+    full_ids <- grid_sf$full_idx   # stored by make_paint_grid
+    # Reverse map: full_idx -> filtered position (0 = not in district)
+    max_full <- max(full_ids)
+    full_to_pos <- integer(max_full)
+    full_to_pos[full_ids] <- seq_len(n)
+    
+    offsets <- if (isTRUE(allow_diagonal))
+      c(-ncols_full - 1L, -ncols_full, -ncols_full + 1L,
+        -1L,                             1L,
+        ncols_full - 1L,  ncols_full,  ncols_full + 1L)
+    else
+      c(-ncols_full, -1L, 1L, ncols_full)
+    
+    neighbors_list <- vector("list", n)
+    for (i in seq_len(n)) {
+      fi      <- full_ids[i]
+      fi_row  <- (fi - 1L) %/% ncols_full
+      nbr_fis <- fi + offsets
+      # Exclude out-of-bounds and wrap-around (left/right edge)
+      valid   <- nbr_fis >= 1L & nbr_fis <= max_full
+      # Prevent row wrap: neighbours must be in adjacent rows
+      nbr_rows <- (nbr_fis - 1L) %/% ncols_full
+      valid    <- valid & abs(nbr_rows - fi_row) <= 1L
+      nbr_fis  <- nbr_fis[valid]
+      # Keep only cells that are inside the district
+      pos <- full_to_pos[nbr_fis]
+      neighbors_list[[i]] <- pos[pos > 0L]
+    }
+    names(neighbors_list) <- as.character(grid_sf$cell_id)
+    return(neighbors_list)
+  }
+  
+  # Fallback: spatial st_touches (slow but always correct)
+  grid_3857  <- sf::st_transform(grid_sf, 3857)
+  touch_list <- if (isTRUE(allow_diagonal)) sf::st_touches(grid_3857) else
+    sf::st_relate(grid_3857, grid_3857, pattern = "F***1****")
+  neighbors_list <- lapply(touch_list, as.integer)
+  names(neighbors_list) <- as.character(grid_sf$cell_id)
+  neighbors_list
+}
+
+extract_cell_friction_from_raster <- function(grid_sf, district_sf, friction_path) {
+  if (!file.exists(friction_path)) stop("Friction raster not found: ", friction_path)
+  r     <- terra::rast(friction_path)
+  vals  <- as.numeric(terra::extract(r, terra::centroids(terra::vect(sf::st_transform(grid_sf, terra::crs(r)))))[, 2])
+  if (all(is.na(vals))) stop("All friction values are NA for: ", friction_path)
+  if (anyNA(vals)) vals[is.na(vals)] <- stats::median(vals, na.rm = TRUE)
+  vals[!is.finite(vals)] <- stats::median(vals[is.finite(vals)], na.rm = TRUE)
+  pmin(pmax(vals, 0), 1)
+}
+
+extract_cell_population <- function(grid_sf, u5_rast) {
+  if (is.null(u5_rast)) return(rep(0, nrow(grid_sf)))
+  grid_proj <- sf::st_transform(grid_sf, sf::st_crs(terra::crs(u5_rast)))
+  vals <- tryCatch(
+    exactextractr::exact_extract(x = raster::raster(u5_rast), y = grid_proj, fun = "sum"),
+    error = function(e) as.numeric(terra::extract(u5_rast, terra::centroids(terra::vect(grid_proj)))[, 2])
+  )
+  vals[is.na(vals)] <- 0
+  as.numeric(vals)
+}
+
+
 initialHealthAreaGenerationServer <- function(
     id,
     district_sf,           # planning area sf (health area, for Team Areas) — used for grid
@@ -81,60 +466,6 @@ initialHealthAreaGenerationServer <- function(
         gsub("^_+|_+$", "", x = _)
     }
     
-    make_paint_grid <- function(district_sf, grid_n = 150) {
-      district_sf   <- safe_make_valid(district_sf)
-      district_3857 <- sf::st_transform(district_sf, 3857)
-      bbox     <- sf::st_bbox(district_3857)
-      max_dim  <- max(bbox$xmax - bbox$xmin, bbox$ymax - bbox$ymin)
-      cellsize <- max_dim / grid_n
-      
-      raw_grid <- sf::st_make_grid(district_3857, cellsize = cellsize,
-                                   what = "polygons", square = TRUE)
-      
-      # Record full grid dimensions BEFORE filtering — needed for arithmetic
-      # neighbour lookup. st_make_grid fills bbox row-by-row (bottom to top),
-      # ncols = ceil((xmax-xmin)/cellsize), nrows = ceil((ymax-ymin)/cellsize).
-      ncols_full <- ceiling((bbox$xmax - bbox$xmin) / cellsize)
-      nrows_full <- ceiling((bbox$ymax - bbox$ymin) / cellsize)
-      n_full     <- ncols_full * nrows_full
-      
-      full_idx <- seq_along(raw_grid)   # 1-based index in full grid
-      
-      grid_sf_full <- sf::st_sf(
-        full_idx = full_idx,
-        geometry = raw_grid,
-        crs      = sf::st_crs(district_3857)
-      )
-      
-      cent_3857 <- suppressWarnings(sf::st_centroid(grid_sf_full))
-      inside    <- lengths(sf::st_within(cent_3857, district_3857)) > 0
-      
-      grid_sf   <- grid_sf_full[inside, ]
-      grid_sf$cell_id  <- seq_len(nrow(grid_sf))
-
-      # row/col in the FULL (unfiltered) grid -- same arithmetic
-      # build_neighbors_list()/build_edge_list() already use internally, just
-      # exposed here as per-cell columns so the vertex-editing JS can identify
-      # each cell's corners without needing any new data pipeline: it derives
-      # vertex identity as "${row}_${col}" directly from these, matching how
-      # build_neighbors_list() itself locates a cell's neighbors.
-      grid_sf$row <- (grid_sf$full_idx - 1L) %/% ncols_full
-      grid_sf$col <- (grid_sf$full_idx - 1L) %% ncols_full
-
-      cent_inside <- cent_3857[inside, ]
-      coords      <- sf::st_coordinates(sf::st_transform(cent_inside, 4326))
-      grid_sf     <- sf::st_transform(grid_sf, 4326)
-      grid_sf$centroid_lon <- coords[, 1]
-      grid_sf$centroid_lat <- coords[, 2]
-      
-      list(
-        grid_sf     = grid_sf,
-        max_dim_m   = as.numeric(max_dim),
-        ncols_full  = as.integer(ncols_full),
-        nrows_full  = as.integer(nrows_full),
-        inside_mask = inside   # logical length n_full; TRUE = cell kept
-      )
-    }
     
     build_seed_points_outputs <- function(seed_points_sf) {
       seed_pts    <- sf::st_transform(seed_points_sf, 4326)
@@ -152,54 +483,6 @@ initialHealthAreaGenerationServer <- function(
       list(seed_points_sf = seed_pts, seed_points_df = seed_points_df, seed_points_list = seed_points_list)
     }
     
-    build_neighbors_list <- function(grid_sf, allow_diagonal = TRUE,
-                                     ncols_full = NULL, inside_mask = NULL) {
-      # Fast arithmetic path: for a regular square grid, neighbours are at
-      # known index offsets in the full (unfiltered) grid. No spatial ops needed.
-      # Falls back to st_touches if grid metadata is unavailable.
-      if (!is.null(ncols_full) && !is.null(inside_mask)) {
-        n        <- nrow(grid_sf)
-        # Map from filtered position (1-based) to full-grid index (1-based)
-        full_ids <- grid_sf$full_idx   # stored by make_paint_grid
-        # Reverse map: full_idx -> filtered position (0 = not in district)
-        max_full <- max(full_ids)
-        full_to_pos <- integer(max_full)
-        full_to_pos[full_ids] <- seq_len(n)
-        
-        offsets <- if (isTRUE(allow_diagonal))
-          c(-ncols_full - 1L, -ncols_full, -ncols_full + 1L,
-            -1L,                             1L,
-            ncols_full - 1L,  ncols_full,  ncols_full + 1L)
-        else
-          c(-ncols_full, -1L, 1L, ncols_full)
-        
-        neighbors_list <- vector("list", n)
-        for (i in seq_len(n)) {
-          fi      <- full_ids[i]
-          fi_row  <- (fi - 1L) %/% ncols_full
-          nbr_fis <- fi + offsets
-          # Exclude out-of-bounds and wrap-around (left/right edge)
-          valid   <- nbr_fis >= 1L & nbr_fis <= max_full
-          # Prevent row wrap: neighbours must be in adjacent rows
-          nbr_rows <- (nbr_fis - 1L) %/% ncols_full
-          valid    <- valid & abs(nbr_rows - fi_row) <= 1L
-          nbr_fis  <- nbr_fis[valid]
-          # Keep only cells that are inside the district
-          pos <- full_to_pos[nbr_fis]
-          neighbors_list[[i]] <- pos[pos > 0L]
-        }
-        names(neighbors_list) <- as.character(grid_sf$cell_id)
-        return(neighbors_list)
-      }
-      
-      # Fallback: spatial st_touches (slow but always correct)
-      grid_3857  <- sf::st_transform(grid_sf, 3857)
-      touch_list <- if (isTRUE(allow_diagonal)) sf::st_touches(grid_3857) else
-        sf::st_relate(grid_3857, grid_3857, pattern = "F***1****")
-      neighbors_list <- lapply(touch_list, as.integer)
-      names(neighbors_list) <- as.character(grid_sf$cell_id)
-      neighbors_list
-    }
     
     build_edge_list <- function(grid_sf, district_sf,
                                 ncols_full = NULL, inside_mask = NULL) {
@@ -294,26 +577,7 @@ initialHealthAreaGenerationServer <- function(
       stop(paste0("No district friction raster found for: ", zone_val, " / ", region_val, " / ", district_val))
     }
     
-    extract_cell_friction_from_raster <- function(grid_sf, district_sf, friction_path) {
-      if (!file.exists(friction_path)) stop("Friction raster not found: ", friction_path)
-      r     <- terra::rast(friction_path)
-      vals  <- as.numeric(terra::extract(r, terra::centroids(terra::vect(sf::st_transform(grid_sf, terra::crs(r)))))[, 2])
-      if (all(is.na(vals))) stop("All friction values are NA for: ", friction_path)
-      if (anyNA(vals)) vals[is.na(vals)] <- stats::median(vals, na.rm = TRUE)
-      vals[!is.finite(vals)] <- stats::median(vals[is.finite(vals)], na.rm = TRUE)
-      pmin(pmax(vals, 0), 1)
-    }
     
-    extract_cell_population <- function(grid_sf, u5_rast) {
-      if (is.null(u5_rast)) return(rep(0, nrow(grid_sf)))
-      grid_proj <- sf::st_transform(grid_sf, sf::st_crs(terra::crs(u5_rast)))
-      vals <- tryCatch(
-        exactextractr::exact_extract(x = raster::raster(u5_rast), y = grid_proj, fun = "sum"),
-        error = function(e) as.numeric(terra::extract(u5_rast, terra::centroids(terra::vect(grid_proj)))[, 2])
-      )
-      vals[is.na(vals)] <- 0
-      as.numeric(vals)
-    }
     
     # Retained but no longer called from scene() below — distance-based
     # friction blending from non-SIA facilities was confirmed to be an
@@ -391,213 +655,6 @@ initialHealthAreaGenerationServer <- function(
       out
     }
     
-    get_unique_seed_cells <- function(grid_sf, site_sf) {
-      # Ensure both are in the same CRS before computing distances
-      grid_cents <- suppressWarnings(sf::st_centroid(grid_sf))
-      if (!identical(sf::st_crs(site_sf), sf::st_crs(grid_cents)))
-        site_sf <- sf::st_transform(site_sf, sf::st_crs(grid_cents))
-      dist_mat <- as.matrix(sf::st_distance(site_sf, grid_cents))
-      chosen <- integer(nrow(site_sf)); used <- integer(0)
-      for (i in seq_len(nrow(site_sf))) {
-        ord  <- order(dist_mat[i, ])
-        pick <- ord[which(!(ord %in% used))[1]]
-        if (length(pick) == 0 || is.na(pick)) pick <- ord[1]
-        chosen[i] <- pick; used <- c(used, pick)
-      }
-      chosen
-    }
-    
-    make_random_sites <- function(district_sf, n_dfa = 5, seed = 1) {
-      set.seed(seed)
-      pts <- sf::st_sample(district_sf, size = n_dfa, exact = TRUE)
-      sf::st_sf(dfa_name = paste("Health Area", seq_len(n_dfa)), geometry = pts, crs = sf::st_crs(district_sf))
-    }
-    
-    normalize_sites <- function(site_sf, grid_sf, name_col = NULL) {
-      stopifnot(!is.null(site_sf), nrow(site_sf) > 0)
-      site_sf <- sf::st_as_sf(site_sf) |> safe_make_valid() |> sf::st_transform(sf::st_crs(grid_sf))
-      if (is.null(name_col)) {
-        if ("dfa_name" %in% names(site_sf))           name_col <- "dfa_name"
-        else if ("facility_name" %in% names(site_sf)) name_col <- "facility_name"
-      }
-      site_sf$dfa_name <- if (is.null(name_col)) paste("Health Area", seq_len(nrow(site_sf))) else as.character(site_sf[[name_col]])
-      site_sf
-    }
-    
-    snap_seeds_into_district <- function(site_sf, district_sf, grid_sf, cell_friction_raw = NULL,
-                                         inward_buffer_m = 500, max_snap_friction = 0.98) {
-      stopifnot(nrow(grid_sf) > 0)
-      # Dissolve to single row — planning area sf (rural remainder) may have
-      # multiple rows if st_difference produced a multipart result
-      if (nrow(district_sf) > 1)
-        district_sf <- district_sf |>
-          dplyr::summarise(geometry = sf::st_union(geometry), .groups = "drop") |>
-          sf::st_as_sf()
-      site_3857     <- sf::st_transform(site_sf, 3857)
-      district_3857 <- sf::st_transform(safe_make_valid(district_sf), 3857)
-      grid_cent     <- suppressWarnings(sf::st_centroid(sf::st_transform(grid_sf, 3857)))
-      district_inner <- suppressWarnings(sf::st_buffer(district_3857, -inward_buffer_m))
-      if (nrow(district_inner) == 0 || any(sf::st_is_empty(district_inner)))
-        district_inner <- suppressWarnings(sf::st_buffer(district_3857, -250))
-      if (nrow(district_inner) == 0 || any(sf::st_is_empty(district_inner)))
-        district_inner <- district_3857
-      seed_inside   <- lengths(sf::st_within(site_3857, district_3857)) > 0
-      candidate_idx <- which(lengths(sf::st_within(grid_cent, district_inner)) > 0)
-      if (length(candidate_idx) == 0)
-        candidate_idx <- which(lengths(sf::st_within(grid_cent, district_3857)) > 0)
-      if (length(candidate_idx) == 0) stop("No candidate grid centroids for seed snapping.")
-      if (!is.null(cell_friction_raw) && length(cell_friction_raw) == nrow(grid_sf)) {
-        keep <- cell_friction_raw[candidate_idx] <= max_snap_friction
-        if (any(keep)) candidate_idx <- candidate_idx[keep]
-      }
-      candidate_cent <- grid_cent[candidate_idx, ]
-      for (i in which(!seed_inside)) {
-        d <- as.numeric(sf::st_distance(site_3857[i, ], candidate_cent))
-        sf::st_geometry(site_3857)[[i]] <- sf::st_geometry(grid_cent)[[candidate_idx[which.min(d)]]]
-      }
-      sf::st_transform(site_3857, sf::st_crs(district_sf))
-    }
-    
-    expand_seed_starter_cells <- function(seed_cells, neighbors_list, starter_rings = 1) {
-      out <- vector("list", length(seed_cells))
-      for (i in seq_along(seed_cells)) {
-        visited <- frontier <- unique(seed_cells[i])
-        for (r in seq_len(max(1L, starter_rings))) {
-          nxt <- setdiff(unique(unlist(neighbors_list[as.character(frontier)], use.names = FALSE)), visited)
-          if (length(nxt) == 0) break
-          visited <- unique(c(visited, nxt)); frontier <- nxt
-        }
-        out[[i]] <- sort(unique(visited))
-      }
-      out
-    }
-    
-    # =========================================================================
-    # propagate_assignments
-    #
-    # Wrapper around the compiled C++ Dijkstra implementation (bfs_propagate_cpp).
-    # The C++ function handles the hot loop; this R wrapper handles:
-    #   - seed cell expansion (expand_seed_starter_cells)
-    #   - converting list-of-names neighbors to indexed form
-    #   - mapping integer area indices back to area name strings
-    #   - post-BFS flood fill for any unassigned cells
-    #
-    # All penalties operate in raw friction (0-1) space BEFORE friction_to_cost.
-    # =========================================================================
-    propagate_assignments <- function(
-    grid_sf,
-    site_sf,
-    neighbors_list,
-    cell_friction_raw,
-    barrier_crossing_list        = NULL,
-    barrier_penalty              = 0,
-    subdivision_crossing_list    = NULL,
-    subdivision_boundary_penalty = 0,
-    starter_rings                = 1,
-    cell_pop                     = NULL,
-    target_pop                   = NULL,
-    base_step_friction           = 0.05,
-    pop_saturation_pct           = 0.75,
-    pop_saturation_weight        = 0.4,
-    pop_saturation_max           = 0.4
-    ) {
-      stopifnot(nrow(grid_sf) > 0, nrow(site_sf) > 0)
-      stopifnot(length(cell_friction_raw) == nrow(grid_sf))
-      
-      n          <- nrow(grid_sf)
-      area_names <- as.character(site_sf$dfa_name)
-      n_areas    <- length(area_names)
-      seed_cells <- get_unique_seed_cells(grid_sf, site_sf)
-      
-      use_pop <- !is.null(cell_pop) && !is.null(target_pop) &&
-        pop_saturation_weight > 0 && target_pop > 0 &&
-        length(cell_pop) == n
-      
-      # neighbors_list and crossing lists are already positional integer lists
-      # keyed by cell_id string — unname them for C++ (which needs plain lists)
-      nbrs_indexed    <- unname(neighbors_list)
-      barrier_indexed <- if (!is.null(barrier_crossing_list))
-        unname(barrier_crossing_list) else vector("list", 0)
-      subdiv_indexed  <- if (!is.null(subdivision_crossing_list))
-        unname(subdivision_crossing_list) else vector("list", 0)
-      
-      # ── Expand seed starter cells (same logic as before) ───────────────────
-      starter_cells_list <- expand_seed_starter_cells(seed_cells, neighbors_list, starter_rings)
-      
-      # Filter starters that cross hard barriers away from their seed
-      starter_cells_indexed <- lapply(seq_len(n_areas), function(i) {
-        starters <- starter_cells_list[[i]]
-        if (!is.null(barrier_crossing_list) && length(starters) > 1) {
-          keep <- starters[1]
-          seed_nbrs <- neighbors_list[[as.character(grid_sf$cell_id[seed_cells[i]])]]
-          for (cand in starters[-1]) {
-            if (!(cand %in% seed_nbrs &&
-                  cand %in% barrier_crossing_list[[seed_cells[i]]])) {
-              keep <- c(keep, cand)
-            }
-          }
-          starters <- unique(keep)
-        }
-        as.integer(starters)
-      })
-      
-      # ── Call C++ BFS ───────────────────────────────────────────────────────
-      cpp_result <- bfs_propagate_cpp(
-        n_cells           = n,
-        neighbors         = nbrs_indexed,
-        cell_friction_raw = as.numeric(cell_friction_raw),
-        seed_cells        = as.integer(seed_cells),
-        starter_cells_list = starter_cells_indexed,
-        barrier_mat       = barrier_indexed,
-        subdiv_mat        = subdiv_indexed,
-        subdiv_penalty    = as.double(subdivision_boundary_penalty),
-        base_step_fric    = as.double(base_step_friction),
-        use_pop           = isTRUE(use_pop),
-        cell_pop          = if (use_pop) as.numeric(cell_pop) else numeric(n),
-        target_pop        = as.double(if (use_pop) target_pop else 0),
-        pop_sat_pct       = as.double(pop_saturation_pct),
-        pop_sat_weight    = as.double(pop_saturation_weight),
-        pop_sat_max       = as.double(pop_saturation_max),
-        n_areas           = as.integer(n_areas)
-      )
-      
-      # Map 0-based area indices back to area name strings
-      owner_idx  <- cpp_result$owner      # 0-based, -1 = unassigned
-      best_cost  <- cpp_result$best_cost
-      
-      owner <- ifelse(owner_idx >= 0L, area_names[owner_idx + 1L], NA_character_)
-      
-      # ── Post-BFS: flood fill any unassigned cells ──────────────────────────
-      unassigned <- which(is.na(owner))
-      if (length(unassigned) > 0) {
-        max_passes <- n
-        pass       <- 0L
-        while (length(unassigned) > 0 && pass < max_passes) {
-          pass     <- pass + 1L
-          progress <- FALSE
-          for (cell_i in unassigned) {
-            nbrs          <- nbrs_indexed[[cell_i]]
-            assigned_nbrs <- nbrs[!is.na(owner[nbrs])]
-            if (length(assigned_nbrs) > 0) {
-              best_nbr      <- assigned_nbrs[which.min(best_cost[assigned_nbrs])]
-              owner[cell_i] <- owner[best_nbr]
-              progress      <- TRUE
-            }
-          }
-          unassigned <- which(is.na(owner))
-          if (!progress) break
-        }
-        if (length(unassigned) > 0) {
-          fallback          <- names(which.max(table(owner[!is.na(owner)])))
-          owner[unassigned] <- fallback
-          cat("[propagate_assignments] fallback assigned", length(unassigned),
-              "disconnected cell(s) to:", fallback, "\n")
-        }
-      }
-      
-      list(assignments = owner, cumulative_cost = best_cost,
-           seeds_sf = site_sf, seed_cell_id = seed_cells)
-    }
     
     make_start_assignment <- function(
     grid_sf, district_sf, neighbors_list, cell_friction_raw,

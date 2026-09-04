@@ -175,3 +175,18 @@ compute_n_teams <- function(area_pop, campaign_id = NULL) {
   if (is.na(target) || target <= 0) target <- 400
   max(1L, as.integer(ceiling(area_pop / target)))
 }
+
+# =============================================================================
+# NOTE: automatic reconciliation (re-rasterizing a stale team-area version
+# onto a health area's changed boundary via weighted BFS) was removed —
+# the model is deliberately simpler now: a team-area version stays
+# permanently pinned to the health-area version it was drawn against
+# (based_on_health_area_version_id). Once any team-area version is
+# current for a district, the health-area track locks unconditionally —
+# there is no admin override that swaps the current health-area version
+# out from under existing team-area work. To work on a health area whose
+# pinned version isn't current, that health-area version has to be made
+# current again (see db_publish_version() / mod_admin_tab_v2.R's District
+# review section) — nothing here tries to reconcile a mismatch
+# automatically.
+# =============================================================================

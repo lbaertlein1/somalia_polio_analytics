@@ -25,12 +25,37 @@ library(dotenv)
 #     partial-index UNIQUE would fight the "publish is a transaction" model.
 #   - branched_from_id is used identically for "branch from a shared version"
 #     and "carry forward from a prior campaign" — same mechanism.
-#   - Team areas (change #1) live in the same version row as health areas —
-#     a team-area layout is meaningless without the health-area layout it
-#     was drawn on top of.
 #   - Facilities/boundary snapshots are locked at version creation (or first
 #     facilities-stage submit) and never silently refreshed.
 #   - microplanning and its planning_data column are gone.
+#
+#   - TEAM AREAS ARE NOW A SEPARATE, INDEPENDENTLY-VERSIONED TABLE
+#     (team_area_versions), NOT columns on mapping_versions. This is a
+#     deliberate rework, not an oversight — health areas are meaningless
+#     without a whole-district submission, but team areas need to be
+#     publishable one health area at a time, independent of every other
+#     health area in the district and independent of the health-area
+#     track's own version history. Each team_area_versions row is
+#     PERMANENTLY pinned to the SPECIFIC mapping_versions row (health-area
+#     version) it was drawn against via based_on_health_area_version_id —
+#     there is no reconciliation onto a different boundary. A team-area
+#     version can only ever be published as current while its pinned
+#     health-area version IS the district's current one; if it isn't, the
+#     health-area version has to be made current again (a normal publish,
+#     nothing automatic) before that team-area work can resume.
+#   - Once ANY health area in a district has a current (is_shared=TRUE)
+#     team-area version, the WHOLE district's health-area track locks
+#     UNCONDITIONALLY against publishing a different version — no admin
+#     override. Regular users can still paint/submit/save health-area
+#     drafts freely; only db_publish_version() is gated. To publish a
+#     different health-area version, the current team-area version(s)
+#     must first be unshared (an existing admin action in District
+#     review) — a deliberate, explicit step, not an automatic swap. See
+#     db_district_has_locked_team_areas() in mod_db_v2.R.
+#   - campaign_districts is new: campaigns no longer implicitly apply to
+#     every district. A district must be explicitly assigned to a
+#     campaign (an ongoing admin action, not fixed at campaign creation)
+#     before it appears anywhere in the app for that campaign.
 # =============================================================================
 
 
@@ -187,29 +212,34 @@ statements <- list(
     boundary_locked_at      TIMESTAMPTZ,
     district_boundary_sf    JSONB,       -- locked district/subdivision geometry
 
-    -- working (gridded) geometry
+    -- working (gridded) geometry — health areas ONLY. Team areas live in
+    -- team_area_versions now (see below), not here.
     saved_dfa_sf             JSONB,       -- health area polygons (raw grid)
     dfa_names                 JSONB,
     current_assignments       JSONB,
-    saved_team_sf              JSONB,       -- team area polygons (raw grid)
-    team_names                  JSONB,
-    current_team_assignments     JSONB,
+    team_targets                JSONB,       -- per-health-area field target
+      -- population / requested team count from the post-submit modal
+      -- (mod_health_area_tab.R's .show_team_targets_modal()). Purely
+      -- informational + the requested-teams override Team Areas reads —
+      -- never used to compute anything about health-area boundaries
+      -- themselves.
 
     -- presentation (smoothed/snapped) geometry, generated at submit
     smoothed_dfa_sf                JSONB,
-    smoothed_team_sf                JSONB,
     smoothing_generated_at          TIMESTAMPTZ,
 
     -- point layers
     landmarks                        JSONB,
     idp_settlements                   JSONB,
 
-    -- progress flags (mirrors old has_* columns)
+    -- progress flags (mirrors old has_* columns) — has_team_areas is gone;
+    -- team-area progress is now read from team_area_versions directly
+    -- (e.g. count of distinct health_area_name with is_shared=TRUE for
+    -- this district+campaign) rather than a flag mirrored onto this row.
     has_landmarks       BOOLEAN NOT NULL DEFAULT FALSE,
     has_facilities       BOOLEAN NOT NULL DEFAULT FALSE,
     has_idp                BOOLEAN NOT NULL DEFAULT FALSE,
     has_health_areas        BOOLEAN NOT NULL DEFAULT FALSE,
-    has_team_areas            BOOLEAN NOT NULL DEFAULT FALSE,
 
     submitted_by                TEXT,   -- display convenience, mirrors owner_username
 
@@ -221,6 +251,89 @@ statements <- list(
   "CREATE INDEX IF NOT EXISTS idx_mv_shared
      ON mapping_versions(district_name, campaign_id)
      WHERE is_shared = TRUE AND archived_at IS NULL",
+
+  # ── Team area versions — independently versioned/publishable per health
+  # area, never bundled with the health-area track. PERMANENTLY pinned to
+  # the specific health-area version it was drawn against
+  # (based_on_health_area_version_id) -- this is the fact
+  # db_check_team_area_staleness() checks: "is what I'm pinned to still
+  # the district's current health-area version?" There is no
+  # reconciliation onto a different boundary -- a version whose pinned
+  # health-area version isn't current simply can't be published as
+  # current until that health-area version is made current again.
+  "CREATE TABLE IF NOT EXISTS team_area_versions (
+    team_version_id      SERIAL PRIMARY KEY,
+
+    -- identity / ownership / scope
+    owner_username         TEXT    NOT NULL REFERENCES users(username),
+    campaign_id              INTEGER NOT NULL REFERENCES campaigns(campaign_id),
+    district_name             TEXT    NOT NULL,
+    health_area_name           TEXT    NOT NULL,
+      -- matches a name in the pinned health-area version's dfa_names
+
+    -- the health-area boundary this team layout was drawn against. Team
+    -- areas can ONLY ever be drawn against a district's CURRENT
+    -- health-area version at the time work begins -- there is no
+    -- branch/carry-forward choice at this level, unlike mapping_versions.
+    based_on_health_area_version_id INTEGER NOT NULL
+      REFERENCES mapping_versions(version_id),
+
+    -- lineage
+    version_number             INTEGER NOT NULL,  -- per (owner, campaign, district, health_area_name)
+    branched_from_id             INTEGER REFERENCES team_area_versions(team_version_id),
+
+    -- publish state — at most one is_shared=TRUE row per (district_name,
+    -- campaign_id, health_area_name), enforced by db_publish_team_area()
+    -- in mod_db_v2.R (same transaction pattern as db_publish_version()),
+    -- not by a DB constraint.
+    is_shared                       BOOLEAN     NOT NULL DEFAULT FALSE,
+    shared_at                         TIMESTAMPTZ,
+
+    -- lifecycle
+    created_at                          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_updated_at                       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    archived_at                             TIMESTAMPTZ,
+
+    -- working (gridded) geometry
+    saved_team_sf                             JSONB,
+    team_names                                  JSONB,
+    current_team_assignments                      JSONB,
+
+    -- presentation (smoothed/snapped) geometry
+    smoothed_team_sf                                JSONB,
+    smoothing_generated_at                            TIMESTAMPTZ,
+
+    submitted_by                                        TEXT,
+
+    UNIQUE (owner_username, campaign_id, district_name, health_area_name, version_number)
+  )",
+
+  "CREATE INDEX IF NOT EXISTS idx_tav_owner ON team_area_versions(owner_username)",
+  "CREATE INDEX IF NOT EXISTS idx_tav_district_ha
+     ON team_area_versions(district_name, campaign_id, health_area_name)",
+  "CREATE INDEX IF NOT EXISTS idx_tav_shared
+     ON team_area_versions(district_name, campaign_id, health_area_name)
+     WHERE is_shared = TRUE AND archived_at IS NULL",
+  # Drives db_check_team_area_staleness() / the auto-unpublish-on-override
+  # sweep: "which team-area versions are pinned to health-area version X".
+  "CREATE INDEX IF NOT EXISTS idx_tav_based_on
+     ON team_area_versions(based_on_health_area_version_id)",
+
+  # ── Campaign-district assignment — campaigns no longer implicitly apply
+  # to every district. An ongoing, revisitable admin action (not fixed at
+  # campaign creation) — see mod_admin_tab_v2.R's "Manage districts" per
+  # campaign. Newly-assigned districts are offered bundled carry-forward
+  # (health + team areas together, from the most recent prior campaign
+  # that district was published in) at assignment time.
+  "CREATE TABLE IF NOT EXISTS campaign_districts (
+    campaign_id    INTEGER NOT NULL REFERENCES campaigns(campaign_id),
+    district_name  TEXT    NOT NULL,
+    added_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    added_by       TEXT REFERENCES users(username),
+    PRIMARY KEY (campaign_id, district_name)
+  )",
+
+  "CREATE INDEX IF NOT EXISTS idx_cd_district ON campaign_districts(district_name)",
 
   # ── Admin-configurable generation settings ──────────────────────────────────
   # campaign_id is nullable (NULL = global default), so it can't be part of a

@@ -28,13 +28,6 @@ teamAreaControlsUI <- function(id) {
 
     tags$hr(style = 'margin: 6px 0;'),
 
-    # ── Health area selector ─────────────────────────────────────────────────
-    div(class = 'mini-label', 'Health area'),
-    selectInput(ns('health_area'), NULL, choices = character(0), width = '100%'),
-    uiOutput(ns('health_area_status')),
-
-    tags$hr(style = 'margin: 6px 0;'),
-
     # ── Brush size ────────────────────────────────────────────────────────────
     div(
       style = paste0(
@@ -137,11 +130,6 @@ teamAreaControlsServer <- function(id) {
       updateSliderInput(session, 'brush_m_ui', value = min(BRUSH_MAX, val + BRUSH_STEP))
     }, ignoreInit = TRUE)
 
-    set_health_area_choices <- function(choices, selected = NULL) {
-      updateSelectInput(session, 'health_area', choices = choices,
-                        selected = selected %||% (if (length(choices) > 0) choices[[1]] else NULL))
-    }
-
     # Drives output$paint_step_ui/output$refine_step_ui below via a plain
     # reactiveVal, rather than toggling visibility with shinyjs::show/hide
     # -- same fix as mod_health_area_controls.R's identical wiring
@@ -218,8 +206,6 @@ teamAreaControlsServer <- function(id) {
     })
 
     list(
-      health_area           = reactive(input$health_area),
-      set_health_area_choices = set_health_area_choices,
       brush_m                = reactive(input$brush_m_ui),
       show_pop_raster        = reactive(isTRUE(input$show_pop_raster)),
       show_friction_raster   = reactive(input$show_friction_raster),
@@ -229,7 +215,6 @@ teamAreaControlsServer <- function(id) {
       save_click                = reactive(input$save_btn),
       submit_click               = reactive(input$submit_btn),
       reset_click                 = reactive(input$reset_btn),
-      set_status_ui                = function(ui) { output$health_area_status <- renderUI(ui) },
       refine_boundaries_click = reactive(input$refine_boundaries_btn),
       save_refinements_click  = reactive(input$save_refinements_btn),
       refine_undo_click       = reactive(input$refine_undo_btn),

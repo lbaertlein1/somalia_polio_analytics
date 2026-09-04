@@ -111,10 +111,19 @@ app_ui <- function() {
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_orientation',   'Landmarks'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_facility_mapping', 'Facilities'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_area_mapping',     'Health Areas'),
-            tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_team_area_mapping',       'Team Areas')
+            tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_team_area_mapping',       'Team Areas'),
+            tags$button(class = 'hdr-tab', `data-tab` = 'tab_export', 'Export')
           )
         ),
-        
+
+        # Health-area / team-area session status bars — at most one is
+        # ever visible at a time (each toggles its own visibility via
+        # shinyjs::show/hide, keyed to whether that track's session is
+        # currently active), so stacking both here is safe regardless of
+        # which tab the user is actually on.
+        sessionToolbarUI('ha_session'),
+        sessionToolbarUI('ta_session'),
+
         tabsetPanel(
           id   = 'main_tabs',
           type = 'tabs',
@@ -132,7 +141,10 @@ app_ui <- function() {
                    healthAreaTabUI('health_area')),
           
           tabPanel(title = 'Team Areas',      value = 'tab_team_area_mapping',
-                   teamAreaTabUI('team_area'))
+                   teamAreaTabUI('team_area')),
+
+          tabPanel(title = 'Export',          value = 'tab_export',
+                   exportTabUI('export'))
         )
       )
     )

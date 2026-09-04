@@ -1,28 +1,33 @@
 # =============================================================================
 # mod_team_area_tab.R
 #
-# New in v2 (change #1). Structurally this is a second, nested instance of
-# the health-area machinery: same paint-app.js canvas, same BFS engine, but
-# seeded WITHIN each health area rather than across the whole district, and
-# with the health area's own polygon as the grid boundary (which makes it a
-# hard wall automatically — the grid simply doesn't extend past it, the same
+# Structurally this is a second, nested instance of the health-area
+# machinery: same paint-app.js canvas, same BFS engine, but seeded WITHIN
+# one health area rather than across the whole district, and with the
+# health area's own polygon as the grid boundary (which makes it a hard
+# wall automatically — the grid simply doesn't extend past it, the same
 # way the district edge works for Health Areas).
 #
-# One health area is worked on at a time, chosen from a selector built from
-# saved_dfa_sf_r() (the finalized health areas from the Health Areas tab).
-# Team-area boundaries for each health area visited this session are cached
-# locally (per_area) so switching between health areas doesn't lose work;
-# "Submit Team Areas" combines everything cached so far into one write.
+# Team-area versioning rework: each session is scoped to exactly ONE
+# health area (health_area_name, chosen externally by the intro table's
+# team-area drill-down before this tab is ever reached — see
+# mod_intro_tab_v2.R). This replaces the old in-tab health-area dropdown
+# and its per_area multi-area cache entirely — under the per-(district,
+# campaign, health_area) team-area versioning model
+# (team_area_versions — see mod_db_v2.R SECTION 13), a health area's team
+# map is its own independently-versioned, independently-publishable unit,
+# never bundled with any other health area's team work in the same
+# submission.
 #
 # Undo, brush painting, and the Inaccessible/Unpopulated toggle all reuse
 # the same paint-app.js engine and its unified undo stack — no separate
 # wiring needed beyond passing an undoCountInputId so the Undo button can
 # disable itself when the stack is empty.
 #
-# Simplification versus mod_health_area_tab.R: this v1 does not replicate
+# Simplification versus mod_health_area_tab.R: this does not replicate
 # every edge-case guard the health-area tab has accumulated (stale-response
 # detection keyed by a seed hash, "areas_regenerated" notifications on
-# facility changes, etc.) — health areas don't change facility seeds live
+# facility changes, etc.) — team areas don't change facility seeds live
 # the way health areas do from SIA site edits, so most of that class of
 # guard doesn't apply here. The core save/submit/restore flow is complete.
 # =============================================================================
@@ -43,6 +48,14 @@ teamAreaTabServer <- function(
     district, campaign_id, district_ready,
     active_tab,
     saved_dfa_sf_r    = reactive(NULL),   # finalized health areas from the Health Areas tab
+    # Which single health area this session's teams are for -- chosen
+    # externally (the intro table's team-area drill-down picks it before
+    # this tab is ever reached; see mod_intro_tab_v2.R). Replaces the old
+    # in-tab health_area dropdown + per_area multi-area cache entirely --
+    # under the new per-(district, campaign, health_area) team-area
+    # versioning, a session is always scoped to exactly one health area,
+    # never several at once.
+    health_area_name  = reactive(NULL),
     all_facilities_r  = reactive(NULL),
     landmarks_r       = reactive(NULL),
     submit_stage_fn   = NULL,
@@ -52,7 +65,21 @@ teamAreaTabServer <- function(
     # name: list(target_pop, requested_teams). Defaults to reactive(NULL),
     # which n_teams_r below already treats the same as "no override for
     # this area" -- falls back to compute_n_teams()'s own recommendation.
-    team_targets_r    = reactive(NULL)
+    team_targets_r    = reactive(NULL),
+    # "Make current" / staleness support -- wired from server.R to
+    # teamAreaSession$make_current / teamAreaSession$is_stale
+    # (mod_session_manager_v2.R). Both default to safe no-ops/FALSE so a
+    # caller that doesn't pass them just never shows the message.
+    #
+    # Staleness has no automatic fix at this level: a team-area version
+    # stays permanently pinned to the health-area version it was drawn
+    # against (based_on_health_area_version_id never changes). The only
+    # way to make a stale version workable again is to make its pinned
+    # health-area version current again -- so this tab's only job when
+    # stale is to say that plainly and send the user back to the
+    # overview, not to offer a fix it can't actually perform itself.
+    make_current_fn   = NULL,
+    is_stale_r        = reactive(FALSE)
 ) {
   moduleServer(id, function(input, output, session) {
 
@@ -94,15 +121,10 @@ teamAreaTabServer <- function(
       neighbors_list = NULL, edge_list = NULL,
       pop_overlay_sf = NULL, friction_overlay_sf = NULL, pop_table = NULL,
       seed_points = NULL, friction_path = NULL,
-      smoothed_team_sf = NULL   # vertex-refined boundary for the CURRENTLY selected health area
+      smoothed_team_sf = NULL   # vertex-refined boundary for this session's one health area
     )
 
-    # Cached per-health-area results, accumulated across the session.
-    # per_area[[health_area_name]] = list(saved_team_sf, team_names, assignments_named, smoothed_team_sf)
-    per_area <- reactiveValues()
-
     pending_action  <- reactiveVal(NULL)
-    last_loaded_key <- reactiveVal(NULL)
     in_vertex_mode  <- reactiveVal(FALSE)
 
     send_paint_message <- function(type, payload = list()) {
@@ -189,32 +211,10 @@ teamAreaTabServer <- function(
       invisible(NULL)
     }
 
-    # ── Health area choices ───────────────────────────────────────────────────
-
-    health_area_names <- reactive({
-      sf_obj <- tryCatch(saved_dfa_sf_r(), error = function(e) NULL)
-      if (is.null(sf_obj) || nrow(sf_obj) == 0) return(character(0))
-      setdiff(unique(as.character(sf_obj$dfa_name)), extra_dfa_names)
-    })
-
-    observeEvent(health_area_names(), {
-      controls$set_health_area_choices(health_area_names())
-    })
-
-    output_status <- function() {
-      done <- names(reactiveValuesToList(per_area))
-      controls$set_status_ui(
-        if (length(done) == 0) NULL else
-          div(style = 'font-size:11px;color:#0d9488;margin-top:4px;',
-              sprintf('Saved: %s', paste(done, collapse = ', ')))
-      )
-    }
-    observe({ output_status() })
-
     selected_health_area_sf <- reactive({
-      req(controls$health_area(), saved_dfa_sf_r())
+      req(health_area_name(), saved_dfa_sf_r())
       sf_obj <- saved_dfa_sf_r()
-      sub <- sf_obj[sf_obj$dfa_name == controls$health_area(), , drop = FALSE]
+      sub <- sf_obj[sf_obj$dfa_name == health_area_name(), , drop = FALSE]
       req(nrow(sub) > 0)
       sub
     })
@@ -250,7 +250,7 @@ teamAreaTabServer <- function(
     # before this override existed.
     n_teams_r <- reactive({
       overrides <- tryCatch(team_targets_r(), error = function(e) NULL)
-      override  <- overrides[[controls$health_area() %||% '']]$requested_teams
+      override  <- overrides[[health_area_name() %||% '']]$requested_teams
       if (!is.null(override) && !is.na(override) && override > 0) {
         as.integer(override)
       } else {
@@ -264,7 +264,7 @@ teamAreaTabServer <- function(
         health_area_sf = selected_health_area_sf(),
         u5_rast        = u5_rast,
         n_teams        = n_teams_r(),
-        seed           = sum(utf8ToInt(controls$health_area() %||% 'x'))
+        seed           = sum(utf8ToInt(health_area_name() %||% 'x'))
       )
     })
 
@@ -281,7 +281,7 @@ teamAreaTabServer <- function(
         max(20L, as.integer(round(max_dim / cellsize)))
       }),
       n_dfa                 = 1,   # unused — facility_seed_sf is always provided below
-      seed                  = reactive(sum(utf8ToInt(controls$health_area() %||% 'x'))),
+      seed                  = reactive(sum(utf8ToInt(health_area_name() %||% 'x'))),
       facility_seed_sf      = team_seed_sf,
       facility_name_col     = 'team_name',
       subdivision_boundary_penalty = 0.99,
@@ -296,9 +296,12 @@ teamAreaTabServer <- function(
       active                = tab_active
     )
 
+    scene_ever_sent <- reactiveVal(FALSE)
+
     send_current_scene <- function() {
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
+      scene_ever_sent(TRUE)
 
       # Unconditionally force the JS side back to paint mode before every
       # scene (re)load, regardless of what in_vertex_mode() currently
@@ -353,16 +356,60 @@ teamAreaTabServer <- function(
 
     # ── Load a health area's scene: from cache if visited before, else fresh ──
 
-    observeEvent(list(controls$health_area(), team_scene_mod$scene()), {
-      req(nzchar(controls$health_area() %||% ''))
-      key <- controls$health_area()
-      if (identical(last_loaded_key(), key)) return()
+    # This session is scoped to exactly one health area for its whole
+    # lifetime -- no more switching between health areas mid-session. But
+    # the scene's OWN inputs can still legitimately change shortly after
+    # this tab first mounts: n_teams_r() depends on team_targets_r()
+    # (the field-requested-teams override from mod_health_area_tab.R),
+    # and that reactive can settle to its real value on a later tick than
+    # this tab's own first scene computation -- team_scene_mod$scene()
+    # then correctly re-fires with the right n_teams, and this needs to
+    # actually apply that, not just the first thing that happened to
+    # compute. Tracked by key (health_area_name + n_teams), same pattern
+    # as mod_health_area_tab.R's scene_is_new/last_scene_key, rather than
+    # a plain "has this run once" flag -- the latter is exactly what
+    # silently locked in whatever n_teams happened to be available on the
+    # very first tick, permanently ignoring a correction.
+    last_scene_key  <- reactiveVal(NULL)
+    pending_restore <- reactiveVal(NULL)
+    restore_applied <- reactiveVal(FALSE)
 
-      cached <- if (!is.null(per_area[[key]])) per_area[[key]] else NULL
+    .apply_restore <- function(snap) {
+      if (is.null(snap$current_team_assignments) || is.null(rv$grid_sf)) return(invisible(NULL))
+      rv$current_assignments <- vapply(as.character(rv$grid_sf$cell_id), function(id) {
+        val <- snap$current_team_assignments[[id]]
+        if (is.null(val)) rv$initial_assignments[as.integer(id)] else as.character(val)
+      }, character(1))
+      rv$saved_team_sf    <- snap$saved_team_sf
+      rv$team_names        <- snap$team_names %||% rv$team_names
+      rv$smoothed_team_sf     <- snap$smoothed_team_sf
+      restore_applied(TRUE)
+      showNotification('Team area draft restored.', type = 'message', duration = 2)
+      invisible(NULL)
+    }
+
+    observeEvent(restore_r(), {
+      snap <- restore_r()
+      req(!is.null(snap))
+      if (!is.null(rv$grid_sf)) .apply_restore(snap) else pending_restore(snap)
+    }, ignoreNULL = TRUE, ignoreInit = TRUE)
+
+    observeEvent(team_scene_mod$scene(), {
+      req(nzchar(health_area_name() %||% ''))
+      # Once a draft's own saved team layout has been restored, that
+      # takes precedence permanently for this session -- a later re-fire
+      # of team_scene_mod$scene() (e.g. n_teams_r() settling to a
+      # different value) must not wipe restored work back to a fresh
+      # regeneration. A draft's own team layout is fixed by what was
+      # previously saved, not by recomputing seeds again.
+      if (isTRUE(restore_applied())) return()
+
       sc <- tryCatch(team_scene_mod$scene(), error = function(e) NULL)
       req(!is.null(sc))
 
-      last_loaded_key(key)
+      new_key <- paste0(health_area_name(), '|', n_teams_r())
+      if (identical(last_scene_key(), new_key)) return()
+      last_scene_key(new_key)
 
       rv$district_sf         <- sc$district_sf
       rv$grid_sf              <- sc$grid_sf
@@ -372,30 +419,14 @@ teamAreaTabServer <- function(
       rv$friction_path              <- sc$friction_path
       rv$seed_points                  <- sc$seed_points_list
       rv$team_names                     <- normalize_dfa_names_team(unique(as.character(sc$initial_assignments)))
+      rv$initial_assignments             <- sc$initial_assignments
+      rv$current_assignments               <- sc$initial_assignments
+      rv$saved_team_sf                       <- NULL
+      rv$smoothed_team_sf                      <- NULL
 
-      if (!is.null(cached)) {
-        rv$initial_assignments <- sc$initial_assignments
-        rv$current_assignments <- vapply(as.character(rv$grid_sf$cell_id), function(id) {
-          val <- cached$assignments_named[[id]]
-          if (is.null(val)) sc$initial_assignments[as.integer(id)] else as.character(val)
-        }, character(1))
-        rv$saved_team_sf    <- cached$saved_team_sf
-        rv$team_names       <- cached$team_names %||% rv$team_names
-        rv$smoothed_team_sf <- cached$smoothed_team_sf   # NULL if this health area's team areas were never refined
-      } else {
-        rv$initial_assignments <- sc$initial_assignments
-        rv$current_assignments <- sc$initial_assignments
-        rv$saved_team_sf       <- NULL
-        rv$smoothed_team_sf    <- NULL
-      }
-      # Switching health areas always drops back to painting (step 1) --
-      # explicit paint_exit_vertex_mode keeps the JS side's own mode flag
-      # in sync too: without it, if the previous health area was left
-      # mid-refinement, the JS side would still think it's in vertex mode
-      # when send_current_scene() below calls paint_load_scene() for the
-      # NEW health area's completely different grid, and the defensive
-      # re-hide logic in loadScene() would incorrectly keep that new
-      # grid hidden, thinking a refinement session is still active.
+      pr <- pending_restore()
+      if (!is.null(pr)) { .apply_restore(pr); pending_restore(NULL) }
+
       if (isTRUE(in_vertex_mode())) send_paint_message("paint_exit_vertex_mode")
       in_vertex_mode(FALSE)
       controls$set_vertex_mode_ui(FALSE)
@@ -409,8 +440,20 @@ teamAreaTabServer <- function(
       if (tab_active() && !is.null(rv$grid_sf)) send_current_scene()
     }, ignoreInit = TRUE)
 
+    # readyInputId (map_ready()) fires from INSIDE paint-app.js's own
+    # loadScene() every time a scene finishes loading -- not just once,
+    # at true initial map creation -- so calling send_current_scene()
+    # here unconditionally would ping-pong forever (scene loads -> JS
+    # signals ready -> this resends the scene -> JS reloads and signals
+    # ready again -> ...). Gated on scene_ever_sent() specifically to
+    # avoid that: this only ever catches up a scene that never
+    # successfully sent in the first place (e.g. paint_load_scene
+    # arriving before the map container existed, on this tab's fast
+    # direct-from-intro navigation), and does nothing on every
+    # subsequent, ordinary "scene finished loading" signal.
     observeEvent(map_mod$map_ready(), {
       if (tab_active()) send_paint_message('hide_loading')
+      if (tab_active() && !is.null(rv$grid_sf) && !isTRUE(scene_ever_sent())) send_current_scene()
     }, ignoreInit = TRUE)
 
     observeEvent(map_mod$undo_count(), {
@@ -496,7 +539,7 @@ teamAreaTabServer <- function(
 
     observeEvent(controls$submit_click(), {
       req(tab_active())
-      pending_action('submit_all'); send_paint_message('paint_request_assignments')
+      pending_action('submit'); send_paint_message('paint_request_assignments')
     }, ignoreInit = TRUE)
 
     # ── Refine boundaries (vertex editing) ──────────────────────────────
@@ -549,14 +592,15 @@ teamAreaTabServer <- function(
 
     # Fires for three distinct reasons, distinguished by pending_action() --
     # same pattern as mod_health_area_tab.R's identical wiring:
-    #   "manual_refine_save"    -- user explicitly clicked Save Refinements.
-    #   "finalize_save"         -- Save was clicked; always runs the CURRENT
-    #                              health area's boundary through vertex
-    #                              conversion as part of finishing, whether
-    #                              or not Refine Boundaries was ever opened.
-    #   "finalize_submit_all"   -- same, then combines every cached health
-    #                              area (including this freshly-converted
-    #                              one) into the actual DB write.
+    #   "manual_refine_save" -- user explicitly clicked Save Refinements.
+    #   "finalize_save"      -- Save was clicked; always runs this health
+    #                           area's boundary through vertex conversion
+    #                           as part of finishing, whether or not
+    #                           Refine Boundaries was ever opened.
+    #   "finalize_submit"    -- same, then writes it to the DB via
+    #                           submit_stage_fn -- this session is scoped
+    #                           to exactly one health area, so there's no
+    #                           more "combine everything cached" step.
     observeEvent(map_mod$vertex_geojson(), {
       payload <- map_mod$vertex_geojson()
       req(!is.null(payload$geojson))
@@ -579,7 +623,7 @@ teamAreaTabServer <- function(
         return()
       }
 
-      if (identical(act, "finalize_save") || identical(act, "finalize_submit_all")) {
+      if (identical(act, "finalize_save") || identical(act, "finalize_submit")) {
         rv$smoothed_team_sf <- parsed
 
         if (isTRUE(rv$vertex_mode_silently_entered)) {
@@ -587,51 +631,67 @@ teamAreaTabServer <- function(
           rv$vertex_mode_silently_entered <- FALSE
         }
 
-        .cache_current_area(rv$current_assignments, saved_sf_override = parsed)
+        .update_current_area(rv$current_assignments, saved_sf_override = parsed)
         recompute_population_table(rv$current_assignments)
 
         if (identical(act, "finalize_save")) {
-          showNotification(sprintf('Team areas saved for %s.', controls$health_area()), type = 'message', duration = 2)
+          showNotification(sprintf('Team areas saved for %s.', health_area_name()), type = 'message', duration = 2)
           pending_action(NULL)
           return()
         }
 
-        all_keys <- names(reactiveValuesToList(per_area))
-        if (length(all_keys) == 0) { pending_action(NULL); return() }
-
-        combined_sf <- tryCatch(
-          do.call(rbind, lapply(all_keys, function(k) {
-            x <- per_area[[k]]$saved_team_sf
-            x$health_area <- k
-            x
-          })),
-          error = function(e) NULL
-        )
-        team_names_by_area <- setNames(lapply(all_keys, function(k) per_area[[k]]$team_names), all_keys)
-        assignments_by_area <- setNames(lapply(all_keys, function(k) per_area[[k]]$assignments_named), all_keys)
-        smoothed_by_area     <- setNames(lapply(all_keys, function(k) per_area[[k]]$smoothed_team_sf), all_keys)
-
-        if (!is.null(combined_sf) && !is.null(submit_stage_fn)) {
-          submit_stage_fn('team_areas', list(
-            saved_team_sf             = combined_sf,
-            team_names                = team_names_by_area,
-            current_team_assignments  = assignments_by_area,
-            smoothed_team_sf          = smoothed_by_area
+        if (!is.null(rv$saved_team_sf) && !is.null(submit_stage_fn)) {
+          submit_stage_fn(list(
+            saved_team_sf             = rv$saved_team_sf,
+            team_names                = rv$team_names,
+            current_team_assignments  = setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id)),
+            smoothed_team_sf          = rv$smoothed_team_sf
           ))
-          showNotification('Team areas submitted.', type = 'message', duration = 3)
+          .show_make_current_prompt()
         }
         pending_action(NULL)
         return()
       }
     }, ignoreInit = TRUE)
 
+    # ── "Make current" prompt — shown right after a team-area submission,
+    # scoped to just this one health area, independent of anything else in
+    # the district. No lock-gating here (unlike health areas) -- team-area
+    # publish never invalidates anything else downstream. make_current_fn
+    # (teamAreaSession$make_current) does its own final, authoritative
+    # staleness check server-side regardless of what this tab shows; if it
+    # refuses (the pinned health-area version stopped being current while
+    # this session was open), the notification it raises says so plainly --
+    # there's nothing else for this prompt to offer.
+    .show_make_current_prompt <- function() {
+      if (is.null(make_current_fn)) return(invisible(NULL))
+      showModal(modalDialog(
+        title = 'Team areas submitted', size = 's', easyClose = FALSE,
+        footer = tagList(
+          actionButton(session$ns('team_make_current_skip'), 'Not now', class = 'btn btn-default'),
+          actionButton(session$ns('team_make_current_confirm'), 'Set as current', class = 'btn btn-primary')
+        ),
+        div(
+          style = 'font-size:13px;color:#475569;line-height:1.6;',
+          tags$p('Set this submission as ', tags$strong(health_area_name() %||% 'this health area'),
+                "'s current team map?")
+        )
+      ))
+    }
+
+    observeEvent(input$team_make_current_skip, { removeModal() }, ignoreInit = TRUE)
+
+    observeEvent(input$team_make_current_confirm, {
+      removeModal()
+      if (!is.null(make_current_fn)) make_current_fn()
+    }, ignoreInit = TRUE)
+
     # saved_sf_override lets callers supply an already-computed boundary
     # (the vertex-converted result) instead of having this function
     # rebuild a fresh raw-grid one -- used by the finalize_save/
-    # finalize_submit_all path below, where rebuilding here would
-    # silently discard the conversion that was just done.
-    .cache_current_area <- function(ordered_assignments, saved_sf_override = NULL) {
-      key  <- controls$health_area()
+    # finalize_submit path above, where rebuilding here would silently
+    # discard the conversion that was just done.
+    .update_current_area <- function(ordered_assignments, saved_sf_override = NULL) {
       saved <- if (!is.null(saved_sf_override)) {
         saved_sf_override
       } else {
@@ -642,12 +702,6 @@ teamAreaTabServer <- function(
       }
       if (is.null(saved)) return(invisible(NULL))
       rv$saved_team_sf <- saved
-      per_area[[key]] <- list(
-        saved_team_sf     = saved,
-        team_names        = rv$team_names,
-        assignments_named = setNames(as.list(ordered_assignments), as.character(rv$grid_sf$cell_id)),
-        smoothed_team_sf  = rv$smoothed_team_sf   # carries forward whatever refinement exists for THIS health area
-      )
       send_paint_message('paint_show_saved', list(geojson = as_geojson_text(saved)))
       invisible(saved)
     }
@@ -676,12 +730,12 @@ teamAreaTabServer <- function(
       # Save and Submit both always finish by running the CURRENT health
       # area's boundary through grid -> vertex conversion before anything
       # is cached or written to the DB -- see the vertex_geojson observer
-      # above for where finalize_save/finalize_submit_all actually
+      # above for where finalize_save/finalize_submit actually
       # complete. No longer depends on the user having opened Refine
       # Boundaries themselves; if they have (in_vertex_mode() is TRUE),
       # this finalizes their current live edits directly instead.
-      if (identical(act, 'save') || identical(act, 'submit_all')) {
-        pending_action(if (identical(act, 'save')) 'finalize_save' else 'finalize_submit_all')
+      if (identical(act, 'save') || identical(act, 'submit')) {
+        pending_action(if (identical(act, 'save')) 'finalize_save' else 'finalize_submit')
         if (!isTRUE(in_vertex_mode())) {
           rv$vertex_mode_silently_entered <- TRUE
           send_paint_message("paint_enter_vertex_mode", list(
@@ -697,60 +751,57 @@ teamAreaTabServer <- function(
       pending_action(NULL)
     }, ignoreInit = TRUE)
 
-    # ── Restore ────────────────────────────────────────────────────────────────
-
-    observeEvent(restore_r(), {
-      snap <- restore_r()
-      if (is.null(snap) || is.null(snap$current_team_assignments)) return()
-      by_area <- snap$current_team_assignments
-      saved_sf_all <- snap$saved_team_sf
-      smoothed_all <- snap$smoothed_team_sf %||% list()
-      for (k in names(by_area)) {
-        area_sf <- NULL
-        if (!is.null(saved_sf_all) && 'health_area' %in% names(saved_sf_all))
-          area_sf <- saved_sf_all[saved_sf_all$health_area == k, , drop = FALSE]
-        per_area[[k]] <- list(
-          saved_team_sf     = area_sf,
-          team_names        = (snap$team_names %||% list())[[k]],
-          assignments_named = by_area[[k]],
-          smoothed_team_sf  = smoothed_all[[k]]
+    # ── Stale-draft handling ─────────────────────────────────────────────────
+    # Fires whenever the session-manager layer reports this draft's pinned
+    # health-area version is no longer current (checked at draft-open time,
+    # AND on any later change to is_stale_r() -- e.g. the health-area
+    # version changing while this tab is already open). Applies uniformly
+    # whether this draft was ever published or not -- staleness doesn't
+    # care about publish state, only about whether the boundary it was
+    # drawn against still exists as the district's current one. There is
+    # no fix to offer here -- only making the pinned health-area version
+    # current again un-stales it -- so this just explains that plainly and
+    # sends the user back to the overview rather than leaving them on a
+    # tab where nothing they do here can help.
+    observeEvent(is_stale_r(), {
+      req(isTRUE(is_stale_r()))
+      showModal(modalDialog(
+        title = 'This team area is based on a previous health-area version',
+        size = 'm', easyClose = FALSE,
+        footer = actionButton(session$ns('stale_back_to_intro'), 'Back to overview', class = 'btn btn-primary'),
+        div(
+          style = 'font-size:13px;color:#475569;line-height:1.6;',
+          tags$p(
+            "The health area this team map was drawn against is no longer this district's current one. ",
+            "This team area can't be worked on here until that health-area version is made current again ",
+            '(from the Admin panel\u2019s District review section), or you can start a new team-area draft ',
+            'against whatever health-area version is current now, from the overview page.'
+          )
         )
-      }
-      last_loaded_key(NULL)   # force reload of the currently selected area from cache
-      showNotification('Team area state restored.', type = 'message', duration = 2)
-    }, ignoreNULL = TRUE, ignoreInit = TRUE)
+      ))
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$stale_back_to_intro, {
+      removeModal()
+      session$sendCustomMessage('switch_tab', list(value = 'tab_intro'))
+    }, ignoreInit = TRUE)
 
     list(
-      has_scene = reactive(!is.null(rv$grid_sf)),
-      restore_from_snapshot = function(snap) {
-        # Routed through restore_r() above for consistency with other tabs'
-        # restore_from_snapshot(snap) call signature.
-        if (!is.null(snap$current_team_assignments)) {
-          by_area <- snap$current_team_assignments
-          saved_sf_all <- snap$saved_team_sf
-          smoothed_all <- snap$smoothed_team_sf %||% list()
-          for (k in names(by_area)) {
-            area_sf <- NULL
-            if (!is.null(saved_sf_all) && 'health_area' %in% names(saved_sf_all))
-              area_sf <- saved_sf_all[saved_sf_all$health_area == k, , drop = FALSE]
-            per_area[[k]] <- list(
-              saved_team_sf     = area_sf,
-              team_names        = (snap$team_names %||% list())[[k]],
-              assignments_named = by_area[[k]],
-              smoothed_team_sf  = smoothed_all[[k]]
-            )
-          }
-          last_loaded_key(NULL)
-        }
-      }
+      has_scene = reactive(!is.null(rv$grid_sf))
     )
   })
 }
 
 # Team-name equivalent of the health-area normalize_dfa_names() helper —
 # duplicated locally to avoid depending on mod_health_area_tab.R's private
-# closure of the same name.
+# closure of the same name. Deliberately does NOT append extra_dfa_names
+# (Inaccessible/Unpopulated) the way the health-area version does: those
+# are meaningful, user-selectable fallback categories at the district
+# level, but a health area's own territory is by definition already the
+# accessible/populated selection, so team areas have no legitimate use
+# for them — appending them here only ever produced phantom extra
+# "teams" with zero cells and zero population.
 normalize_dfa_names_team <- function(x) {
   x <- unique(as.character(x)); x <- x[!is.na(x) & nzchar(x)]
-  c(setdiff(x, extra_dfa_names), extra_dfa_names)
+  x
 }

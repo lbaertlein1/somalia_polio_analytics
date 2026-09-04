@@ -60,11 +60,15 @@ pop_palette <- colorRampPalette(c(
 # =============================================================================
 # Helpers
 #
-# mod_db_v2.R replaces mod_db.R. download_helpers_v2.R replaces
-# download_helpers.R (built around planning_data/microplan, which no longer
-# exists). idp_helpers.R is new. subdivision_helpers.R is unchanged — still
-# used both for the intro tab's reference layer and by idp_helpers.R's
-# fetch pattern.
+# mod_db_v2.R replaces mod_db.R, now also owning team_area_versions
+# (independently-versioned per health area — see its own header comment)
+# and campaign_districts. download_helpers_v2.R replaces
+# download_helpers.R (built around planning_data/microplan, which no
+# longer exists) and now sources team-area export data from
+# team_area_versions rather than a health-area version's own snapshot.
+# idp_helpers.R is new. subdivision_helpers.R is unchanged — still used
+# both for the intro tab's reference layer and by idp_helpers.R's fetch
+# pattern.
 # =============================================================================
 source('helpers/app_helpers.R', local = TRUE)
 source('helpers/download_helpers_v2.R', local = TRUE)
@@ -130,17 +134,19 @@ source('tabs/health_area/health_area_helpers.R',                local = TRUE)   
 source('tabs/health_area/mod_health_area_controls.R',           local = TRUE)   # unchanged
 source('tabs/health_area/mod_health_area_map.R',                local = TRUE)   # unchanged
 source('tabs/health_area/mod_health_area_population.R',         local = TRUE)   # unchanged — reused by Team Areas too
-source('tabs/health_area/mod_health_area_tab.R',                local = TRUE)   # unchanged — still submits stage "areas", which mod_db_v2.R matches
+source('tabs/health_area/mod_health_area_tab.R',                local = TRUE)   # v2: submit-flow "make current" prompt + lock messaging added, still submits stage "areas"
 source('tabs/health_area/mod_initial_health_area_generation.R', local = TRUE)   # v2: compactness/max_cost removed, distance-blend removed
 
 source('tabs/team_area/team_area_helpers.R', local = TRUE)   # new
 source('tabs/team_area/mod_team_area_map.R', local = TRUE)   # new
-source('tabs/team_area/mod_team_area_controls.R', local = TRUE)   # new
-source('tabs/team_area/mod_team_area_tab.R', local = TRUE)   # new
+source('tabs/team_area/mod_team_area_controls.R', local = TRUE)   # v2: health-area dropdown removed — chosen externally now (see mod_intro_tab_v2.R)
+source('tabs/team_area/mod_team_area_tab.R', local = TRUE)   # v2: restructured — scoped to one health area per session, no more multi-area cache
 
 # microplan tab removed entirely — no source line for it.
 
 source('tabs/admin/mod_admin_tab_v2.R', local = TRUE)
+
+source('tabs/export/mod_export_tab.R', local = TRUE)   # new — standalone export page, current/published data only
 
 # =============================================================================
 # WorldPop raster — loaded after helpers are sourced (load_worldpop_u5_raster

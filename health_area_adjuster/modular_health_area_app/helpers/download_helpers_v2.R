@@ -6,27 +6,64 @@
 # function is built entirely around planning_data (microplan), which no
 # longer exists.
 #
+# Team-area rework: team areas are now their own table
+# (team_area_versions), one independently-current version PER health area
+# — NOT a field on the health-area version's own snapshot anymore. A
+# district's team-area export has to be assembled by combining every
+# currently-shared team_area_versions row across all its health areas,
+# not read off version$snap the way health-area/landmark/IDP/facility data
+# still can be.
+#
+# Format support: GeoJSON (default), ESRI Shapefile, and KML, selected via
+# a driver/extension pair rather than three near-duplicate functions.
+# Shapefiles are inherently multi-file (.shp/.shx/.dbf/.prj) — no special
+# handling needed here, since the existing zip step already just collects
+# every file in the temp directory regardless of how many one layer wrote.
+#
 # Output files (any that have no data for a given district are simply
 # omitted from the zip, same behavior as v1):
-#   health_areas.geojson       — health area polygons (smoothed presentation
-#                                 geometry if available, else raw)
-#   team_areas.geojson         — team area polygons, same basis
-#   idp_settlements.geojson    — IDP settlement points
-#   landmarks.geojson          — landmark points
-#   facilities.csv             — all facility records
+#   health_areas.<ext>       — health area polygons (smoothed presentation
+#                               geometry if available, else raw)
+#   team_areas.<ext>         — team area polygons, same basis, combined
+#                               across every health area's current version
+#   idp_settlements.<ext>    — IDP settlement points
+#   landmarks.<ext>          — landmark points
+#   facilities.csv           — all facility records
 # =============================================================================
 
-#' Build one district's v2 download package (one shared mapping_versions row).
+#' Map a user-facing format choice to its sf driver name and file extension.
+#' Kept in one place so the export UI and the zip-builders always agree on
+#' what "shp"/"kml"/"geojson" mean.
+export_format_spec <- function(format = c('geojson', 'shp', 'kml')) {
+  format <- match.arg(format)
+  switch(format,
+    geojson = list(driver = 'GeoJSON',          ext = 'geojson'),
+    shp     = list(driver = 'ESRI Shapefile',    ext = 'shp'),
+    kml     = list(driver = 'KML',               ext = 'kml')
+  )
+}
+
+#' Build one district's v2 download package (one shared mapping_versions
+#' row for health areas, plus every current team_area_versions row across
+#' its health areas).
 #'
 #' @param file           output zip path (as passed by a Shiny downloadHandler)
 #' @param district_name  character
 #' @param zone, region   character, for attribute columns
-#' @param version        a single parsed version list, as returned by
-#'                        db_get_version_by_id() / db_get_shared_version()
-#'                        (i.e. has a `$snap` element with saved_dfa_sf,
-#'                        smoothed_dfa_sf, saved_team_sf, smoothed_team_sf,
-#'                        idp_settlements, landmarks, app_sf/odk_sf)
-build_district_download_v2 <- function(file, district_name, zone = '', region = '', version) {
+#' @param version        a single parsed HEALTH-AREA version list, as
+#'                        returned by db_get_version_by_id() /
+#'                        db_get_shared_version() (has a `$snap` element
+#'                        with saved_dfa_sf, smoothed_dfa_sf, dfa_names,
+#'                        idp_settlements, landmarks, app_sf/odk_sf —
+#'                        NOT team-area fields, those live in
+#'                        team_area_versions now).
+#' @param campaign_id    integer — needed to look up each health area's
+#'                        current team-area version independently.
+#' @param format         'geojson' (default), 'shp', or 'kml'.
+build_district_download_v2 <- function(file, district_name, zone = '', region = '',
+                                       version, campaign_id, format = 'geojson') {
+
+  spec <- export_format_spec(format)
 
   tmp <- tempfile()
   dir.create(tmp)
@@ -39,17 +76,33 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     out <- sf_obj |>
       dplyr::mutate(zone_name = zone, region_name = region, district_name = district_name) |>
       sf::st_transform(4326)
-    sf::st_write(out, file.path(tmp, fname), driver = 'GeoJSON', delete_dsn = TRUE, quiet = TRUE)
+    sf::st_write(out, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
   }
 
   # Prefer smoothed/presentation geometry for exports — raw grid-stepped
   # polygons look unprofessional outside the app; fall back to raw if no
   # smoothed geometry was generated yet (e.g. version never submitted).
-  ha_sf   <- snap$smoothed_dfa_sf  %||% snap$saved_dfa_sf
-  team_sf <- snap$smoothed_team_sf %||% snap$saved_team_sf
+  ha_sf <- snap$smoothed_dfa_sf %||% snap$saved_dfa_sf
 
-  .write_sf(ha_sf,   'health_areas.geojson')
-  .write_sf(team_sf, 'team_areas.geojson')
+  # Team areas: combine every health area's CURRENT team-area version —
+  # there is no single "the district's team areas" anymore, only
+  # per-health-area ones, each independently current or not.
+  team_sf <- tryCatch({
+    ha_names <- setdiff(unlist(snap$dfa_names %||% list()), c('Inaccessible', 'Unpopulated'))
+    parts <- lapply(ha_names, function(han) {
+      tv <- db_get_current_team_area_version(pool, campaign_id, district_name, han)
+      if (is.null(tv)) return(NULL)
+      geom <- tv$snap$smoothed_team_sf %||% tv$snap$saved_team_sf
+      if (is.null(geom) || nrow(geom) == 0) return(NULL)
+      geom$health_area <- han
+      geom
+    })
+    parts <- Filter(Negate(is.null), parts)
+    if (length(parts) == 0) NULL else do.call(rbind, parts)
+  }, error = function(e) NULL)
+
+  .write_sf(ha_sf,   paste0('health_areas.', spec$ext))
+  .write_sf(team_sf, paste0('team_areas.', spec$ext))
 
   # IDP settlements / landmarks are stored as plain data frames with lon/lat,
   # not sf — convert if present.
@@ -57,13 +110,14 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     if (is.null(df) || nrow(df) == 0 || !all(c('lon', 'lat') %in% names(df))) return(invisible(NULL))
     pts <- sf::st_as_sf(df, coords = c('lon', 'lat'), crs = 4326, remove = FALSE) |>
       dplyr::mutate(zone_name = zone, region_name = region, district_name = district_name)
-    sf::st_write(pts, file.path(tmp, fname), driver = 'GeoJSON', delete_dsn = TRUE, quiet = TRUE)
+    sf::st_write(pts, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
   }
-  .write_points_df(snap$idp_settlements, 'idp_settlements.geojson')
-  .write_points_df(snap$landmarks,       'landmarks.geojson')
+  .write_points_df(snap$idp_settlements, paste0('idp_settlements.', spec$ext))
+  .write_points_df(snap$landmarks,       paste0('landmarks.', spec$ext))
 
   # Facilities — combine locked ODK snapshot + user-added sites, same as
-  # server.R does when restoring a session.
+  # server.R does when restoring a session. Always CSV, regardless of
+  # boundary format — a facility list isn't geometry-format-dependent.
   fac_parts <- Filter(function(x) inherits(x, 'sf') && nrow(x) > 0,
                       list(snap$odk_sf, snap$app_sf))
   if (length(fac_parts) > 0) {
@@ -92,11 +146,13 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   invisible(NULL)
 }
 
-#' Build a zip-of-zips: every district's currently shared version for one
-#' campaign, combined. Used by the admin "Download all data" action.
+#' Build a zip-of-zips: every district's currently shared health-area
+#' version for one campaign, combined (each district's own zip also
+#' includes its current team-area data — see build_district_download_v2()).
 #'
 #' @param campaign_id  integer
-build_campaign_download_v2 <- function(file, campaign_id) {
+#' @param format       'geojson' (default), 'shp', or 'kml'.
+build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson') {
   progress <- tryCatch(db_get_campaign_progress(pool, campaign_id), error = function(e) NULL)
   if (is.null(progress) || nrow(progress) == 0) {
     write.csv(data.frame(message = 'No published districts for this campaign.'), file, row.names = FALSE)
@@ -120,7 +176,8 @@ build_campaign_download_v2 <- function(file, campaign_id) {
     slug     <- gsub('[^A-Za-z0-9]', '_', tolower(trimws(dname)))
     sub_zip  <- file.path(tmp, paste0(slug, '.zip'))
     tryCatch(
-      build_district_download_v2(sub_zip, dname, zone_val, region_val, version),
+      build_district_download_v2(sub_zip, dname, zone_val, region_val, version,
+                                 campaign_id = campaign_id, format = format),
       error = function(e) cat('[download] failed for', dname, ':', e$message, '\n')
     )
   }

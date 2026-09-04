@@ -57,19 +57,23 @@ adminTabUI <- function(id) {
                      style = 'display:flex;gap:8px;align-items:center;',
                      selectInput(ns('progress_campaign'), NULL, choices = character(0), width = '220px'),
                      actionButton(ns('refresh_progress'), NULL,
-                                  icon = icon('rotate'), class = 'btn btn-default btn-sm', title = 'Refresh'),
-                     actionButton(ns('download_campaign_btn'), 'Download all',
-                                  icon = icon('download'), class = 'btn btn-default btn-sm')
+                                  icon = icon('rotate'), class = 'btn btn-default btn-sm', title = 'Refresh')
                    ),
                    content = DT::DTOutput(ns('progress_table'), width = '100%')
     ),
 
-    .admin_section('Version review',
+    .admin_section('District review',
                    action = div(
                      style = 'display:flex;gap:8px;align-items:center;',
-                     selectInput(ns('review_district'), NULL, choices = character(0), width = '220px')
+                     selectInput(ns('review_district'), NULL, choices = character(0), width = '220px'),
+                     selectInput(ns('review_campaign'), NULL, choices = character(0), width = '220px')
                    ),
-                   content = DT::DTOutput(ns('version_table'), width = '100%')
+                   content = tagList(
+                     div(class = 'mini-label', style = 'margin: 10px 0 4px;', 'Health area versions'),
+                     DT::DTOutput(ns('ha_version_table'), width = '100%'),
+                     div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Team area versions, by health area'),
+                     DT::DTOutput(ns('ta_version_table'), width = '100%')
+                   )
     ),
 
     .admin_section('Generation settings',
@@ -248,8 +252,11 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       ns_str <- session$ns('')
       df$Action <- vapply(seq_len(nrow(df)), function(i) {
         label <- if (isTRUE(df$is_active[i])) 'Deactivate' else 'Activate'
-        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%stoggle_campaign_row\', %d, {priority:\'event\'})">%s</button>',
+        toggle_btn <- sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%stoggle_campaign_row\', %d, {priority:\'event\'})">%s</button>',
                 ns_str, df$campaign_id[i], label)
+        manage_btn <- sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%smanage_districts_row\', %d, {priority:\'event\'})">Manage districts</button>',
+                ns_str, df$campaign_id[i])
+        paste(toggle_btn, manage_btn)
       }, character(1))
       display <- data.frame(
         Campaign = df$campaign_name, Description = df$description %||% '',
@@ -260,6 +267,135 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       DT::datatable(display, escape = FALSE, rownames = FALSE, selection = 'none',
                     options = list(dom = 't', paging = FALSE))
     })
+
+    # ── Manage districts (assignment + bundled carry-forward) ────────────────
+    manage_districts_campaign_id <- reactiveVal(NULL)
+
+    observeEvent(input$manage_districts_row, {
+      manage_districts_campaign_id(as.integer(input$manage_districts_row))
+      .show_manage_districts_modal(as.integer(input$manage_districts_row))
+    }, ignoreInit = TRUE)
+
+    .show_manage_districts_modal <- function(cid) {
+      assigned <- tryCatch(db_get_campaign_districts(pool, cid), error = function(e) NULL)
+      assigned_names <- if (!is.null(assigned)) assigned$district_name else character(0)
+
+      by_region <- districts_shp |> sf::st_drop_geometry() |>
+        dplyr::distinct(district_name, region_name) |>
+        dplyr::arrange(region_name, district_name)
+
+      region_blocks <- lapply(sort(unique(by_region$region_name)), function(rn) {
+        dists <- by_region$district_name[by_region$region_name == rn]
+        tagList(
+          tags$div(style = 'font-size:11px;font-weight:700;color:#64748b;margin:10px 0 4px;', rn),
+          checkboxGroupInput(
+            session$ns(paste0('manage_dist_', gsub('[^A-Za-z0-9]+', '_', rn))), NULL,
+            choices = dists, selected = intersect(dists, assigned_names), width = '100%'
+          )
+        )
+      })
+
+      showModal(modalDialog(
+        title = 'Manage districts for this campaign', size = 'l', easyClose = TRUE,
+        footer = tagList(
+          modalButton('Cancel'),
+          actionButton(session$ns('save_manage_districts'), 'Save', class = 'btn btn-primary')
+        ),
+        div(style = 'max-height:60vh;overflow-y:auto;', region_blocks)
+      ))
+    }
+
+    observeEvent(input$save_manage_districts, {
+      cid <- manage_districts_campaign_id(); req(!is.null(cid))
+      by_region <- districts_shp |> sf::st_drop_geometry() |>
+        dplyr::distinct(district_name, region_name)
+      region_names <- sort(unique(by_region$region_name))
+
+      checked <- unlist(lapply(region_names, function(rn) {
+        input[[paste0('manage_dist_', gsub('[^A-Za-z0-9]+', '_', rn))]]
+      }))
+      checked <- checked %||% character(0)
+
+      assigned <- tryCatch(db_get_campaign_districts(pool, cid), error = function(e) NULL)
+      assigned_names <- if (!is.null(assigned)) assigned$district_name else character(0)
+
+      newly_added   <- setdiff(checked, assigned_names)
+      newly_removed <- setdiff(assigned_names, checked)
+
+      for (dn in newly_removed) db_remove_district_from_campaign(pool, cid, dn)
+      for (dn in newly_added)   db_assign_district_to_campaign(pool, cid, dn, current_user())
+
+      removeModal()
+      refresh_campaigns()
+
+      if (length(newly_added) > 0) .show_carry_forward_modal(cid, newly_added)
+    }, ignoreInit = TRUE)
+
+    # For each newly-added district, offer bundled carry-forward (health +
+    # team areas together, marked current) from the most recent OTHER
+    # campaign that district was published in. One checkbox per district
+    # with a prior version available; districts with nothing to carry
+    # forward from are shown but not offered a checkbox -- they simply
+    # start blank in this campaign, same as any district with no prior
+    # published work anywhere.
+    .show_carry_forward_modal <- function(cid, district_names) {
+      candidates <- lapply(district_names, function(dn) {
+        rows <- tryCatch(db_get_shareable_versions(pool, dn, campaign_id = NULL), error = function(e) NULL)
+        has_source <- !is.null(rows) && nrow(rows[rows$campaign_id != cid, , drop = FALSE]) > 0
+        list(district_name = dn, has_source = has_source)
+      })
+
+      rows_ui <- lapply(candidates, function(c) {
+        div(
+          style = 'display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid #f1f5f9;',
+          if (c$has_source) {
+            checkboxInput(session$ns(paste0('carry_fwd_', gsub('[^A-Za-z0-9]+', '_', c$district_name))),
+                         c$district_name, value = TRUE, width = '100%')
+          } else {
+            tagList(
+              tags$span(style = 'font-size:13px;color:#94a3b8;', c$district_name),
+              tags$span(style = 'font-size:11px;color:#94a3b8;margin-left:8px;', '(no prior version to carry forward — starts blank)')
+            )
+          }
+        )
+      })
+
+      showModal(modalDialog(
+        title = 'Carry forward prior work?', size = 'm', easyClose = TRUE,
+        footer = tagList(
+          modalButton('Skip — start all blank'),
+          actionButton(session$ns('confirm_carry_forward'), 'Carry forward checked districts', class = 'btn btn-primary')
+        ),
+        tags$p(style = 'font-size:12px;color:#64748b;margin-bottom:10px;',
+              'For each district below, carrying forward brings in its most recently published health-area ',
+              'map and any current team-area maps from another campaign, and marks them current here too.'),
+        div(rows_ui)
+      ))
+      pending_carry_forward_cid(cid)
+      pending_carry_forward_districts(district_names)
+    }
+
+    pending_carry_forward_cid       <- reactiveVal(NULL)
+    pending_carry_forward_districts <- reactiveVal(NULL)
+
+    observeEvent(input$confirm_carry_forward, {
+      cid   <- pending_carry_forward_cid(); req(!is.null(cid))
+      dists <- pending_carry_forward_districts() %||% character(0)
+      removeModal()
+      n_ok <- 0L
+      for (dn in dists) {
+        checked <- isTRUE(input[[paste0('carry_fwd_', gsub('[^A-Za-z0-9]+', '_', dn))]])
+        if (!checked) next
+        res <- tryCatch(
+          db_carry_forward_district_to_campaign(pool, cid, dn, current_user()),
+          error = function(e) { cat('[admin] carry_forward error for', dn, ':', e$message, '\n'); NULL }
+        )
+        if (!is.null(res)) n_ok <- n_ok + 1L
+      }
+      showNotification(sprintf('Carried forward %d district(s).', n_ok), type = 'message', duration = 3)
+      pending_carry_forward_cid(NULL); pending_carry_forward_districts(NULL)
+      refresh_progress()
+    }, ignoreInit = TRUE)
 
     observeEvent(input$add_campaign_btn, {
       showModal(modalDialog(
@@ -306,11 +442,10 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
                              rownames = FALSE, options = list(dom = 't')))
       }
       .flag <- function(x) ifelse(isTRUE(x), '\u2713', '\u2013')
-      ns_str <- session$ns('')
-      print_action <- vapply(seq_len(nrow(df)), function(i) {
-        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sprint_maps_row\', %d, {priority:\'event\'})">Print maps</button>',
-                ns_str, df$version_id[i])
-      }, character(1))
+      n_health_areas <- vapply(df$dfa_names, function(x) {
+        parsed <- tryCatch(.from_json_vec_db(x), error = function(e) NULL)
+        length(setdiff(parsed, c('Inaccessible', 'Unpopulated')))
+      }, integer(1))
       display <- data.frame(
         District      = df$district_name,
         `Published by` = df$owner_username,
@@ -319,96 +454,68 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         Landmarks         = vapply(df$has_landmarks, .flag, character(1)),
         Facilities          = vapply(df$has_facilities, .flag, character(1)),
         IDP                   = vapply(df$has_idp, .flag, character(1)),
-        `Health Areas`          = vapply(df$has_health_areas, .flag, character(1)),
-        `Team Areas`              = vapply(df$has_team_areas, .flag, character(1)),
-        Print                       = print_action,
+        `Health Areas`          = ifelse(is.na(n_health_areas), '\u2013', as.character(n_health_areas)),
+        `Team Areas`              = ifelse(is.na(n_health_areas), '\u2013',
+                                          sprintf('%d of %d', df$team_areas_mapped_count, n_health_areas)),
         check.names = FALSE, stringsAsFactors = FALSE
       )
       DT::datatable(display, escape = FALSE, rownames = FALSE, selection = 'none',
                     options = list(dom = 'ft', pageLength = 200, scrollX = TRUE))
     })
 
-    print_maps_path <- reactiveVal(NULL)
-
-    observeEvent(input$print_maps_row, {
-      vid <- input$print_maps_row
-      version <- tryCatch(db_get_version_by_id(pool, vid), error = function(e) NULL)
-      req(!is.null(version))
-      cname <- { cdf <- campaigns_rv(); row <- cdf[cdf$campaign_id == version$campaign_id, ]
-                if (nrow(row) == 1) row$campaign_name[1] else '' }
-      tmp <- tempfile(fileext = '.pdf')
-      tryCatch({
-        build_printable_maps_pdf(tmp, version, version$district_name, campaign_name = cname)
-        print_maps_path(tmp)
-        showModal(modalDialog(
-          title = 'Printable maps ready', easyClose = TRUE, footer = modalButton('Close'),
-          tags$p(sprintf('One overview page plus one page per health area for %s.', version$district_name)),
-          downloadButton(session$ns('download_print_maps'), 'Download PDF')
-        ))
-      }, error = function(e) showNotification(paste('Failed to build printable maps:', e$message), type = 'error', duration = 6))
-    }, ignoreInit = TRUE)
-
-    output$download_print_maps <- downloadHandler(
-      filename = function() paste0(gsub('[^A-Za-z0-9]', '_', input$print_maps_row %||% 'maps'), '_print.pdf'),
-      content = function(file) {
-        src <- print_maps_path()
-        if (!is.null(src) && file.exists(src)) file.copy(src, file)
-      },
-      contentType = 'application/pdf'
-    )
-
-    campaign_download_path <- reactiveVal(NULL)
-
-    observeEvent(input$download_campaign_btn, {
-      cid <- input$progress_campaign %||% ''
-      req(nzchar(cid))
-      tmp <- tempfile(fileext = '.zip')
-      tryCatch({
-        build_campaign_download_v2(tmp, as.integer(cid))
-        campaign_download_path(tmp)
-        showModal(modalDialog(
-          title = 'Download ready', easyClose = TRUE, footer = modalButton('Close'),
-          tags$p('The campaign download has been prepared on the server.'),
-          downloadButton(session$ns('download_campaign_file'), 'Download zip')
-        ))
-      }, error = function(e) showNotification(paste('Download failed:', e$message), type = 'error', duration = 6))
-    }, ignoreInit = TRUE)
-
-    output$download_campaign_file <- downloadHandler(
-      filename = function() paste0('campaign_', input$progress_campaign %||% 'export', '_', Sys.Date(), '.zip'),
-      content = function(file) {
-        src <- campaign_download_path()
-        if (!is.null(src) && file.exists(src)) file.copy(src, file)
-        else build_campaign_download_v2(file, as.integer(input$progress_campaign))
-      },
-      contentType = 'application/zip'
-    )
-
     # =========================================================================
-    # SECTION 4: Version review (unshare / archive)
+    # SECTION 4: District review — health-area + team-area version history,
+    # unshare/archive/make-current — this IS the admin "restore" mechanism:
+    # restoring an old version is just making it current, same as any
+    # other publish. For team areas, db_publish_team_area() itself refuses
+    # if the target's pinned health-area version is no longer current
+    # (staleness never gets bypassed just because an admin clicked it) —
+    # there is no automatic fix for that; the pinned health-area version
+    # has to be made current again first (below, in this same section),
+    # same as any user would have to.
     # =========================================================================
 
     observe({
       updateSelectInput(session, 'review_district', choices = c(setNames('', 'Select district...'), all_district_names))
+      camp_choices <- { cdf <- campaigns_rv()
+        if (is.null(cdf) || nrow(cdf) == 0) character(0)
+        else setNames(as.character(cdf$campaign_id), cdf$campaign_name) }
+      updateSelectInput(session, 'review_campaign', choices = c(setNames('', 'All campaigns'), camp_choices))
     })
 
-    versions_rv <- reactiveVal(NULL)
-    refresh_versions <- function() {
-      dname <- input$review_district %||% ''
-      if (!nzchar(dname)) { versions_rv(NULL); return() }
-      versions_rv(tryCatch(db_get_version_history(pool, dname), error = function(e) NULL))
-    }
-    observeEvent(input$review_district, refresh_versions(), ignoreInit = TRUE)
+    review_campaign_id <- reactive({
+      v <- input$review_campaign %||% ''
+      if (!nzchar(v)) NULL else as.integer(v)
+    })
 
-    output$version_table <- DT::renderDT({
-      df <- versions_rv()
+    ha_versions_rv <- reactiveVal(NULL)
+    ta_versions_rv <- reactiveVal(NULL)
+
+    refresh_review <- function() {
+      dname <- input$review_district %||% ''
+      if (!nzchar(dname)) { ha_versions_rv(NULL); ta_versions_rv(NULL); return() }
+      ha_versions_rv(tryCatch(db_get_version_history(pool, dname, campaign_id = review_campaign_id()),
+                              error = function(e) NULL))
+      ta_versions_rv(tryCatch(db_get_team_area_version_history(pool, dname, campaign_id = review_campaign_id(),
+                                                                health_area_name = NULL),
+                              error = function(e) NULL))
+    }
+    observeEvent(input$review_district,  refresh_review(), ignoreInit = TRUE)
+    observeEvent(input$review_campaign,  refresh_review(), ignoreInit = TRUE)
+
+    output$ha_version_table <- DT::renderDT({
+      df <- ha_versions_rv()
       if (is.null(df) || nrow(df) == 0) {
-        return(DT::datatable(data.frame(Message = 'Select a district to review its versions.'),
+        return(DT::datatable(data.frame(Message = 'Select a district to review its health-area versions.'),
                              rownames = FALSE, options = list(dom = 't')))
       }
       ns_str <- session$ns('')
       df$Action <- vapply(seq_len(nrow(df)), function(i) {
         btns <- character(0)
+        if (!isTRUE(df$is_shared[i]))
+          btns <- c(btns, sprintf(
+            '<button class="btn btn-default btn-xs" style="color:#166534;border-color:#166534;" onclick="Shiny.setInputValue(\'%sha_make_current_row\', %d, {priority:\'event\'})">Make current</button>',
+            ns_str, df$version_id[i]))
         if (isTRUE(df$is_shared[i]))
           btns <- c(btns, sprintf(
             '<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sunshare_row\', %d, {priority:\'event\'})">Unshare</button>',
@@ -421,8 +528,9 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
 
       display <- data.frame(
         Owner    = df$owner_username,
+        Campaign = df$campaign_id,
         Version  = df$version_number,
-        Shared   = ifelse(df$is_shared, 'Yes', 'No'),
+        Current  = ifelse(df$is_shared, 'Yes', 'No'),
         Created  = format(df$created_at, '%d %b %Y %H:%M'),
         Updated  = format(df$last_updated_at, '%d %b %Y %H:%M'),
         Action   = df$Action,
@@ -432,8 +540,16 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
                     options = list(dom = 'ft', pageLength = 200, scrollX = TRUE))
     })
 
+    observeEvent(input$ha_make_current_row, {
+      tryCatch({
+        db_publish_version(pool, input$ha_make_current_row, actor_role = 'admin')
+        refresh_review(); refresh_progress()
+        showNotification('Set as current health-area version.', type = 'message', duration = 3)
+      }, error = function(e) showNotification(paste('Failed:', e$message), type = 'error', duration = 6))
+    }, ignoreInit = TRUE)
+
     observeEvent(input$unshare_row, {
-      tryCatch({ db_unshare_version(pool, input$unshare_row); refresh_versions(); refresh_progress() },
+      tryCatch({ db_unshare_version(pool, input$unshare_row); refresh_review(); refresh_progress() },
               error = function(e) showNotification(paste('Failed:', e$message), type = 'error', duration = 6))
     }, ignoreInit = TRUE)
 
@@ -455,7 +571,89 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       vid <- pending_archive_id(); req(!is.null(vid))
       tryCatch({
         db_archive_version(pool, vid); pending_archive_id(NULL)
-        removeModal(); refresh_versions(); refresh_progress()
+        removeModal(); refresh_review(); refresh_progress()
+      }, error = function(e) showNotification(paste('Failed:', e$message), type = 'error', duration = 6))
+    }, ignoreInit = TRUE)
+
+    output$ta_version_table <- DT::renderDT({
+      df <- ta_versions_rv()
+      if (is.null(df) || nrow(df) == 0) {
+        return(DT::datatable(data.frame(Message = 'No team-area versions for this district.'),
+                             rownames = FALSE, options = list(dom = 't')))
+      }
+      ns_str <- session$ns('')
+      df$Action <- vapply(seq_len(nrow(df)), function(i) {
+        btns <- character(0)
+        if (!isTRUE(df$is_shared[i]))
+          btns <- c(btns, sprintf(
+            '<button class="btn btn-default btn-xs" style="color:#166534;border-color:#166534;" onclick="Shiny.setInputValue(\'%sta_make_current_row\', %d, {priority:\'event\'})">Make current</button>',
+            ns_str, df$team_version_id[i]))
+        if (isTRUE(df$is_shared[i]))
+          btns <- c(btns, sprintf(
+            '<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sta_unshare_row\', %d, {priority:\'event\'})">Unshare</button>',
+            ns_str, df$team_version_id[i]))
+        btns <- c(btns, sprintf(
+          '<button class="btn btn-default btn-xs" style="color:#ef4444;border-color:#ef4444;" onclick="Shiny.setInputValue(\'%sta_archive_row\', %d, {priority:\'event\'})">Archive</button>',
+          ns_str, df$team_version_id[i]))
+        paste(btns, collapse = ' ')
+      }, character(1))
+
+      display <- data.frame(
+        `Health area` = df$health_area_name,
+        Owner          = df$owner_username,
+        Campaign        = df$campaign_id,
+        Version          = df$version_number,
+        Current           = ifelse(df$is_shared, 'Yes', 'No'),
+        Updated             = format(df$last_updated_at, '%d %b %Y %H:%M'),
+        Action               = df$Action,
+        check.names = FALSE, stringsAsFactors = FALSE
+      )
+      DT::datatable(display, escape = FALSE, rownames = FALSE, selection = 'none',
+                    options = list(dom = 'ft', pageLength = 200, scrollX = TRUE))
+    })
+
+    observeEvent(input$ta_make_current_row, {
+      tryCatch({
+        db_publish_team_area(pool, input$ta_make_current_row)
+        refresh_review()
+        showNotification('Set as current team-area version.', type = 'message', duration = 3)
+      }, error = function(e) {
+        # This is where a stale-publish refusal from db_publish_team_area()
+        # surfaces. Admin restore never bypasses that check -- there is no
+        # automatic fix. The pinned health-area version has to be made
+        # current again first (Health area versions, above), which will
+        # then let this same action succeed.
+        showNotification(
+          paste0('Could not set as current: ', e$message,
+                ' Make that health-area version current in the table above, then try again.'),
+          type = 'error', duration = 8
+        )
+      })
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$ta_unshare_row, {
+      tryCatch({ db_unshare_team_area_version(pool, input$ta_unshare_row); refresh_review() },
+              error = function(e) showNotification(paste('Failed:', e$message), type = 'error', duration = 6))
+    }, ignoreInit = TRUE)
+
+    pending_ta_archive_id <- reactiveVal(NULL)
+    observeEvent(input$ta_archive_row, {
+      showModal(modalDialog(
+        title = 'Archive this team-area version?', size = 's', easyClose = TRUE,
+        tags$p(style = 'font-size:13px;', 'This removes it from every picker. It is not permanently deleted.'),
+        footer = tagList(
+          modalButton('Cancel'),
+          actionButton(session$ns('confirm_ta_archive'), 'Archive', class = 'btn btn-danger')
+        )
+      ))
+      pending_ta_archive_id(input$ta_archive_row)
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$confirm_ta_archive, {
+      vid <- pending_ta_archive_id(); req(!is.null(vid))
+      tryCatch({
+        db_archive_team_area_version(pool, vid); pending_ta_archive_id(NULL)
+        removeModal(); refresh_review()
       }, error = function(e) showNotification(paste('Failed:', e$message), type = 'error', duration = 6))
     }, ignoreInit = TRUE)
 

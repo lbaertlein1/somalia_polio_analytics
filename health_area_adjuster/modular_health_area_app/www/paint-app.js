@@ -911,10 +911,17 @@ function getApp(msg) {
     });
     this._hiddenForVertexMode = [];
     this.vertexEngine = null;
-    // Belt-and-suspenders: guarantee dragging is left enabled regardless
-    // of whatever state a vertex-mode drag gesture left it in (e.g. a
+    // Paint mode's own resting state is dragging DISABLED (the map is
+    // created with dragging:false specifically so left-click-drag paints
+    // rather than pans) -- vertex mode's resting state is the opposite
+    // (dragging enabled, so panning between vertex edits works, with each
+    // individual vertex-marker drag disabling/re-enabling it around
+    // itself). exitVertexMode() is the transition FROM vertex mode's
+    // resting state back to paint mode's, so it must leave dragging
+    // DISABLED here, not enabled -- guaranteeing that regardless of
+    // whatever state a vertex-mode drag gesture left it in (e.g. a
     // gesture that didn't cleanly reach its own mouseup).
-    if (this.map.dragging) this.map.dragging.enable();
+    if (this.map.dragging) this.map.dragging.disable();
     this.refreshAllStyles();
   },
 

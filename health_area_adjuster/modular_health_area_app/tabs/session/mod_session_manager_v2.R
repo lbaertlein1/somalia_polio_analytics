@@ -1,317 +1,127 @@
 # =============================================================================
 # mod_session_manager_v2.R
 #
-# Replaces mod_session_manager.R's Resume/Start-new modal with the
-# ownership/publish/branch model:
+# Replaces the old auto-detect/modal session manager entirely. Under the
+# intro-table-driven flow, there is no more silent auto-resume and no more
+# automatically-shown branch/carry-forward/blank modal — the intro table's
+# own drill-down pickers (mod_intro_tab_v2.R) are the ONLY way a version
+# gets chosen, and whatever the user picks there (current, one of their own
+# drafts, or "start blank" — which the picker itself creates via
+# db_create_blank_version()/db_create_team_area_draft() before handing off)
+# arrives here as an already-resolved version_id. This module's job shrinks
+# to: given that id, activate it as the active session, and manage
+# submit/fork-follow/make-current from there. No more internal modal, no
+# more auto-detection branching, no more standalone "Publish" button —
+# "make current" is called from the submit-flow prompt in the tab itself,
+# not from a persistent toolbar control here.
 #
-#   - DB writes happen ONLY via submit_stage(), which wraps
-#     db_submit_stage_v2(). If the version being edited is currently shared
-#     (published), that call transparently forks a new version — this module
-#     just needs to track whatever version_id comes back.
-#   - On district+campaign selection:
-#       1. User has their own active (non-archived) draft for this
-#          district+campaign -> resume it silently, no modal.
-#       2. No draft of their own, but a shared version exists for this
-#          district+campaign -> auto-suggest modal, default action
-#          "Branch from published version", with "Carry forward from a
-#          different campaign" and "Start blank" as alternatives.
-#       3. No draft, no shared version in this campaign, but a shared
-#          version exists in some OTHER campaign for this district ->
-#          modal offering "Carry forward from a different campaign" /
-#          "Start blank" (no same-campaign branch option, since none
-#          exists).
-#       4. Nothing at all -> start blank silently, no modal.
-#   - No practice/actual mode.
+# Health areas and team areas are independently versioned now (see
+# mod_db_v2.R's SECTION 13 notes), so this file has two separate
+# constructors rather than one generic one — teamAreaSessionServer adds
+# staleness-awareness (is the pinned health-area version still current?)
+# that has no health-area-side equivalent.
 # =============================================================================
 
 
+# =============================================================================
+# Health areas
+# =============================================================================
+
 sessionToolbarUI <- function(id) {
   ns <- NS(id)
-
   shinyjs::hidden(
     div(
-      id    = 'session_bar',
+      id    = ns('session_bar'),
       style = paste0(
         'display:flex;align-items:center;gap:8px;',
         'padding:4px 10px;background:#f8fafc;',
         'border-bottom:1px solid #e2e8f0;font-size:12px;'
       ),
-      uiOutput(ns('session_label'), inline = TRUE),
-      uiOutput(ns('publish_control'), inline = TRUE)
+      uiOutput(ns('session_label'), inline = TRUE)
     )
   )
 }
 
+.session_badge <- function(text, bg, fg, border) {
+  tags$span(
+    style = paste0('background:', bg, ';color:', fg, ';border:1px solid ', border, ';',
+                   'border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;'),
+    text
+  )
+}
 
-# username_r        — reactive, logged-in user
-# district_r        — reactive, selected district_name
-# campaign_id_r      — reactive, selected campaign_id
-# district_ready_r    — reactive logical, TRUE once district+campaign are both chosen
-sessionManagerServer <- function(id, username_r, district_r, campaign_id_r, district_ready_r) {
+# username_r     — reactive, logged-in user
+# district_r     — reactive, selected district_name
+# campaign_id_r  — reactive, selected campaign_id
+#
+# Returns a list including activate_version_id(version_id) — called by the
+# intro tab's picker (or by mod_health_area_tab.R after a fork) with an
+# EXPLICIT id to make it the active session. Nothing happens on its own.
+healthAreaSessionServer <- function(id, username_r, district_r, campaign_id_r) {
   moduleServer(id, function(input, output, session) {
 
     rv <- reactiveValues(
-      active            = FALSE,
-      version_id        = NULL,
-      is_shared         = FALSE,
-      pending_options    = NULL,  # list of candidate versions shown in the modal
-      restore_snap        = NULL,
-      restore_counter       = 0L
+      active           = FALSE,
+      version_id       = NULL,
+      is_shared        = FALSE,
+      restore_snap     = NULL,
+      restore_counter  = 0L
     )
 
-    last_activated_key <- reactiveVal(NULL)
-
-    # ── On district or campaign change: decide what to offer ──────────────────
-
-    observeEvent(list(district_r(), campaign_id_r(), district_ready_r()), {
-      req(isTRUE(district_ready_r()))
-      req(nzchar(district_r() %||% ''))
-      req(!is.null(campaign_id_r()))
-
-      session_key <- paste0(district_r(), '|', campaign_id_r())
-      if (isTRUE(rv$active) && identical(last_activated_key(), session_key)) return()
-
-      dname <- district_r()
-      cid   <- campaign_id_r()
-      uname <- username_r() %||% ''
-
-      own_draft <- tryCatch(
-        db_get_active_draft(pool, uname, cid, dname),
-        error = function(e) { cat('[session] active_draft check error:', e$message, '\n'); NULL }
-      )
-
-      if (!is.null(own_draft)) {
-        .activate(own_draft$version_id, isTRUE(own_draft$is_shared), snap = NULL, session_key)
-        return()
+    activate_version_id <- function(version_id) {
+      full <- tryCatch(db_get_version_by_id(pool, version_id), error = function(e) NULL)
+      if (is.null(full)) {
+        showNotification('Could not load that health-area version.', type = 'error', duration = 5)
+        return(invisible(FALSE))
       }
-
-      shared_here <- tryCatch(
-        db_get_shared_version(pool, cid, dname),
-        error = function(e) { cat('[session] shared_version check error:', e$message, '\n'); NULL }
-      )
-
-      other_shared <- tryCatch(
-        db_get_shareable_versions(pool, dname, campaign_id = NULL),
-        error = function(e) NULL
-      )
-      # exclude the current campaign from the "carry forward" pool — that
-      # case is covered by shared_here / the direct branch option
-      if (!is.null(other_shared) && nrow(other_shared) > 0) {
-        other_shared <- other_shared[other_shared$campaign_id != cid, , drop = FALSE]
-      }
-      has_other_shared <- !is.null(other_shared) && nrow(other_shared) > 0
-
-      if (!is.null(shared_here) || has_other_shared) {
-        rv$pending_options <- list(
-          shared_here      = shared_here,
-          other_shared     = other_shared,
-          district_name    = dname,
-          campaign_id      = cid
-        )
-        .show_source_modal(shared_here, other_shared, dname)
-      } else {
-        # Nothing to branch from — start blank silently
-        new_id <- tryCatch(
-          db_create_blank_version(pool, uname, cid, dname),
-          error = function(e) { cat('[session] create_blank_version error:', e$message, '\n'); NULL }
-        )
-        req(!is.null(new_id))
-        .activate(new_id, FALSE, snap = NULL, session_key)
-      }
-    }, ignoreInit = TRUE)
-
-    observeEvent(rv$active, {
-      if (isTRUE(rv$active)) {
-        last_activated_key(paste0(district_r() %||% '', '|', campaign_id_r() %||% ''))
-      }
-    }, ignoreInit = TRUE)
-
-    .activate <- function(version_id, is_shared, snap, session_key) {
-      rv$active        <- TRUE
-      rv$version_id     <- version_id
-      rv$is_shared        <- isTRUE(is_shared)
-      rv$pending_options     <- NULL
-      last_activated_key(session_key)
-      if (!is.null(snap)) {
-        rv$restore_snap    <- snap
-        rv$restore_counter    <- rv$restore_counter + 1L
-      }
+      rv$active           <- TRUE
+      rv$version_id        <- version_id
+      rv$is_shared          <- isTRUE(full$is_shared)
+      rv$restore_snap          <- full$snap
+      rv$restore_counter          <- rv$restore_counter + 1L
+      shinyjs::show(session$ns('session_bar'))
+      invisible(TRUE)
     }
 
-    # ── Source-selection modal (auto-suggested branch / carry-forward / blank) ─
-
-    .show_source_modal <- function(shared_here, other_shared, dname) {
-      has_here  <- !is.null(shared_here)
-      has_other <- !is.null(other_shared) && nrow(other_shared) > 0
-
-      here_block <- if (has_here) {
-        div(
-          style = 'border:1px solid #99f6e4;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#f0fdfa;',
-          div(style = 'font-size:12px;font-weight:600;color:#0f172a;margin-bottom:4px;',
-              'Published version available for this campaign'),
-          div(style = 'font-size:11px;color:#64748b;margin-bottom:8px;',
-              sprintf('Last published %s',
-                      tryCatch(format(shared_here$shared_at, '%d %b %Y'), error = function(e) ''))),
-          actionButton(session$ns('branch_here_btn'), 'Branch from published version',
-                       class = 'btn btn-primary', style = 'font-weight:600;')
-        )
-      } else NULL
-
-      other_block <- if (has_other) {
-        choices <- setNames(
-          other_shared$version_id,
-          paste0(other_shared$district_name, ' — v', other_shared$version_number,
-                 ' (campaign ', other_shared$campaign_id, ')')
-        )
-        div(
-          style = 'border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px;',
-          div(style = 'font-size:12px;font-weight:600;color:#0f172a;margin-bottom:8px;',
-              'Carry forward final boundaries from a different campaign'),
-          selectInput(session$ns('carry_forward_source'), NULL, choices = choices, width = '100%'),
-          actionButton(session$ns('carry_forward_btn'), 'Carry forward',
-                       class = 'btn btn-default')
-        )
-      } else NULL
-
-      showModal(modalDialog(
-        title     = paste0('Start work on ', dname),
-        easyClose = FALSE,
-        footer    = NULL,
-        size      = 'm',
-        here_block,
-        other_block,
-        div(
-          style = 'display:flex;justify-content:flex-end;margin-top:6px;',
-          actionButton(session$ns('start_blank_btn'), 'Start blank', class = 'btn btn-default')
-        )
-      ))
+    deactivate <- function() {
+      rv$active <- FALSE; rv$version_id <- NULL; rv$is_shared <- FALSE
+      shinyjs::hide(session$ns('session_bar'))
     }
-
-    observeEvent(input$branch_here_btn, {
-      opts <- rv$pending_options
-      req(!is.null(opts), !is.null(opts$shared_here))
-      new_id <- tryCatch(
-        db_branch_version(pool, opts$shared_here$version_id, username_r() %||% '',
-                          opts$campaign_id, opts$district_name),
-        error = function(e) { cat('[session] branch error:', e$message, '\n'); NULL }
-      )
-      req(!is.null(new_id))
-      full <- db_get_version_by_id(pool, new_id)
-      removeModal()
-      .activate(new_id, FALSE, snap = full$snap, paste0(opts$district_name, '|', opts$campaign_id))
-      showNotification('Branched from the published version.', type = 'message', duration = 2)
-    }, ignoreInit = TRUE)
-
-    observeEvent(input$carry_forward_btn, {
-      opts <- rv$pending_options
-      req(!is.null(opts), !is.null(input$carry_forward_source))
-      new_id <- tryCatch(
-        db_branch_version(pool, as.integer(input$carry_forward_source), username_r() %||% '',
-                          opts$campaign_id, opts$district_name),
-        error = function(e) { cat('[session] carry_forward error:', e$message, '\n'); NULL }
-      )
-      req(!is.null(new_id))
-      full <- db_get_version_by_id(pool, new_id)
-      removeModal()
-      .activate(new_id, FALSE, snap = full$snap, paste0(opts$district_name, '|', opts$campaign_id))
-      showNotification('Carried forward boundaries from the prior campaign.', type = 'message', duration = 2)
-    }, ignoreInit = TRUE)
-
-    observeEvent(input$start_blank_btn, {
-      opts <- rv$pending_options
-      req(!is.null(opts))
-      new_id <- tryCatch(
-        db_create_blank_version(pool, username_r() %||% '', opts$campaign_id, opts$district_name),
-        error = function(e) { cat('[session] create_blank_version error:', e$message, '\n'); NULL }
-      )
-      req(!is.null(new_id))
-      removeModal()
-      .activate(new_id, FALSE, snap = NULL, paste0(opts$district_name, '|', opts$campaign_id))
-    }, ignoreInit = TRUE)
-
-    # ── Session bar ────────────────────────────────────────────────────────────
-
-    observe({
-      req(isTRUE(rv$active))
-      shinyjs::show('session_bar')
-    })
 
     output$session_label <- renderUI({
       req(rv$active)
-      status_badge <- if (isTRUE(rv$is_shared)) {
-        tags$span(
-          style = paste0('background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;',
-                         'border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;'),
-          'PUBLISHED'
-        )
-      } else {
-        tags$span(
-          style = paste0('background:#fef9c3;color:#854d0e;border:1px solid #fde68a;',
-                         'border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;'),
-          'DRAFT'
-        )
-      }
+      badge <- if (isTRUE(rv$is_shared))
+        .session_badge('CURRENT', '#f0fdf4', '#166534', '#bbf7d0')
+      else
+        .session_badge('DRAFT', '#fef9c3', '#854d0e', '#fde68a')
       tagList(
         tags$span(style = 'color:#64748b;font-size:12px;',
                   sprintf('%s  \u00b7  %s', district_r() %||% '', username_r() %||% '')),
-        status_badge
+        badge
       )
     })
 
-    output$publish_control <- renderUI({
-      req(rv$active)
-      if (isTRUE(rv$is_shared)) return(NULL)
-      actionButton(session$ns('publish_btn'), 'Publish',
-                  class = 'btn btn-primary btn-sm', style = 'margin-left:10px;font-weight:600;')
-    })
-
-    observeEvent(input$publish_btn, {
-      req(!is.null(rv$version_id))
-      showModal(modalDialog(
-        title = 'Publish this version?',
-        paste0('This will become the shared version for ', district_r(),
-              '. Anyone can branch from it. Continuing to edit afterward creates a new version automatically.'),
-        easyClose = FALSE,
-        footer = tagList(
-          actionButton(session$ns('publish_cancel'), 'Cancel'),
-          actionButton(session$ns('publish_confirm'), 'Publish', class = 'btn btn-primary')
-        )
-      ))
-    }, ignoreInit = TRUE)
-
-    observeEvent(input$publish_cancel, removeModal(), ignoreInit = TRUE)
-
-    observeEvent(input$publish_confirm, {
-      removeModal()
-      tryCatch({
-        db_publish_version(pool, rv$version_id)
-        rv$is_shared <- TRUE
-        showNotification('Published.', type = 'message', duration = 3)
-      }, error = function(e) {
-        showNotification(paste0('Publish failed: ', e$message), type = 'error', duration = 6)
-      })
-    }, ignoreInit = TRUE)
-
-    # ── submit_stage: the ONLY function that writes to DB ─────────────────────
-    # If the active version is currently shared, db_submit_stage_v2 forks a
-    # new version and returns its id — update local state to follow it.
-
-    submit_stage <- function(stage, data) {
+    # The ONLY function that writes health-area progress to the DB. If the
+    # active version is currently shared, db_submit_stage_v2 forks a new
+    # version and returns its id — follow it. on_forked(new_id), if
+    # supplied, lets the caller (mod_health_area_tab.R) react to the fork
+    # (e.g. updating whatever UI shows "you're now on version N").
+    submit_stage <- function(stage, data, on_forked = NULL) {
       req(!is.null(rv$version_id))
       tryCatch({
         new_id <- db_submit_stage_v2(pool, rv$version_id, username_r() %||% '', stage, data)
         if (!identical(new_id, rv$version_id)) {
           rv$version_id <- new_id
           rv$is_shared  <- FALSE   # a fork is always unpublished
-          showNotification('Your edit created a new version (the previous one stays published).',
+          showNotification('Your edit created a new version (the previous one stays current).',
                            type = 'message', duration = 4)
+          if (!is.null(on_forked)) on_forked(new_id)
         }
         stage_label <- switch(stage,
-                              landmarks     = 'Landmarks',
-                              facilities    = 'Facilities',
-                              idp           = 'IDP settlements',
-                              areas         = 'Health areas',
-                              team_areas    = 'Team areas',
+                              landmarks  = 'Landmarks',
+                              facilities = 'Facilities',
+                              idp        = 'IDP settlements',
+                              areas      = 'Health areas',
                               stage
         )
         showNotification(paste0(stage_label, ' submitted successfully.'),
@@ -322,8 +132,27 @@ sessionManagerServer <- function(id, username_r, district_r, campaign_id_r, dist
       invisible(NULL)
     }
 
-    # ── Explicit "Refresh from source" — UI must warn before calling this ─────
+    # "Make current" — called from the submit-flow prompt in
+    # mod_health_area_tab.R, not a persistent toolbar button. actor_role
+    # determines whether the district-wide team-area lock applies (see
+    # db_publish_version() / db_district_has_locked_team_areas() in
+    # mod_db_v2.R) — the caller is responsible for passing the actual
+    # logged-in user's role, never hardcoding 'admin'.
+    make_current <- function(actor_role = 'user') {
+      req(!is.null(rv$version_id))
+      tryCatch({
+        db_publish_version(pool, rv$version_id, actor_role = actor_role)
+        rv$is_shared <- TRUE
+        showNotification("Set as this district's current health area map.",
+                         type = 'message', duration = 3)
+        invisible(TRUE)
+      }, error = function(e) {
+        showNotification(paste0('Could not set as current: ', e$message), type = 'error', duration = 6)
+        invisible(FALSE)
+      })
+    }
 
+    # ── Explicit "Refresh from source" — UI must warn before calling this ─────
     refresh_snapshot <- function(odk_sf = NULL, app_sf = NULL, district_boundary_sf = NULL) {
       req(!is.null(rv$version_id))
       tryCatch({
@@ -336,8 +165,6 @@ sessionManagerServer <- function(id, username_r, district_r, campaign_id_r, dist
       invisible(NULL)
     }
 
-    # ── Public interface ────────────────────────────────────────────────────
-
     list(
       active      = reactive(rv$active),
       version_id  = reactive(rv$version_id),
@@ -349,8 +176,150 @@ sessionManagerServer <- function(id, username_r, district_r, campaign_id_r, dist
         rv$restore_snap
       }),
 
-      submit_stage      = submit_stage,
-      refresh_snapshot  = refresh_snapshot
+      activate_version_id = activate_version_id,
+      deactivate           = deactivate,
+      submit_stage         = submit_stage,
+      make_current         = make_current,
+      refresh_snapshot     = refresh_snapshot,
+
+      # For the submit-flow prompt to decide, BEFORE offering "make
+      # current", whether to show it plainly or show the locked
+      # explanation instead. Cheap, standalone check (own pool checkout) —
+      # safe to call from a renderUI without an open transaction.
+      is_locked_for_publish = reactive({
+        req(!is.null(district_r()), !is.null(campaign_id_r()))
+        isTRUE(db_district_has_locked_team_areas(pool, campaign_id_r(), district_r()))
+      })
+    )
+  })
+}
+
+
+# =============================================================================
+# Team areas
+#
+# Same shape as healthAreaSessionServer, with one addition: staleness. A
+# team-area version's pinned health-area boundary can stop being current
+# while the user is away from it — is_stale is checked once at activation
+# (draft-open time, per the "applies uniformly to published and
+# unpublished drafts" rule) and exposed so the calling tab can explain
+# the situation before the user does any more work on top of an outdated
+# boundary. There is no reconciliation — the pinned health-area version
+# has to be made current again to un-stale a version. make_current()
+# ALSO gets this check authoritatively, server-side, right before
+# publishing — is_stale here is for UI display, not the actual guard.
+# =============================================================================
+
+# health_area_name_r — reactive, which health area this session's teams are for
+teamAreaSessionServer <- function(id, username_r, district_r, campaign_id_r, health_area_name_r) {
+  moduleServer(id, function(input, output, session) {
+
+    rv <- reactiveValues(
+      active           = FALSE,
+      team_version_id  = NULL,
+      is_shared        = FALSE,
+      is_stale         = FALSE,
+      restore_snap     = NULL,
+      restore_counter  = 0L
+    )
+
+    activate_team_version_id <- function(team_version_id) {
+      full <- tryCatch(db_get_team_area_version_by_id(pool, team_version_id), error = function(e) NULL)
+      if (is.null(full)) {
+        showNotification('Could not load that team-area version.', type = 'error', duration = 5)
+        return(invisible(FALSE))
+      }
+      stale <- isTRUE(tryCatch(db_check_team_area_staleness(pool, team_version_id), error = function(e) NA))
+      rv$active           <- TRUE
+      rv$team_version_id    <- team_version_id
+      rv$is_shared            <- isTRUE(full$is_shared)
+      rv$is_stale               <- stale
+      rv$restore_snap             <- full$snap
+      rv$restore_counter             <- rv$restore_counter + 1L
+      shinyjs::show(session$ns('session_bar'))
+      invisible(TRUE)
+    }
+
+    deactivate <- function() {
+      rv$active <- FALSE; rv$team_version_id <- NULL
+      rv$is_shared <- FALSE; rv$is_stale <- FALSE
+      shinyjs::hide(session$ns('session_bar'))
+    }
+
+    output$session_label <- renderUI({
+      req(rv$active)
+      badge <- if (isTRUE(rv$is_stale))
+        .session_badge('OUTDATED HEALTH AREA', '#fff7ed', '#9a3412', '#fed7aa')
+      else if (isTRUE(rv$is_shared))
+        .session_badge('CURRENT', '#f0fdf4', '#166534', '#bbf7d0')
+      else
+        .session_badge('DRAFT', '#fef9c3', '#854d0e', '#fde68a')
+      tagList(
+        tags$span(style = 'color:#64748b;font-size:12px;',
+                  sprintf('%s  \u00b7  %s  \u00b7  %s',
+                         district_r() %||% '', health_area_name_r() %||% '', username_r() %||% '')),
+        badge
+      )
+    })
+
+    # The ONLY function that writes team-area progress to the DB. Same
+    # fork-on-edit-of-shared behavior as the health-area side.
+    submit_stage <- function(data, on_forked = NULL) {
+      req(!is.null(rv$team_version_id))
+      tryCatch({
+        new_id <- db_submit_team_area_stage(pool, rv$team_version_id, username_r() %||% '', data)
+        if (!identical(new_id, rv$team_version_id)) {
+          rv$team_version_id <- new_id
+          rv$is_shared        <- FALSE
+          showNotification('Your edit created a new version (the previous one stays current).',
+                           type = 'message', duration = 4)
+          if (!is.null(on_forked)) on_forked(new_id)
+        }
+        showNotification('Team areas submitted successfully.', type = 'message', duration = 3)
+      }, error = function(e) {
+        showNotification(paste0('Submit failed: ', e$message), type = 'error', duration = 6)
+      })
+      invisible(NULL)
+    }
+
+    # "Make current" — called from the submit-flow prompt in
+    # mod_team_area_tab.R. No role-gating (team-area publish never
+    # invalidates anything else downstream, unlike health-area publish) —
+    # but db_publish_team_area() itself still refuses, for ANY caller, if
+    # the pinned health-area version is no longer current. That refusal
+    # (surfaced here as an error notification) is exactly the signal the
+    # calling tab shows to the user as-is — there's no fix to offer
+    # beyond making the pinned health-area version current again.
+    make_current <- function() {
+      req(!is.null(rv$team_version_id))
+      tryCatch({
+        db_publish_team_area(pool, rv$team_version_id)
+        rv$is_shared <- TRUE
+        showNotification("Set as this health area's current team map.",
+                         type = 'message', duration = 3)
+        invisible(TRUE)
+      }, error = function(e) {
+        showNotification(paste0('Could not set as current: ', e$message), type = 'error', duration = 6)
+        invisible(FALSE)
+      })
+    }
+
+    list(
+      active           = reactive(rv$active),
+      team_version_id  = reactive(rv$team_version_id),
+      is_shared        = reactive(rv$is_shared),
+      is_stale         = reactive(rv$is_stale),
+
+      restore_snapshot = reactive({
+        rv$restore_counter
+        if (rv$restore_counter < 1L) return(NULL)
+        rv$restore_snap
+      }),
+
+      activate_team_version_id = activate_team_version_id,
+      deactivate                = deactivate,
+      submit_stage               = submit_stage,
+      make_current                = make_current
     )
   })
 }

@@ -20,14 +20,25 @@ healthAreaTabServer <- function(
     subdivisions_r      = reactive(NULL),
     planning_area_sf_r  = reactive(NULL),
     submit_stage_fn     = NULL,
-    save_snapshot_fn    = NULL,
     restore_r           = reactive(NULL),
     # Optional -- feeds compute_n_teams()'s per-campaign target_pop_per_team
     # lookup in the post-submit team-targets modal below. Defaults to
     # reactive(NULL), which compute_n_teams() already handles gracefully
     # (falls back to the global default of 400/team), so existing callers
     # that don't pass this are unaffected.
-    campaign_id         = reactive(NULL)
+    campaign_id         = reactive(NULL),
+    # "Make current" support -- wired from server.R to
+    # healthAreaSession$make_current / healthAreaSession$is_locked_for_publish
+    # (mod_session_manager_v2.R). Both default to safe no-ops so a caller
+    # that doesn't pass them just never offers the prompt, rather than
+    # erroring. The lock is unconditional now (no admin bypass) -- the
+    # role check that used to gate this is gone; actor_role_r is passed
+    # through to make_current_fn only because db_publish_version() still
+    # accepts the parameter for backward compatibility, not because this
+    # tab makes any decision based on role anymore.
+    make_current_fn          = NULL,
+    is_locked_for_publish_r  = reactive(FALSE),
+    actor_role_r             = reactive('user')
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -333,9 +344,12 @@ healthAreaTabServer <- function(
            seed_points = sc$seed_points_list, dfa_names = dynamic_dfa_names)
     })
     
+    scene_ever_sent <- reactiveVal(FALSE)
+
     send_current_scene <- function() {
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
+      scene_ever_sent(TRUE)
 
       # Unconditionally force the JS side back to paint mode before every
       # scene (re)load, regardless of what in_vertex_mode() currently
@@ -519,8 +533,21 @@ healthAreaTabServer <- function(
         send_current_scene()
     }, ignoreInit = TRUE)
     
+    # readyInputId (map_ready()) fires from INSIDE paint-app.js's own
+    # loadScene() every time a scene finishes loading -- not just once,
+    # at true initial map creation -- so calling send_current_scene()
+    # here unconditionally would ping-pong forever (scene loads -> JS
+    # signals ready -> this resends the scene -> JS reloads and signals
+    # ready again -> ...). Gated on scene_ever_sent() specifically to
+    # avoid that: this only ever catches up a scene that never
+    # successfully sent in the first place (e.g. paint_load_scene
+    # arriving before the map container existed, on a fast direct-from-
+    # intro navigation), and does nothing on every subsequent, ordinary
+    # "scene finished loading" signal.
     observeEvent(map_mod$map_ready(), {
       if (tab_active()) send_paint_message("hide_loading")
+      if (tab_active() && isTRUE(district_ready()) && !is.null(rv$grid_sf) && !isTRUE(scene_ever_sent()))
+        send_current_scene()
     }, ignoreInit = TRUE)
 
     # Enable/disable the paint-step Undo button based on stack depth --
@@ -988,8 +1015,81 @@ healthAreaTabServer <- function(
           ))
         }
       }
-      removeModal()
+      .show_make_current_prompt()
     }, ignoreInit = TRUE)
+
+    # ── "Make current" prompt — shown right after a health-area submission,
+    # replacing the old standalone top-bar Publish button entirely. The
+    # lock is unconditional now (no admin override) -- a locked district
+    # always shows a plain explanation instead of an actionable prompt,
+    # regardless of who's looking at it. To publish a different
+    # health-area version, the current team-area version(s) have to be
+    # unshared first (District review in the Admin panel) -- a separate,
+    # explicit step, not something this prompt offers to do.
+    .show_make_current_prompt <- function() {
+      if (is.null(make_current_fn)) { removeModal(); return(invisible(NULL)) }
+      locked <- isTRUE(is_locked_for_publish_r())
+
+      if (locked) {
+        showModal(modalDialog(
+          title = 'Health areas submitted', size = 's', easyClose = TRUE, footer = modalButton('Done'),
+          div(
+            style = 'font-size:13px;color:#475569;line-height:1.6;',
+            tags$p(tags$strong('This district is locked.')),
+            tags$p(
+              'At least one health area already has a published team-area map. To set a ',
+              'different health-area version as current, the current team-area version(s) must ',
+              'first be unshared (District review, in the Admin panel). Your submission is saved ',
+              'and can still be reviewed or built on.'
+            )
+          )
+        ))
+        return(invisible(NULL))
+      }
+
+      showModal(modalDialog(
+        title = 'Health areas submitted', size = 's', easyClose = FALSE,
+        footer = tagList(
+          actionButton(session$ns('make_current_skip'), 'Not now', class = 'btn btn-default'),
+          actionButton(session$ns('make_current_confirm'), 'Set as current', class = 'btn btn-primary')
+        ),
+        div(
+          style = 'font-size:13px;color:#475569;line-height:1.6;',
+          tags$p('Set this submission as ', tags$strong(district() %||% 'this district'),
+                "'s current health area map?")
+        )
+      ))
+    }
+
+    observeEvent(input$make_current_skip, { removeModal() }, ignoreInit = TRUE)
+
+    observeEvent(input$make_current_confirm, {
+      removeModal()
+      if (!is.null(make_current_fn)) make_current_fn(actor_role = actor_role_r() %||% 'user')
+    }, ignoreInit = TRUE)
+
+    # team_targets, once restored from the DB, needs unwrapping: .from_json_db()
+    # (mod_db_v2.R) deliberately uses jsonlite's simplifyVector = FALSE to
+    # preserve team_targets' named-list-keyed-by-health-area-name structure,
+    # but that means every scalar leaf (target_pop, requested_teams) comes
+    # back wrapped in its own length-1 list rather than as a plain number
+    # (e.g. list(1114), not 1114) -- silently breaking anything downstream
+    # that does arithmetic or numericInput(value = ...) on it. Freshly-set
+    # values from the modal below are already plain numerics and pass
+    # through this unchanged.
+    .unwrap_num <- function(x) {
+      if (is.null(x)) return(NA_real_)
+      if (is.list(x)) x <- if (length(x) == 0) NA else x[[1]]
+      if (is.null(x) || length(x) == 0) return(NA_real_)
+      suppressWarnings(as.numeric(x))
+    }
+    .unwrap_team_targets <- function(tt) {
+      if (is.null(tt)) return(tt)
+      lapply(tt, function(entry) list(
+        target_pop      = .unwrap_num(entry$target_pop),
+        requested_teams = .unwrap_num(entry$requested_teams)
+      ))
+    }
 
     list(
       has_scene             = reactive(!is.null(rv$grid_sf)),
@@ -1008,7 +1108,7 @@ healthAreaTabServer <- function(
         if (!is.null(snap$smoothed_dfa_sf) && nrow(snap$smoothed_dfa_sf) > 0)
           rv$smoothed_dfa_sf <- snap$smoothed_dfa_sf
         if (!is.null(snap$team_targets))
-          rv$team_targets <- snap$team_targets
+          rv$team_targets <- .unwrap_team_targets(snap$team_targets)
         
         if (!is.null(rv$grid_sf)) .apply_restore(snap)
         else pending_restore(snap)
