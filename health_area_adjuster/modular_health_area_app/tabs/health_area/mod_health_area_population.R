@@ -1,11 +1,12 @@
-healthAreaPopulationUI <- function(id) {
+healthAreaPopulationUI <- function(id, name_col_label = "Health Area", allow_rename = FALSE) {
   ns <- NS(id)
   tagList(
     div(class = 'rightbar-title', 'Legend & Population'),
     uiOutput(ns('legend_ui')),
     tags$hr(style = 'margin: 6px 0;'),
     div(style = 'font-size: 11px; color: #666; margin-bottom: 4px;',
-        'Click a row to select that health area for editing.'),
+        sprintf('Click a row to select that %s for editing.%s', tolower(name_col_label),
+                if (allow_rename) ' Click a name to rename it.' else '')),
     rhandsontable::rHandsontableOutput(ns('pop_table'), height = "100%")
   )
 }
@@ -16,11 +17,29 @@ healthAreaPopulationServer <- function(
     show_pop_raster,
     show_friction_raster,
     pop_table,
-    in_vertex_mode = reactive(FALSE)
+    in_vertex_mode = reactive(FALSE),
+    # Column header for the name column -- "Health Area" (default) or
+    # "Team Name" from Team Areas. allow_rename makes that same column
+    # editable and wires on_rename(old_name, new_name) to fire when the
+    # user commits an edit; on_rename should return TRUE if the rename
+    # was accepted (applied) or FALSE if rejected (e.g. a duplicate),
+    # since a rejection needs the table forced back to the authoritative
+    # value -- rhandsontable doesn't do that on its own.
+    name_col_label = "Health Area",
+    allow_rename = FALSE,
+    on_rename = NULL
 ) {
   moduleServer(id, function(input, output, session) {
-    
+
+    # Dependency-only counter to force output$pop_table to re-render after
+    # a rejected rename, even though pop_table() itself didn't change --
+    # without this the table would visually stick at the rejected,
+    # invalid value the user just typed, with no other reactive to
+    # naturally clear it.
+    table_revision <- reactiveVal(0)
+
     output$pop_table <- rhandsontable::renderRHandsontable({
+      table_revision()
       df <- pop_table()
       if (is.null(df) || nrow(df) == 0) return(NULL)
       
@@ -35,11 +54,13 @@ healthAreaPopulationServer <- function(
       
       display_df <- data.frame(
         area_name_internal = df$area_name,
-        `Health Area`      = df$area_name,
-        `WorldPop U5 Population`      = as.integer(df$est_u5_pop),
+        name_display        = df$area_name,
+        pop_display          = as.integer(df$est_u5_pop),
         stringsAsFactors   = FALSE,
         check.names        = FALSE
       )
+      names(display_df)[names(display_df) == "name_display"] <- name_col_label
+      names(display_df)[names(display_df) == "pop_display"]  <- "WorldPop U5 Population"
       
       row_renderer <- htmlwidgets::JS(sprintf("
   function(instance, td, row, col, prop, value, cellProperties) {
@@ -74,7 +95,7 @@ healthAreaPopulationServer <- function(
         useTypes   = FALSE
       ) |>
         rhandsontable::hot_col("area_name_internal", width = 1,   readOnly = TRUE, renderer = blank_renderer) |>
-        rhandsontable::hot_col("Health Area",        width = 180, readOnly = TRUE, renderer = row_renderer) |>
+        rhandsontable::hot_col(name_col_label,        width = 180, readOnly = !allow_rename || isTRUE(in_vertex_mode()), renderer = row_renderer) |>
         rhandsontable::hot_col("WorldPop U5 Population",        width = 110,  readOnly = TRUE, renderer = row_renderer) |>
         rhandsontable::hot_table(
           highlightRow   = TRUE,
@@ -105,6 +126,34 @@ healthAreaPopulationServer <- function(
       area <- df$area_name[row_index]
       if (area != "District Total") active_dfa_rv(area)
     })
+
+    # Inline rename via direct table edit -- only wired when allow_rename
+    # is TRUE (Team Areas). This module doesn't validate uniqueness itself
+    # (it doesn't own the full set of names); it just forwards old/new to
+    # on_rename and forces a re-render if that call rejects it.
+    observeEvent(input$pop_table$changes$changes, {
+      req(isTRUE(allow_rename), !isTRUE(in_vertex_mode()))
+      changes <- input$pop_table$changes$changes
+      req(!is.null(changes))
+      df <- pop_table()
+      req(!is.null(df))
+      for (chg in changes) {
+        col_idx <- suppressWarnings(as.integer(chg[[2]]))
+        if (is.na(col_idx) || col_idx != 1L) next   # only the name column (index 1) is renameable
+        row_idx <- suppressWarnings(as.integer(chg[[1]])) + 1L
+        if (is.na(row_idx) || row_idx < 1 || row_idx > nrow(df)) next
+        if (identical(df$area_name[row_idx], "District Total")) next
+
+        old_name <- as.character(chg[[3]])
+        new_name <- trimws(as.character(chg[[4]]))
+        if (identical(old_name, new_name) || !nzchar(new_name)) {
+          table_revision(table_revision() + 1)
+          next
+        }
+        accepted <- if (!is.null(on_rename)) isTRUE(on_rename(old_name, new_name)) else FALSE
+        if (!accepted) table_revision(table_revision() + 1)
+      }
+    }, ignoreInit = TRUE)
     
     # Legend
     output$legend_ui <- renderUI({

@@ -5,7 +5,7 @@ healthAreaTabUI <- function(id) {
     column(width = 6, div(style = 'height: calc(100vh - 120px);', healthAreaMapUI(ns('map')))),
     column(width = 3,
            div(style = 'overflow-y: auto; height: calc(100vh - 120px);',
-               healthAreaPopulationUI(ns('population'))))
+               healthAreaPopulationUI(ns('population'), name_col_label = "Health Area", allow_rename = FALSE)))
   )
 }
 
@@ -336,6 +336,24 @@ healthAreaTabServer <- function(
     send_current_scene <- function() {
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
+
+      # Unconditionally force the JS side back to paint mode before every
+      # scene (re)load, regardless of what in_vertex_mode() currently
+      # thinks. Belt-and-suspenders against the JS side ever getting
+      # stuck in vertex mode with no reactive reflecting it -- e.g. if
+      # the silent auto-conversion during Save/Submit enters vertex mode
+      # (deliberately without setting in_vertex_mode(), to avoid UI
+      # flicker) and its own exit step fails to fire for any reason, nothing
+      # else would ever notice or correct the desync. paint_exit_vertex_mode
+      # is a safe no-op if already in paint mode -- exitVertexMode() only
+      # rasterizes if a vertex engine actually exists, and its layer-restore
+      # loop is empty if nothing was ever hidden.
+      send_paint_message("paint_exit_vertex_mode")
+      if (isTRUE(in_vertex_mode())) {
+        in_vertex_mode(FALSE)
+        controls$set_vertex_mode_ui(FALSE)
+      }
+
       init_named       <- setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id))
       pop_geojson      <- if (!is.null(rv$pop_overlay_sf) && nrow(rv$pop_overlay_sf) > 0)
         as_geojson_text(rv$pop_overlay_sf) else NULL

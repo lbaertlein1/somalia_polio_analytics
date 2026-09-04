@@ -880,13 +880,27 @@ function getApp(msg) {
   // valid boundary, but a manual edit could in principle produce a gap)
   // keeps its prior assignment rather than being cleared.
   exitVertexMode: function() {
+    // Rasterization failing must never leave the app stuck in vertex mode --
+    // if buildAreaMembershipTester or the tester itself throws for any
+    // cell (malformed polygon, a degenerate ring, a NaN coordinate -- any
+    // edge case in real, complex boundary geometry that simple test grids
+    // don't exercise), the exception used to abort this function entirely
+    // BEFORE this.mode got reset, since that assignment sat after the
+    // rasterization block. Reordering so mode/cleanup are unconditional,
+    // and wrapping the rasterization in try/catch so a failure there
+    // costs at most this one save's worth of edits -- never the ability
+    // to leave vertex mode at all.
     if (this.vertexEngine) {
-      const tester = buildAreaMembershipTester(this.areaRings, this.vertexPos);
-      Object.keys(this.centroids).forEach(cid => {
-        const c = this.centroids[cid];
-        const area = tester({ lat: c.lat, lng: c.lng });
-        if (area) this.assignments[cid] = area;
-      });
+      try {
+        const tester = buildAreaMembershipTester(this.areaRings, this.vertexPos);
+        Object.keys(this.centroids).forEach(cid => {
+          const c = this.centroids[cid];
+          const area = tester({ lat: c.lat, lng: c.lng });
+          if (area) this.assignments[cid] = area;
+        });
+      } catch (err) {
+        console.error('exitVertexMode: rasterization failed, exiting with pre-refinement assignments intact', err);
+      }
     }
 
     this.mode = 'paint';
@@ -897,6 +911,10 @@ function getApp(msg) {
     });
     this._hiddenForVertexMode = [];
     this.vertexEngine = null;
+    // Belt-and-suspenders: guarantee dragging is left enabled regardless
+    // of whatever state a vertex-mode drag gesture left it in (e.g. a
+    // gesture that didn't cleanly reach its own mouseup).
+    if (this.map.dragging) this.map.dragging.enable();
     this.refreshAllStyles();
   },
 
@@ -1504,6 +1522,39 @@ function getApp(msg) {
         });
       },
 
+      // Renames an area/team everywhere it's referenced client-side: every
+      // cell currently assigned to oldName, its color entry (so the
+      // renamed area keeps its existing color instead of falling back to
+      // the "unassigned" default), and activeDfa if the renamed one was
+      // the currently active one. Uniqueness itself is validated on the R
+      // side before this ever gets sent -- this just applies whatever
+      // rename R has already approved.
+      renameArea: function(oldName, newName) {
+        if (!oldName || !newName || oldName === newName) return;
+        Object.keys(this.assignments).forEach(cid => {
+          if (this.assignments[cid] === oldName) this.assignments[cid] = newName;
+        });
+        if (this.dfaColors && Object.prototype.hasOwnProperty.call(this.dfaColors, oldName)) {
+          this.dfaColors[newName] = this.dfaColors[oldName];
+          delete this.dfaColors[oldName];
+        }
+        if (this.activeDfa === oldName) this.activeDfa = newName;
+        // Seed-point markers carry a permanent tooltip showing the area
+        // name directly on the map -- these are a separate layer from
+        // cell assignments, so they don't update on their own.
+        // setTooltipContent() updates a bound tooltip's text in place
+        // without needing to unbind/rebind it.
+        if (this.seedLayer) {
+          this.seedLayer.eachLayer((marker) => {
+            if (marker._dfaName === oldName) {
+              marker._dfaName = newName;
+              if (marker.setTooltipContent) marker.setTooltipContent(String(newName));
+            }
+          });
+        }
+        this.refreshAllStyles();
+      },
+
       // ── Undo stack management ────────────────────────────────────────────
 
       pushUndo: function(snapshot) {
@@ -1572,6 +1623,11 @@ function getApp(msg) {
             offset: [10, 0],
             className: 'dfa-tooltip'
           });
+          // Tagged so renameArea() can find and update this tooltip later --
+          // the tooltip's own displayed text isn't a reliable thing to
+          // read back out through Leaflet's API, so track the name
+          // explicitly ourselves.
+          marker._dfaName = pt.dfa_name;
 
           marker.addTo(this.seedLayer);
         });
@@ -2056,6 +2112,10 @@ function getApp(msg) {
 
     Shiny.addCustomMessageHandler('paint_reset_vertex_edits', function(msg) {
       getApp(msg).resetVertexEdits();
+    });
+
+    Shiny.addCustomMessageHandler('paint_rename_area', function(msg) {
+      getApp(msg).renameArea(msg.oldName, msg.newName);
     });
 
     Shiny.addCustomMessageHandler('paint_request_assignments', function(msg) {

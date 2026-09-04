@@ -34,7 +34,7 @@ teamAreaTabUI <- function(id) {
     column(width = 6, div(style = 'height: calc(100vh - 120px);', teamAreaMapUI(ns('map')))),
     column(width = 3,
            div(style = 'overflow-y: auto; height: calc(100vh - 120px);',
-               healthAreaPopulationUI(ns('population'))))
+               healthAreaPopulationUI(ns('population'), name_col_label = "Team Name", allow_rename = TRUE)))
   )
 }
 
@@ -119,13 +119,46 @@ teamAreaTabServer <- function(
       make_fill_colors(active_dfa = active_team_rv(), dfa_names = rv$team_names %||% character(0))
     })
 
+    # ── Inline team rename (from the population table) ──────────────────────
+    # Called by mod_health_area_population.R when the user edits the name
+    # column directly in the table. Must return TRUE/FALSE so that module
+    # knows whether to force the table back to the old value on rejection.
+    .on_team_rename <- function(old_name, new_name) {
+      if (old_name %in% extra_dfa_names) {
+        showNotification(sprintf('"%s" can\'t be renamed.', old_name), type = "warning", duration = 4)
+        return(FALSE)
+      }
+      if (new_name %in% extra_dfa_names) {
+        showNotification(sprintf('"%s" is a reserved name.', new_name), type = "warning", duration = 4)
+        return(FALSE)
+      }
+      if (new_name %in% setdiff(rv$team_names, old_name)) {
+        showNotification(sprintf('A team named "%s" already exists.', new_name), type = "error", duration = 4)
+        return(FALSE)
+      }
+
+      rv$team_names <- normalize_dfa_names_team(
+        ifelse(rv$team_names == old_name, new_name, rv$team_names)
+      )
+      if (!is.null(rv$current_assignments)) {
+        rv$current_assignments[rv$current_assignments == old_name] <- new_name
+      }
+      send_paint_message("paint_rename_area", list(oldName = old_name, newName = new_name))
+      recompute_population_table(rv$current_assignments)
+      if (identical(active_team_rv(), old_name)) active_team_rv(new_name)
+      TRUE
+    }
+
     healthAreaPopulationServer(
       'population',
       active_dfa_rv        = active_team_rv,
       show_pop_raster      = controls$show_pop_raster,
       show_friction_raster = controls$show_friction_raster,
       pop_table            = reactive(rv$pop_table),
-      in_vertex_mode       = in_vertex_mode
+      in_vertex_mode       = in_vertex_mode,
+      name_col_label       = "Team Name",
+      allow_rename         = TRUE,
+      on_rename            = .on_team_rename
     )
 
     recompute_population_table <- function(assignments) {
@@ -266,6 +299,24 @@ teamAreaTabServer <- function(
     send_current_scene <- function() {
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
+
+      # Unconditionally force the JS side back to paint mode before every
+      # scene (re)load, regardless of what in_vertex_mode() currently
+      # thinks. Belt-and-suspenders against the JS side ever getting
+      # stuck in vertex mode with no reactive reflecting it -- e.g. if
+      # the silent auto-conversion during Save/Submit enters vertex mode
+      # (deliberately without setting in_vertex_mode(), to avoid UI
+      # flicker) and its own exit step fails to fire for any reason, nothing
+      # else would ever notice or correct the desync. paint_exit_vertex_mode
+      # is a safe no-op if already in paint mode -- exitVertexMode() only
+      # rasterizes if a vertex engine actually exists, and its layer-restore
+      # loop is empty if nothing was ever hidden.
+      send_paint_message("paint_exit_vertex_mode")
+      if (isTRUE(in_vertex_mode())) {
+        in_vertex_mode(FALSE)
+        controls$set_vertex_mode_ui(FALSE)
+      }
+
       init_named <- setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id))
       saved_sf <- rv$saved_team_sf
       if (is.null(saved_sf))
@@ -382,6 +433,43 @@ teamAreaTabServer <- function(
     observeEvent(controls$boundary_only(), {
       req(tab_active()); send_paint_message('paint_set_boundary_only', list(value = controls$boundary_only()))
     }, ignoreInit = TRUE)
+
+    # These were entirely missing -- show_pop_raster/show_friction_raster
+    # were only ever read by healthAreaPopulationServer for the legend's
+    # own text, never actually used to build an overlay and send it to
+    # the map. Checking the box updated the legend but nothing else,
+    # which is exactly the reported symptom. Same pattern as
+    # mod_health_area_tab.R's identical wiring, adapted for this file's
+    # names (u5_rast used directly here rather than via a
+    # get_u5_worldpop() wrapper, since that wrapper doesn't exist in this
+    # file -- Team Areas already references the global u5_rast directly
+    # elsewhere, e.g. area_population()).
+    observeEvent(controls$show_pop_raster(), {
+      req(tab_active(), isTRUE(district_ready()))
+      if (isTRUE(controls$show_pop_raster()) && is.null(rv$pop_overlay_sf) && !is.null(rv$district_sf)) {
+        rv$pop_overlay_sf <- tryCatch(
+          make_population_overlay_sf(district_sf = rv$district_sf, u5_rast = u5_rast),
+          error = function(e) NULL)
+      }
+      geojson <- if (!is.null(rv$pop_overlay_sf)) as_geojson_text(rv$pop_overlay_sf) else NULL
+      send_paint_message("paint_toggle_population",
+                         list(show = controls$show_pop_raster(), geojson = geojson))
+    }, ignoreInit = TRUE)
+
+    observeEvent(controls$show_friction_raster(), {
+      req(tab_active(), isTRUE(district_ready()))
+      if (isTRUE(controls$show_friction_raster()) && is.null(rv$friction_overlay_sf) &&
+          !is.null(rv$friction_path) && file.exists(rv$friction_path)) {
+        rv$friction_overlay_sf <- tryCatch(
+          make_friction_overlay_sf(district_sf = rv$district_sf,
+                                   friction_rast = terra::rast(rv$friction_path)),
+          error = function(e) NULL)
+      }
+      geojson <- if (!is.null(rv$friction_overlay_sf)) as_geojson_text(rv$friction_overlay_sf) else NULL
+      send_paint_message("paint_toggle_friction",
+                         list(show = controls$show_friction_raster(), geojson = geojson))
+    }, ignoreInit = TRUE)
+
     observeEvent(controls$paint_undo_click(), {
       req(tab_active(), !isTRUE(in_vertex_mode())); send_paint_message('paint_undo')
       pending_action('refresh'); send_paint_message('paint_request_assignments')
