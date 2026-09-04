@@ -93,21 +93,17 @@ healthAreaControlsUI <- function(id) {
       checkboxInput(ns('boundary_only'),        'Boundaries only',             value = boundary_only_default)
     ),
     
-    # ── Save / Reset ──────────────────────────────────────────────────────────
-    div(
-      style = 'display:flex;gap:6px;margin-bottom:8px;',
-      actionButton(ns('reset_btn'), 'Reset',
-                   class = 'btn btn-default btn-sm', style = 'flex:1;'),
-      actionButton(ns('save_btn'),  'Save',
-                   class = 'btn btn-default btn-sm', style = 'flex:1;')
-    ),
+    # ── STEP 1: Painting / STEP 2: Refine Boundaries ─────────────────────
+    # Two visually distinct, mutually-exclusive steps: only one group's
+    # controls are ever interactive at once, matching which mode the
+    # canvas is actually in. Rendered via uiOutput/renderUI (not a static
+    # div toggled by shinyjs::show/hide, which silently does nothing if
+    # shinyjs::useShinyjs() isn't set up -- renderUI needs no such setup
+    # and fails loudly instead of just never appearing).
+    uiOutput(ns('paint_step_ui')),
 
-    # ── Boundary refinement (vertex editing) ─────────────────────────────
-    # Second step after painting: refine the traced boundary at the vertex
-    # level. refine_boundaries_btn toggles between paint mode and vertex
-    # mode (label/icon updated from the server via set_vertex_mode_ui());
-    # the sliders and save_refinements_btn are only meaningful while in
-    # vertex mode, hidden otherwise.
+    tags$hr(style = 'margin: 6px 0;'),
+
     div(
       id = ns('refine_controls'),
       actionButton(
@@ -115,14 +111,7 @@ healthAreaControlsUI <- function(id) {
         class = 'btn btn-default btn-sm', width = '100%',
         icon = icon('draw-polygon')
       ),
-      # Rendered via uiOutput/renderUI rather than a static div toggled by
-      # shinyjs::show/hide -- that approach silently does nothing if
-      # shinyjs::useShinyjs() isn't set up in the app's UI, which is easy
-      # to miss and leaves these permanently invisible with no error.
-      # renderUI needs no extra setup and fails loudly (a normal R error)
-      # if something's actually wrong, instead of just never appearing.
-      uiOutput(ns('refine_sliders_ui')),
-      uiOutput(ns('save_refinements_ui'))
+      uiOutput(ns('refine_step_ui'))
     ),
 
     tags$hr(style = 'margin: 6px 0;'),
@@ -175,12 +164,12 @@ healthAreaControlsServer <- function(id) {
     # the slider has a fixed range independent of district size.
     set_brush_limits <- function(brush_limits) invisible(NULL)
 
-    # Drives output$refine_sliders_ui/output$save_refinements_ui below via
-    # a plain reactiveVal, rather than toggling visibility with
-    # shinyjs::show/hide -- that depends on shinyjs::useShinyjs() having
-    # been called in the app's UI, which is easy to miss and fails
-    # completely silently (the elements just never appear, with nothing
-    # in the logs). renderUI/uiOutput need no such setup.
+    # Drives output$paint_step_ui/output$refine_step_ui below via a plain
+    # reactiveVal, rather than toggling visibility with shinyjs::show/hide
+    # -- that depends on shinyjs::useShinyjs() having been called in the
+    # app's UI, which is easy to miss and fails completely silently (the
+    # elements just never appear, with nothing in the logs). renderUI/
+    # uiOutput need no such setup and fail loudly if something's wrong.
     vertex_mode_active <- reactiveVal(FALSE)
 
     set_vertex_mode_ui <- function(in_vertex_mode) {
@@ -194,30 +183,67 @@ healthAreaControlsServer <- function(id) {
       }
     }
 
-    # isolate()d default preserves whatever the user last had the sliders
-    # set to -- renderUI recreates these sliderInputs fresh every time
-    # vertex_mode_active() flips to TRUE, so without this they'd silently
-    # reset to 2/6 on every re-entry into vertex mode.
-    output$refine_sliders_ui <- renderUI({
+    # ── Step 1: Painting ────────────────────────────────────────────────
+    # Full controls while painting; collapses to a plain status line while
+    # refining -- painting's own Undo/Reset/Save are only ever clickable
+    # in painting mode, never while refining, by simply not existing in
+    # the DOM at that point (not just being disabled).
+    output$paint_step_ui <- renderUI({
+      if (isTRUE(vertex_mode_active())) {
+        div(
+          style = paste0('padding:8px 10px;background:#f1f5f9;border-radius:6px;',
+                         'color:#64748b;font-size:12px;text-align:center;'),
+          tags$strong('Step 1: Painting'), tags$br(),
+          'Currently refining — click "Back to Painting" below to resume.'
+        )
+      } else {
+        tagList(
+          div(style = 'font-size:11px;font-weight:700;color:#0f172a;margin-bottom:6px;',
+              'STEP 1: PAINTING'),
+          div(
+            style = 'display:flex;gap:6px;margin-bottom:8px;',
+            actionButton(ns('paint_undo_btn'), 'Undo',
+                         class = 'btn btn-default btn-sm', style = 'flex:1;',
+                         icon = icon('rotate-left')),
+            actionButton(ns('reset_btn'), 'Reset',
+                         class = 'btn btn-default btn-sm', style = 'flex:1;'),
+            actionButton(ns('save_btn'),  'Save',
+                         class = 'btn btn-default btn-sm', style = 'flex:1;')
+          )
+        )
+      }
+    })
+
+    # ── Step 2: Refine Boundaries ───────────────────────────────────────
+    # Everything here (sliders, its own Undo/Reset, Save Refinements) is
+    # only ever rendered while actually refining -- symmetric with step 1
+    # collapsing away while this is active.
+    output$refine_step_ui <- renderUI({
       req(vertex_mode_active())
       tagList(
-        div(style = 'margin-top:8px;font-size:11px;color:#475569;', 'Smoothness'),
+        div(style = 'font-size:11px;font-weight:700;color:#0f172a;margin:8px 0 6px;',
+            'STEP 2: REFINE BOUNDARIES'),
+        div(style = 'font-size:11px;color:#475569;', 'Smoothness'),
         sliderInput(ns('vertex_smoothness_ui'), NULL, min = 1, max = 15,
                     value = isolate(input$vertex_smoothness_ui) %||% 2,
                     step = 1, width = '100%', ticks = FALSE),
         div(style = 'font-size:11px;color:#475569;', 'Stiffness'),
         sliderInput(ns('vertex_stiffness_ui'), NULL, min = 1, max = 20,
                     value = isolate(input$vertex_stiffness_ui) %||% 6,
-                    step = 1, width = '100%', ticks = FALSE)
-      )
-    })
-
-    output$save_refinements_ui <- renderUI({
-      req(vertex_mode_active())
-      div(
-        style = 'margin-top:6px;',
-        actionButton(ns('save_refinements_btn'), 'Save Refinements',
-                     class = 'btn btn-default btn-sm', width = '100%')
+                    step = 1, width = '100%', ticks = FALSE),
+        div(
+          style = 'display:flex;gap:6px;margin-top:8px;',
+          actionButton(ns('refine_undo_btn'), 'Undo',
+                       class = 'btn btn-default btn-sm', style = 'flex:1;',
+                       icon = icon('rotate-left')),
+          actionButton(ns('refine_reset_btn'), 'Reset',
+                       class = 'btn btn-default btn-sm', style = 'flex:1;')
+        ),
+        div(
+          style = 'margin-top:6px;',
+          actionButton(ns('save_refinements_btn'), 'Save Refinements',
+                       class = 'btn btn-default btn-sm', width = '100%')
+        )
       )
     })
 
@@ -230,12 +256,15 @@ healthAreaControlsServer <- function(id) {
       save_click           = reactive(input$save_btn),
       submit_click         = reactive(input$submit_btn),
       reset_click          = reactive(input$reset_btn),
+      paint_undo_click     = reactive(input$paint_undo_btn),
       continue_click       = reactive(input$continue_btn),
       brush_minus_click    = reactive(input$brush_minus),
       brush_plus_click     = reactive(input$brush_plus),
       set_brush_limits     = set_brush_limits,
       refine_boundaries_click = reactive(input$refine_boundaries_btn),
       save_refinements_click  = reactive(input$save_refinements_btn),
+      refine_undo_click       = reactive(input$refine_undo_btn),
+      refine_reset_click      = reactive(input$refine_reset_btn),
       set_vertex_mode_ui      = set_vertex_mode_ui,
       vertex_smoothness       = reactive(input$vertex_smoothness_ui),
       vertex_stiffness        = reactive(input$vertex_stiffness_ui)

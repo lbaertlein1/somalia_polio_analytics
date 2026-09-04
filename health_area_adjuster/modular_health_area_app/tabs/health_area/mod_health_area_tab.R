@@ -21,7 +21,13 @@ healthAreaTabServer <- function(
     planning_area_sf_r  = reactive(NULL),
     submit_stage_fn     = NULL,
     save_snapshot_fn    = NULL,
-    restore_r           = reactive(NULL)
+    restore_r           = reactive(NULL),
+    # Optional -- feeds compute_n_teams()'s per-campaign target_pop_per_team
+    # lookup in the post-submit team-targets modal below. Defaults to
+    # reactive(NULL), which compute_n_teams() already handles gracefully
+    # (falls back to the global default of 400/team), so existing callers
+    # that don't pass this are unaffected.
+    campaign_id         = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -67,7 +73,13 @@ healthAreaTabServer <- function(
       pop_overlay_sf = NULL, friction_overlay_sf = NULL, pop_table = NULL,
       max_dim_m = NULL, brush_limits = NULL,
       seed_points = NULL, dfa_names = all_dfa_names, friction_path = NULL,
-      smoothed_dfa_sf = NULL   # vertex-refined boundary; NULL until first refined+saved
+      smoothed_dfa_sf = NULL,   # vertex-refined boundary; NULL until first refined+saved
+      # Per-health-area team-planning targets, keyed by health area name:
+      # list(target_pop = <numeric or NA>, requested_teams = <integer or NA>).
+      # Populated via the post-submit modal below; read by Team Areas to
+      # override its own compute_n_teams() recommendation when the field
+      # requested-teams value is present.
+      team_targets = list()
     )
 
     in_vertex_mode <- reactiveVal(FALSE)
@@ -97,7 +109,8 @@ healthAreaTabServer <- function(
         mapId              = map_mod$map_id,
         loadingOverlayId   = map_mod$loading_overlay_id,
         readyInputId       = map_mod$ready_input_id,
-        assignmentsInputId = map_mod$assignments_input_id
+        assignmentsInputId = map_mod$assignments_input_id,
+        undoCountInputId   = map_mod$undo_count_input_id
       ), payload))
     }
     
@@ -491,10 +504,30 @@ healthAreaTabServer <- function(
     observeEvent(map_mod$map_ready(), {
       if (tab_active()) send_paint_message("hide_loading")
     }, ignoreInit = TRUE)
+
+    # Enable/disable the paint-step Undo button based on stack depth --
+    # same pattern as mod_team_area_tab.R's identical wiring. Harmless if
+    # the button isn't currently in the DOM (refining mode hides it via
+    # paint_step_ui) -- shinyjs::toggleState on a missing element is a
+    # no-op, not an error.
+    observeEvent(map_mod$undo_count(), {
+      shinyjs::toggleState(session$ns('controls-paint_undo_btn'),
+                           condition = isTRUE(map_mod$undo_count() > 0))
+    }, ignoreInit = TRUE, ignoreNULL = FALSE)
+
+    # Same for the refine-step Undo button. This was the missing half of
+    # the refine undo wiring -- without it, the button is always
+    # clickable even with an empty stack, so clicking it with nothing to
+    # undo does nothing, with no visual indication of why (reads exactly
+    # like "the button doesn't work").
+    observeEvent(map_mod$vertex_undo_count(), {
+      shinyjs::toggleState(session$ns('controls-refine_undo_btn'),
+                           condition = isTRUE(map_mod$vertex_undo_count() > 0))
+    }, ignoreInit = TRUE, ignoreNULL = FALSE)
     
     # ── Save (local only) ─────────────────────────────────────────────────────
     observeEvent(controls$save_click(), {
-      req(isTRUE(district_ready()), tab_active())
+      req(isTRUE(district_ready()), tab_active(), !isTRUE(in_vertex_mode()))
       pending_action("save")
       send_paint_message("paint_request_assignments")
     })
@@ -581,9 +614,13 @@ healthAreaTabServer <- function(
       .do_submit_and_continue_areas()
     }, ignoreInit = TRUE)
     
-    # ── Reset ─────────────────────────────────────────────────────────────────
+    # ── Reset (painting) ─────────────────────────────────────────────────────
+    # req(!isTRUE(in_vertex_mode())) is defensive -- the button itself is
+    # already absent from the DOM while refining (see paint_step_ui in
+    # mod_health_area_controls.R), but this guards against it firing
+    # through any other path.
     observeEvent(controls$reset_click(), {
-      req(isTRUE(district_ready()), tab_active())
+      req(isTRUE(district_ready()), tab_active(), !isTRUE(in_vertex_mode()))
       req(!is.null(rv$initial_assignments), !is.null(rv$dfa_names), length(rv$dfa_names) > 0)
       selected_dfa <- active_dfa_rv()
       if (is.null(selected_dfa) || !selected_dfa %in% rv$dfa_names) {
@@ -599,6 +636,14 @@ healthAreaTabServer <- function(
                          list(colors = as.list(current_fill_colors()), activeDfa = selected_dfa))
       recompute_population_table(rv$initial_assignments)
     })
+
+    # ── Undo (painting) ──────────────────────────────────────────────────────
+    observeEvent(controls$paint_undo_click(), {
+      req(isTRUE(district_ready()), tab_active(), !isTRUE(in_vertex_mode()))
+      send_paint_message("paint_undo")
+      pending_action("refresh")
+      send_paint_message("paint_request_assignments")
+    }, ignoreInit = TRUE)
 
     # ── Refine boundaries (vertex editing) ──────────────────────────────
     observeEvent(controls$refine_boundaries_click(), {
@@ -636,6 +681,19 @@ healthAreaTabServer <- function(
       pending_action("manual_refine_save")
       send_paint_message("paint_save_vertex_edits")
       send_paint_message("paint_request_vertex_geojson")
+    }, ignoreInit = TRUE)
+
+    # ── Undo / Reset (refining) ──────────────────────────────────────────────
+    # Both are no-ops on the JS side if there's nothing to undo/nothing
+    # traced yet, so no extra guard beyond in_vertex_mode() is needed here.
+    observeEvent(controls$refine_undo_click(), {
+      req(isTRUE(in_vertex_mode()))
+      send_paint_message("paint_vertex_undo")
+    }, ignoreInit = TRUE)
+
+    observeEvent(controls$refine_reset_click(), {
+      req(isTRUE(in_vertex_mode()))
+      send_paint_message("paint_reset_vertex_edits")
     }, ignoreInit = TRUE)
 
     # ── Receive the vertex-refined boundary from JS ─────────────────────
@@ -698,9 +756,11 @@ healthAreaTabServer <- function(
               saved_dfa_sf        = parsed,
               dfa_names           = rv$dfa_names,
               current_assignments = rv$current_assignments,
-              smoothed_dfa_sf     = parsed
+              smoothed_dfa_sf     = parsed,
+              team_targets        = rv$team_targets
             ))
             areas_submitted_to_db(TRUE)
+            .show_team_targets_modal()
           }
         } else {
           showNotification("Health area boundaries saved.", type = "message", duration = 2)
@@ -818,7 +878,101 @@ healthAreaTabServer <- function(
       pending_action("capture")
       send_paint_message("paint_request_assignments")
     }, ignoreInit = TRUE)
-    
+
+    # ── Post-submit team planning targets modal ──────────────────────────────
+    # Fires once per successful submit. One row per real health area
+    # (Inaccessible/Unpopulated excluded -- they don't get outreach teams).
+    # Field Target Population is purely informational, captured for the
+    # admin's own records -- it does NOT feed the recommended-teams
+    # calculation, which is always based on WorldPop population (per the
+    # stated design: "Recommended number of teams based on WorldPop and
+    # admin-entered population per team"). Field Requested Teams is what
+    # actually overrides Team Areas' own team count when non-blank.
+    .safe_target_id <- function(area_name) gsub("[^A-Za-z0-9]+", "_", area_name)
+
+    .show_team_targets_modal <- function() {
+      if (is.null(rv$pop_table)) return(invisible(NULL))
+      area_rows <- rv$pop_table[!(rv$pop_table$area_name %in% c("District Total", extra_dfa_names)), , drop = FALSE]
+      if (nrow(area_rows) == 0) return(invisible(NULL))
+
+      header_row <- tagList(
+        tags$strong('Health Area'), tags$strong('WorldPop U5 Pop.'),
+        tags$strong('Field Target Population'), tags$strong('Recommended Teams'),
+        tags$strong('Field Requested Teams')
+      )
+
+      data_rows <- lapply(seq_len(nrow(area_rows)), function(i) {
+        area_name <- area_rows$area_name[i]
+        area_pop  <- area_rows$est_u5_pop[i]
+        sid <- .safe_target_id(area_name)
+        recommended <- tryCatch(
+          compute_n_teams(area_pop, campaign_id = campaign_id()),
+          error = function(e) NA_integer_
+        )
+        existing <- rv$team_targets[[area_name]]
+
+        tagList(
+          div(style = 'align-self:center;font-size:12px;', area_name),
+          div(style = 'align-self:center;font-size:12px;', format(round(area_pop), big.mark = ',')),
+          numericInput(session$ns(paste0('target_pop_', sid)), NULL,
+                       value = existing$target_pop %||% NA, min = 0, width = '100%'),
+          div(style = 'align-self:center;font-size:12px;', recommended),
+          numericInput(session$ns(paste0('requested_teams_', sid)), NULL,
+                       value = existing$requested_teams %||% NA, min = 1, step = 1, width = '100%')
+        )
+      })
+
+      showModal(modalDialog(
+        title = 'Team Planning Targets', size = 'l', easyClose = FALSE,
+        footer = actionButton(session$ns('team_targets_done'), 'Done', class = 'btn btn-primary'),
+        div(
+          style = 'font-size:12px;color:#475569;margin-bottom:12px;',
+          'Optionally set a field target population or a specific number of teams for each health area. ',
+          'Leave a field blank to use the recommended number of teams, based on WorldPop population ',
+          'and the population-per-team setting from the Admin page.'
+        ),
+        div(
+          style = paste0('display:grid;grid-template-columns:2fr 1fr 1.2fr 1fr 1.2fr;',
+                         'gap:8px 10px;align-items:center;'),
+          header_row,
+          data_rows
+        )
+      ))
+    }
+
+    observeEvent(input$team_targets_done, {
+      if (!is.null(rv$pop_table)) {
+        area_rows <- rv$pop_table[!(rv$pop_table$area_name %in% c("District Total", extra_dfa_names)), , drop = FALSE]
+        new_targets <- list()
+        for (area_name in area_rows$area_name) {
+          sid <- .safe_target_id(area_name)
+          target_pop_val      <- input[[paste0('target_pop_', sid)]]
+          requested_teams_val <- input[[paste0('requested_teams_', sid)]]
+          new_targets[[area_name]] <- list(
+            target_pop = if (is.null(target_pop_val) || is.na(target_pop_val))
+              NA_real_ else as.numeric(target_pop_val),
+            requested_teams = if (is.null(requested_teams_val) || is.na(requested_teams_val))
+              NA_integer_ else as.integer(requested_teams_val)
+          )
+        }
+        rv$team_targets <- new_targets
+
+        # Persist alongside the boundary data already submitted, so team
+        # targets survive a session restore -- reuses whatever was just
+        # submitted (still current in rv$saved_dfa_sf etc. at this point).
+        if (!is.null(submit_stage_fn) && !is.null(rv$saved_dfa_sf)) {
+          submit_stage_fn('areas', list(
+            saved_dfa_sf        = rv$saved_dfa_sf,
+            dfa_names           = rv$dfa_names,
+            current_assignments = rv$current_assignments,
+            smoothed_dfa_sf     = rv$smoothed_dfa_sf,
+            team_targets        = rv$team_targets
+          ))
+        }
+      }
+      removeModal()
+    }, ignoreInit = TRUE)
+
     list(
       has_scene             = reactive(!is.null(rv$grid_sf)),
       friction_path         = reactive(rv$friction_path),
@@ -835,10 +989,13 @@ healthAreaTabServer <- function(
           rv$saved_dfa_sf <- snap$saved_dfa_sf
         if (!is.null(snap$smoothed_dfa_sf) && nrow(snap$smoothed_dfa_sf) > 0)
           rv$smoothed_dfa_sf <- snap$smoothed_dfa_sf
+        if (!is.null(snap$team_targets))
+          rv$team_targets <- snap$team_targets
         
         if (!is.null(rv$grid_sf)) .apply_restore(snap)
         else pending_restore(snap)
-      }
+      },
+      team_targets_r = reactive(rv$team_targets)
     )
   })
 }

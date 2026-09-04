@@ -86,18 +86,13 @@ teamAreaControlsUI <- function(id) {
       checkboxInput(ns('boundary_only'),        'Boundaries only',             value = boundary_only_default)
     ),
 
-    # ── Undo / Reset / Save ──────────────────────────────────────────────────
-    div(
-      style = 'display:flex;gap:6px;margin-bottom:8px;',
-      actionButton(ns('undo_btn'), 'Undo',
-                   class = 'btn btn-default btn-sm', style = 'flex:1;', icon = icon('rotate-left')),
-      actionButton(ns('reset_btn'), 'Reset',
-                   class = 'btn btn-default btn-sm', style = 'flex:1;'),
-      actionButton(ns('save_btn'),  'Save',
-                   class = 'btn btn-default btn-sm', style = 'flex:1;')
-    ),
+    # ── STEP 1: Painting / STEP 2: Refine Boundaries ─────────────────────
+    # Two visually distinct, mutually-exclusive steps -- same structure as
+    # mod_health_area_controls.R's identical wiring.
+    uiOutput(ns('paint_step_ui')),
 
-    # ── Boundary refinement (vertex editing) ─────────────────────────────
+    tags$hr(style = 'margin: 6px 0;'),
+
     div(
       id = ns('refine_controls'),
       actionButton(
@@ -105,14 +100,7 @@ teamAreaControlsUI <- function(id) {
         class = 'btn btn-default btn-sm', width = '100%',
         icon = icon('draw-polygon')
       ),
-      # Rendered via uiOutput/renderUI rather than a static div toggled by
-      # shinyjs::show/hide -- that approach silently does nothing if
-      # shinyjs::useShinyjs() isn't set up in the app's UI, which is easy
-      # to miss and leaves these permanently invisible with no error.
-      # renderUI needs no extra setup and fails loudly (a normal R error)
-      # if something's actually wrong, instead of just never appearing.
-      uiOutput(ns('refine_sliders_ui')),
-      uiOutput(ns('save_refinements_ui'))
+      uiOutput(ns('refine_step_ui'))
     ),
 
     tags$hr(style = 'margin: 6px 0;'),
@@ -154,10 +142,10 @@ teamAreaControlsServer <- function(id) {
                         selected = selected %||% (if (length(choices) > 0) choices[[1]] else NULL))
     }
 
-    # Drives output$refine_sliders_ui/output$save_refinements_ui below via
-    # a plain reactiveVal, rather than toggling visibility with
-    # shinyjs::show/hide -- same fix as mod_health_area_controls.R's
-    # identical wiring (shinyjs::show/hide silently does nothing without
+    # Drives output$paint_step_ui/output$refine_step_ui below via a plain
+    # reactiveVal, rather than toggling visibility with shinyjs::show/hide
+    # -- same fix as mod_health_area_controls.R's identical wiring
+    # (shinyjs::show/hide silently does nothing without
     # shinyjs::useShinyjs() set up in the app's UI).
     vertex_mode_active <- reactiveVal(FALSE)
 
@@ -172,26 +160,60 @@ teamAreaControlsServer <- function(id) {
       }
     }
 
-    output$refine_sliders_ui <- renderUI({
+    # ── Step 1: Painting ────────────────────────────────────────────────
+    output$paint_step_ui <- renderUI({
+      if (isTRUE(vertex_mode_active())) {
+        div(
+          style = paste0('padding:8px 10px;background:#f1f5f9;border-radius:6px;',
+                         'color:#64748b;font-size:12px;text-align:center;'),
+          tags$strong('Step 1: Painting'), tags$br(),
+          'Currently refining — click "Back to Painting" below to resume.'
+        )
+      } else {
+        tagList(
+          div(style = 'font-size:11px;font-weight:700;color:#0f172a;margin-bottom:6px;',
+              'STEP 1: PAINTING'),
+          div(
+            style = 'display:flex;gap:6px;margin-bottom:8px;',
+            actionButton(ns('paint_undo_btn'), 'Undo',
+                         class = 'btn btn-default btn-sm', style = 'flex:1;',
+                         icon = icon('rotate-left')),
+            actionButton(ns('reset_btn'), 'Reset',
+                         class = 'btn btn-default btn-sm', style = 'flex:1;'),
+            actionButton(ns('save_btn'),  'Save',
+                         class = 'btn btn-default btn-sm', style = 'flex:1;')
+          )
+        )
+      }
+    })
+
+    # ── Step 2: Refine Boundaries ───────────────────────────────────────
+    output$refine_step_ui <- renderUI({
       req(vertex_mode_active())
       tagList(
-        div(style = 'margin-top:8px;font-size:11px;color:#475569;', 'Smoothness'),
+        div(style = 'font-size:11px;font-weight:700;color:#0f172a;margin:8px 0 6px;',
+            'STEP 2: REFINE BOUNDARIES'),
+        div(style = 'font-size:11px;color:#475569;', 'Smoothness'),
         sliderInput(ns('vertex_smoothness_ui'), NULL, min = 1, max = 15,
                     value = isolate(input$vertex_smoothness_ui) %||% 2,
                     step = 1, width = '100%', ticks = FALSE),
         div(style = 'font-size:11px;color:#475569;', 'Stiffness'),
         sliderInput(ns('vertex_stiffness_ui'), NULL, min = 1, max = 20,
                     value = isolate(input$vertex_stiffness_ui) %||% 6,
-                    step = 1, width = '100%', ticks = FALSE)
-      )
-    })
-
-    output$save_refinements_ui <- renderUI({
-      req(vertex_mode_active())
-      div(
-        style = 'margin-top:6px;',
-        actionButton(ns('save_refinements_btn'), 'Save Refinements',
-                     class = 'btn btn-default btn-sm', width = '100%')
+                    step = 1, width = '100%', ticks = FALSE),
+        div(
+          style = 'display:flex;gap:6px;margin-top:8px;',
+          actionButton(ns('refine_undo_btn'), 'Undo',
+                       class = 'btn btn-default btn-sm', style = 'flex:1;',
+                       icon = icon('rotate-left')),
+          actionButton(ns('refine_reset_btn'), 'Reset',
+                       class = 'btn btn-default btn-sm', style = 'flex:1;')
+        ),
+        div(
+          style = 'margin-top:6px;',
+          actionButton(ns('save_refinements_btn'), 'Save Refinements',
+                       class = 'btn btn-default btn-sm', width = '100%')
+        )
       )
     })
 
@@ -203,13 +225,15 @@ teamAreaControlsServer <- function(id) {
       show_friction_raster   = reactive(input$show_friction_raster),
       boundary_only          = reactive(isTRUE(input$boundary_only)),
       help_click              = reactive(input$help_btn),
-      undo_click               = reactive(input$undo_btn),
+      paint_undo_click         = reactive(input$paint_undo_btn),
       save_click                = reactive(input$save_btn),
       submit_click               = reactive(input$submit_btn),
       reset_click                 = reactive(input$reset_btn),
       set_status_ui                = function(ui) { output$health_area_status <- renderUI(ui) },
       refine_boundaries_click = reactive(input$refine_boundaries_btn),
       save_refinements_click  = reactive(input$save_refinements_btn),
+      refine_undo_click       = reactive(input$refine_undo_btn),
+      refine_reset_click      = reactive(input$refine_reset_btn),
       set_vertex_mode_ui      = set_vertex_mode_ui,
       vertex_smoothness       = reactive(input$vertex_smoothness_ui),
       vertex_stiffness        = reactive(input$vertex_stiffness_ui)

@@ -29,6 +29,9 @@ teamAreaMapServer <- function(id) {
       assignments          = reactive(input$paint_assignments),
       undo_count           = reactive(input$paint_undo_count),
       vertex_geojson       = reactive(input$paint_assignments_vertex_geojson),
+      # Refine-mode (vertex) undo stack depth -- same derived-id pattern
+      # as vertex_geojson above.
+      vertex_undo_count    = reactive(input$paint_assignments_vertex_undo_count),
       map_id               = session$ns("paint_map"),
       loading_overlay_id   = session$ns("loading_overlay"),
       ready_input_id       = session$ns("paint_map_ready"),

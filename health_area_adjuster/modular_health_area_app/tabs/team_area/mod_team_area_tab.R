@@ -46,7 +46,13 @@ teamAreaTabServer <- function(
     all_facilities_r  = reactive(NULL),
     landmarks_r       = reactive(NULL),
     submit_stage_fn   = NULL,
-    restore_r         = reactive(NULL)
+    restore_r         = reactive(NULL),
+    # Optional -- per-health-area team-planning overrides from the
+    # post-submit modal in mod_health_area_tab.R, keyed by health area
+    # name: list(target_pop, requested_teams). Defaults to reactive(NULL),
+    # which n_teams_r below already treats the same as "no override for
+    # this area" -- falls back to compute_n_teams()'s own recommendation.
+    team_targets_r    = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
 
@@ -204,7 +210,20 @@ teamAreaTabServer <- function(
       }, error = function(e) 0)
     })
 
-    n_teams_r <- reactive(compute_n_teams(area_population(), campaign_id = campaign_id()))
+    # Field Requested Teams (from the post-submit modal in
+    # mod_health_area_tab.R) overrides the recommendation when present and
+    # valid for the CURRENTLY selected health area; otherwise falls back
+    # to compute_n_teams()'s own WorldPop-based recommendation, exactly as
+    # before this override existed.
+    n_teams_r <- reactive({
+      overrides <- tryCatch(team_targets_r(), error = function(e) NULL)
+      override  <- overrides[[controls$health_area() %||% '']]$requested_teams
+      if (!is.null(override) && !is.na(override) && override > 0) {
+        as.integer(override)
+      } else {
+        compute_n_teams(area_population(), campaign_id = campaign_id())
+      }
+    })
 
     team_seed_sf <- reactive({
       req(selected_health_area_sf(), n_teams_r())
@@ -318,7 +337,17 @@ teamAreaTabServer <- function(
         rv$saved_team_sf       <- NULL
         rv$smoothed_team_sf    <- NULL
       }
-      in_vertex_mode(FALSE)   # switching health areas always drops back to painting
+      # Switching health areas always drops back to painting (step 1) --
+      # explicit paint_exit_vertex_mode keeps the JS side's own mode flag
+      # in sync too: without it, if the previous health area was left
+      # mid-refinement, the JS side would still think it's in vertex mode
+      # when send_current_scene() below calls paint_load_scene() for the
+      # NEW health area's completely different grid, and the defensive
+      # re-hide logic in loadScene() would incorrectly keep that new
+      # grid hidden, thinking a refinement session is still active.
+      if (isTRUE(in_vertex_mode())) send_paint_message("paint_exit_vertex_mode")
+      in_vertex_mode(FALSE)
+      controls$set_vertex_mode_ui(FALSE)
 
       if (is.null(active_team_rv()) || !active_team_rv() %in% rv$team_names) active_team_rv(rv$team_names[[1]])
       recompute_population_table(rv$current_assignments)
@@ -334,8 +363,15 @@ teamAreaTabServer <- function(
     }, ignoreInit = TRUE)
 
     observeEvent(map_mod$undo_count(), {
-      shinyjs::toggleState(session$ns('controls-undo_btn'),
+      shinyjs::toggleState(session$ns('controls-paint_undo_btn'),
                            condition = isTRUE(map_mod$undo_count() > 0))
+    }, ignoreInit = TRUE, ignoreNULL = FALSE)
+
+    # Same for the refine-step Undo button -- same fix as
+    # mod_health_area_tab.R's identical wiring.
+    observeEvent(map_mod$vertex_undo_count(), {
+      shinyjs::toggleState(session$ns('controls-refine_undo_btn'),
+                           condition = isTRUE(map_mod$vertex_undo_count() > 0))
     }, ignoreInit = TRUE, ignoreNULL = FALSE)
 
     # ── Controls wiring ────────────────────────────────────────────────────────
@@ -346,8 +382,8 @@ teamAreaTabServer <- function(
     observeEvent(controls$boundary_only(), {
       req(tab_active()); send_paint_message('paint_set_boundary_only', list(value = controls$boundary_only()))
     }, ignoreInit = TRUE)
-    observeEvent(controls$undo_click(), {
-      req(tab_active()); send_paint_message('paint_undo')
+    observeEvent(controls$paint_undo_click(), {
+      req(tab_active(), !isTRUE(in_vertex_mode())); send_paint_message('paint_undo')
       pending_action('refresh'); send_paint_message('paint_request_assignments')
     }, ignoreInit = TRUE)
 
@@ -358,7 +394,7 @@ teamAreaTabServer <- function(
     }, ignoreInit = TRUE)
 
     observeEvent(controls$reset_click(), {
-      req(tab_active(), !is.null(rv$initial_assignments))
+      req(tab_active(), !isTRUE(in_vertex_mode()), !is.null(rv$initial_assignments))
       rv$current_assignments <- rv$initial_assignments
       rv$saved_team_sf       <- NULL
       send_paint_message('paint_reset')
@@ -367,7 +403,7 @@ teamAreaTabServer <- function(
     }, ignoreInit = TRUE)
 
     observeEvent(controls$save_click(), {
-      req(tab_active()); pending_action('save'); send_paint_message('paint_request_assignments')
+      req(tab_active(), !isTRUE(in_vertex_mode())); pending_action('save'); send_paint_message('paint_request_assignments')
     }, ignoreInit = TRUE)
 
     observeEvent(controls$submit_click(), {
@@ -410,6 +446,17 @@ teamAreaTabServer <- function(
       pending_action("manual_refine_save")
       send_paint_message("paint_save_vertex_edits")
       send_paint_message("paint_request_vertex_geojson")
+    }, ignoreInit = TRUE)
+
+    # ── Undo / Reset (refining) ──────────────────────────────────────────────
+    observeEvent(controls$refine_undo_click(), {
+      req(isTRUE(in_vertex_mode()))
+      send_paint_message("paint_vertex_undo")
+    }, ignoreInit = TRUE)
+
+    observeEvent(controls$refine_reset_click(), {
+      req(isTRUE(in_vertex_mode()))
+      send_paint_message("paint_reset_vertex_edits")
     }, ignoreInit = TRUE)
 
     # Fires for three distinct reasons, distinguished by pending_action() --
