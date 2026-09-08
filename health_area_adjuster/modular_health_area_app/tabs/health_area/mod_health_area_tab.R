@@ -42,7 +42,7 @@ healthAreaTabServer <- function(
 ) {
   moduleServer(id, function(input, output, session) {
     
-    controls      <- healthAreaControlsServer("controls")
+    controls      <- healthAreaControlsServer("controls", campaign_id = campaign_id)
     map_mod       <- healthAreaMapServer("map")
     active_dfa_rv <- reactiveVal('Inaccessible')
     restore_just_applied     <- reactiveVal(FALSE)
@@ -243,7 +243,7 @@ healthAreaTabServer <- function(
 
     in_vertex_mode <- reactiveVal(FALSE)
     
-    observeEvent(controls$help_click(), { show_help_modal(session) })
+    observeEvent(controls$help_click(), { show_help_modal(session, campaign_id = campaign_id()) })
     
     tab_active <- reactive({ identical(active_tab(), "tab_health_area_mapping") })
 

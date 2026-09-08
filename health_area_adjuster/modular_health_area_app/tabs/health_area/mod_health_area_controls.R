@@ -12,20 +12,7 @@ healthAreaControlsUI <- function(id) {
     ),
     
     # ── Instructions ──────────────────────────────────────────────────────────
-    div(
-      style = paste0('background:#f0fdf4;border-left:3px solid #0d9488;',
-                     'border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:8px;'),
-      tags$p(
-        style = 'font-size: 11px; font-weight: 600; color: #0f172a; margin: 0 0 3px;',
-        'About health areas'
-      ),
-      tags$p(
-        style = 'font-size: 11px; color: #475569; line-height: 1.6; margin: 0;',
-        'Each health area is coordinated by one outreach coordination site, ideally covering ',
-        tags$strong('~2,000 children'), ' with ', tags$strong('~5 outreach teams. '),
-        'Boundaries are generated automatically, then adjusted by the group.'
-      )
-    ),
+    uiOutput(ns('about_text_ui')),
     
     tags$p(
       style = 'font-size: 11px; color: #475569; line-height: 1.7; margin-bottom: 8px;',
@@ -37,7 +24,9 @@ healthAreaControlsUI <- function(id) {
       tags$br(),
       '3. Start with ', tags$strong('Inaccessible'), ' and ', tags$strong('Unpopulated'), ' areas, then adjust remaining boundaries.',
       tags$br(),
-      '4. ', tags$strong('Save'), ' to confirm, then ', tags$strong('Submit'), ' when done.'
+      '4. ', tags$strong('Save'), ' to confirm, then ', tags$strong('Submit'), ' when done.',
+      tags$br(),
+      '5. Use ', tags$strong('Refine Boundaries'), ' to smooth an area\'s edges once its cells are painted.'
     ),
     
     tags$hr(style = 'margin: 6px 0;'),
@@ -139,9 +128,46 @@ healthAreaControlsUI <- function(id) {
 }
 
 
-healthAreaControlsServer <- function(id) {
+healthAreaControlsServer <- function(id, campaign_id = reactive(NULL)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns  # needed for renderUI blocks below, which construct namespaced input ids server-side
+    
+    # These two targets are admin-configured per campaign (Admin tab ->
+    # generation_settings table), not fixed app defaults -- read live
+    # here rather than hardcoding a number, so this text always matches
+    # whatever the admin actually set for the current campaign. Falls
+    # back to the app-wide default (campaign_id = NULL row) if this
+    # specific campaign has no override, matching db_get_generation_
+    # setting()'s own fallback behavior; falls back further to a
+    # plain-language description if the settings table is unreachable
+    # for any reason, rather than showing a broken number.
+    output$about_text_ui <- renderUI({
+      pop_target   <- tryCatch(db_get_generation_setting(pool, 'target_pop_per_health_area', campaign_id()),
+                               error = function(e) NA_real_)
+      team_target  <- tryCatch(db_get_generation_setting(pool, 'target_pop_per_team', campaign_id()),
+                               error = function(e) NA_real_)
+      teams_text <- if (!is.na(pop_target) && !is.na(team_target) && team_target > 0) {
+        sprintf('~%d outreach teams', as.integer(round(pop_target / team_target)))
+      } else {
+        'several outreach teams'
+      }
+      pop_text <- if (!is.na(pop_target)) sprintf('~%s children', format(pop_target, big.mark = ',')) else 'a population target set for this campaign'
+
+      div(
+        style = paste0('background:#f0fdf4;border-left:3px solid #0d9488;',
+                       'border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:8px;'),
+        tags$p(
+          style = 'font-size: 11px; font-weight: 600; color: #0f172a; margin: 0 0 3px;',
+          'About health areas'
+        ),
+        tags$p(
+          style = 'font-size: 11px; color: #475569; line-height: 1.6; margin: 0;',
+          'Each health area is coordinated by one outreach coordination site, ideally covering ',
+          tags$strong(pop_text), ' with ', tags$strong(teams_text), '. ',
+          'Boundaries generate automatically with a brief animated reveal, then are adjusted by the group.'
+        )
+      )
+    })
     
     # Fixed step for +/- buttons (diameter units)
     BRUSH_STEP <- 100L

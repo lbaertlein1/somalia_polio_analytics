@@ -1,4 +1,15 @@
-show_help_modal <- function(session) {
+show_help_modal <- function(session, campaign_id = NULL) {
+  # These two are admin-configured per campaign (Admin tab -> generation
+  # settings), not fixed app defaults -- read live so this text always
+  # matches whatever the admin actually set, same reasoning as the left
+  # panel's own "About health areas" block in mod_health_area_controls.R.
+  pop_target  <- tryCatch(db_get_generation_setting(pool, 'target_pop_per_health_area', campaign_id), error = function(e) NA_real_)
+  team_target <- tryCatch(db_get_generation_setting(pool, 'target_pop_per_team', campaign_id), error = function(e) NA_real_)
+  pop_text   <- if (!is.na(pop_target)) sprintf('%s children under 5', format(pop_target, big.mark = ',')) else 'a population target set for this campaign'
+  teams_text <- if (!is.na(pop_target) && !is.na(team_target) && team_target > 0) {
+    sprintf('%d outreach teams', as.integer(round(pop_target / team_target)))
+  } else 'several outreach teams'
+
   showModal(
     modalDialog(
       title = tags$span(
@@ -14,8 +25,8 @@ show_help_modal <- function(session) {
           tags$p(
             'A ', tags$strong('Health Area'), ' is the operational area covered by vaccination teams ',
             'supervised from one health facility. Each health area should target approximately ',
-            tags$strong('2,000 children under 5'), ' and be covered by ',
-            tags$strong('5–6 vaccination teams'), '.'
+            tags$strong(pop_text), ' and be covered by ',
+            tags$strong(teams_text), ' (set on the Admin page — these numbers update automatically if changed there).'
           )
         ),
         
@@ -43,31 +54,47 @@ show_help_modal <- function(session) {
           tags$p(style = 'font-weight: 700; color: #0f172a; margin-bottom: 10px;',
                  'Suggested steps'),
           
-          .help_step('1', 'Mark Unpopulated areas',
+          .help_step('1', 'Let boundaries generate',
+                     paste0(
+                       'Health areas are proposed automatically from coordination sites — watch for a brief ',
+                       'animated reveal as each area\'s cells fill in. This is normal, not stuck.'
+                     )),
+          
+          .help_step('2', 'Mark Unpopulated areas',
                      'Paint areas with no resident population — desert, water bodies, industrial land.'),
           
-          .help_step('2', 'Mark Inaccessible areas',
+          .help_step('3', 'Mark Inaccessible areas',
                      'Paint areas vaccination teams cannot reach — insecurity, flooding, impassable terrain.'),
           
-          .help_step('3', 'Adjust Health Area boundaries',
+          .help_step('4', 'Adjust Health Area boundaries',
                      paste0(
                        'Select a health area from the population table on the right, then paint. ',
                        'Boundaries should follow recognisable features and give teams manageable, ',
-                       'well-supervised workloads. Aim for ~2,000 children per area.'
+                       'well-supervised workloads.'
                      )
           ),
           
-          .help_step('4', 'Check all cells are assigned',
+          .help_step('5', 'Refine Boundaries (optional)',
+                     paste0(
+                       'Click Refine Boundaries to switch to editable vertex points along an area\'s ',
+                       'edge — drag individual points for precise adjustments, and use the Smoothness ',
+                       'and Stiffness sliders to control how closely the line follows them.'
+                     )
+          ),
+          
+          .help_step('6', 'Check all cells are assigned',
                      paste0(
                        'Every cell must belong to exactly one category — a Health Area, ',
                        'Inaccessible, or Unpopulated. No gaps or overlaps.'
                      )
           ),
           
-          .help_step('5', 'Save',
+          .help_step('7', 'Save, then Submit',
                      paste0(
-                       'Click Save when finished. Saved boundaries carry forward to the ',
-                       'Microplan Prep tab where population, teams and supervisors are recorded.'
+                       'Save keeps your current work locally so you can keep adjusting. Submit writes it to ',
+                       'the database — after submitting, a Team Planning Targets prompt lets you optionally ',
+                       'override the population or team count for individual health areas before continuing ',
+                       'to Team Areas.'
                      )
           )
         ),
@@ -78,7 +105,8 @@ show_help_modal <- function(session) {
         tags$p(
           style = 'font-size: 12px; color: #64748b; margin: 0;',
           tags$strong('Population estimates'), ' in the right panel are from WorldPop ',
-          '(children under 5). Values can be adjusted in the Microplan Prep tab.'
+          '(children under 5). To override a specific health area\'s population or team count, ',
+          'use the Team Planning Targets prompt shown after Submit.'
         )
       ),
       easyClose = TRUE,

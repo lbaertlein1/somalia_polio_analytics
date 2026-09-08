@@ -59,20 +59,10 @@ adminTabUI <- function(id) {
                      actionButton(ns('refresh_progress'), NULL,
                                   icon = icon('rotate'), class = 'btn btn-default btn-sm', title = 'Refresh')
                    ),
-                   content = DT::DTOutput(ns('progress_table'), width = '100%')
-    ),
-
-    .admin_section('District review',
-                   action = div(
-                     style = 'display:flex;gap:8px;align-items:center;',
-                     selectInput(ns('review_district'), NULL, choices = character(0), width = '220px'),
-                     selectInput(ns('review_campaign'), NULL, choices = character(0), width = '220px')
-                   ),
                    content = tagList(
-                     div(class = 'mini-label', style = 'margin: 10px 0 4px;', 'Health area versions'),
-                     DT::DTOutput(ns('ha_version_table'), width = '100%'),
-                     div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Team area versions, by health area'),
-                     DT::DTOutput(ns('ta_version_table'), width = '100%')
+                     tags$p(style = 'font-size:11px;color:#94a3b8;padding:8px 12px 0;margin:0;',
+                            'Click a row to review and manage that district\'s health-area and team-area versions.'),
+                     DT::DTOutput(ns('progress_table'), width = '100%')
                    )
     ),
 
@@ -459,13 +449,20 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
                                           sprintf('%d of %d', df$team_areas_mapped_count, n_health_areas)),
         check.names = FALSE, stringsAsFactors = FALSE
       )
-      DT::datatable(display, escape = FALSE, rownames = FALSE, selection = 'none',
+      DT::datatable(display, escape = FALSE, rownames = FALSE, selection = 'single',
                     options = list(dom = 'ft', pageLength = 200, scrollX = TRUE))
     })
 
-    # =========================================================================
-    # SECTION 4: District review — health-area + team-area version history,
-    # unshare/archive/make-current — this IS the admin "restore" mechanism:
+    # Row click on District progress opens the review/manage modal for
+    # that specific (campaign, district) -- replaces the old standalone
+    # District review section's own dropdown-driven selection entirely.
+    observeEvent(input$progress_table_rows_selected, {
+      row_idx <- input$progress_table_rows_selected
+      req(length(row_idx) == 1)
+      df <- progress_rv(); req(!is.null(df), row_idx <= nrow(df))
+      .open_district_review_modal(df$campaign_id[row_idx], df$district_name[row_idx])
+    }, ignoreNULL = TRUE)
+
     # restoring an old version is just making it current, same as any
     # other publish. For team areas, db_publish_team_area() itself refuses
     # if the target's pinned health-area version is no longer current
@@ -475,33 +472,141 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
     # same as any user would have to.
     # =========================================================================
 
-    observe({
-      updateSelectInput(session, 'review_district', choices = c(setNames('', 'Select district...'), all_district_names))
-      camp_choices <- { cdf <- campaigns_rv()
-        if (is.null(cdf) || nrow(cdf) == 0) character(0)
-        else setNames(as.character(cdf$campaign_id), cdf$campaign_name) }
-      updateSelectInput(session, 'review_campaign', choices = c(setNames('', 'All campaigns'), camp_choices))
-    })
-
-    review_campaign_id <- reactive({
-      v <- input$review_campaign %||% ''
-      if (!nzchar(v)) NULL else as.integer(v)
-    })
-
+    # review_target replaces the old input$review_district/input$review_campaign
+    # dropdowns entirely -- set once when a District progress row is clicked
+    # (see .open_district_review_modal below), not by standalone UI controls.
+    review_target  <- reactiveVal(list(campaign_id = NULL, district_name = NULL))
     ha_versions_rv <- reactiveVal(NULL)
     ta_versions_rv <- reactiveVal(NULL)
 
+    # Same unwrapping team_targets needs after a DB round-trip as
+    # mod_health_area_tab.R's own .unwrap_num()/.unwrap_team_targets() --
+    # .from_json_db()'s simplifyVector = FALSE means every scalar leaf
+    # comes back wrapped in its own length-1 list. Duplicated here rather
+    # than shared since the original is defined locally inside that
+    # module's own moduleServer, not exported.
+    .unwrap_num <- function(x) {
+      if (is.null(x)) return(NA_real_)
+      if (is.list(x)) x <- if (length(x) == 0) NA else x[[1]]
+      if (is.null(x) || length(x) == 0) return(NA_real_)
+      suppressWarnings(as.numeric(x))
+    }
+    .unwrap_team_targets <- function(tt) {
+      if (is.null(tt)) return(list())
+      lapply(tt, function(entry) list(
+        target_pop      = .unwrap_num(entry$target_pop),
+        requested_teams = .unwrap_num(entry$requested_teams)
+      ))
+    }
+
+    # Picks smoothed_dfa_sf when it actually has rows, falling back to
+    # saved_dfa_sf otherwise -- NOT %||%, since that checks length() (an
+    # sf object's column count, always >= 1 for a non-NULL sf object even
+    # with zero rows), not row count, so it wouldn't correctly fall back
+    # on an empty-but-non-NULL smoothed_dfa_sf.
+    .current_boundary_sf <- function(ver) {
+      if (!is.null(ver$smoothed_dfa_sf) && nrow(ver$smoothed_dfa_sf) > 0) ver$smoothed_dfa_sf
+      else ver$saved_dfa_sf
+    }
+
     refresh_review <- function() {
-      dname <- input$review_district %||% ''
-      if (!nzchar(dname)) { ha_versions_rv(NULL); ta_versions_rv(NULL); return() }
-      ha_versions_rv(tryCatch(db_get_version_history(pool, dname, campaign_id = review_campaign_id()),
-                              error = function(e) NULL))
-      ta_versions_rv(tryCatch(db_get_team_area_version_history(pool, dname, campaign_id = review_campaign_id(),
-                                                                health_area_name = NULL),
+      rt <- review_target(); dname <- rt$district_name; cid <- rt$campaign_id
+      if (is.null(dname) || !nzchar(dname)) { ha_versions_rv(NULL); ta_versions_rv(NULL); return() }
+      ha_versions_rv(tryCatch(db_get_version_history(pool, dname, campaign_id = cid), error = function(e) NULL))
+      ta_versions_rv(tryCatch(db_get_team_area_version_history(pool, dname, campaign_id = cid, health_area_name = NULL),
                               error = function(e) NULL))
     }
-    observeEvent(input$review_district,  refresh_review(), ignoreInit = TRUE)
-    observeEvent(input$review_campaign,  refresh_review(), ignoreInit = TRUE)
+
+    # The CURRENT health-area version for whichever district/campaign is
+    # under review -- falls back to the most recent version if none is
+    # shared yet (e.g. a district still in draft), so the boundary
+    # preview and population table below still show something rather
+    # than going blank.
+    .current_ha_version <- reactive({
+      df <- ha_versions_rv(); req(!is.null(df), nrow(df) > 0)
+      shared_row <- df[isTRUE(df$is_shared), , drop = FALSE]
+      pick <- if (nrow(shared_row) > 0) shared_row[1, ] else df[1, ]
+      tryCatch(db_get_version_by_id(pool, pick$version_id), error = function(e) NULL)
+    })
+
+    # Called by the District progress row-click observer above. size='xl'
+    # since this now holds a map plus three tables where the old
+    # standalone section had room to spread across the full page width.
+    .open_district_review_modal <- function(campaign_id, district_name) {
+      review_target(list(campaign_id = as.integer(campaign_id), district_name = district_name))
+      refresh_review()
+      showModal(modalDialog(
+        title = sprintf('%s — District Review', district_name), size = 'xl', easyClose = TRUE,
+        footer = modalButton('Close'),
+        div(
+          div(class = 'mini-label', style = 'margin: 4px 0 4px;', 'Boundary preview (current health-area version)'),
+          leaflet::leafletOutput(ns('review_map'), height = '320px'),
+          div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Population & team targets (current health-area version)'),
+          DT::DTOutput(ns('boundary_review_table'), width = '100%'),
+          div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Health area versions'),
+          DT::DTOutput(ns('ha_version_table'), width = '100%'),
+          div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Team area versions, by health area'),
+          DT::DTOutput(ns('ta_version_table'), width = '100%')
+        )
+      ))
+    }
+
+    # ── Boundary preview map ─────────────────────────────────────────────
+    output$review_map <- leaflet::renderLeaflet({
+      ver <- .current_ha_version()
+      boundary_sf <- .current_boundary_sf(ver)
+      req(!is.null(boundary_sf), nrow(boundary_sf) > 0)
+      area_col <- if ('dfa_name' %in% names(boundary_sf)) 'dfa_name' else names(boundary_sf)[1]
+      areas_u <- unique(as.character(boundary_sf[[area_col]]))
+      pal <- leaflet::colorFactor(grDevices::rainbow(max(length(areas_u), 1), s = 0.6, v = 0.9), domain = areas_u)
+      leaflet::leaflet(boundary_sf) |>
+        leaflet::addProviderTiles('CartoDB.Positron') |>
+        leaflet::addPolygons(fillColor = ~pal(get(area_col)), fillOpacity = 0.6, weight = 1, color = '#000',
+                            label = ~get(area_col))
+    })
+
+    # ── Population & team targets table -- both WorldPop-derived and
+    # field-set values, per health area ─────────────────────────────────
+    output$boundary_review_table <- DT::renderDT({
+      ver <- .current_ha_version()
+      req(!is.null(ver))
+      boundary_sf <- .current_boundary_sf(ver)
+      if (is.null(boundary_sf) || nrow(boundary_sf) == 0)
+        return(DT::datatable(data.frame(Message = 'No boundaries saved for this version yet.'),
+                             rownames = FALSE, options = list(dom = 't')))
+
+      area_col <- if ('dfa_name' %in% names(boundary_sf)) 'dfa_name' else names(boundary_sf)[1]
+      areas <- setdiff(unique(as.character(boundary_sf[[area_col]])), c('Inaccessible', 'Unpopulated'))
+      if (length(areas) == 0)
+        return(DT::datatable(data.frame(Message = 'No health areas in this version yet.'),
+                             rownames = FALSE, options = list(dom = 't')))
+
+      targets <- tryCatch(.unwrap_team_targets(ver$team_targets), error = function(e) list())
+
+      worldpop_pop <- vapply(areas, function(a) {
+        sub_sf <- boundary_sf[boundary_sf[[area_col]] == a, ]
+        tryCatch({
+          sub_proj <- sf::st_transform(sub_sf, sf::st_crs(terra::crs(u5_rast)))
+          sum(exactextractr::exact_extract(raster::raster(u5_rast), sub_proj, fun = 'sum'), na.rm = TRUE)
+        }, error = function(e) NA_real_)
+      }, numeric(1))
+
+      field_pop   <- vapply(areas, function(a) targets[[a]]$target_pop %||% NA_real_, numeric(1))
+      field_teams <- vapply(areas, function(a) targets[[a]]$requested_teams %||% NA_real_, numeric(1))
+      recommended_teams <- vapply(worldpop_pop, function(p) {
+        tryCatch(as.integer(compute_n_teams(p, campaign_id = review_target()$campaign_id)), error = function(e) NA_integer_)
+      }, integer(1))
+
+      display <- data.frame(
+        `Health Area`                   = areas,
+        `WorldPop Population`            = ifelse(is.na(worldpop_pop), '\u2013', format(round(worldpop_pop), big.mark = ',')),
+        `Field Target Population`         = ifelse(is.na(field_pop), '\u2013', format(round(field_pop), big.mark = ',')),
+        `Recommended Teams (WorldPop)`     = ifelse(is.na(recommended_teams), '\u2013', as.character(recommended_teams)),
+        `Field Requested Teams`             = ifelse(is.na(field_teams), '\u2013', as.character(field_teams)),
+        check.names = FALSE, stringsAsFactors = FALSE
+      )
+      DT::datatable(display, rownames = FALSE, selection = 'none', options = list(dom = 't', scrollX = TRUE))
+    })
 
     output$ha_version_table <- DT::renderDT({
       df <- ha_versions_rv()
@@ -663,9 +768,23 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
     # =========================================================================
 
     settings_rv <- reactiveVal(NULL)
+    # Only target_pop_per_health_area and target_pop_per_team are ever
+    # actually read back via db_get_generation_setting() anywhere in the
+    # app (confirmed by searching every call site) -- n_start_dfas,
+    # pop_sat_pct/weight/max, and subdivision_boundary_penalty are already
+    # fully hardcoded elsewhere (global.R's own n_start_dfas constant,
+    # function defaults, or literal call-site values), so editing them
+    # here currently has no effect on actual generation behavior at all.
+    # Filtered out of the editable table for that reason -- not a
+    # functional change, just removing dead, misleading controls.
+    HARDCODED_SETTING_KEYS <- c('n_start_dfas', 'pop_sat_max', 'pop_sat_pct',
+                               'pop_sat_weight', 'subdivision_boundary_penalty')
     refresh_settings <- function() {
       df <- tryCatch(db_get_all_generation_settings(pool), error = function(e) NULL)
-      if (!is.null(df)) df <- df[is.na(df$campaign_id), , drop = FALSE]
+      if (!is.null(df)) {
+        df <- df[is.na(df$campaign_id), , drop = FALSE]
+        df <- df[!(df$setting_key %in% HARDCODED_SETTING_KEYS), , drop = FALSE]
+      }
       settings_rv(df)
     }
     refresh_settings()
@@ -703,8 +822,18 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
     # =========================================================================
 
     observe({
+      # subdivisions_url falls back to ARCGIS_SUBDIVISIONS_URL (the actual
+      # hardcoded constant fetch_subdivisions_for_district() uses in
+      # subdivision_helpers.R) when the DB has no override saved yet --
+      # this field isn't actually wired into the fetch itself, so this
+      # is purely so an admin sees what's really being used instead of a
+      # misleadingly blank box. Saving a different value here has no
+      # effect on the actual fetch unless that fetch is separately
+      # updated to read it.
+      current_subdiv_url <- tryCatch(db_get_data_source_url(pool, 'subdivisions_url'), error = function(e) '') %||% ''
+      hardcoded_subdiv_url <- tryCatch(ARCGIS_SUBDIVISIONS_URL, error = function(e) '')
       updateTextInput(session, 'subdivisions_url',
-                      value = tryCatch(db_get_data_source_url(pool, 'subdivisions_url'), error = function(e) '') %||% '')
+                      value = if (nzchar(current_subdiv_url)) current_subdiv_url else hardcoded_subdiv_url)
       updateTextInput(session, 'idp_url',
                       value = tryCatch(db_get_data_source_url(pool, 'idp_settlements_url'), error = function(e) '') %||% '')
     })

@@ -12,18 +12,21 @@ teamAreaControlsUI <- function(id) {
     ),
 
     # ── Instructions ──────────────────────────────────────────────────────────
-    div(
-      style = paste0('background:#f0fdf4;border-left:3px solid #0d9488;',
-                     'border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:8px;'),
-      tags$p(
-        style = 'font-size: 11px; font-weight: 600; color: #0f172a; margin: 0 0 3px;',
-        'About team areas'
-      ),
-      tags$p(
-        style = 'font-size: 11px; color: #475569; line-height: 1.6; margin: 0;',
-        'Each health area is divided into team areas, one per outreach team. ',
-        'Boundaries are generated automatically within the health area, then adjusted by the group.'
-      )
+    uiOutput(ns('about_text_ui')),
+
+    tags$p(
+      style = 'font-size: 11px; color: #475569; line-height: 1.7; margin-bottom: 8px;',
+      tags$strong('Suggested approach:'),
+      tags$br(),
+      '1. Select a health area from the intro table\'s team-area drill-down.',
+      tags$br(),
+      '2. Confirm or adjust the population estimate and team count in the pop-up shown.',
+      tags$br(),
+      '3. Click and drag on the map to paint each team\'s territory.',
+      tags$br(),
+      '4. ', tags$strong('Save'), ' to confirm, then ', tags$strong('Submit'), ' when done.',
+      tags$br(),
+      '5. Use ', tags$strong('Refine Boundaries'), ' to smooth a team\'s edges once its cells are painted.'
     ),
 
     tags$hr(style = 'margin: 6px 0;'),
@@ -112,9 +115,33 @@ teamAreaControlsUI <- function(id) {
 }
 
 
-teamAreaControlsServer <- function(id) {
+teamAreaControlsServer <- function(id, campaign_id = reactive(NULL)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns  # needed for renderUI blocks below, which construct namespaced input ids server-side
+
+    # Admin-configured per campaign (Admin tab -> generation settings),
+    # not a fixed app default -- see mod_health_area_controls.R's
+    # identical about_text_ui for the full reasoning.
+    output$about_text_ui <- renderUI({
+      team_target <- tryCatch(db_get_generation_setting(pool, 'target_pop_per_team', campaign_id()),
+                              error = function(e) NA_real_)
+      pop_text <- if (!is.na(team_target)) sprintf('~%s children', format(team_target, big.mark = ',')) else 'a population target set for this campaign'
+
+      div(
+        style = paste0('background:#f0fdf4;border-left:3px solid #0d9488;',
+                       'border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:8px;'),
+        tags$p(
+          style = 'font-size: 11px; font-weight: 600; color: #0f172a; margin: 0 0 3px;',
+          'About team areas'
+        ),
+        tags$p(
+          style = 'font-size: 11px; color: #475569; line-height: 1.6; margin: 0;',
+          'Each health area is divided into team areas, one per outreach team, each covering ',
+          tags$strong(pop_text), '. Boundaries generate automatically within the health area, ',
+          'then are adjusted by the group.'
+        )
+      )
+    })
 
     BRUSH_STEP <- 50L
     BRUSH_MIN  <- 50L

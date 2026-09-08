@@ -83,7 +83,7 @@ teamAreaTabServer <- function(
 ) {
   moduleServer(id, function(input, output, session) {
 
-    controls <- teamAreaControlsServer('controls')
+    controls <- teamAreaControlsServer('controls', campaign_id = campaign_id)
     map_mod  <- teamAreaMapServer('map')
     active_team_rv <- reactiveVal(NULL)
 
@@ -108,8 +108,15 @@ teamAreaTabServer <- function(
           style = 'font-size: 13px; line-height: 1.7; color: #334155;',
           tags$p(
             'A ', tags$strong('Team Area'), ' is the territory covered by one outreach team, within ',
-            'one health area. Pick a health area from the left, then paint team boundaries the same ',
-            'way you painted health area boundaries — left click/drag to paint, right click/drag to pan.'
+            'one health area. Pick a health area from the intro table\'s drill-down, confirm or adjust ',
+            'the population estimate and team count in the pop-up shown, then paint team boundaries the ',
+            'same way you painted health area boundaries — left click/drag to paint, right click/drag to pan.'
+          ),
+          tags$p(
+            style = 'margin-top: 10px;',
+            tags$strong('Refine Boundaries'), ' switches to editable vertex points along a team\'s edge — ',
+            'drag individual points for precise adjustments, and use the Smoothness and Stiffness sliders ',
+            'to control how closely the line follows them.'
           ),
           tags$p(
             style = 'margin-top: 10px;',
