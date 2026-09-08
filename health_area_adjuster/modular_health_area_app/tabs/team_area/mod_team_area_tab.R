@@ -308,11 +308,49 @@ teamAreaTabServer <- function(
       # dependency that would re-trigger this observer itself.
       pop_default   <- isolate(round(area_population()))
       teams_default <- isolate(n_teams_r())
+      # Same WorldPop-vs-field distinction the Team Planning Targets
+      # modal shows on the health-area side (mod_health_area_tab.R) --
+      # shown here as reference text alongside the editable fields,
+      # rather than silently merging into a single number the way
+      # pop_default/teams_default above already do for the actual
+      # override values. pop_default IS the WorldPop estimate at this
+      # exact point (local_pop_override was just cleared above), so it's
+      # reused directly rather than re-extracting the same raster sum a
+      # second time.
+      wp_pop_val       <- pop_default
+      field_tgt        <- isolate(tryCatch(team_targets_r(), error = function(e) NULL))[[health_area_name()]]
+      field_pop_val    <- suppressWarnings(as.numeric(field_tgt$target_pop %||% NA))
+      field_teams_val  <- suppressWarnings(as.numeric(field_tgt$requested_teams %||% NA))
+      # Deliberately NOT stratified by urban/rural -- tried and reverted
+      # (see mod_facility_tab.R's outreach_counts_card for the full
+      # reasoning: no principled fallback for a district with no
+      # urban-areas data, and a real risk of the blended and stratified
+      # settings silently drifting apart once only one gets edited,
+      # which is exactly what happened). One parameter, one number,
+      # formula shown explicitly below instead of a second, competing
+      # stratified figure.
+      team_target <- tryCatch(db_get_generation_setting(pool, 'target_pop_per_team', campaign_id = campaign_id()),
+                              error = function(e) NA_real_)
+      if (is.na(team_target) || team_target <= 0) team_target <- 400
+      recommended_teams <- isolate(tryCatch(compute_n_teams(wp_pop_val, campaign_id = campaign_id()), error = function(e) NA_integer_))
       showModal(modalDialog(
         title = sprintf('Team planning for %s', health_area_name()),
         p('Confirm or adjust the population estimate and number of teams for this health area before the team map is generated.'),
+        div(style = 'font-size:11px;color:#64748b;margin-bottom:4px;',
+            sprintf('WorldPop estimate: %s   |   Field target: %s',
+                    if (is.na(wp_pop_val)) 'N/A' else format(round(wp_pop_val), big.mark = ','),
+                    if (is.na(field_pop_val)) '\u2013' else format(round(field_pop_val), big.mark = ','))),
         numericInput(session$ns('modal_pop_ui'), 'Population estimate (under-5)',
                     value = pop_default, min = 0, step = 1),
+        div(style = 'font-size:11px;color:#64748b;margin-bottom:4px;',
+            sprintf('Recommended teams: %s   |   Field requested: %s',
+                    if (is.na(recommended_teams)) '\u2013' else as.character(as.integer(recommended_teams)),
+                    if (is.na(field_teams_val) || field_teams_val <= 0) '\u2013' else as.character(as.integer(field_teams_val)))),
+        div(style = 'font-size:10px;color:#94a3b8;margin-bottom:4px;',
+            sprintf('Recommended = ceil(%s population \u00f7 %s target per team) = %s',
+                    if (is.na(wp_pop_val)) '\u2013' else format(round(wp_pop_val), big.mark = ','),
+                    format(round(team_target), big.mark = ','),
+                    if (is.na(recommended_teams)) '\u2013' else as.character(as.integer(recommended_teams)))),
         numericInput(session$ns('modal_teams_ui'), 'Number of teams',
                     value = teams_default, min = 1, step = 1),
         footer = actionButton(session$ns('modal_confirm_btn'), 'Continue', class = 'btn-primary'),
@@ -393,11 +431,13 @@ teamAreaTabServer <- function(
 
     scene_ever_sent <- reactiveVal(FALSE)
 
+    scene_load_confirmed <- reactiveVal(FALSE)   # see mod_health_area_tab.R's identical flag for why
+
     send_current_scene <- function() {
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
-      cat("[team_area_debug] send_current_scene() passed its own early req() checks\n")
       scene_ever_sent(TRUE)
+      scene_load_confirmed(FALSE)
 
       # Unconditionally force the JS side back to paint mode before every
       # scene (re)load, regardless of what in_vertex_mode() currently
@@ -490,45 +530,32 @@ teamAreaTabServer <- function(
       if (!is.null(rv$grid_sf)) .apply_restore(snap) else pending_restore(snap)
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
-    # Minimal, isolated diagnostic -- no other logic, just confirming
-    # whether ANY reactive context can observe team_scene_mod$scene()
-    # successfully firing at all, independent of the more complex
-    # observer below.
-    observe({
-      val <- team_scene_mod$scene()
-      cat("[team_area_debug2] bare observe() saw scene(), is.null:", is.null(val), "\n")
-    })
-
     # Was observeEvent(team_scene_mod$scene(), {...}, ignoreInit = TRUE) --
-    # replaced with observe()+isolate() after direct evidence that
+    # replaced with observe()+isolate() after confirming directly that
     # observeEvent specifically never fired here (a bare observe()
-    # watching the identical expression fired correctly), even though
-    # scene() itself completed successfully every time. scene_trigger is
-    # read OUTSIDE isolate() so it's the only real reactive dependency --
-    # replicating observeEvent's own isolation of everything else in its
-    # handler body, just via observe() instead, since that's the pattern
-    # already confirmed to work.
+    # watching the identical expression fired correctly, in earlier
+    # debugging), even though scene() itself completed successfully every
+    # time. scene_trigger is read OUTSIDE isolate() so it's the only real
+    # reactive dependency -- replicating observeEvent's own isolation of
+    # everything else in its handler body, just via observe() instead,
+    # since that's the pattern confirmed to work.
     observe({
       scene_trigger <- team_scene_mod$scene()
       isolate({
-      cat("[team_area_debug] observer fired\n")
       req(nzchar(health_area_name() %||% ''))
-      cat("[team_area_debug] health_area_name check passed:", health_area_name(), "\n")
       # Once a draft's own saved team layout has been restored, that
       # takes precedence permanently for this session -- a later re-fire
       # of team_scene_mod$scene() (e.g. n_teams_r() settling to a
       # different value) must not wipe restored work back to a fresh
       # regeneration. A draft's own team layout is fixed by what was
       # previously saved, not by recomputing seeds again.
-      if (isTRUE(restore_applied())) { cat("[team_area_debug] blocked: restore_applied is TRUE\n"); return() }
+      if (isTRUE(restore_applied())) return()
 
       sc <- scene_trigger
       req(!is.null(sc))
-      cat("[team_area_debug] sc is non-null, proceeding\n")
 
       new_key <- paste0(health_area_name(), '|', n_teams_r())
-      if (identical(last_scene_key(), new_key)) { cat("[team_area_debug] blocked: last_scene_key already matches", new_key, "\n"); return() }
-      cat("[team_area_debug] new_key:", new_key, "(previous:", last_scene_key() %||% "NULL", ")\n")
+      if (identical(last_scene_key(), new_key)) return()
       last_scene_key(new_key)
 
       rv$district_sf         <- sc$district_sf
@@ -553,8 +580,7 @@ teamAreaTabServer <- function(
 
       if (is.null(active_team_rv()) || !active_team_rv() %in% rv$team_names) active_team_rv(rv$team_names[[1]])
       recompute_population_table(rv$current_assignments)
-      cat("[team_area_debug] about to check tab_active():", isTRUE(tab_active()), "\n")
-      if (tab_active()) { cat("[team_area_debug] calling send_current_scene()\n"); send_current_scene() }
+      if (tab_active()) send_current_scene()
       })
     })
 
@@ -575,6 +601,7 @@ teamAreaTabServer <- function(
     # subsequent, ordinary "scene finished loading" signal.
     observeEvent(map_mod$map_ready(), {
       if (tab_active()) send_paint_message('hide_loading')
+      scene_load_confirmed(TRUE)
       if (tab_active() && !is.null(rv$grid_sf) && !isTRUE(scene_ever_sent())) send_current_scene()
     }, ignoreInit = TRUE)
 
@@ -672,9 +699,19 @@ teamAreaTabServer <- function(
         in_vertex_mode(FALSE)
       } else {
         req(!is.null(rv$grid_sf))
+        # See mod_health_area_tab.R's identical guard for why -- same
+        # race is possible here (send_current_scene()'s message being
+        # sent is not the same moment as the browser actually finishing
+        # loadScene()), same fix.
+        if (!isTRUE(scene_load_confirmed())) {
+          showNotification('Boundaries are still loading -- try Refine Boundaries again in a moment.',
+                           type = 'warning', duration = 4)
+          return()
+        }
         send_paint_message("paint_enter_vertex_mode", list(
           smoothness = controls$vertex_smoothness(),
-          stiffness  = controls$vertex_stiffness()
+          stiffness  = controls$vertex_stiffness(),
+          snapTolerance = controls$vertex_snap_tolerance()
         ))
         in_vertex_mode(TRUE)
       }
@@ -692,6 +729,11 @@ teamAreaTabServer <- function(
     observeEvent(controls$vertex_stiffness(), {
       req(isTRUE(in_vertex_mode()))
       send_paint_message("paint_set_vertex_stiffness", list(value = controls$vertex_stiffness()))
+    }, ignoreInit = TRUE)
+
+    observeEvent(controls$vertex_snap_tolerance(), {
+      req(isTRUE(in_vertex_mode()))
+      send_paint_message("paint_set_vertex_snap_tolerance", list(value = controls$vertex_snap_tolerance()))
     }, ignoreInit = TRUE)
 
     observeEvent(controls$save_refinements_click(), {
@@ -862,7 +904,8 @@ teamAreaTabServer <- function(
           rv$vertex_mode_silently_entered <- TRUE
           send_paint_message("paint_enter_vertex_mode", list(
             smoothness = isolate(controls$vertex_smoothness()) %||% 2,
-            stiffness  = isolate(controls$vertex_stiffness()) %||% 6
+            stiffness  = isolate(controls$vertex_stiffness()) %||% 6,
+            snapTolerance = isolate(controls$vertex_snap_tolerance()) %||% 20
           ))
         }
         send_paint_message("paint_save_vertex_edits")

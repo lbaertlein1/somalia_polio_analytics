@@ -29,7 +29,28 @@
 #   idp_settlements.<ext>    — IDP settlement points
 #   landmarks.<ext>          — landmark points
 #   facilities.csv           — all facility records
+#   health_area_population_summary.csv — one row per health area: WorldPop
+#                               population, field target population,
+#                               number of teams
+#   team_population_summary.csv — one row per team: WorldPop population,
+#                               implied field target share
 # =============================================================================
+
+#' write.csv() writes in the system's native encoding by default, with no
+#' UTF-8 byte-order mark -- Excel then falls back to guessing the
+#' encoding from the system locale, and misreads any non-ASCII character
+#' as garbled text. The only place that currently bites is the Unicode
+#' en-dash .fmt_field() (printable_export.R) uses for NA/blank field-
+#' target values, but facility names can plausibly contain non-ASCII
+#' text too, so every CSV in this file goes through this instead of
+#' plain write.csv() -- cheap insurance, not just a spot fix for the one
+#' symptom that happened to get noticed.
+.write_csv_utf8_bom <- function(x, path, row.names = FALSE, ...) {
+  con <- file(path, open = 'wb')
+  on.exit(close(con), add = TRUE)
+  writeBin(charToRaw('\xef\xbb\xbf'), con)
+  write.csv(x, con, row.names = row.names, ...)
+}
 
 #' Map a user-facing format choice to its sf driver name and file extension.
 #' Kept in one place so the export UI and the zip-builders always agree on
@@ -104,6 +125,45 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   .write_sf(ha_sf,   paste0('health_areas.', spec$ext))
   .write_sf(team_sf, paste0('team_areas.', spec$ext))
 
+  # Population/team-count summary CSVs -- reuses the exact same table
+  # builders the printable PDF export already uses (printable_export.R),
+  # rather than a second implementation of the same WorldPop-extraction +
+  # field-target logic that could drift out of sync with the PDF's own
+  # numbers. u5_rast is the app's global WorldPop raster, loaded once at
+  # startup -- not passed as a parameter here since this function follows
+  # the same implicit-global convention printable_export.R's own callers
+  # already rely on.
+  tryCatch({
+    if (!is.null(ha_sf) && nrow(ha_sf) > 0) {
+      team_targets <- snap$team_targets %||% list()
+      urban_sf <- if (!is.null(snap$district_boundary_sf) && nrow(snap$district_boundary_sf) > 0)
+        tryCatch(fetch_urban_areas_for_district(snap$district_boundary_sf), error = function(e) NULL) else NULL
+      ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf)
+      if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
+        .write_csv_utf8_bom(cbind(district_name = district_name, ha_summary),
+                 file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
+      }
+
+      if (!is.null(team_sf) && nrow(team_sf) > 0) {
+        team_rows <- lapply(unique(team_sf$health_area), function(han) {
+          team_one <- team_sf[team_sf$health_area == han, , drop = FALSE]
+          tgt <- team_targets[[han]]
+          field_target <- .unwrap_num(tgt$target_pop)
+          tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf)
+          if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
+          cbind(district_name = district_name, `Health Area` = han, tbl, check.names = FALSE)
+        })
+        team_rows <- Filter(Negate(is.null), team_rows)
+        if (length(team_rows) > 0) {
+          .write_csv_utf8_bom(do.call(rbind, team_rows),
+                   file.path(tmp, 'team_population_summary.csv'), row.names = FALSE)
+        }
+      }
+    }
+  }, error = function(e) {
+    warning(paste('Population summary export failed, continuing without it:', e$message))
+  })
+
   # IDP settlements / landmarks are stored as plain data frames with lon/lat,
   # not sf — convert if present.
   .write_points_df <- function(df, fname) {
@@ -131,12 +191,12 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
                     dplyr::any_of(c('facility_id', 'facility_name', 'facility_type',
                                     'hf_ownership', 'polio_sia_coordination_site',
                                     'operational', 'lat', 'lon')))
-    write.csv(fac_out, file.path(tmp, 'facilities.csv'), row.names = FALSE)
+    .write_csv_utf8_bom(fac_out, file.path(tmp, 'facilities.csv'), row.names = FALSE)
   }
 
   out_files <- list.files(tmp, full.names = TRUE)
   if (length(out_files) == 0) {
-    write.csv(data.frame(message = 'No data available.'), file, row.names = FALSE)
+    .write_csv_utf8_bom(data.frame(message = 'No data available.'), file, row.names = FALSE)
     return(invisible(NULL))
   }
   tryCatch(
@@ -159,12 +219,19 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
 #' @param file           output zip path
 #' @param campaign_id    integer
 #' @param format         'geojson' (default), 'shp', or 'kml'
-build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson') {
+#' @param progress_callback optional function(i, n, district_name) called
+#'                       once per district as it's processed -- lets a
+#'                       caller (e.g. Shiny's withProgress/incProgress)
+#'                       show real per-district progress on what can be a
+#'                       long loop, rather than a single opaque "working".
+#'                       Never required; a plain function() {} default is
+#'                       used when the caller doesn't need progress.
+build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', progress_callback = function(i, n, district_name) {}) {
   spec <- export_format_spec(format)
 
   progress <- tryCatch(db_get_campaign_progress(pool, campaign_id), error = function(e) NULL)
   if (is.null(progress) || nrow(progress) == 0) {
-    write.csv(data.frame(message = 'No published districts for this campaign.'), file, row.names = FALSE)
+    .write_csv_utf8_bom(data.frame(message = 'No published districts for this campaign.'), file, row.names = FALSE)
     return(invisible(NULL))
   }
 
@@ -177,9 +244,12 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson') {
   idp_parts      <- list()
   landmark_parts <- list()
   fac_parts      <- list()
+  ha_summary_parts   <- list()
+  team_summary_parts <- list()
 
   for (i in seq_len(nrow(progress))) {
     dname   <- progress$district_name[i]
+    progress_callback(i, nrow(progress), dname)
     ver_id  <- progress$version_id[i]
     version <- tryCatch(db_get_version_by_id(pool, ver_id), error = function(e) NULL)
     if (is.null(version)) next
@@ -243,6 +313,37 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson') {
           lon = sf::st_coordinates(fsf)[, 1], lat = sf::st_coordinates(fsf)[, 2]
         )
     }
+
+    # Same population/team-count summary as the single-district export,
+    # accumulated per district in this same loop rather than a separate
+    # pass -- keeps ha_sf/team_sf/team_targets in scope from this
+    # iteration instead of re-fetching each district's version a second
+    # time after the loop.
+    tryCatch({
+      if (!is.null(ha_sf) && nrow(ha_sf) > 0) {
+        team_targets <- snap$team_targets %||% list()
+        urban_sf <- if (!is.null(snap$district_boundary_sf) && nrow(snap$district_boundary_sf) > 0)
+          tryCatch(fetch_urban_areas_for_district(snap$district_boundary_sf), error = function(e) NULL) else NULL
+        ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf)
+        if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
+          ha_summary_parts[[dname]] <- cbind(district_name = dname, ha_summary)
+        }
+        if (!is.null(team_sf) && nrow(team_sf) > 0) {
+          d_team_rows <- lapply(unique(team_sf$health_area), function(han) {
+            team_one <- team_sf[team_sf$health_area == han, , drop = FALSE]
+            tgt <- team_targets[[han]]
+            field_target <- .unwrap_num(tgt$target_pop)
+            tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf)
+            if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
+            cbind(district_name = dname, `Health Area` = han, tbl, check.names = FALSE)
+          })
+          d_team_rows <- Filter(Negate(is.null), d_team_rows)
+          if (length(d_team_rows) > 0) team_summary_parts[[dname]] <- do.call(rbind, d_team_rows)
+        }
+      }
+    }, error = function(e) {
+      warning(paste('Population summary failed for', dname, '-- continuing without it:', e$message))
+    })
   }
 
   # dplyr::bind_rows() rather than do.call(rbind, ...) -- different
@@ -260,13 +361,22 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson') {
   .write_combined_sf(idp_parts,      paste0('idp_settlements.', spec$ext))
   .write_combined_sf(landmark_parts, paste0('landmarks.', spec$ext))
 
+  if (length(ha_summary_parts) > 0) {
+    combined <- dplyr::bind_rows(ha_summary_parts)
+    if (nrow(combined) > 0) .write_csv_utf8_bom(combined, file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
+  }
+  if (length(team_summary_parts) > 0) {
+    combined <- dplyr::bind_rows(team_summary_parts)
+    if (nrow(combined) > 0) .write_csv_utf8_bom(combined, file.path(tmp, 'team_population_summary.csv'), row.names = FALSE)
+  }
+
   if (length(fac_parts) > 0) {
     fac_out <- dplyr::bind_rows(fac_parts) |>
       dplyr::select(zone_name, region_name, district_name,
                     dplyr::any_of(c('facility_id', 'facility_name', 'facility_type',
                                     'hf_ownership', 'polio_sia_coordination_site',
                                     'operational', 'lat', 'lon')))
-    write.csv(fac_out, file.path(tmp, 'facilities.csv'), row.names = FALSE)
+    .write_csv_utf8_bom(fac_out, file.path(tmp, 'facilities.csv'), row.names = FALSE)
   }
 
   # District boundaries for context -- EVERY district in districts_shp,
@@ -291,7 +401,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson') {
 
   out_files <- list.files(tmp, full.names = TRUE)
   if (length(out_files) == 0) {
-    write.csv(data.frame(message = 'No data available.'), file, row.names = FALSE)
+    .write_csv_utf8_bom(data.frame(message = 'No data available.'), file, row.names = FALSE)
     return(invisible(NULL))
   }
   tryCatch(

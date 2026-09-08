@@ -167,9 +167,15 @@ compute_team_area_seeds <- function(health_area_sf, u5_rast, n_teams,
 #'
 #' @param area_pop     numeric, total under-5 population of the health area.
 #' @param campaign_id  integer or NULL — per-campaign override if set.
-compute_n_teams <- function(area_pop, campaign_id = NULL) {
+#' @param setting_key  which generation setting to read as the target --
+#'                      defaults to 'target_pop_per_team' (unchanged
+#'                      behavior for every existing caller). Pass
+#'                      'target_pop_per_team_urban'/'_rural' for a
+#'                      stratified recommendation from an already-split
+#'                      urban or rural population figure.
+compute_n_teams <- function(area_pop, campaign_id = NULL, setting_key = "target_pop_per_team") {
   target <- tryCatch(
-    db_get_generation_setting(pool, "target_pop_per_team", campaign_id = campaign_id),
+    db_get_generation_setting(pool, setting_key, campaign_id = campaign_id),
     error = function(e) NA_real_
   )
   if (is.na(target) || target <= 0) target <- 400

@@ -27,6 +27,18 @@ REMAINDER_MIN_AREA_M2 <- 1e6   # 1 km²
 # Session-level cache keyed by district_name
 .subdivision_cache <- new.env(parent = emptyenv())
 
+# Cache is keyed only by district (plus the dist_/urban_ prefix) -- NOT
+# by URL. So changing either data-source URL in the admin page has no
+# effect on a district that was already fetched and cached under the
+# OLD url, until this is called to clear it out. Called from
+# mod_admin_tab_v2.R's save_sources_btn handler whenever either URL is
+# actually saved -- without this, "live" URL changes would only ever
+# apply to districts nobody had looked at yet, which isn't genuinely
+# live in any way an admin testing the change would notice.
+clear_subdivision_cache <- function() {
+  rm(list = ls(envir = .subdivision_cache, all.names = TRUE), envir = .subdivision_cache)
+}
+
 
 # -----------------------------------------------------------------------------
 # fetch_subdivisions_for_district()
@@ -37,20 +49,20 @@ REMAINDER_MIN_AREA_M2 <- 1e6   # 1 km²
 #   subdivision_name, geometry
 # or NULL if no subdivisions intersect the district.
 # -----------------------------------------------------------------------------
-fetch_subdivisions_for_district <- function(district_sf) {
+fetch_subdivisions_for_district <- function(district_sf, url = ARCGIS_SUBDIVISIONS_URL, cache_prefix = "dist_") {
   
   req(!is.null(district_sf), nrow(district_sf) > 0)
   
   district_name <- as.character(district_sf$district_name[[1]])
   
   # Return cached result if available
-  cache_key <- paste0("dist_", gsub("[^A-Za-z0-9]", "_", district_name))
+  cache_key <- paste0(cache_prefix, gsub("[^A-Za-z0-9]", "_", district_name))
   if (!is.null(.subdivision_cache[[cache_key]])) {
     cat("[subdivisions] cache hit for", district_name, "\n")
     return(.subdivision_cache[[cache_key]])
   }
   
-  cat("[subdivisions] fetching for", district_name, "\n")
+  cat("[subdivisions] fetching for", district_name, "| cache_prefix:", cache_prefix, "| url:", url, "\n")
   
   # Build bounding box in WGS84 for the spatial filter
   bbox <- district_sf |>
@@ -75,7 +87,7 @@ fetch_subdivisions_for_district <- function(district_sf) {
   )
   
   resp <- tryCatch(
-    httr::GET(ARCGIS_SUBDIVISIONS_URL,
+    httr::GET(url,
               query   = query_params,
               httr::timeout(30)),
     error = function(e) {
@@ -151,6 +163,42 @@ fetch_subdivisions_for_district <- function(district_sf) {
   cat("[subdivisions]", nrow(out), "subdivisions clipped for", district_name, "\n")
   .subdivision_cache[[cache_key]] <- out
   out
+}
+
+
+# -----------------------------------------------------------------------------
+# fetch_urban_areas_for_district()
+#
+# Thin wrapper around fetch_subdivisions_for_district() for URBAN
+# CLASSIFICATION specifically (the urban-only mapping-scope buffer in
+# server.R's planning_area_sf, and mod_admin_tab_v2.R's
+# .validate_urban_scope() check) -- a conceptually separate use of a
+# subdivision-shaped ArcGIS layer from the intro tab's own subdivision
+# picker, which still uses fetch_subdivisions_for_district() directly
+# against ARCGIS_SUBDIVISIONS_URL unchanged. Reads its URL from the
+# admin-configurable 'urban_areas_url' data-source setting, falling
+# back to ARCGIS_SUBDIVISIONS_URL when no override has been saved yet --
+# i.e. it starts out pointing at the exact same subdivisions layer the
+# picker uses, until an admin replaces it with a real urban-areas layer.
+#
+# A separate cache_prefix ("urban_") keeps this from colliding with the
+# picker's own "dist_"-prefixed cache entries for the same district, in
+# the same shared .subdivision_cache environment -- harmless overlap
+# while the URL is still identical, but keeps the two logically
+# independent once an admin actually sets a distinct urban_areas_url
+# (a stale cached picker fetch must never silently satisfy an urban-
+# scope lookup, or vice versa).
+#
+# Returns the same shape as fetch_subdivisions_for_district() --
+# subdivision_name/geometry columns -- since callers here (the buffer
+# computation, the has-any-features validation check) only ever use the
+# geometry, never that name column; keeping the same column name avoids
+# a second, parallel output shape for no actual behavioral reason.
+# -----------------------------------------------------------------------------
+fetch_urban_areas_for_district <- function(district_sf) {
+  url <- tryCatch(db_get_data_source_url(pool, 'urban_areas_url'), error = function(e) NULL)
+  if (is.null(url) || !nzchar(url)) url <- ARCGIS_SUBDIVISIONS_URL
+  fetch_subdivisions_for_district(district_sf, url = url, cache_prefix = 'urban_')
 }
 
 

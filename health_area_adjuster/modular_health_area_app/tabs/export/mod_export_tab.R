@@ -66,6 +66,13 @@ exportTabUI <- function(id) {
                 choices = c('None' = 'none', 'OpenStreetMap' = 'osm', 'Satellite' = 'satellite'),
                 selected = 'none', inline = TRUE),
 
+    div(class = 'mini-label', style = 'margin-top: 10px;', 'Page size'),
+    radioButtons(ns('print_paper'), NULL,
+                choices = c('A4 Landscape' = 'a4_landscape', 'A3 Landscape' = 'a3_landscape'),
+                selected = 'a4_landscape', inline = TRUE),
+
+    checkboxInput(ns('print_show_pop'), 'Include WorldPop population overlay', value = FALSE),
+
     actionButton(ns('prepare_print'), 'Generate PDF', icon = icon('print'),
                 class = 'btn btn-default', style = 'margin-top: 8px;')
   )
@@ -138,8 +145,10 @@ exportTabServer <- function(id, districts_shp) {
         region_val <- if (nrow(dinfo) > 0) as.character(dinfo$region_name[1]) else ''
         tmp <- tempfile(fileext = '.zip')
         tryCatch({
-          build_district_download_v2(tmp, dname, zone_val, region_val, version,
-                                     campaign_id = cid, format = fmt)
+          withProgress(message = paste('Exporting', dname, '...'), {
+            build_district_download_v2(tmp, dname, zone_val, region_val, version,
+                                       campaign_id = cid, format = fmt)
+          })
           download_path(tmp)
           showModal(modalDialog(
             title = 'Download ready', easyClose = TRUE, footer = modalButton('Close'),
@@ -150,7 +159,12 @@ exportTabServer <- function(id, districts_shp) {
       } else {
         tmp <- tempfile(fileext = '.zip')
         tryCatch({
-          build_campaign_download_v2(tmp, cid, format = fmt)
+          withProgress(message = 'Exporting whole campaign...', value = 0, {
+            build_campaign_download_v2(tmp, cid, format = fmt,
+              progress_callback = function(i, n, district_name) {
+                setProgress(value = i / max(n, 1), message = sprintf('District %d of %d: %s', i, n, district_name))
+              })
+          })
           download_path(tmp)
           showModal(modalDialog(
             title = 'Download ready', easyClose = TRUE, footer = modalButton('Close'),
@@ -194,8 +208,12 @@ exportTabServer <- function(id, districts_shp) {
 
       tmp <- tempfile(fileext = '.pdf')
       tryCatch({
-        build_printable_maps_pdf(tmp, version, dname, campaign_id = cid, campaign_name = cname,
-                                 basemap = input$print_basemap %||% 'none')
+        withProgress(message = paste('Building printable maps for', dname, '...'), {
+          build_printable_maps_pdf(tmp, version, dname, campaign_id = cid, campaign_name = cname,
+                                   basemap = input$print_basemap %||% 'none',
+                                   paper = input$print_paper %||% 'a4_landscape',
+                                   show_pop = isTRUE(input$print_show_pop))
+        })
         print_path(tmp)
         showModal(modalDialog(
           title = 'Printable maps ready', easyClose = TRUE, footer = modalButton('Close'),

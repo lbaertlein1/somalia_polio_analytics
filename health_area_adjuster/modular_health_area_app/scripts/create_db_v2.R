@@ -333,6 +333,18 @@ statements <- list(
     PRIMARY KEY (campaign_id, district_name)
   )",
 
+  # mapping_scope: 'full' (the whole district is in scope for landmarks,
+  # facilities, health areas, and team areas -- the only behavior that
+  # ever existed before this) or 'urban_only' (all four are instead
+  # restricted to a buffered dissolve of that district's subdivision
+  # polygons -- see server.R's planning_area_sf reactive). ADD COLUMN IF
+  # NOT EXISTS as a separate statement, not baked into the CREATE TABLE
+  # above, since CREATE TABLE IF NOT EXISTS is a no-op on a database
+  # where this table already exists from before this column existed --
+  # this is the actual migration for those.
+  "ALTER TABLE campaign_districts
+    ADD COLUMN IF NOT EXISTS mapping_scope TEXT NOT NULL DEFAULT 'full'",
+
   "CREATE INDEX IF NOT EXISTS idx_cd_district ON campaign_districts(district_name)",
 
   # ── Admin-configurable generation settings ──────────────────────────────────
@@ -412,11 +424,20 @@ if (nzchar(ADMIN_PASSWORD)) {
 default_settings <- list(
   list(key = 'target_pop_per_health_area', val = 2000,  desc = 'Target under-5 population per health area'),
   list(key = 'target_pop_per_team',        val = 400,   desc = 'Target under-5 population per team area'),
+  # Urban/rural stratified variants were tried here and reverted -- see
+  # mod_facility_tab.R's outreach_counts_card and mod_team_area_tab.R's
+  # confirmation modal for the reasoning (no principled fallback for a
+  # district with no urban-areas data, and the blended/stratified
+  # settings drifting silently out of sync once only one was edited).
+  # Removed from seeding entirely so re-running this script against an
+  # existing database doesn't resurrect rows that were deliberately
+  # deleted (see remove_stratified_settings.R).
   list(key = 'n_start_dfas',               val = 5,     desc = 'Default number of starter health areas shown before facility-based seeding'),
   list(key = 'pop_sat_pct',                val = 1.0,   desc = 'Population saturation threshold (fraction of target before penalty kicks in)'),
   list(key = 'pop_sat_weight',             val = 0.5,   desc = 'Weight applied to population saturation penalty'),
   list(key = 'pop_sat_max',                val = 0.3,   desc = 'Cap on population saturation penalty'),
-  list(key = 'subdivision_boundary_penalty', val = 0.99, desc = 'Soft friction penalty for crossing a subdivision boundary during generation')
+  list(key = 'subdivision_boundary_penalty', val = 0.99, desc = 'Soft friction penalty for crossing a subdivision boundary during generation'),
+  list(key = 'urban_buffer_km', val = 5, desc = 'Buffer distance (km) added around a district\'s dissolved subdivision outer boundary when that district is scoped to urban areas only')
 )
 
 for (s in default_settings) {

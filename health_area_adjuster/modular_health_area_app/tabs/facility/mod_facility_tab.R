@@ -129,7 +129,8 @@ facilityTabServer <- function(
     subdivisions_r     = reactive(NULL),
     planning_area_sf_r = reactive(NULL),
     save_snapshot_fn   = NULL,   # kept for compatibility, no-op
-    restore_r          = reactive(NULL)
+    restore_r          = reactive(NULL),
+    campaign_id         = reactive(NULL)   # new -- needed for target_pop_per_health_area(_urban/_rural), which respect a per-campaign override; NULL falls back to the campaign-independent global default, same as db_get_generation_setting()'s own fallback
 ) {
   moduleServer(id, function(input, output, session) {
 
@@ -275,7 +276,26 @@ facilityTabServer <- function(
 
       n_selected   <- sum(df$polio_sia_coordination_site == "Yes", na.rm = TRUE)
       planning_pop <- planning_area_pop()
-      n_recommended <- max(1L, ceiling(planning_pop / 2000))
+      # Was a hardcoded 2000, never actually reading the admin's own
+      # target_pop_per_health_area setting -- fixed here so this figure
+      # actually reflects what an admin sets on the Generation Settings
+      # page, rather than a value nobody could change.
+      #
+      # Deliberately NOT stratified by urban/rural -- that was tried and
+      # reverted. A district with no urban-areas data at all has no
+      # principled way to split its population (defaulting to "all
+      # rural" made the recommendation depend on ArcGIS data coverage
+      # rather than anything real about the district), and keeping a
+      # separate stratified figure alongside this one risked the two
+      # silently disagreeing after only one got edited -- confirmed
+      # directly when an earlier version's blended and stratified
+      # settings drifted to 4000 vs 2000/2000 after only the blended one
+      # was customized. One parameter, one number, formula shown
+      # explicitly below so it's never a mystery how it was computed.
+      pop_target <- tryCatch(db_get_generation_setting(pool, 'target_pop_per_health_area', campaign_id()),
+                             error = function(e) NA_real_)
+      if (is.na(pop_target) || pop_target <= 0) pop_target <- 2000
+      n_recommended <- max(1L, ceiling(planning_pop / pop_target))
       count_color   <- if (n_selected >= n_recommended) "#388e3c" else "#e53935"
 
       div(
@@ -305,6 +325,13 @@ facilityTabServer <- function(
               n_selected
             )
           )
+        ),
+        div(
+          style = 'font-size: 10px; color: #94a3b8; margin-top: 6px; text-align: center;',
+          sprintf('Recommended = ceil(%s population \u00f7 %s target per health area) = %s',
+                 format(round(planning_pop), big.mark = ','),
+                 format(round(pop_target), big.mark = ','),
+                 as.character(n_recommended))
         )
       )
     })

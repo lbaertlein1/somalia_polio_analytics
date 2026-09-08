@@ -387,7 +387,20 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       current <- tryCatch(db_get_shared_version(pool, campaign_id(), dname), error = function(e) NULL)
       req(!is.null(current))
       removeModal()
-      ha_request(list(district_name = dname, version_id = current$version_id, ts = Sys.time()))
+      # has_boundaries drives server.R's decision to skip straight to
+      # Health Areas and lock out Landmarks/Facilities re-editing for
+      # this session -- "Continue with current" always means an
+      # already-published, already-locked-in version, so this is
+      # effectively always TRUE here, but computed properly (not just
+      # assumed) in case a shared version somehow has no saved boundaries
+      # yet (e.g. published at facilities-stage only, if that's ever
+      # possible).
+      ha_request(list(
+        district_name   = dname,
+        version_id      = current$version_id,
+        has_boundaries  = !is.null(current$snap$saved_dfa_sf) && nrow(current$snap$saved_dfa_sf) > 0,
+        ts              = Sys.time()
+      ))
     }, ignoreInit = TRUE)
 
     observeEvent(input$ha_pick_dropdown_go, {
@@ -401,9 +414,21 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
           error = function(e) { showNotification(paste('Could not start a new draft:', e$message), type = 'error', duration = 6); NULL }
         )
         req(!is.null(new_id))
-        ha_request(list(district_name = dname, version_id = new_id, ts = Sys.time()))
+        # A genuinely fresh blank draft -- always has_boundaries = FALSE,
+        # never skips Landmarks/Facilities.
+        ha_request(list(district_name = dname, version_id = new_id, has_boundaries = FALSE, ts = Sys.time()))
       } else {
-        ha_request(list(district_name = dname, version_id = as.integer(choice), ts = Sys.time()))
+        # own_drafts (which populated this dropdown) is metadata-only --
+        # a real fetch is needed here to know whether this SPECIFIC draft
+        # already has saved boundaries or is still blank/in-progress.
+        picked_id <- as.integer(choice)
+        picked    <- tryCatch(db_get_version_by_id(pool, picked_id), error = function(e) NULL)
+        ha_request(list(
+          district_name  = dname,
+          version_id     = picked_id,
+          has_boundaries = !is.null(picked) && !is.null(picked$snap$saved_dfa_sf) && nrow(picked$snap$saved_dfa_sf) > 0,
+          ts             = Sys.time()
+        ))
       }
     }, ignoreInit = TRUE)
 

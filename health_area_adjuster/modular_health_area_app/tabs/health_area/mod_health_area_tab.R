@@ -253,7 +253,11 @@ healthAreaTabServer <- function(
     # than on entry means the next visit never briefly shows stale
     # values before the reset takes effect.
     observeEvent(tab_active(), {
-      if (!isTRUE(tab_active())) controls$reset_controls()
+      cat("[refine_debug] tab_active() changed to:", isTRUE(tab_active()), "| active_tab():", active_tab(), "\n")
+      if (!isTRUE(tab_active())) {
+        cat("[refine_debug] tab_active FALSE -> calling controls$reset_controls() (this resets in_vertex_mode UI + smoothness/stiffness)\n")
+        controls$reset_controls()
+      }
     }, ignoreInit = TRUE)
     
     current_fill_colors <- reactive({
@@ -514,11 +518,25 @@ healthAreaTabServer <- function(
     })
     
     scene_ever_sent <- reactiveVal(FALSE)
+    # Separate from scene_ever_sent (which only tracks "has ANY scene
+    # ever been sent, ever" -- once TRUE, stays TRUE forever). This one
+    # tracks whether the MOST RECENT send has actually been confirmed
+    # loaded by the JS side yet -- reset to FALSE right when a new send
+    # goes out, only set back to TRUE by the map_ready() observer below,
+    # which is the JS side's own confirmation that loadScene() finished.
+    # Needed because send_current_scene() sending a message is not the
+    # same moment as the browser finishing loadScene() -- rebuilding the
+    # entire grid layer takes real, measurable time (confirmed directly
+    # in earlier testing) -- and vertex-mode boundary tracing reads
+    # client-side state (this.assignments/this.cellLayers) that isn't
+    # trustworthy until that's actually finished.
+    scene_load_confirmed <- reactiveVal(FALSE)
 
     send_current_scene <- function(dfa_colors_override = NULL) {
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
       scene_ever_sent(TRUE)
+      scene_load_confirmed(FALSE)
 
       # Unconditionally force the JS side back to paint mode before every
       # scene (re)load, regardless of what in_vertex_mode() currently
@@ -591,20 +609,87 @@ healthAreaTabServer <- function(
       ))
     }
     
+    # Spatially re-derives cell assignments from the SAVED BOUNDARY
+    # POLYGONS (smoothed_dfa_sf preferred, else saved_dfa_sf) rather than
+    # from the saved cell-by-cell assignments array -- used specifically
+    # when that array's length doesn't match the CURRENT grid's cell
+    # count, meaning this version was saved against a grid built at a
+    # different resolution (e.g. before this session's own grid_n
+    # formula changed) and its assignments are keyed to cell positions
+    # that no longer correspond to the same cells at all. Polygons are
+    # real geographic boundaries, independent of grid resolution, so
+    # re-testing which of the NEW grid's cells fall inside each saved
+    # polygon correctly re-applies the saved boundaries regardless of
+    # how the grid itself was rebuilt.
+    .spatial_remap_assignments <- function(snap, grid_sf) {
+      poly_sf <- snap$smoothed_dfa_sf
+      if (is.null(poly_sf) || nrow(poly_sf) == 0) poly_sf <- snap$saved_dfa_sf
+      if (is.null(poly_sf) || nrow(poly_sf) == 0) return(NULL)
+      area_col <- if ('dfa_name' %in% names(poly_sf)) 'dfa_name' else names(poly_sf)[1]
+
+      tryCatch({
+        poly_valid <- safe_make_valid(sf::st_transform(poly_sf, 4326))
+        centroids  <- sf::st_centroid(sf::st_transform(grid_sf, sf::st_crs(poly_valid)))
+        joined     <- sf::st_join(centroids, poly_valid[area_col], join = sf::st_intersects, left = TRUE)
+        # st_join duplicates a row for every polygon it matches -- health
+        # areas shouldn't overlap, but smoothing/vertex-editing artifacts
+        # could produce a sliver of overlap; a row-count mismatch here
+        # means the result no longer lines up positionally with grid_sf
+        # at all, so treat it as a failure rather than risk silently
+        # misaligned data (the same class of bug this whole function
+        # exists to fix).
+        if (nrow(joined) != nrow(centroids)) return(NULL)
+        out        <- as.character(sf::st_drop_geometry(joined)[[area_col]])
+        # Cells outside every saved polygon (edge slivers introduced by
+        # the new, differently-sized grid not lining up exactly with the
+        # old boundary lines) fall back to whatever the fresh proposal
+        # assigned there, rather than a hardcoded guess.
+        missing <- is.na(out)
+        if (any(missing)) out[missing] <- rv$initial_assignments[missing]
+        out
+      }, error = function(e) NULL)
+    }
+
     .apply_restore <- function(snap) {
       restore_just_applied(TRUE)
       if (!is.null(snap$dfa_names)) rv$dfa_names <- snap$dfa_names
-      if (!is.null(snap$current_assignments) && length(snap$current_assignments) > 0) {
-        ca <- snap$current_assignments
-        # Convert named list to ordered character vector if needed
-        if (is.list(ca)) {
-          cell_ids <- as.character(rv$grid_sf$cell_id)
-          ca <- vapply(cell_ids, function(id) {
-            val <- ca[[id]]
-            if (is.null(val)) rv$initial_assignments[as.integer(id)] else as.character(val)
-          }, character(1))
-        }
+      n_grid <- nrow(rv$grid_sf)
+      ca <- snap$current_assignments
+
+      if (!is.null(ca) && length(ca) > 0 && is.list(ca)) {
+        # Named-list form: keyed by cell_id, not position, so remapping
+        # by name is inherently resolution-safe already (any cell_id not
+        # present in the saved list -- e.g. a genuinely new cell from a
+        # finer regenerated grid -- falls back to the fresh proposal for
+        # just that cell, not the whole assignment).
+        cell_ids <- as.character(rv$grid_sf$cell_id)
+        ca <- vapply(cell_ids, function(id) {
+          val <- ca[[id]]
+          if (is.null(val)) rv$initial_assignments[as.integer(id)] else as.character(val)
+        }, character(1))
         rv$current_assignments <- as.character(ca)
+      } else if (!is.null(ca) && length(ca) > 0 && length(ca) == n_grid) {
+        rv$current_assignments <- as.character(ca)
+      } else if (!is.null(ca) && length(ca) > 0) {
+        # Plain vector, but its length doesn't match the current grid --
+        # confirmed directly (via [refine_debug] logging) as a real,
+        # severe bug: this version was saved against a grid built at a
+        # different resolution, so applying this vector positionally
+        # would silently assign every cell some area, just the WRONG
+        # one for its actual position -- exactly what produced a
+        # bungled vertex trace with zero undefined/null assignments.
+        remapped <- .spatial_remap_assignments(snap, rv$grid_sf)
+        if (!is.null(remapped)) {
+          rv$current_assignments <- remapped
+          showNotification(
+            'This district\'s saved boundaries were built at a different grid resolution -- re-applied to the current grid from the saved boundary shapes.',
+            type = 'message', duration = 6)
+        } else {
+          rv$current_assignments <- rv$initial_assignments
+          showNotification(
+            'Could not re-apply this district\'s saved boundaries to the current grid resolution -- showing a fresh proposal instead.',
+            type = 'warning', duration = 8)
+        }
       } else {
         # current_assignments not stored (older submission) — use initial grid state
         rv$current_assignments <- rv$initial_assignments
@@ -739,6 +824,7 @@ healthAreaTabServer <- function(
     # "scene finished loading" signal.
     observeEvent(map_mod$map_ready(), {
       if (tab_active()) send_paint_message("hide_loading")
+      scene_load_confirmed(TRUE)
       if (tab_active() && isTRUE(district_ready()) && !is.null(rv$grid_sf) && !isTRUE(scene_ever_sent()))
         send_current_scene()
     }, ignoreInit = TRUE)
@@ -886,14 +972,37 @@ healthAreaTabServer <- function(
     # ── Refine boundaries (vertex editing) ──────────────────────────────
     observeEvent(controls$refine_boundaries_click(), {
       req(isTRUE(district_ready()), tab_active())
+      cat("[refine_debug] click fired. scene_load_confirmed:", isTRUE(scene_load_confirmed()),
+         "| in_vertex_mode:", isTRUE(in_vertex_mode()),
+         "| grid_sf rows:", if (!is.null(rv$grid_sf)) nrow(rv$grid_sf) else NA,
+         "| current_assignments length:", length(rv$current_assignments),
+         "| current_assignments NAs:", if (!is.null(rv$current_assignments)) sum(is.na(rv$current_assignments)) else NA,
+         "\n")
       if (isTRUE(in_vertex_mode())) {
         send_paint_message("paint_exit_vertex_mode")
         in_vertex_mode(FALSE)
       } else {
         req(!is.null(rv$grid_sf))
+        # Guards against entering vertex mode before the JS side has
+        # actually confirmed finishing loadScene() for whatever scene
+        # was most recently sent (e.g. .apply_restore()'s own
+        # send_current_scene(), right after opening an already-mapped
+        # district) -- vertex-mode boundary tracing reads client-side
+        # state that isn't trustworthy until that's genuinely done, not
+        # just "the R-side message was sent". Confirmed directly as the
+        # cause of a bungled vertex trace when Refine Boundaries was
+        # clicked immediately after opening an already-mapped district.
+        if (!isTRUE(scene_load_confirmed())) {
+          cat("[refine_debug] BLOCKED -- scene_load_confirmed was FALSE\n")
+          showNotification('Boundaries are still loading -- try Refine Boundaries again in a moment.',
+                           type = 'warning', duration = 4)
+          return()
+        }
+        cat("[refine_debug] proceeding to send paint_enter_vertex_mode\n")
         send_paint_message("paint_enter_vertex_mode", list(
           smoothness = controls$vertex_smoothness(),
-          stiffness  = controls$vertex_stiffness()
+          stiffness  = controls$vertex_stiffness(),
+          snapTolerance = controls$vertex_snap_tolerance()
         ))
         in_vertex_mode(TRUE)
       }
@@ -912,6 +1021,14 @@ healthAreaTabServer <- function(
     observeEvent(controls$vertex_stiffness(), {
       req(isTRUE(in_vertex_mode()))
       send_paint_message("paint_set_vertex_stiffness", list(value = controls$vertex_stiffness()))
+    }, ignoreInit = TRUE)
+
+    # Snap tolerance only affects the engine's constants going forward
+    # (see setVertexSnapTolerance's own comment on the JS side) -- same
+    # live-update treatment as stiffness, no manual-edit discard.
+    observeEvent(controls$vertex_snap_tolerance(), {
+      req(isTRUE(in_vertex_mode()))
+      send_paint_message("paint_set_vertex_snap_tolerance", list(value = controls$vertex_snap_tolerance()))
     }, ignoreInit = TRUE)
 
     observeEvent(controls$save_refinements_click(), {
@@ -1094,7 +1211,8 @@ healthAreaTabServer <- function(
           rv$vertex_mode_silently_entered <- TRUE
           send_paint_message("paint_enter_vertex_mode", list(
             smoothness = isolate(controls$vertex_smoothness()) %||% 2,
-            stiffness  = isolate(controls$vertex_stiffness()) %||% 6
+            stiffness  = isolate(controls$vertex_stiffness()) %||% 6,
+            snapTolerance = isolate(controls$vertex_snap_tolerance()) %||% 20
           ))
         }
         send_paint_message("paint_save_vertex_edits")

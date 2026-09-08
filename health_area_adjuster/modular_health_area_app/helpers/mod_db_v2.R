@@ -1226,7 +1226,7 @@ db_get_district_team_area_summary <- function(pool, campaign_id, district_name) 
 db_get_campaign_districts <- function(pool, campaign_id) {
   tryCatch(
     .db_query(pool, "
-      SELECT district_name, added_at, added_by FROM campaign_districts
+      SELECT district_name, added_at, added_by, mapping_scope FROM campaign_districts
       WHERE campaign_id = ?c ORDER BY district_name
     ", list(c = as.integer(campaign_id))),
     error = function(e) { cat('[db] get_campaign_districts error:', e$message, '\n'); NULL }
@@ -1237,12 +1237,29 @@ db_get_campaign_districts <- function(pool, campaign_id) {
 #' already assigned — the carry-forward prompt is only offered for
 #' districts genuinely NEW to the campaign (see mod_admin_tab_v2.R), so
 #' re-assigning an already-assigned district should never re-trigger it.
-db_assign_district_to_campaign <- function(pool, campaign_id, district_name, added_by) {
+#' mapping_scope: 'full' (default) or 'urban_only' -- see server.R's
+#' planning_area_sf reactive for what this actually changes. ON CONFLICT
+#' DO NOTHING means re-assigning an already-assigned district does NOT
+#' update its existing mapping_scope -- use db_set_district_mapping_scope()
+#' to change scope on a district already in the campaign.
+db_assign_district_to_campaign <- function(pool, campaign_id, district_name, added_by, mapping_scope = 'full') {
   .db_execute(pool, "
-    INSERT INTO campaign_districts (campaign_id, district_name, added_by)
-    VALUES (?c, ?d, ?u)
+    INSERT INTO campaign_districts (campaign_id, district_name, added_by, mapping_scope)
+    VALUES (?c, ?d, ?u, ?s)
     ON CONFLICT (campaign_id, district_name) DO NOTHING
-  ", list(c = as.integer(campaign_id), d = district_name, u = added_by))
+  ", list(c = as.integer(campaign_id), d = district_name, u = added_by, s = mapping_scope))
+}
+
+#' Change an already-assigned district's mapping scope. Separate from
+#' db_assign_district_to_campaign() since that one's ON CONFLICT DO
+#' NOTHING deliberately never updates an existing row (re-checking an
+#' already-assigned district in the Manage Districts modal shouldn't
+#' silently reset its scope back to whatever was passed).
+db_set_district_mapping_scope <- function(pool, campaign_id, district_name, mapping_scope) {
+  .db_execute(pool, "
+    UPDATE campaign_districts SET mapping_scope = ?s
+    WHERE campaign_id = ?c AND district_name = ?d
+  ", list(s = mapping_scope, c = as.integer(campaign_id), d = district_name))
 }
 
 db_remove_district_from_campaign <- function(pool, campaign_id, district_name) {

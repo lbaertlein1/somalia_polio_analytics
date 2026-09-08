@@ -250,8 +250,10 @@ healthAreaControlsServer <- function(id, campaign_id = reactive(NULL)) {
     # reflect them at render time and update them on change.
     vertex_smoothness_val <- reactiveVal(2)
     vertex_stiffness_val  <- reactiveVal(6)
+    vertex_snap_tolerance_val <- reactiveVal(20)
     observeEvent(input$vertex_smoothness_ui, vertex_smoothness_val(input$vertex_smoothness_ui), ignoreInit = TRUE)
     observeEvent(input$vertex_stiffness_ui,  vertex_stiffness_val(input$vertex_stiffness_ui),  ignoreInit = TRUE)
+    observeEvent(input$vertex_snap_tolerance_ui, vertex_snap_tolerance_val(input$vertex_snap_tolerance_ui), ignoreInit = TRUE)
 
     # Everything here (sliders, its own Undo/Reset, Save Refinements) is
     # only ever rendered while actually refining -- symmetric with step 1
@@ -269,6 +271,11 @@ healthAreaControlsServer <- function(id, campaign_id = reactive(NULL)) {
         sliderInput(ns('vertex_stiffness_ui'), NULL, min = 1, max = 20,
                     value = isolate(vertex_stiffness_val()),
                     step = 1, width = '100%', ticks = FALSE),
+        div(style = 'font-size:11px;color:#475569;', 'Snap tolerance',
+            title = 'How close two boundary points need to be before they merge into one, as a % of the current grid cell size. Lower this for small areas if fine detail (thin necks, close-together points) keeps getting merged away.'),
+        sliderInput(ns('vertex_snap_tolerance_ui'), NULL, min = 5, max = 50,
+                    value = isolate(vertex_snap_tolerance_val()),
+                    step = 5, width = '100%', ticks = FALSE, post = '%'),
         div(
           style = 'display:flex;gap:6px;margin-top:8px;',
           actionButton(ns('refine_undo_btn'), 'Undo',
@@ -301,6 +308,7 @@ healthAreaControlsServer <- function(id, campaign_id = reactive(NULL)) {
       vertex_mode_active(FALSE)
       vertex_smoothness_val(2)
       vertex_stiffness_val(6)
+      vertex_snap_tolerance_val(20)
     }
 
     list(
@@ -324,6 +332,7 @@ healthAreaControlsServer <- function(id, campaign_id = reactive(NULL)) {
       set_vertex_mode_ui      = set_vertex_mode_ui,
       vertex_smoothness       = reactive(input$vertex_smoothness_ui),
       vertex_stiffness        = reactive(input$vertex_stiffness_ui),
+      vertex_snap_tolerance   = reactive(input$vertex_snap_tolerance_ui),
       reset_controls          = reset_controls
     )
   })

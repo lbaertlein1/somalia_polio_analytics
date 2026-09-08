@@ -82,6 +82,9 @@ adminTabUI <- function(id) {
                             'Health-facility (ODK/Kobo) endpoints are configured in .env, not here.'),
                      div(class = 'mini-label', 'Subdivisions source URL'),
                      textInput(ns('subdivisions_url'), NULL, width = '100%'),
+                     div(class = 'mini-label', style = 'margin-top: 10px;', 'Urban areas source URL',
+                         title = 'Used for urban-only mapping scope specifically -- separate from the subdivisions URL above, even though it starts out pointing at the same layer. Replace with the real urban-areas ArcGIS layer once available.'),
+                     textInput(ns('urban_areas_url'), NULL, width = '100%'),
                      div(class = 'mini-label', style = 'margin-top: 10px;', 'IDP settlements source URL'),
                      textInput(ns('idp_url'), NULL, width = '100%'),
                      actionButton(ns('save_sources_btn'), 'Save', class = 'btn btn-primary btn-sm', style = 'margin-top: 10px;')
@@ -268,20 +271,50 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
 
     .show_manage_districts_modal <- function(cid) {
       assigned <- tryCatch(db_get_campaign_districts(pool, cid), error = function(e) NULL)
-      assigned_names <- if (!is.null(assigned)) assigned$district_name else character(0)
+      assigned_names  <- if (!is.null(assigned)) assigned$district_name else character(0)
+      assigned_scopes <- if (!is.null(assigned)) setNames(assigned$mapping_scope, assigned$district_name) else character(0)
 
       by_region <- districts_shp |> sf::st_drop_geometry() |>
         dplyr::distinct(district_name, region_name) |>
         dplyr::arrange(region_name, district_name)
 
+      # Individual inputs per district (not one checkboxGroupInput per
+      # region, as this used to be) -- needed so each district can carry
+      # its own inline scope choice next to its checkbox. Subdivision
+      # availability is deliberately NOT checked here for every district
+      # up front (that would mean an ArcGIS call per district just to
+      # open this modal, for potentially 70+ districts at once) -- both
+      # options are always shown, and "Urban areas only" is validated
+      # lazily, only for districts actually requesting it, when Save is
+      # clicked (see .validate_urban_scope() in the save handler below).
       region_blocks <- lapply(sort(unique(by_region$region_name)), function(rn) {
         dists <- by_region$district_name[by_region$region_name == rn]
+        rows <- lapply(dists, function(dn) {
+          dist_id  <- paste0('manage_dist_', gsub('[^A-Za-z0-9]+', '_', dn))
+          scope_id <- paste0('manage_scope_', gsub('[^A-Za-z0-9]+', '_', dn))
+          div(
+            style = 'display:flex;align-items:center;gap:10px;padding:3px 0;',
+            div(style = 'flex:0 0 210px;',
+                checkboxInput(session$ns(dist_id), dn, value = dn %in% assigned_names, width = '100%')),
+            div(style = 'flex:1;',
+                radioButtons(session$ns(scope_id), NULL, inline = TRUE,
+                            choices = c('Full district' = 'full', 'Urban areas only' = 'urban_only'),
+                            # [[ throws "subscript out of bounds" for a name
+                            # not present -- most districts aren't yet
+                            # assigned to this campaign, so aren't in
+                            # assigned_scopes at all. [ returns NA instead of
+                            # erroring, but %||% alone wouldn't catch that --
+                            # it only guards NULL/length-0, and a single-
+                            # bracket miss is a named, length-1 NA, not
+                            # either of those -- hence the explicit is.na()
+                            # check rather than relying on %||% here.
+                            selected = { s <- unname(assigned_scopes[dn]); if (is.na(s)) 'full' else s },
+                            width = '100%'))
+          )
+        })
         tagList(
           tags$div(style = 'font-size:11px;font-weight:700;color:#64748b;margin:10px 0 4px;', rn),
-          checkboxGroupInput(
-            session$ns(paste0('manage_dist_', gsub('[^A-Za-z0-9]+', '_', rn))), NULL,
-            choices = dists, selected = intersect(dists, assigned_names), width = '100%'
-          )
+          rows
         )
       })
 
@@ -291,29 +324,93 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
           modalButton('Cancel'),
           actionButton(session$ns('save_manage_districts'), 'Save', class = 'btn btn-primary')
         ),
+        tags$p(style = 'font-size:11px;color:#94a3b8;margin-bottom:8px;',
+               '"Urban areas only" restricts landmarks, facilities, and health/team area mapping to a ',
+               'buffered outline of that district\'s subdivisions -- only takes effect where subdivision ',
+               'data is actually available; otherwise it\'s kept as Full district automatically.'),
         div(style = 'max-height:60vh;overflow-y:auto;', region_blocks)
       ))
     }
 
+    # If requesting 'urban_only', fetches subdivisions live for this one
+    # district and falls back to 'full' (with a warning) if none are
+    # returned -- the actual enforcement of "no-subdivision districts
+    # can't be set to urban only", applied per-district only when
+    # actually requested, not to every district up front.
+    .validate_urban_scope <- function(district_name, requested_scope) {
+      if (!identical(requested_scope, 'urban_only')) return(requested_scope)
+      dinfo <- districts_shp |> dplyr::filter(district_name == !!district_name)
+      if (nrow(dinfo) == 0) return('full')
+      dsf <- dinfo |>
+        dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+        sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326)
+      cat(sprintf('[urban_scope_debug] %s: resolved urban_areas_url = %s\n', district_name,
+                 tryCatch(db_get_data_source_url(pool, 'urban_areas_url'), error = function(e) sprintf('<error: %s>', e$message)) %||% '<NULL -- falls back to ARCGIS_SUBDIVISIONS_URL>'))
+      subs <- tryCatch(fetch_urban_areas_for_district(dsf),
+                       error = function(e) { cat(sprintf('[urban_scope_debug] %s: fetch_urban_areas_for_district ERRORED: %s\n', district_name, e$message)); NULL })
+      cat(sprintf('[urban_scope_debug] %s: subs is.null=%s, nrow=%s\n', district_name,
+                 is.null(subs), if (is.null(subs)) 'NA' else nrow(subs)))
+      if (is.null(subs) || nrow(subs) == 0) {
+        showNotification(
+          sprintf('%s has no urban-area data available -- kept as Full district.', district_name),
+          type = 'warning', duration = 6
+        )
+        return('full')
+      }
+      'urban_only'
+    }
+
     observeEvent(input$save_manage_districts, {
       cid <- manage_districts_campaign_id(); req(!is.null(cid))
-      by_region <- districts_shp |> sf::st_drop_geometry() |>
-        dplyr::distinct(district_name, region_name)
-      region_names <- sort(unique(by_region$region_name))
+      all_dists <- districts_shp |> sf::st_drop_geometry() |>
+        dplyr::distinct(district_name) |> dplyr::pull(district_name)
 
-      checked <- unlist(lapply(region_names, function(rn) {
-        input[[paste0('manage_dist_', gsub('[^A-Za-z0-9]+', '_', rn))]]
-      }))
-      checked <- checked %||% character(0)
+      checked <- character(0)
+      requested_scopes <- list()
+      for (dn in all_dists) {
+        dist_id  <- paste0('manage_dist_', gsub('[^A-Za-z0-9]+', '_', dn))
+        scope_id <- paste0('manage_scope_', gsub('[^A-Za-z0-9]+', '_', dn))
+        if (isTRUE(input[[dist_id]])) {
+          checked <- c(checked, dn)
+          requested_scopes[[dn]] <- input[[scope_id]] %||% 'full'
+        }
+      }
 
       assigned <- tryCatch(db_get_campaign_districts(pool, cid), error = function(e) NULL)
-      assigned_names <- if (!is.null(assigned)) assigned$district_name else character(0)
+      assigned_names  <- if (!is.null(assigned)) assigned$district_name else character(0)
+      assigned_scopes <- if (!is.null(assigned)) setNames(assigned$mapping_scope, assigned$district_name) else character(0)
 
       newly_added   <- setdiff(checked, assigned_names)
       newly_removed <- setdiff(assigned_names, checked)
+      still_present <- intersect(checked, assigned_names)
 
       for (dn in newly_removed) db_remove_district_from_campaign(pool, cid, dn)
-      for (dn in newly_added)   db_assign_district_to_campaign(pool, cid, dn, current_user())
+
+      for (dn in newly_added) {
+        final_scope <- .validate_urban_scope(dn, requested_scopes[[dn]] %||% 'full')
+        db_assign_district_to_campaign(pool, cid, dn, current_user(), mapping_scope = final_scope)
+      }
+
+      # Already-assigned districts only get touched if their requested
+      # scope actually changed -- db_assign_district_to_campaign()'s own
+      # ON CONFLICT DO NOTHING wouldn't apply a scope change on its own,
+      # which is why this uses db_set_district_mapping_scope() instead.
+      for (dn in still_present) {
+        requested <- requested_scopes[[dn]] %||% 'full'
+        # Same [[ vs [ distinction as the modal-building code above --
+        # assigned_scopes is an atomic named vector (via setNames()), where
+        # [[ on a missing name errors; requested_scopes is a plain list
+        # (via requested_scopes[[dn]] <- ... above), where [[ on a missing
+        # name safely returns NULL instead, so that one line's %||% was
+        # already correct. dn is only actually guaranteed present here
+        # (still_present = intersect(checked, assigned_names)), but this
+        # stays defensive for consistency rather than relying on that.
+        current_val <- unname(assigned_scopes[dn])
+        if (!identical(requested, if (is.na(current_val)) 'full' else current_val)) {
+          final_scope <- .validate_urban_scope(dn, requested)
+          db_set_district_mapping_scope(pool, cid, dn, final_scope)
+        }
+      }
 
       removeModal()
       refresh_campaigns()
@@ -503,10 +600,13 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
     # saved_dfa_sf otherwise -- NOT %||%, since that checks length() (an
     # sf object's column count, always >= 1 for a non-NULL sf object even
     # with zero rows), not row count, so it wouldn't correctly fall back
-    # on an empty-but-non-NULL smoothed_dfa_sf.
+    # on an empty-but-non-NULL smoothed_dfa_sf. Both fields live under
+    # ver$snap (per .parse_mv_row() in mod_db_v2.R), not on ver directly
+    # -- ver$saved_dfa_sf alone is always NULL, a mistake this function
+    # actually shipped with once already (caught and fixed here).
     .current_boundary_sf <- function(ver) {
-      if (!is.null(ver$smoothed_dfa_sf) && nrow(ver$smoothed_dfa_sf) > 0) ver$smoothed_dfa_sf
-      else ver$saved_dfa_sf
+      if (!is.null(ver$snap$smoothed_dfa_sf) && nrow(ver$snap$smoothed_dfa_sf) > 0) ver$snap$smoothed_dfa_sf
+      else ver$snap$saved_dfa_sf
     }
 
     refresh_review <- function() {
@@ -581,7 +681,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         return(DT::datatable(data.frame(Message = 'No health areas in this version yet.'),
                              rownames = FALSE, options = list(dom = 't')))
 
-      targets <- tryCatch(.unwrap_team_targets(ver$team_targets), error = function(e) list())
+      targets <- tryCatch(.unwrap_team_targets(ver$snap$team_targets), error = function(e) list())
 
       worldpop_pop <- vapply(areas, function(a) {
         sub_sf <- boundary_sf[boundary_sf[[area_col]] == a, ]
@@ -824,16 +924,29 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
     observe({
       # subdivisions_url falls back to ARCGIS_SUBDIVISIONS_URL (the actual
       # hardcoded constant fetch_subdivisions_for_district() uses in
-      # subdivision_helpers.R) when the DB has no override saved yet --
-      # this field isn't actually wired into the fetch itself, so this
-      # is purely so an admin sees what's really being used instead of a
-      # misleadingly blank box. Saving a different value here has no
-      # effect on the actual fetch unless that fetch is separately
-      # updated to read it.
+      # subdivision_helpers.R) when the DB has no override saved yet.
+      # Both this and urban_areas_url below ARE now genuinely wired into
+      # their respective fetches (server.R's subdivisions_rv observer
+      # resolves this one; fetch_urban_areas_for_district() resolves its
+      # own internally) -- saving a new value in either really does
+      # change what gets fetched, including for a district that was
+      # already visited this session, since save_sources_btn's handler
+      # clears the shared fetch cache on every save.
       current_subdiv_url <- tryCatch(db_get_data_source_url(pool, 'subdivisions_url'), error = function(e) '') %||% ''
       hardcoded_subdiv_url <- tryCatch(ARCGIS_SUBDIVISIONS_URL, error = function(e) '')
-      updateTextInput(session, 'subdivisions_url',
-                      value = if (nzchar(current_subdiv_url)) current_subdiv_url else hardcoded_subdiv_url)
+      resolved_subdiv_url <- if (nzchar(current_subdiv_url)) current_subdiv_url else hardcoded_subdiv_url
+      updateTextInput(session, 'subdivisions_url', value = resolved_subdiv_url)
+      # urban_areas_url pre-fills with whatever the subdivisions URL
+      # resolves to (its own saved override, or the hardcoded constant)
+      # until an admin has saved a distinct urban-areas override of its
+      # own -- exactly the "same layer for now, replace later" the admin
+      # was told to expect. Unlike subdivisions_url, this one IS actually
+      # wired into the fetch (fetch_urban_areas_for_district(),
+      # subdivision_helpers.R) -- saving a new value here really does
+      # change what urban-only mapping scope uses.
+      current_urban_url <- tryCatch(db_get_data_source_url(pool, 'urban_areas_url'), error = function(e) '') %||% ''
+      updateTextInput(session, 'urban_areas_url',
+                      value = if (nzchar(current_urban_url)) current_urban_url else resolved_subdiv_url)
       updateTextInput(session, 'idp_url',
                       value = tryCatch(db_get_data_source_url(pool, 'idp_settlements_url'), error = function(e) '') %||% '')
     })
@@ -842,8 +955,18 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       ok <- TRUE
       tryCatch(db_set_data_source_url(pool, 'subdivisions_url', trimws(input$subdivisions_url %||% ''), current_user()),
               error = function(e) { ok <<- FALSE; showNotification(paste('Failed (subdivisions):', e$message), type = 'error', duration = 6) })
+      tryCatch(db_set_data_source_url(pool, 'urban_areas_url', trimws(input$urban_areas_url %||% ''), current_user()),
+              error = function(e) { ok <<- FALSE; showNotification(paste('Failed (urban areas):', e$message), type = 'error', duration = 6) })
       tryCatch(db_set_data_source_url(pool, 'idp_settlements_url', trimws(input$idp_url %||% ''), current_user()),
               error = function(e) { ok <<- FALSE; showNotification(paste('Failed (IDP):', e$message), type = 'error', duration = 6) })
+      # Both subdivisions_url and urban_areas_url are read by
+      # fetch_subdivisions_for_district() (subdivision_helpers.R), whose
+      # cache is keyed only by district, not by URL -- without clearing
+      # it here, a district visited before this save would keep
+      # returning its old, stale fetch until the app restarted, even
+      # though the URL setting itself changed correctly. IDP has no
+      # such cache, so it needs no equivalent step.
+      tryCatch(clear_subdivision_cache(), error = function(e) NULL)
       if (ok) showNotification('Data source URLs saved.', type = 'message', duration = 3)
     }, ignoreInit = TRUE)
 
