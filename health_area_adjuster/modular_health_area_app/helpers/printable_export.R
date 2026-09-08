@@ -91,22 +91,22 @@ library(gridExtra)
 build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
                                      campaign_name = '', paper = 'a4_landscape',
                                      basemap = 'none', u5_rast = NULL, show_pop = FALSE) {
-
+  
   if (!requireNamespace('tmap', quietly = TRUE))
     stop('The tmap package is required for printable export.')
   if (!requireNamespace('gridExtra', quietly = TRUE))
     stop('The gridExtra package is required for printable export tables.')
-
+  
   tmap::tmap_mode('plot')
-
+  
   if (is.null(u5_rast))
     u5_rast <- tryCatch(get('u5_rast', envir = .GlobalEnv), error = function(e) NULL)
-
+  
   snap <- version$snap %||% list()
   ha_sf <- snap$smoothed_dfa_sf %||% snap$saved_dfa_sf
   district_sf <- snap$district_boundary_sf
   team_targets <- snap$team_targets %||% list()
-
+  
   # Team areas: combine every health area's CURRENT team-area version —
   # there is no single "the district's team areas" field on the
   # health-area version's own snapshot anymore, only per-health-area ones.
@@ -125,14 +125,14 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     parts <- Filter(Negate(is.null), parts)
     if (length(parts) == 0) NULL else do.call(rbind, parts)
   }, error = function(e) NULL)
-
+  
   if (is.null(ha_sf) || nrow(ha_sf) == 0)
     stop('No health area geometry available for this version — nothing to print.')
-
+  
   ha_sf <- sf::st_transform(sf::st_make_valid(ha_sf), 4326)
   if (!is.null(team_sf) && nrow(team_sf) > 0) team_sf <- sf::st_transform(sf::st_make_valid(team_sf), 4326)
   if (!is.null(district_sf) && nrow(district_sf) > 0) district_sf <- sf::st_transform(sf::st_make_valid(district_sf), 4326)
-
+  
   # Coordination sites — combine locked ODK snapshot + user-added sites,
   # filtered to those actually marked as coordination sites.
   fac_sf <- NULL
@@ -144,14 +144,14 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
                              combined$polio_sia_coordination_site == 'Yes', , drop = FALSE]
     if (nrow(combined) > 0) fac_sf <- sf::st_transform(combined, 4326)
   }
-
+  
   # IDP settlements — stored as a plain data frame with lon/lat
   idp_sf <- NULL
   if (!is.null(snap$idp_settlements) && nrow(snap$idp_settlements) > 0 &&
       all(c('lon', 'lat') %in% names(snap$idp_settlements))) {
     idp_sf <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
   }
-
+  
   # Population overlay -- reuses the app's own make_population_overlay_sf()
   # (health_area_helpers.R) directly, so the export gets the identical
   # quantile-bucketed colors the in-app map shows, not a second
@@ -163,7 +163,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     pop_sf <- tryCatch(make_population_overlay_sf(district_sf = district_sf, u5_rast = u5_rast),
                        error = function(e) NULL)
   }
-
+  
   # Urban-areas layer for the population summary tables' urban/rural
   # split -- fetch_urban_areas_for_district() itself already handles the
   # admin-configurable URL and falls back to no data (NULL) rather than
@@ -171,18 +171,18 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   # defense against something unexpected in the fetch/cache path.
   urban_sf <- if (!is.null(district_sf) && nrow(district_sf) > 0)
     tryCatch(fetch_urban_areas_for_district(district_sf), error = function(e) NULL) else NULL
-
+  
   size <- .PRINT_PAGE_SIZES_IN[[paper]] %||% .PRINT_PAGE_SIZES_IN$a4_landscape
   basemap_provider <- .resolve_basemap(basemap)
-
+  
   grDevices::pdf(file, width = unname(size['width']), height = unname(size['height']))
   on.exit(grDevices::dev.off(), add = TRUE)
-
+  
   print(.district_overview_map(ha_sf, district_sf, fac_sf, idp_sf, district_name, campaign_name, basemap_provider, basemap, pop_sf))
-
+  
   summary_df <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf)
   .print_table_page(summary_df, paste0(district_name, ' \u2014 Health Area Summary'))
-
+  
   area_names <- setdiff(unique(as.character(ha_sf$dfa_name)), extra_dfa_names)
   for (nm in area_names) {
     ha_one   <- ha_sf[ha_sf$dfa_name == nm, , drop = FALSE]
@@ -197,16 +197,16 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     # export fails.
     pop_one <- if (!is.null(pop_sf) && nrow(pop_sf) > 0)
       tryCatch(sf::st_intersection(pop_sf, sf::st_geometry(ha_one) |> sf::st_union()), error = function(e) NULL)
-      else NULL
+    else NULL
     print(.health_area_detail_map(ha_one, team_one, fac_one, idp_one, nm, district_name, basemap_provider, basemap, pop_one))
-
+    
     if (!is.null(team_one) && nrow(team_one) > 0) {
       field_target <- .unwrap_num(team_targets[[nm]]$target_pop)
       team_df <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf)
       if (!is.null(team_df)) .print_table_page(team_df, paste0(district_name, ' \u2014 ', nm, ' \u2014 Team Summary'))
     }
   }
-
+  
   invisible(NULL)
 }
 
@@ -253,11 +253,11 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   n <- if (is.null(poly_sf)) 0 else nrow(poly_sf)
   total <- .polygon_u5_population(poly_sf, u5_rast)
   if (n == 0) return(data.frame(total = numeric(0), urban = numeric(0), rural = numeric(0)))
-
+  
   if (is.null(urban_sf) || nrow(urban_sf) == 0) {
     return(data.frame(total = total, urban = rep(0, n), rural = total))
   }
-
+  
   # Each row's urban extraction is computed with its OWN separate
   # .polygon_u5_population() call, deliberately not batched into one
   # multi-row extraction. poly_sf can genuinely have more than one row
@@ -283,7 +283,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
       .polygon_u5_population(one_sf, u5_rast)[1]
     }, error = function(e) NA_real_)
   }, numeric(1))
-
+  
   urban_vals[is.na(urban_vals)] <- 0
   # Never let a rounding/geometry-edge artifact push urban above total or
   # rural below zero -- pmin/pmax clamp is a defensive floor, not the
@@ -332,7 +332,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     wp_val  <- sum(split$total, na.rm = TRUE)
     urban_val <- sum(split$urban, na.rm = TRUE)
     rural_val <- sum(split$rural, na.rm = TRUE)
-
+    
     tgt             <- team_targets[[nm]]
     field_pop       <- .unwrap_num(tgt$target_pop)
     req_teams       <- .unwrap_num(tgt$requested_teams)
@@ -343,7 +343,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     # informational population detail -- that's not a recommendation
     # that could disagree with anything, just a population breakdown.
     recommended_teams <- tryCatch(compute_n_teams(wp_val, campaign_id = campaign_id), error = function(e) NA_integer_)
-
+    
     data.frame(
       `Health Area`             = nm,
       `Target Pop (WorldPop)`   = .fmt_pop(wp_val),
@@ -374,7 +374,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   n_teams <- length(team_names)
   per_team_field <- if (!is.na(health_area_field_target) && n_teams > 0)
     health_area_field_target / n_teams else NA_real_
-
+  
   rows <- lapply(team_names, function(tn) {
     poly    <- team_one[team_one$dfa_name == tn, , drop = FALSE]
     split   <- .polygon_u5_population_urban_rural(poly, u5_rast, urban_sf)
@@ -430,10 +430,10 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   border_col    <- if (is_satellite) '#00e5ff' else 'black'
   district_col  <- if (is_satellite) '#00e5ff' else 'black'
   text_col      <- if (is_satellite) '#00e5ff' else 'black'
-
+  
   m <- tmap::tm_shape(ha_sf)
   if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = .PRINT_BASEMAP_ZOOM)  # higher-than-default zoom for sharper export imagery -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
-
+  
   # Population overlay, same 0.5 opacity as the in-app map. fill_color
   # is already a per-polygon hex color from make_population_overlay_sf()
   # (quantile-bucketed, computed once, not a value tmap needs to map
@@ -450,10 +450,10 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     pop_colors <- sort(unique(pop_sf$fill_color))
     m <- m + tmap::tm_shape(pop_sf) +
       tmap::tm_fill(fill = 'fill_color', fill.scale = tmap::tm_scale_categorical(values = pop_colors),
-                   fill.legend = tmap::tm_legend_hide(), fill_alpha = 0.5) +
+                    fill.legend = tmap::tm_legend_hide(), fill_alpha = 0.5) +
       tmap::tm_shape(ha_sf)
   }
-
+  
   # No fill -- boundaries and area-name labels only, per request. Area
   # identity used to be conveyed by categorical fill color plus a legend;
   # with the fill gone, the name label on each polygon is now what
@@ -468,21 +468,21 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     tmap::tm_borders(col = border_col, lwd = if (is_satellite) 1.2 else 0.8) +
     tmap::tm_text('dfa_name', size = 0.45, col = text_col, fontface = 'bold',
                   shadow = TRUE, shadow.col = 'white')
-
+  
   if (!is.null(district_sf) && nrow(district_sf) > 0)
     m <- m + tmap::tm_shape(district_sf) + tmap::tm_borders(col = district_col, lwd = 2)
-
+  
   if (!is.null(fac_sf) && nrow(fac_sf) > 0)
     m <- m + tmap::tm_shape(fac_sf) +
-      tmap::tm_symbols(fill = '#0d9488', size = 0.3, shape = 21,
-                       col = 'white', col_alpha = 1, lwd = if (is_satellite) 2 else 1) +
-      tmap::tm_text('facility_name', size = 0.4, ymod = 0.7, shadow = TRUE, shadow.col = 'white')
-
+    tmap::tm_symbols(fill = '#0d9488', size = 0.3, shape = 21,
+                     col = 'white', col_alpha = 1, lwd = if (is_satellite) 2 else 1) +
+    tmap::tm_text('facility_name', size = 0.4, ymod = 0.7, shadow = TRUE, shadow.col = 'white')
+  
   if (!is.null(idp_sf) && nrow(idp_sf) > 0)
     m <- m + tmap::tm_shape(idp_sf) +
-      tmap::tm_symbols(fill = '#d95f0e', size = 0.25, shape = 24,
-                       col = 'white', col_alpha = 1, lwd = if (is_satellite) 2 else 1)
-
+    tmap::tm_symbols(fill = '#d95f0e', size = 0.25, shape = 24,
+                     col = 'white', col_alpha = 1, lwd = if (is_satellite) 2 else 1)
+  
   title <- paste0(district_name, if (nzchar(campaign_name)) paste0(' — ', campaign_name) else '')
   # tm_scalebar()/tm_compass() bg.color is tmap4's element-background
   # option -- same verification caveat as tm_text()'s shadow above.
@@ -496,10 +496,10 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   ha_border_col   <- if (is_satellite) '#00e5ff' else 'black'
   team_border_col <- if (is_satellite) '#00e5ff' else '#334155'
   team_text_col   <- if (is_satellite) '#00e5ff' else '#334155'
-
+  
   m <- tmap::tm_shape(ha_one)
   if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = .PRINT_BASEMAP_ZOOM)  # higher-than-default zoom for sharper export imagery -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
-
+  
   # Same population overlay as the overview map, clipped to this health
   # area's own extent by the caller before it gets here. Same
   # sorted-unique-colors-as-values fix as the overview map -- see that
@@ -508,32 +508,32 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     pop_colors <- sort(unique(pop_one$fill_color))
     m <- m + tmap::tm_shape(pop_one) +
       tmap::tm_fill(fill = 'fill_color', fill.scale = tmap::tm_scale_categorical(values = pop_colors),
-                   fill.legend = tmap::tm_legend_hide(), fill_alpha = 0.5) +
+                    fill.legend = tmap::tm_legend_hide(), fill_alpha = 0.5) +
       tmap::tm_shape(ha_one)
   }
-
+  
   # No fill here either -- the health area's own boundary is already this
   # page's title/context, so it gets a border only, no label needed on
   # the shape itself.
   m <- m + tmap::tm_borders(col = ha_border_col, lwd = if (is_satellite) 2.5 else 2)
-
+  
   if (!is.null(team_one) && nrow(team_one) > 0)
     m <- m + tmap::tm_shape(team_one) +
-      tmap::tm_borders(col = team_border_col, lwd = 0.6) +
-      tmap::tm_text('dfa_name', size = 0.4, col = team_text_col, fontface = 'bold',
-                    shadow = TRUE, shadow.col = 'white')
-
+    tmap::tm_borders(col = team_border_col, lwd = 0.6) +
+    tmap::tm_text('dfa_name', size = 0.4, col = team_text_col, fontface = 'bold',
+                  shadow = TRUE, shadow.col = 'white')
+  
   if (!is.null(fac_one) && nrow(fac_one) > 0)
     m <- m + tmap::tm_shape(fac_one) +
-      tmap::tm_symbols(fill = '#0d9488', size = 0.4, shape = 21,
-                       col = 'white', col_alpha = 1, lwd = if (is_satellite) 2 else 1) +
-      tmap::tm_text('facility_name', size = 0.5, ymod = 0.8, shadow = TRUE, shadow.col = 'white')
-
+    tmap::tm_symbols(fill = '#0d9488', size = 0.4, shape = 21,
+                     col = 'white', col_alpha = 1, lwd = if (is_satellite) 2 else 1) +
+    tmap::tm_text('facility_name', size = 0.5, ymod = 0.8, shadow = TRUE, shadow.col = 'white')
+  
   if (!is.null(idp_one) && nrow(idp_one) > 0)
     m <- m + tmap::tm_shape(idp_one) +
-      tmap::tm_symbols(fill = '#d95f0e', size = 0.35, shape = 24,
-                       col = 'white', col_alpha = 1, lwd = if (is_satellite) 2 else 1)
-
+    tmap::tm_symbols(fill = '#d95f0e', size = 0.35, shape = 24,
+                     col = 'white', col_alpha = 1, lwd = if (is_satellite) 2 else 1)
+  
   m + tmap::tm_title(paste0(district_name, ' — ', area_name)) +
     tmap::tm_scalebar(bg.color = if (is_satellite) 'white' else NA) +
     tmap::tm_compass(position = c('right', 'top'), bg.color = if (is_satellite) 'white' else NA)
