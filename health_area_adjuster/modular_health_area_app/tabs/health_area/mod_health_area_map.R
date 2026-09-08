@@ -43,6 +43,11 @@ healthAreaMapServer <- function(id) {
       # separately-passed explicit id, matching how vertex_geojson above
       # is already wired.
       vertex_undo_count    = reactive(input$paint_assignments_vertex_undo_count),
+      # Result payload from runCleanUpBoundaries()'s on-demand Shiny.
+      # setInputValue call -- same derived-id convention as vertex_
+      # geojson/vertex_undo_count above (${assignmentsInputId}_cleanup_
+      # result).
+      cleanup_result       = reactive(input$paint_assignments_cleanup_result),
       map_id               = session$ns("paint_map"),
       loading_overlay_id   = session$ns("loading_overlay"),
       ready_input_id       = session$ns("paint_map_ready"),

@@ -1051,6 +1051,44 @@ healthAreaTabServer <- function(
       send_paint_message("paint_reset_vertex_edits")
     }, ignoreInit = TRUE)
 
+    observeEvent(controls$cleanup_boundaries_click(), {
+      cat("[cleanup_debug] button click fired. in_vertex_mode:", isTRUE(in_vertex_mode()), "\n")
+      req(isTRUE(in_vertex_mode()))
+      cat("[cleanup_debug] sending paint_run_cleanup\n")
+      send_paint_message("paint_run_cleanup")
+    }, ignoreInit = TRUE)
+
+    # Reports what runCleanUpBoundaries() actually changed -- same
+    # wording style as saveVertexEdits()'s own log messages (which never
+    # actually surface anywhere visible to the user, since the JS-side
+    # logFn passed into buildVertexEngine is a no-op), built here in R
+    # instead since showNotification() is a guaranteed-visible mechanism
+    # already used throughout this app, not a JS log surface of
+    # uncertain wiring.
+    observeEvent(map_mod$cleanup_result(), {
+      r <- map_mod$cleanup_result()
+      cat("[cleanup_debug] cleanup_result received. is.null:", is.null(r), "\n")
+      if (!is.null(r)) cat("[cleanup_debug] payload:", jsonlite::toJSON(r, auto_unbox = TRUE), "\n")
+      req(!is.null(r))
+      parts <- c(
+        if (isTRUE(r$totalPinched > 0)) sprintf('%d thin peninsula(s) pinched off', r$totalPinched),
+        if (isTRUE(r$totalAbsorbed > 0)) sprintf('%d small area(s)/island(s) absorbed into a neighbor', r$totalAbsorbed),
+        if (isTRUE(r$totalGaps > 0)) sprintf('%d gap/sliver point(s) closed', r$totalGaps),
+        if (isTRUE(r$overlapResolved > 0)) sprintf('%d overlap(s) resolved', r$overlapResolved)
+      )
+      if (length(parts) == 0 && !isTRUE(r$overlapRolledBack)) {
+        showNotification('Clean up: no holes, slivers, overlaps, or thin peninsulas found.', type = 'message', duration = 3)
+      } else if (length(parts) > 0) {
+        showNotification(paste0('Clean up: ', paste(parts, collapse = ', '), '.'), type = 'message', duration = 4)
+      }
+      if (isTRUE(r$overlapRolledBack)) {
+        showNotification(
+          sprintf('Clean up: %d overlap(s) detected but not automatically repaired -- the attempt didn\'t fully resolve them, so it was rolled back. Manual adjustment may be needed.', r$overlapRemaining %||% 0),
+          type = 'warning', duration = 8
+        )
+      }
+    }, ignoreInit = TRUE)
+
     # ── Receive the vertex-refined boundary from JS ─────────────────────
     # Fires for three distinct reasons, distinguished by pending_action():
     #   "manual_refine_save" -- user explicitly clicked Save Refinements

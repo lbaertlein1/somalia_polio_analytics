@@ -286,6 +286,13 @@ healthAreaControlsServer <- function(id, campaign_id = reactive(NULL)) {
         ),
         div(
           style = 'margin-top:6px;',
+          actionButton(ns('cleanup_boundaries_btn'), 'Clean Up Boundaries',
+                       class = 'btn btn-default btn-sm', width = '100%',
+                       icon = icon('broom'),
+                       title = 'Pinches off thin peninsulas, absorbs small slivers into a neighbor, closes small gaps, and resolves overlaps -- the same cleanup Save applies automatically, run now so you can see and undo the result before saving.')
+        ),
+        div(
+          style = 'margin-top:6px;',
           actionButton(ns('save_refinements_btn'), 'Save Refinements',
                        class = 'btn btn-default btn-sm', width = '100%')
         )
@@ -329,6 +336,7 @@ healthAreaControlsServer <- function(id, campaign_id = reactive(NULL)) {
       save_refinements_click  = reactive(input$save_refinements_btn),
       refine_undo_click       = reactive(input$refine_undo_btn),
       refine_reset_click      = reactive(input$refine_reset_btn),
+      cleanup_boundaries_click = reactive(input$cleanup_boundaries_btn),
       set_vertex_mode_ui      = set_vertex_mode_ui,
       vertex_smoothness       = reactive(input$vertex_smoothness_ui),
       vertex_stiffness        = reactive(input$vertex_stiffness_ui),

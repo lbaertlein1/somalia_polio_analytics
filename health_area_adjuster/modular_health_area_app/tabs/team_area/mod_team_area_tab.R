@@ -754,6 +754,40 @@ teamAreaTabServer <- function(
       send_paint_message("paint_reset_vertex_edits")
     }, ignoreInit = TRUE)
 
+    observeEvent(controls$cleanup_boundaries_click(), {
+      cat("[cleanup_debug] button click fired. in_vertex_mode:", isTRUE(in_vertex_mode()), "\n")
+      req(isTRUE(in_vertex_mode()))
+      cat("[cleanup_debug] sending paint_run_cleanup\n")
+      send_paint_message("paint_run_cleanup")
+    }, ignoreInit = TRUE)
+
+    # Same reporting as mod_health_area_tab.R's identical wiring -- see
+    # that file's comment for why this is built in R via
+    # showNotification() rather than relying on the JS-side log surface.
+    observeEvent(map_mod$cleanup_result(), {
+      r <- map_mod$cleanup_result()
+      cat("[cleanup_debug] cleanup_result received. is.null:", is.null(r), "\n")
+      if (!is.null(r)) cat("[cleanup_debug] payload:", jsonlite::toJSON(r, auto_unbox = TRUE), "\n")
+      req(!is.null(r))
+      parts <- c(
+        if (isTRUE(r$totalPinched > 0)) sprintf('%d thin peninsula(s) pinched off', r$totalPinched),
+        if (isTRUE(r$totalAbsorbed > 0)) sprintf('%d small area(s)/island(s) absorbed into a neighbor', r$totalAbsorbed),
+        if (isTRUE(r$totalGaps > 0)) sprintf('%d gap/sliver point(s) closed', r$totalGaps),
+        if (isTRUE(r$overlapResolved > 0)) sprintf('%d overlap(s) resolved', r$overlapResolved)
+      )
+      if (length(parts) == 0 && !isTRUE(r$overlapRolledBack)) {
+        showNotification('Clean up: no holes, slivers, overlaps, or thin peninsulas found.', type = 'message', duration = 3)
+      } else if (length(parts) > 0) {
+        showNotification(paste0('Clean up: ', paste(parts, collapse = ', '), '.'), type = 'message', duration = 4)
+      }
+      if (isTRUE(r$overlapRolledBack)) {
+        showNotification(
+          sprintf('Clean up: %d overlap(s) detected but not automatically repaired -- the attempt didn\'t fully resolve them, so it was rolled back. Manual adjustment may be needed.', r$overlapRemaining %||% 0),
+          type = 'warning', duration = 8
+        )
+      }
+    }, ignoreInit = TRUE)
+
     # Fires for three distinct reasons, distinguished by pending_action() --
     # same pattern as mod_health_area_tab.R's identical wiring:
     #   "manual_refine_save" -- user explicitly clicked Save Refinements.

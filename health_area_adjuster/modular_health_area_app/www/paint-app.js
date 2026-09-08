@@ -1257,21 +1257,14 @@ function getApp(msg) {
       if (!merged) eng.trySnapToLine(vid);
       this.syncFromEngine();
     }
-    // Runs the same repair pipeline Save used to run alone, live after
-    // every completed drag (junction slides included -- a slide can still
-    // leave a thin sliver or near-coincident point elsewhere along the
-    // boundary). The boundary the user sees while editing now already
-    // reflects what Save would eventually do, so Save becomes a final
-    // consistency check rather than a separate transformation step that
-    // surprises the user with changes beyond what they actually dragged.
-    // Silent by design (see runRepairPipeline's own comment) -- logging
-    // on every drag would spam the panel; Save still reports what
-    // happened via its own summary, which should now typically read "no
-    // repairs needed" precisely because this already ran.
-    if (this.vertexEngine) {
-      this.vertexEngine.runRepairPipeline();
-      this.syncFromEngine();
-    }
+    // Running the full repair pipeline live after every drag (added
+    // earlier this session) was reverted -- it's expensive enough
+    // (pinchOffThinNecks/repairOverlaps are both multi-pass, roughly
+    // O(n^2) over the vertex/edge set) that running it on every single
+    // mouseup caused noticeable lag once deployed to shinyapps.io, even
+    // though it felt fine locally. Repair now only runs on explicit
+    // demand (see runCleanUpBoundaries below, wired to a "Clean Up
+    // Boundaries" button) or at Save, same as originally.
     this.drawVertexBoundaries();
 
     // Push an undo checkpoint if this gesture actually changed anything --
@@ -1294,6 +1287,46 @@ function getApp(msg) {
     this.vertexEngine.saveVertexEdits();
     this.syncFromEngine();
     this.drawVertexBoundaries();
+  },
+
+  // On-demand version of the repair pipeline -- was run automatically
+  // after every single drag, which turned out expensive enough
+  // (pinchOffThinNecks/repairOverlaps are both multi-pass, roughly
+  // O(n^2)) to cause noticeable lag on shinyapps.io even though it felt
+  // fine locally. Explicit button click instead: same pipeline Save
+  // uses, but the user chooses when to pay for it, and gets an actual
+  // undo checkpoint plus a visible summary of what changed, neither of
+  // which the old silent-per-drag version had.
+  runCleanUpBoundaries: function() {
+    console.log('[cleanup_debug] runCleanUpBoundaries called. vertexEngine present:', !!this.vertexEngine);
+    if (!this.vertexEngine) return;
+    const baselineStr = JSON.stringify(this._snapshotVertexState());
+    const result = this.vertexEngine.runRepairPipeline();
+    console.log('[cleanup_debug] runRepairPipeline result:', JSON.stringify(result));
+    this.syncFromEngine();
+    this.drawVertexBoundaries();
+
+    const changed = baselineStr !== JSON.stringify(this._snapshotVertexState());
+    console.log('[cleanup_debug] state changed from baseline:', changed);
+    if (changed) {
+      this.pushVertexUndo(JSON.parse(baselineStr));
+    }
+
+    const inputId = this.assignmentsInputId + '_cleanup_result';
+    console.log('[cleanup_debug] sending Shiny.setInputValue to:', inputId);
+    Shiny.setInputValue(
+      inputId,
+      {
+        totalPinched: result.totalPinched,
+        totalAbsorbed: result.totalAbsorbed,
+        totalGaps: result.totalGaps,
+        overlapResolved: result.overlapResult.resolved,
+        overlapRemaining: result.overlapResult.remaining,
+        overlapRolledBack: result.overlapResult.rolledBack,
+        nonce: Date.now()
+      },
+      { priority: 'event' }
+    );
   },
 
   emitVertexGeojson: function() {
@@ -2242,6 +2275,11 @@ function getApp(msg) {
 
     Shiny.addCustomMessageHandler('paint_save_vertex_edits', function(msg) {
       getApp(msg).saveVertexBoundaryEdits();
+    });
+
+    Shiny.addCustomMessageHandler('paint_run_cleanup', function(msg) {
+      console.log('[cleanup_debug] paint_run_cleanup message received');
+      getApp(msg).runCleanUpBoundaries();
     });
 
     Shiny.addCustomMessageHandler('paint_request_vertex_geojson', function(msg) {

@@ -32,6 +32,7 @@ teamAreaMapServer <- function(id) {
       # Refine-mode (vertex) undo stack depth -- same derived-id pattern
       # as vertex_geojson above.
       vertex_undo_count    = reactive(input$paint_assignments_vertex_undo_count),
+      cleanup_result       = reactive(input$paint_assignments_cleanup_result),
       map_id               = session$ns("paint_map"),
       loading_overlay_id   = session$ns("loading_overlay"),
       ready_input_id       = session$ns("paint_map_ready"),
