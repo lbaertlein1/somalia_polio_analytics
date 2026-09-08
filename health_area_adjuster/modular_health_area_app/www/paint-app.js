@@ -1365,14 +1365,17 @@ function getApp(msg) {
           }
         );
 
-        const cartoLight = L.tileLayer(
-          'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-          {
-            maxZoom: 20,
-            subdomains: 'abcd',
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-          }
-        );
+        // CARTO Light removed -- CARTO started requiring a (free, but
+        // per-account) API key on basemaps.cartocdn.com in late August
+        // 2026, and unauthenticated requests now render an "API KEY
+        // REQUIRED" watermark across the whole map instead of failing
+        // outright, which is what actually surfaced this. The other
+        // three options here (OpenStreetMap, ESRI Satellite, Topo) are
+        // all still free and keyless, and OpenStreetMap was already the
+        // default layer loaded on open, so removing this one entirely
+        // -- rather than replacing it with a different, unverified
+        // provider -- is the lowest-risk fix: one less basemap choice,
+        // not a new one to trust.
 
         const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
           maxZoom: 17,
@@ -1382,7 +1385,6 @@ function getApp(msg) {
         this.baseLayers = {
           'OpenStreetMap': osm,
           'ESRI Satellite': esriImagery,
-          'CARTO Light': cartoLight,
           'Topo': topo
         };
 

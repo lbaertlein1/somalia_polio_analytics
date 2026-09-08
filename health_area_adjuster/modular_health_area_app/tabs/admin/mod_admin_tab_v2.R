@@ -640,13 +640,13 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         footer = modalButton('Close'),
         div(
           div(class = 'mini-label', style = 'margin: 4px 0 4px;', 'Boundary preview (current health-area version)'),
-          leaflet::leafletOutput(ns('review_map'), height = '320px'),
+          leaflet::leafletOutput(session$ns('review_map'), height = '320px'),
           div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Population & team targets (current health-area version)'),
-          DT::DTOutput(ns('boundary_review_table'), width = '100%'),
+          DT::DTOutput(session$ns('boundary_review_table'), width = '100%'),
           div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Health area versions'),
-          DT::DTOutput(ns('ha_version_table'), width = '100%'),
+          DT::DTOutput(session$ns('ha_version_table'), width = '100%'),
           div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Team area versions, by health area'),
-          DT::DTOutput(ns('ta_version_table'), width = '100%')
+          DT::DTOutput(session$ns('ta_version_table'), width = '100%')
         )
       ))
     }
@@ -660,7 +660,15 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       areas_u <- unique(as.character(boundary_sf[[area_col]]))
       pal <- leaflet::colorFactor(grDevices::rainbow(max(length(areas_u), 1), s = 0.6, v = 0.9), domain = areas_u)
       leaflet::leaflet(boundary_sf) |>
-        leaflet::addProviderTiles('CartoDB.Positron') |>
+        # CartoDB.Positron replaced with plain OpenStreetMap -- CARTO
+        # started requiring a free-but-per-account API key on its
+        # basemap tiles in late August 2026, and unauthenticated
+        # requests now render an "API KEY REQUIRED" watermark across
+        # the map rather than failing outright. OpenStreetMap remains
+        # free and keyless, same fix applied to paint-app.js's basemap
+        # switcher (which dropped its equivalent CARTO Light option
+        # entirely for the same reason).
+        leaflet::addProviderTiles('OpenStreetMap') |>
         leaflet::addPolygons(fillColor = ~pal(get(area_col)), fillOpacity = 0.6, weight = 1, color = '#000',
                             label = ~get(area_col))
     })

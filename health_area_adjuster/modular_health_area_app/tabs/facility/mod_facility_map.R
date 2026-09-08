@@ -231,10 +231,14 @@ facilityMapServer <- function(
           leaflet::providers$Esri.WorldImagery,
           group = 'ESRI Satellite'
         ) |>
-        leaflet::addProviderTiles(
-          leaflet::providers$CartoDB.Positron,
-          group = 'CARTO Light'
-        ) |>
+        # CARTO Light removed -- CARTO started requiring a (free, but
+        # per-account) API key on its basemap tiles in late August 2026;
+        # unauthenticated requests now render an "API KEY REQUIRED"
+        # watermark across the map instead of failing outright. Same fix
+        # as paint-app.js's basemap switcher, mod_admin_tab_v2.R's
+        # district-review map, and mod_orientation_tab.R's landmarks map
+        # -- removed rather than replaced, since the remaining three
+        # options here stay free and keyless.
         leaflet::addProviderTiles(
           leaflet::providers$OpenTopoMap,
           group = 'Topo'
@@ -243,7 +247,6 @@ facilityMapServer <- function(
           baseGroups = c(
             'OpenStreetMap',
             'ESRI Satellite',
-            'CARTO Light',
             'Topo'
           ),
           options = leaflet::layersControlOptions(collapsed = TRUE)

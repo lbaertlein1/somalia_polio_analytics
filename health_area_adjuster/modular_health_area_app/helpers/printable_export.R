@@ -46,7 +46,8 @@ library(gridExtra)
 
 .PRINT_BASEMAP_PROVIDERS <- list(
   osm       = 'OpenStreetMap',
-  satellite = 'Esri.WorldImagery'
+  satellite = 'Esri.WorldImagery',
+  topo      = 'OpenTopoMap'
 )
 
 # Higher than tm_basemap()'s own auto-detected zoom, for sharper export
@@ -71,8 +72,8 @@ library(gridExtra)
 #'                        campaign-specific generation-setting lookup).
 #' @param campaign_name  character, for title blocks (optional)
 #' @param paper          "a4_landscape" or "a3_landscape"
-#' @param basemap        "none" (default), "osm", or "satellite" — tile
-#'                        layer under the vector layers on every map page.
+#' @param basemap        "none" (default), "osm", "satellite", or "topo" —
+#'                        tile layer under the vector layers on every map page.
 #' @param u5_rast         terra SpatRaster, global under-5 population
 #'                        raster, for the WorldPop population columns in
 #'                        both summary tables. Defaults to the app's own

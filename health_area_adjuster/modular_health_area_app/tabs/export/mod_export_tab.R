@@ -63,7 +63,7 @@ exportTabUI <- function(id) {
 
     div(class = 'mini-label', style = 'margin-top: 10px;', 'Basemap'),
     radioButtons(ns('print_basemap'), NULL,
-                choices = c('None' = 'none', 'OpenStreetMap' = 'osm', 'Satellite' = 'satellite'),
+                choices = c('None' = 'none', 'OpenStreetMap' = 'osm', 'Satellite' = 'satellite', 'Topo' = 'topo'),
                 selected = 'none', inline = TRUE),
 
     div(class = 'mini-label', style = 'margin-top: 10px;', 'Page size'),
