@@ -52,7 +52,155 @@ healthAreaTabServer <- function(
     changed_areas_rv          <- reactiveVal(character(0))
     last_scene_key            <- reactiveVal(NULL)
     areas_submitted_to_db     <- reactiveVal(FALSE)   # TRUE after submit, FALSE after any assignment change
-    
+
+    # ── Animated propagation reveal ──────────────────────────────────────────
+    # Cosmetic only: propagate_assignments() itself still runs as one
+    # single, blocking call with its full friction/population-weighted
+    # cost function completely unchanged -- nothing about the algorithm
+    # is made incremental. This animates the REVEAL of its
+    # already-computed, correct result, using cumulative_cost (how
+    # costly it was to reach each cell from its seed) to replay cells in
+    # the order the real BFS would have reached them. A genuinely
+    # different, lower-risk approach than making propagate_assignments()
+    # itself wave-by-wave, which would mean rewriting a core, tested
+    # algorithm shared with team-area generation.
+    WAVE_COUNT       <- 24
+    WAVE_INTERVAL_MS <- 150   # was 60 -- too fast to actually see; 24 waves
+                              # at 150ms is ~3.6s total, matching the pace
+                              # confirmed visible in the scale-test demo.
+    wave_queue <- reactiveVal(NULL)   # list of {cellId: dfaName} maps, one per remaining wave, or NULL when idle
+    wave_final <- reactiveVal(NULL)   # the real, full assignments to restore into rv$current_assignments once done
+
+    # Set right when a freshly-generated scene sends itself (with the
+    # animation's distinct colors) as part of the SAME tab-switch event
+    # that also fires observeEvent(active_tab()) below -- navigating to
+    # this tab for the first time both makes tab_active() true (letting
+    # selected_scene() finally compute) AND changes active_tab() itself,
+    # so both observers fire together. Without this flag, active_tab()'s
+    # own send_current_scene() call (no color override, since it has no
+    # idea an animation is in progress) immediately re-sends the scene
+    # with the plain palette right after the correctly-colored one --
+    # confirmed directly: two loadScene calls back to back, first with
+    # real colors, second all gray. This flag lets the fresh scene claim
+    # that one tab-switch event so the resend observer skips it exactly
+    # once, rather than every genuine "tab became visible again" case
+    # after that.
+    scene_claimed_this_tab_switch <- reactiveVal(FALSE)
+
+    start_wave_reveal <- function(cell_ids, costs, area_by_cell) {
+      # Defensive fallback: if costs is ever missing/malformed for any
+      # reason (e.g. a future refactor of selected_scene()'s reconstructed
+      # list drops cumulative_cost again the way it silently did once
+      # already), reveal everything in one wave rather than erroring the
+      # whole scene-load observer -- no animation in that case, but no
+      # crash either.
+      if (is.null(costs) || !is.numeric(costs) || length(costs) != length(cell_ids)) {
+        wave_queue(list(setNames(as.list(area_by_cell), as.character(cell_ids))))
+        return(invisible(NULL))
+      }
+      ord    <- order(costs, na.last = TRUE)
+      nn     <- length(ord)
+      bucket <- pmin(WAVE_COUNT, ceiling(seq_len(nn) / nn * WAVE_COUNT))
+      waves  <- lapply(seq_len(WAVE_COUNT), function(w) {
+        idx <- ord[bucket == w]
+        if (length(idx) == 0) return(NULL)
+        setNames(as.list(area_by_cell[idx]), as.character(cell_ids[idx]))
+      })
+      wave_queue(Filter(Negate(is.null), waves))
+    }
+
+    # A distinct color per health area, for the animation's duration only.
+    # make_fill_colors()/current_fill_colors() -- the normal palette --
+    # is deliberately built for paint mode's own UX: every area gets the
+    # SAME neutral color except whichever one is currently active/
+    # selected, which is highlighted. Correct for painting, but exactly
+    # wrong for this animation, where seeing every area's own wavefront
+    # simultaneously is the whole point. Inaccessible/Unpopulated still
+    # keep their normal special colors; every real area gets its own
+    # distinct hue instead of the shared neutral one.
+    animation_fill_colors <- function(dfa_names) {
+      names_u <- unique(as.character(dfa_names))
+      real    <- setdiff(names_u, extra_dfa_names)
+      special <- intersect(names(special_fill_colors), names_u)
+      pal     <- if (length(real) > 0) {
+        # substr(..., 1, 7): grDevices::rainbow() returns 8-digit hex
+        # (#RRGGBBAA, alpha included) by default -- stripped to 7-digit
+        # #RRGGBB here since that's the format every other color constant
+        # in this app already uses (nonselected_fill_color, special_fill_
+        # colors), and an 8-digit value reaching Leaflet/Canvas fillColor
+        # parsing was a real risk worth eliminating outright rather than
+        # leaving as a live inconsistency.
+        setNames(substr(grDevices::rainbow(length(real), s = 0.6, v = 0.9), 1, 7), real)
+      } else character(0)
+      out <- c(pal, special_fill_colors[special])
+      out[names_u[!(names_u %in% names(out))]] <- nonselected_fill_color
+      out
+    }
+
+    HIGHLIGHT_TICKS <- 5   # ~5 * WAVE_INTERVAL_MS (750ms) of all-boundaries
+                           # highlight after the last wave, before settling
+                           # into normal paint mode's usual appearance.
+    highlight_ticks_remaining <- reactiveVal(0L)
+
+    wave_timer <- reactiveTimer(WAVE_INTERVAL_MS)
+    observeEvent(wave_timer(), {
+      q <- wave_queue()
+
+      if (!is.null(q) && length(q) > 0) {
+        send_paint_message('paint_reveal_wave', list(assignments = q[[1]]))
+        if (length(q) <= 1) {
+          wave_queue(NULL)
+          # All cells revealed -- briefly highlight every area's boundary
+          # (not just whichever is active/selected) for a clear "here's
+          # how it divided up" moment, before transitioning to normal
+          # paint mode's actual appearance.
+          send_paint_message('paint_highlight_all_boundaries', list(highlight = TRUE))
+          highlight_ticks_remaining(HIGHLIGHT_TICKS)
+        } else {
+          wave_queue(q[-1])
+        }
+        return()
+      }
+
+      if (highlight_ticks_remaining() > 0) {
+        remaining <- highlight_ticks_remaining() - 1L
+        highlight_ticks_remaining(remaining)
+        if (remaining == 0) {
+          final <- wave_final()
+          if (!is.null(final)) { rv$current_assignments <- final; wave_final(NULL) }
+          # If the currently-active area has zero cells assigned (true by
+          # definition for the default active_dfa_rv() start value,
+          # 'Inaccessible', right after a fresh generation -- nothing is
+          # ever auto-assigned there, only manually painted later) then
+          # boundary visibility, which is gated on a cell's area matching
+          # the active one, would have nothing to ever match: no boundary
+          # would show at all once the all-boundaries highlight below
+          # turns off. Switching to the first real area here fixes that
+          # specific transition without touching the app's own default
+          # of starting active on Inaccessible/Unpopulated generally --
+          # a user can still select Inaccessible themselves afterward,
+          # this only prevents landing on an empty, boundary-less view
+          # the moment the animation ends.
+          if (sum(rv$current_assignments == active_dfa_rv(), na.rm = TRUE) == 0) {
+            real_names <- setdiff(rv$dfa_names, extra_dfa_names)
+            if (length(real_names) > 0) active_dfa_rv(real_names[[1]])
+          }
+          # Boundary highlight turns back OFF here -- team areas (which
+          # never went through this animation at all, and so never had
+          # this flag touched) only ever show a border for whichever
+          # area is currently active, and that's the paint-display style
+          # to match: brief, all-boundaries-visible moment right as the
+          # animation finishes, then back to normal paint mode's actual
+          # resting appearance (only the active area's border shown).
+          send_paint_message('paint_highlight_all_boundaries', list(highlight = FALSE))
+          send_paint_message('paint_set_colors', list(
+            colors    = as.list(current_fill_colors()),
+            activeDfa = active_dfa_rv()
+          ))
+        }
+      }
+    })
+
     normalize_dfa_names <- function(x) {
       x <- unique(as.character(x)); x <- x[!is.na(x) & nzchar(x)]
       c(setdiff(x, extra_dfa_names), extra_dfa_names)
@@ -98,6 +246,15 @@ healthAreaTabServer <- function(
     observeEvent(controls$help_click(), { show_help_modal(session) })
     
     tab_active <- reactive({ identical(active_tab(), "tab_health_area_mapping") })
+
+    # Reset every user-adjustable control (brush size, overlay toggles,
+    # paint/refine step, smoothness/stiffness) back to default the moment
+    # the user navigates AWAY from this tab -- resetting on exit rather
+    # than on entry means the next visit never briefly shows stale
+    # values before the reset takes effect.
+    observeEvent(tab_active(), {
+      if (!isTRUE(tab_active())) controls$reset_controls()
+    }, ignoreInit = TRUE)
     
     current_fill_colors <- reactive({
       make_fill_colors(active_dfa = active_dfa_rv(), dfa_names = rv$dfa_names)
@@ -295,10 +452,21 @@ healthAreaTabServer <- function(
       grid_n                       = reactive({
         req(district_base())
         max_dim  <- district_base()$max_dim_m
-        # Target ~25k cells regardless of district size.
-        # Cellsize = max_dim / 160, snapped to nearest 50m, floored at 50m.
-        cellsize <- max(50, round(max_dim / 160 / 50) * 50)
-        as.integer(round(max_dim / cellsize))
+        # Target grid_n of 160 (~25k cells for a square-ish district) as
+        # the reference, but the resulting cellsize is clamped to
+        # [100m, 500m] regardless of what that reference would otherwise
+        # produce -- a small district naturally lands near the 100m
+        # floor (plenty of headroom to go fine without an excessive cell
+        # count), a large one caps at the 500m ceiling (demo-confirmed
+        # workable even for Hobyo, 21,265 km2; below 100m never
+        # completed at real district scale). This replaces both the old
+        # unbounded-above formula (which produced overly coarse grids
+        # for large districts like Kismayo/Hobyo even in dense urban
+        # cores) and a flat 500m constant (which wasted the 100-500m
+        # headroom available for smaller districts).
+        target_cellsize <- max_dim / 160
+        cellsize        <- max(100, min(500, target_cellsize))
+        max(10L, as.integer(round(max_dim / cellsize)))
       }),
       n_dfa                        = n_start_dfas,
       seed                         = reactive({ req(district()); sum(utf8ToInt(district())) }),
@@ -338,6 +506,7 @@ healthAreaTabServer <- function(
       }
       list(district_sf = sc$district_sf, grid_sf = sc$grid_sf,
            initial_assignments = sc$initial_assignments,
+           cumulative_cost = sc$cumulative_cost,
            neighbors_list = sc$neighbors_list, edge_list = sc$edge_list,
            pop_overlay_sf = pop_overlay_sf, friction_overlay_sf = friction_overlay_sf,
            friction_path = sc$friction_path, max_dim_m = sc$max_dim_m,
@@ -346,7 +515,7 @@ healthAreaTabServer <- function(
     
     scene_ever_sent <- reactiveVal(FALSE)
 
-    send_current_scene <- function() {
+    send_current_scene <- function(dfa_colors_override = NULL) {
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
       scene_ever_sent(TRUE)
@@ -409,7 +578,7 @@ healthAreaTabServer <- function(
         showPop              = isolate(controls$show_pop_raster()),
         showFriction         = isolate(controls$show_friction_raster()),
         initialAssignments   = init_named,
-        dfaColors            = as.list(current_fill_colors()),
+        dfaColors            = as.list(dfa_colors_override %||% current_fill_colors()),
         activeDfa            = active_dfa_rv(),
         neighbors            = rv$neighbors_list,
         edgeCells            = rv$edge_list,
@@ -504,13 +673,33 @@ healthAreaTabServer <- function(
         pending_restore(NULL)
         .apply_restore(snap)
       } else if (scene_is_new) {
-        # Genuinely new scene (different district or different SIA sites) — full reset
+        # Genuinely new scene (different district or different SIA sites) —
+        # full reset. Send an empty (all-unassigned, renders neutral gray)
+        # scene immediately so the map/loading state resolves right away,
+        # then animate the reveal wave by wave via wave_timer above,
+        # ordered by cumulative_cost -- rv$current_assignments only gets
+        # set to the real, full result once that animation completes
+        # (inside the wave_timer observer), keeping this reactive's own
+        # notion of "current state" honest throughout the animation
+        # rather than claiming completion early.
         had_areas              <- !is.null(rv$saved_dfa_sf)
-        rv$current_assignments <- sc$initial_assignments
+        rv$current_assignments <- rep(NA_character_, length(sc$initial_assignments))
         rv$saved_dfa_sf        <- NULL
         rv$pop_table           <- NULL
         recompute_population_table(sc$initial_assignments)
-        if (tab_active()) send_current_scene()
+        if (tab_active()) {
+          # Distinct per-area colors baked directly into the initial scene
+          # message itself, rather than a separate paint_set_colors call
+          # sent right after -- eliminates any dependency on message
+          # ordering/timing between the two for the animation's colors to
+          # actually take effect.
+          scene_claimed_this_tab_switch(TRUE)
+          send_current_scene(dfa_colors_override = animation_fill_colors(rv$dfa_names))
+          start_wave_reveal(rv$grid_sf$cell_id, sc$cumulative_cost, sc$initial_assignments)
+          wave_final(sc$initial_assignments)
+        } else {
+          rv$current_assignments <- sc$initial_assignments
+        }
         if (had_areas) areas_regenerated_counter(areas_regenerated_counter() + 1L)
       } else {
         # Same scene — tab just became visible again; restore painted state as-is.
@@ -529,6 +718,10 @@ healthAreaTabServer <- function(
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
     
     observeEvent(active_tab(), {
+      if (isTRUE(scene_claimed_this_tab_switch())) {
+        scene_claimed_this_tab_switch(FALSE)
+        return()
+      }
       if (tab_active() && isTRUE(district_ready()) && !is.null(rv$grid_sf))
         send_current_scene()
     }, ignoreInit = TRUE)

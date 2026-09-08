@@ -176,6 +176,16 @@ teamAreaControlsServer <- function(id) {
     })
 
     # ── Step 2: Refine Boundaries ───────────────────────────────────────
+    # Smoothness/stiffness tracked in their own reactiveVals -- see
+    # mod_health_area_controls.R's identical wiring for why (an
+    # update*Input() call sent while this UI isn't currently rendered is
+    # silently dropped client-side, so a reset can't rely on the raw
+    # input value surviving).
+    vertex_smoothness_val <- reactiveVal(2)
+    vertex_stiffness_val  <- reactiveVal(6)
+    observeEvent(input$vertex_smoothness_ui, vertex_smoothness_val(input$vertex_smoothness_ui), ignoreInit = TRUE)
+    observeEvent(input$vertex_stiffness_ui,  vertex_stiffness_val(input$vertex_stiffness_ui),  ignoreInit = TRUE)
+
     output$refine_step_ui <- renderUI({
       req(vertex_mode_active())
       tagList(
@@ -183,11 +193,11 @@ teamAreaControlsServer <- function(id) {
             'STEP 2: REFINE BOUNDARIES'),
         div(style = 'font-size:11px;color:#475569;', 'Smoothness'),
         sliderInput(ns('vertex_smoothness_ui'), NULL, min = 1, max = 15,
-                    value = isolate(input$vertex_smoothness_ui) %||% 2,
+                    value = isolate(vertex_smoothness_val()),
                     step = 1, width = '100%', ticks = FALSE),
         div(style = 'font-size:11px;color:#475569;', 'Stiffness'),
         sliderInput(ns('vertex_stiffness_ui'), NULL, min = 1, max = 20,
-                    value = isolate(input$vertex_stiffness_ui) %||% 6,
+                    value = isolate(vertex_stiffness_val()),
                     step = 1, width = '100%', ticks = FALSE),
         div(
           style = 'display:flex;gap:6px;margin-top:8px;',
@@ -205,6 +215,19 @@ teamAreaControlsServer <- function(id) {
       )
     })
 
+    # Resets every user-adjustable control back to default -- see
+    # mod_health_area_controls.R's identical reset_controls() for why
+    # this exists and how the parent tab calls it.
+    reset_controls <- function() {
+      updateSliderInput(session, 'brush_m_ui', value = 1000)
+      updateCheckboxInput(session, 'show_pop_raster', value = show_pop_default)
+      updateCheckboxInput(session, 'show_friction_raster', value = FALSE)
+      updateCheckboxInput(session, 'boundary_only', value = boundary_only_default)
+      vertex_mode_active(FALSE)
+      vertex_smoothness_val(2)
+      vertex_stiffness_val(6)
+    }
+
     list(
       brush_m                = reactive(input$brush_m_ui),
       show_pop_raster        = reactive(isTRUE(input$show_pop_raster)),
@@ -221,7 +244,8 @@ teamAreaControlsServer <- function(id) {
       refine_reset_click      = reactive(input$refine_reset_btn),
       set_vertex_mode_ui      = set_vertex_mode_ui,
       vertex_smoothness       = reactive(input$vertex_smoothness_ui),
-      vertex_stiffness        = reactive(input$vertex_stiffness_ui)
+      vertex_stiffness        = reactive(input$vertex_stiffness_ui),
+      reset_controls          = reset_controls
     )
   })
 }

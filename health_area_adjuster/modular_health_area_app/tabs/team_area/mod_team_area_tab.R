@@ -89,6 +89,13 @@ teamAreaTabServer <- function(
 
     tab_active <- reactive({ identical(active_tab(), 'tab_team_area_mapping') })
 
+    # Same reasoning as mod_health_area_tab.R's identical observer --
+    # reset every user-adjustable control back to default the moment the
+    # user navigates away from this tab.
+    observeEvent(tab_active(), {
+      if (!isTRUE(tab_active())) controls$reset_controls()
+    }, ignoreInit = TRUE)
+
     observeEvent(controls$help_click(), { .show_team_area_help_modal() })
 
     .show_team_area_help_modal <- function() {
@@ -234,6 +241,14 @@ teamAreaTabServer <- function(
     })
 
     area_population <- reactive({
+      # Local, this-session-only override from the pop-up shown when a
+      # health area is first selected (see modal_confirmed observer
+      # below) takes priority over the raw WorldPop extraction -- lets
+      # the user correct the estimate for just this health area before
+      # anything downstream (team-count recommendation, seed generation)
+      # uses it.
+      ov <- local_pop_override()
+      if (!is.null(ov) && !is.na(ov) && ov >= 0) return(ov)
       ha <- tryCatch(selected_health_area_sf(), error = function(e) NULL)
       req(!is.null(ha))
       if (is.null(u5_rast)) return(0)
@@ -249,6 +264,12 @@ teamAreaTabServer <- function(
     # to compute_n_teams()'s own WorldPop-based recommendation, exactly as
     # before this override existed.
     n_teams_r <- reactive({
+      # Local, this-session-only override (see modal_confirmed observer
+      # below) takes priority over BOTH the external post-submit-modal
+      # override and the computed recommendation -- same reasoning as
+      # area_population()'s own local override above.
+      local_ov <- local_teams_override()
+      if (!is.null(local_ov) && !is.na(local_ov) && local_ov > 0) return(as.integer(local_ov))
       overrides <- tryCatch(team_targets_r(), error = function(e) NULL)
       override  <- overrides[[health_area_name() %||% '']]$requested_teams
       if (!is.null(override) && !is.na(override) && override > 0) {
@@ -258,8 +279,49 @@ teamAreaTabServer <- function(
       }
     })
 
+    # ── Pop-up shown when a health area is first selected for team-area
+    # mapping -- shows the population estimate and recommended/previous
+    # team count, editable before anything renders. Reset (fresh modal,
+    # fresh defaults, generation blocked again) every time health_area_
+    # name() changes to a different health area -- these overrides are
+    # explicitly scoped to "just this health area", not carried forward
+    # to whichever one the user looks at next.
+    local_pop_override   <- reactiveVal(NULL)
+    local_teams_override <- reactiveVal(NULL)
+    modal_confirmed       <- reactiveVal(FALSE)
+
+    observeEvent(health_area_name(), {
+      req(nzchar(health_area_name() %||% ''))
+      local_pop_override(NULL)
+      local_teams_override(NULL)
+      modal_confirmed(FALSE)
+      # isolate()d: these read the PRE-override computed values (local
+      # overrides were just cleared above) to prefill the modal with
+      # what generation would otherwise use, not create a reactive
+      # dependency that would re-trigger this observer itself.
+      pop_default   <- isolate(round(area_population()))
+      teams_default <- isolate(n_teams_r())
+      showModal(modalDialog(
+        title = sprintf('Team planning for %s', health_area_name()),
+        p('Confirm or adjust the population estimate and number of teams for this health area before the team map is generated.'),
+        numericInput(session$ns('modal_pop_ui'), 'Population estimate (under-5)',
+                    value = pop_default, min = 0, step = 1),
+        numericInput(session$ns('modal_teams_ui'), 'Number of teams',
+                    value = teams_default, min = 1, step = 1),
+        footer = actionButton(session$ns('modal_confirm_btn'), 'Continue', class = 'btn-primary'),
+        easyClose = FALSE
+      ))
+    }, ignoreInit = FALSE)
+
+    observeEvent(input$modal_confirm_btn, {
+      local_pop_override(input$modal_pop_ui)
+      local_teams_override(input$modal_teams_ui)
+      modal_confirmed(TRUE)
+      removeModal()
+    })
+
     team_seed_sf <- reactive({
-      req(selected_health_area_sf(), n_teams_r())
+      req(selected_health_area_sf(), n_teams_r(), isTRUE(modal_confirmed()))
       compute_team_area_seeds(
         health_area_sf = selected_health_area_sf(),
         u5_rast        = u5_rast,
@@ -270,15 +332,41 @@ teamAreaTabServer <- function(
 
     team_scene_mod <- initialHealthAreaGenerationServer(
       'team_scene',
+      progress_message      = 'Generating team area boundaries...',
       district_sf           = reactive({ req(selected_health_area_sf()); selected_health_area_sf() }),
       friction_district_sf  = full_district_sf_r,
       grid_n                = reactive({
         req(selected_health_area_sf())
+        # Gated on the population/team-count confirmation modal (see
+        # observeEvent(health_area_name(), ...) above) here specifically
+        # -- this is scene()'s very FIRST req() check inside
+        # initialHealthAreaGenerationServer, so gating here stops the
+        # whole generation from starting at all until confirmed. Gating
+        # facility_seed_sf (team_seed_sf) alone let grid build/friction
+        # extraction run to completion and then abort mid-scene() every
+        # time the tab was entered before confirming -- wasted work, and
+        # worse, meant scene()'s entire body re-ran from scratch once
+        # confirmed (reactives re-run wholesale on any dependency change,
+        # not just the part that changed), which is what the doubled
+        # [timing] grid build lines in a stuck-on-loading report traced
+        # back to.
+        req(isTRUE(modal_confirmed()))
         ha_3857  <- sf::st_transform(selected_health_area_sf(), 3857)
         bbox     <- sf::st_bbox(ha_3857)
         max_dim  <- max(bbox$xmax - bbox$xmin, bbox$ymax - bbox$ymin)
-        cellsize <- max(30, round(max_dim / 100 / 25) * 25)
-        max(20L, as.integer(round(max_dim / cellsize)))
+        # Same clamped-cellsize logic as mod_health_area_tab.R's grid_n
+        # (see its comment for the full reasoning), sized against the
+        # outer health area's own extent rather than the whole district
+        # -- a small health area naturally lands near the 100m floor, a
+        # large one caps at the 500m ceiling.
+        target_cellsize <- max_dim / 160
+        cellsize        <- max(100, min(500, target_cellsize))
+        max(20L, as.integer(round(max_dim / cellsize)))   # 20-floor preserved from the
+                                                           # previous formula -- team
+                                                           # boundaries need more minimum
+                                                           # granularity within an already-
+                                                           # small health area than a whole
+                                                           # district needs at its own scale.
       }),
       n_dfa                 = 1,   # unused — facility_seed_sf is always provided below
       seed                  = reactive(sum(utf8ToInt(health_area_name() %||% 'x'))),
@@ -301,6 +389,7 @@ teamAreaTabServer <- function(
     send_current_scene <- function() {
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
+      cat("[team_area_debug] send_current_scene() passed its own early req() checks\n")
       scene_ever_sent(TRUE)
 
       # Unconditionally force the JS side back to paint mode before every
@@ -394,21 +483,45 @@ teamAreaTabServer <- function(
       if (!is.null(rv$grid_sf)) .apply_restore(snap) else pending_restore(snap)
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
-    observeEvent(team_scene_mod$scene(), {
+    # Minimal, isolated diagnostic -- no other logic, just confirming
+    # whether ANY reactive context can observe team_scene_mod$scene()
+    # successfully firing at all, independent of the more complex
+    # observer below.
+    observe({
+      val <- team_scene_mod$scene()
+      cat("[team_area_debug2] bare observe() saw scene(), is.null:", is.null(val), "\n")
+    })
+
+    # Was observeEvent(team_scene_mod$scene(), {...}, ignoreInit = TRUE) --
+    # replaced with observe()+isolate() after direct evidence that
+    # observeEvent specifically never fired here (a bare observe()
+    # watching the identical expression fired correctly), even though
+    # scene() itself completed successfully every time. scene_trigger is
+    # read OUTSIDE isolate() so it's the only real reactive dependency --
+    # replicating observeEvent's own isolation of everything else in its
+    # handler body, just via observe() instead, since that's the pattern
+    # already confirmed to work.
+    observe({
+      scene_trigger <- team_scene_mod$scene()
+      isolate({
+      cat("[team_area_debug] observer fired\n")
       req(nzchar(health_area_name() %||% ''))
+      cat("[team_area_debug] health_area_name check passed:", health_area_name(), "\n")
       # Once a draft's own saved team layout has been restored, that
       # takes precedence permanently for this session -- a later re-fire
       # of team_scene_mod$scene() (e.g. n_teams_r() settling to a
       # different value) must not wipe restored work back to a fresh
       # regeneration. A draft's own team layout is fixed by what was
       # previously saved, not by recomputing seeds again.
-      if (isTRUE(restore_applied())) return()
+      if (isTRUE(restore_applied())) { cat("[team_area_debug] blocked: restore_applied is TRUE\n"); return() }
 
-      sc <- tryCatch(team_scene_mod$scene(), error = function(e) NULL)
+      sc <- scene_trigger
       req(!is.null(sc))
+      cat("[team_area_debug] sc is non-null, proceeding\n")
 
       new_key <- paste0(health_area_name(), '|', n_teams_r())
-      if (identical(last_scene_key(), new_key)) return()
+      if (identical(last_scene_key(), new_key)) { cat("[team_area_debug] blocked: last_scene_key already matches", new_key, "\n"); return() }
+      cat("[team_area_debug] new_key:", new_key, "(previous:", last_scene_key() %||% "NULL", ")\n")
       last_scene_key(new_key)
 
       rv$district_sf         <- sc$district_sf
@@ -433,8 +546,10 @@ teamAreaTabServer <- function(
 
       if (is.null(active_team_rv()) || !active_team_rv() %in% rv$team_names) active_team_rv(rv$team_names[[1]])
       recompute_population_table(rv$current_assignments)
-      if (tab_active()) send_current_scene()
-    }, ignoreInit = TRUE)
+      cat("[team_area_debug] about to check tab_active():", isTRUE(tab_active()), "\n")
+      if (tab_active()) { cat("[team_area_debug] calling send_current_scene()\n"); send_current_scene() }
+      })
+    })
 
     observeEvent(active_tab(), {
       if (tab_active() && !is.null(rv$grid_sf)) send_current_scene()

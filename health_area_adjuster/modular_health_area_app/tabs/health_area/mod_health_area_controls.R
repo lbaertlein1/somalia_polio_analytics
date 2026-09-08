@@ -215,6 +215,18 @@ healthAreaControlsServer <- function(id) {
     })
 
     # ── Step 2: Refine Boundaries ───────────────────────────────────────
+    # Smoothness/stiffness tracked in their own reactiveVals, not read
+    # back from isolate(input$...) -- an update*Input() call sent while
+    # this UI isn't currently rendered (e.g. reset_controls() firing
+    # while the user is on Step 1) is silently dropped client-side, so
+    # relying on the raw input value surviving a reset wouldn't work.
+    # These are the actual source of truth; the sliders below just
+    # reflect them at render time and update them on change.
+    vertex_smoothness_val <- reactiveVal(2)
+    vertex_stiffness_val  <- reactiveVal(6)
+    observeEvent(input$vertex_smoothness_ui, vertex_smoothness_val(input$vertex_smoothness_ui), ignoreInit = TRUE)
+    observeEvent(input$vertex_stiffness_ui,  vertex_stiffness_val(input$vertex_stiffness_ui),  ignoreInit = TRUE)
+
     # Everything here (sliders, its own Undo/Reset, Save Refinements) is
     # only ever rendered while actually refining -- symmetric with step 1
     # collapsing away while this is active.
@@ -225,11 +237,11 @@ healthAreaControlsServer <- function(id) {
             'STEP 2: REFINE BOUNDARIES'),
         div(style = 'font-size:11px;color:#475569;', 'Smoothness'),
         sliderInput(ns('vertex_smoothness_ui'), NULL, min = 1, max = 15,
-                    value = isolate(input$vertex_smoothness_ui) %||% 2,
+                    value = isolate(vertex_smoothness_val()),
                     step = 1, width = '100%', ticks = FALSE),
         div(style = 'font-size:11px;color:#475569;', 'Stiffness'),
         sliderInput(ns('vertex_stiffness_ui'), NULL, min = 1, max = 20,
-                    value = isolate(input$vertex_stiffness_ui) %||% 6,
+                    value = isolate(vertex_stiffness_val()),
                     step = 1, width = '100%', ticks = FALSE),
         div(
           style = 'display:flex;gap:6px;margin-top:8px;',
@@ -246,6 +258,24 @@ healthAreaControlsServer <- function(id) {
         )
       )
     })
+
+    # Resets every user-adjustable control back to its default -- called
+    # by the parent tab when the user navigates away from this tab, so a
+    # later visit always starts fresh rather than carrying over whatever
+    # was left set from a previous session on a different (or the same)
+    # district. Explicit update*Input() calls for brush/checkboxes (safe
+    # regardless of current DOM state -- Step 1's own controls are always
+    # rendered); vertex_mode_active/smoothness/stiffness reset via their
+    # own reactiveVals directly, per the comment above.
+    reset_controls <- function() {
+      updateSliderInput(session, 'brush_m_ui', value = 5000)
+      updateCheckboxInput(session, 'show_pop_raster', value = show_pop_default)
+      updateCheckboxInput(session, 'show_friction_raster', value = FALSE)
+      updateCheckboxInput(session, 'boundary_only', value = boundary_only_default)
+      vertex_mode_active(FALSE)
+      vertex_smoothness_val(2)
+      vertex_stiffness_val(6)
+    }
 
     list(
       brush_m              = reactive(input$brush_m_ui),
@@ -267,7 +297,8 @@ healthAreaControlsServer <- function(id) {
       refine_reset_click      = reactive(input$refine_reset_btn),
       set_vertex_mode_ui      = set_vertex_mode_ui,
       vertex_smoothness       = reactive(input$vertex_smoothness_ui),
-      vertex_stiffness        = reactive(input$vertex_stiffness_ui)
+      vertex_stiffness        = reactive(input$vertex_stiffness_ui),
+      reset_controls          = reset_controls
     )
   })
 }

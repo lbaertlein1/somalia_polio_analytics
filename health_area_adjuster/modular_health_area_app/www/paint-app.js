@@ -98,13 +98,25 @@ function traceRealGridBoundaries(cells, cellCorners, assignments) {
       used.add(startV);
       let current = outMap[startV];
       while (current !== startV) {
-        if (current === undefined || used.has(current)) break;
+        if (current === undefined || used.has(current)) { current = undefined; break; }
         ring.push(current);
         used.add(current);
         current = outMap[current];
       }
-      ring.push(startV);
-      rings.push(ring);
+      // Only keep this ring if the walk actually returned to its own
+      // starting vertex naturally. If it broke off early (dead end, or
+      // ran into a vertex already claimed by another ring) -- which
+      // happens when this area's shape touches itself at one grid
+      // corner (two lobes meeting diagonally), overwriting one of that
+      // vertex's two outgoing edges above -- do NOT fabricate a
+      // "closing" segment back to startV. That fabricated segment is
+      // exactly what used to render as a long, perfectly straight line
+      // jumping across the whole map: real boundary edges are always
+      // between adjacent grid corners, never an arbitrary shortcut.
+      if (current === startV) {
+        ring.push(startV);
+        rings.push(ring);
+      }
     });
     rawIdRingsByArea[area] = rings;
   });
@@ -789,8 +801,13 @@ function getApp(msg) {
   // CURRENT this[key] instance is, not a stale one.
   _hidePaintLayersForVertexMode: function() {
     this._hiddenForVertexMode = this._hiddenForVertexMode || [];
+    // facilityLayer, landmarkLayer, and seedLayer (coordination-site/
+    // health-area/team-area name markers) are deliberately NOT hidden --
+    // they're reference context, not interactive paint elements, and
+    // refine mode needs the same names/points visible that painting
+    // already shows, not a bare boundary-only view with no orientation.
     ['gridLayer', 'brushPreview', 'savedLayer', 'districtLayer', 'popLayer',
-     'frictionLayer', 'subdivisionLayer', 'seedLayer', 'facilityLayer', 'landmarkLayer']
+     'frictionLayer', 'subdivisionLayer']
       .forEach(key => {
         const layer = this[key];
         if (layer && this.map.hasLayer(layer)) {
@@ -920,8 +937,14 @@ function getApp(msg) {
     // resting state back to paint mode's, so it must leave dragging
     // DISABLED here, not enabled -- guaranteeing that regardless of
     // whatever state a vertex-mode drag gesture left it in (e.g. a
-    // gesture that didn't cleanly reach its own mouseup).
-    if (this.map.dragging) this.map.dragging.disable();
+    // gesture that didn't cleanly reach its own mouseup). Also guards on
+    // this.map itself, not just this.map.dragging: this can run on a
+    // brand-new app instance whose map was never created yet, since
+    // send_current_scene()'s own defensive, unconditional paint_exit_
+    // vertex_mode message can arrive before the FIRST paint_load_scene
+    // ever does -- reading a property off a null this.map throws
+    // immediately.
+    if (this.map && this.map.dragging) this.map.dragging.disable();
     this.refreshAllStyles();
   },
 
@@ -1000,7 +1023,7 @@ function getApp(msg) {
         for (let i = 0; i < ring.length - 1; i++) {
           const v1 = ring[i], v2 = ring[i + 1];
           const pairKey = [v1, v2].sort().join('|');
-          if (drawnPairs.has(pairKey)) return;
+          if (drawnPairs.has(pairKey)) continue;
           drawnPairs.add(pairKey);
           const isOuter = ov.has(v1) && ov.has(v2);
           const latlngs = [[vp[v1].lat, vp[v1].lng], [vp[v2].lat, vp[v2].lng]];
@@ -1419,22 +1442,45 @@ function getApp(msg) {
       styleForFeature: function(feature) {
         const id = String(feature.properties.cell_id);
         const dfa = this.assignments[id];
+
+        // Not yet assigned (mid wave-reveal animation, before propagation
+        // has reached this cell) -- fully transparent and borderless,
+        // rather than a placeholder gray fill. In normal operation every
+        // cell always has a real assignment (BFS propagation covers the
+        // whole grid), so this state should only ever be visible briefly
+        // during the reveal animation, never as a resting state.
+        if (dfa === undefined || dfa === null) {
+          return { stroke: false, color: '#000000', weight: 0, opacity: 0,
+                  fillColor: '#757575', fillOpacity: 0 };
+        }
+
         const fillColor = this.fillForDfa(dfa);
         const isBoundary = this.isBoundaryCell(id);
-        const isSelectedBoundary = isBoundary && dfa === this.activeDfa;
+        // isOwnBoundary drives FILL darkness -- only the active/selected
+        // area's own boundary cells get the highlighted fill, exactly as
+        // before showAllBoundaries existed. showBorderLine drives the
+        // separate, thin BORDER LINE -- includes showAllBoundaries (a
+        // transient, animation-only flag; see paint_highlight_all_
+        // boundaries) so every area's outline can be shown at once
+        // without also darkening every area's fill, which is what
+        // happened when both concerns were driven by the same flag: a
+        // regression where every boundary cell got the active-area's
+        // darker highlight fill, not just its own.
+        const isOwnBoundary  = isBoundary && dfa === this.activeDfa;
+        const showBorderLine = isBoundary && (dfa === this.activeDfa || this.showAllBoundaries);
 
         let fillOpacity;
         if (this.boundaryOnly) {
-          fillOpacity = isSelectedBoundary ? 0.9 : 0.0;
+          fillOpacity = isOwnBoundary ? 0.9 : 0.0;
         } else {
-          fillOpacity = isSelectedBoundary ? 0.85 : 0.3;
+          fillOpacity = isOwnBoundary ? 0.85 : 0.3;
         }
 
         return {
-          stroke: isSelectedBoundary,
-          color: this.borderColorForDfa(dfa),
-          weight: isSelectedBoundary ? 0.8 : 0,
-          opacity: isSelectedBoundary ? 1.0 : 0.0,
+          stroke: showBorderLine,
+          color: this.showAllBoundaries ? '#000000' : this.borderColorForDfa(dfa),
+          weight: showBorderLine ? 0.8 : 0,
+          opacity: showBorderLine ? 1.0 : 0.0,
           fillColor: fillColor,
           fillOpacity: fillOpacity
         };
@@ -1864,6 +1910,7 @@ function getApp(msg) {
         this.initialAssignments = JSON.parse(JSON.stringify(msg.initialAssignments));
         this.assignments = JSON.parse(JSON.stringify(msg.initialAssignments));
         this.dfaColors = msg.dfaColors || {};
+        console.log('[demo] loadScene dfaColors:', JSON.stringify(this.dfaColors));
         this.activeDfa = msg.activeDfa || null;
         this.neighbors = msg.neighbors || {};
         this.edgeCells = msg.edgeCells || {};
@@ -2011,6 +2058,41 @@ function getApp(msg) {
         }
       },
 
+      // Reveals a batch of cells by directly setting this.assignments and
+      // restyling just those cells' existing layers -- no scene reload,
+      // no gridLayer reconstruction. Used to animate propagation wave by
+      // wave as it computes server-side, without paying the cost of a
+      // full paint_load_scene per wave (that message rebuilds the ENTIRE
+      // grid layer, including re-attaching every cell's onEachFeature
+      // click listener -- fine once per scene, far too expensive to call
+      // repeatedly for an animation). msg.assignments is a plain
+      // {cellId: dfaName} map, same shape as initialAssignments -- a
+      // partial one here, just this wave's newly-assigned cells.
+      revealWave: function(msg) {
+        const updates = msg.assignments || {};
+        const ids = Object.keys(updates);
+        if (ids.length > 0) {
+          const sampleId = ids[0];
+          console.log('[demo] revealWave sample: cell', sampleId, '-> dfa', JSON.stringify(updates[sampleId]),
+                     '-> dfaColors[dfa]', JSON.stringify(this.dfaColors[updates[sampleId]]),
+                     '| dfaColors keys:', JSON.stringify(Object.keys(this.dfaColors)));
+        }
+        ids.forEach((id) => {
+          this.assignments[id] = updates[id];
+          const layer = this.cellLayers[id];
+          if (layer) layer.setStyle(this.styleForFeature(layer.feature));
+        });
+      },
+
+      // Transient, animation-only toggle -- see styleForFeature's own
+      // comment. refreshAllStyles() re-applies styleForFeature to every
+      // existing cell layer so the flag change is visible immediately,
+      // not just for whichever cells happen to restyle next.
+      setShowAllBoundaries: function(flag) {
+        this.showAllBoundaries = !!flag;
+        this.refreshAllStyles();
+      },
+
       resetAssignments: function() {
         // Reset is itself an undoable action — snapshot the current state
         // before reverting to auto-generated, unless nothing would change.
@@ -2079,6 +2161,14 @@ function getApp(msg) {
 
     Shiny.addCustomMessageHandler('paint_load_scene', function(msg) {
       getApp(msg).loadScene(msg);
+    });
+
+    Shiny.addCustomMessageHandler('paint_reveal_wave', function(msg) {
+      getApp(msg).revealWave(msg);
+    });
+
+    Shiny.addCustomMessageHandler('paint_highlight_all_boundaries', function(msg) {
+      getApp(msg).setShowAllBoundaries(!!msg.highlight);
     });
 
     Shiny.addCustomMessageHandler('paint_reset', function(msg) {

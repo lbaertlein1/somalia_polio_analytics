@@ -451,7 +451,13 @@ initialHealthAreaGenerationServer <- function(
     # placement failing for a sparsely-populated health area) can then
     # surface while the user is on a completely different tab, since the
     # computation runs silently in the background either way.
-    active = reactive(TRUE)
+    active = reactive(TRUE),
+    # Top-level shiny::withProgress() message -- lets each caller (Health
+    # Areas vs Team Areas) show wording that actually matches what it's
+    # generating, since this one function serves both. Team Areas passes
+    # its own; Health Areas' default below covers it without needing to
+    # pass anything.
+    progress_message = "Generating health area boundaries..."
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -708,12 +714,53 @@ initialHealthAreaGenerationServer <- function(
       req(active())
       req(district_sf()); req(nrow(district_sf()) > 0); req(grid_n())
       
+      # Lay-language descriptions for the loading indicator -- shown via
+      # a bottom-left progress block rather than technical step names,
+      # so a non-technical user sees what's actually happening and that
+      # nothing is stuck, not just an unlabeled spinner. shiny::
+      # incProgress()'s detail= is what actually reaches the browser
+      # mid-computation -- it's one of the few Shiny mechanisms that
+      # forces an immediate flush rather than batching until this whole
+      # reactive finishes, which is why it's used here instead of a
+      # plain session$sendCustomMessage() (which would just queue up and
+      # arrive all at once, defeating the purpose of incremental status).
+      #
+      # This was tried once before and reverted on suspicion it broke
+      # team-area generation (which shares this exact function) -- that
+      # suspicion turned out to be wrong. The actual cause, confirmed by
+      # direct debugging, was an unrelated bug in team-area's own
+      # observeEvent() watching this reactive's result, which has since
+      # been fixed independently (converted to observe()+isolate() in
+      # mod_team_area_tab.R). Reverting withProgress() at the time never
+      # actually fixed team-area on its own -- only that separate fix
+      # did -- which is the evidence this was safe to restore.
+      .step_descriptions <- c(
+        "grid build"                     = "Building the map grid",
+        "neighbors list"                 = "Mapping which grid cells touch each other",
+        "friction extract"               = "Reading terrain and travel conditions",
+        "population extract"             = "Estimating population in each grid cell",
+        "barrier crossing matrix"        = "Checking for roads and rivers crossing the area",
+        "subdivision crossing matrix"    = "Checking internal administrative boundaries",
+        "BFS propagation (from sites)"   = "Growing health area boundaries out from coordination sites",
+        "BFS propagation (random seeds)" = "Growing health area boundaries",
+        "edge list"                      = "Finalizing boundary lines"
+      )
+      # Approximate, fixed-size steps (not all 8 always run -- e.g. no
+      # barriers/subdivisions present skips those two) -- an evenly-paced
+      # bar that doesn't quite reach 100% before the real completion
+      # signal is a far better user experience than a precisely accurate
+      # one that requires predicting which optional steps will run.
       .t <- function(label, expr) {
+        desc <- unname(.step_descriptions[label])
+        if (is.na(desc)) desc <- label
+        shiny::incProgress(amount = 1/8, detail = desc)
         t0 <- proc.time()[["elapsed"]]
         result <- force(expr)
         cat(sprintf("[timing] %-30s %.2f s\n", label, proc.time()[["elapsed"]] - t0))
         result
       }
+      
+      shiny::withProgress(message = progress_message, value = 0, {
       
       seed_val <- if (shiny::is.reactive(seed)) seed() else as.integer(seed)
       
@@ -872,6 +919,7 @@ initialHealthAreaGenerationServer <- function(
         subdivision_crossing_list    = subdivision_crossing_list_value,
         friction_path                = friction_path_value
       )
+      })
     })
     
     list(
