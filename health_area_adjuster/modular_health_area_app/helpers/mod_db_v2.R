@@ -225,7 +225,8 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
   "odk_sf, app_sf, district_boundary_sf,",
   "saved_dfa_sf, dfa_names, current_assignments, team_targets,",
   "smoothed_dfa_sf, smoothing_generated_at,",
-  "landmarks, idp_settlements"
+  "landmarks, idp_settlements,",
+  "scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope"
 )
 
 .parse_mv_row <- function(r) {
@@ -243,10 +244,12 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
     archived_at                        = r$archived_at,
     facilities_locked_at                 = r$facilities_locked_at,
     boundary_locked_at                     = r$boundary_locked_at,
+    scope_locked_at                          = r$scope_locked_at,
     has_landmarks                            = isTRUE(r$has_landmarks),
     has_facilities                             = isTRUE(r$has_facilities),
     has_idp                                      = isTRUE(r$has_idp),
     has_health_areas                               = isTRUE(r$has_health_areas),
+    has_scope                                        = isTRUE(r$has_scope),
     submitted_by                                       = r$submitted_by,
     snap = list(
       odk_sf                = .from_json_sf_db(r$odk_sf %||% NA_character_),
@@ -258,10 +261,14 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
       team_targets                       = .from_json_db(r$team_targets %||% NA_character_),
       smoothed_dfa_sf                    = .from_json_sf_db(r$smoothed_dfa_sf %||% NA_character_),
       landmarks                            = .from_json_df_db(r$landmarks %||% NA_character_),
-      idp_settlements                        = .from_json_df_db(r$idp_settlements %||% NA_character_)
+      idp_settlements                        = .from_json_df_db(r$idp_settlements %||% NA_character_),
+      scope_saved_dfa_sf                        = .from_json_sf_db(r$scope_saved_dfa_sf %||% NA_character_),
+      scope_dfa_names                              = .from_json_vec_db(r$scope_dfa_names %||% NA_character_),
+      scope_current_assignments                      = .from_json_vec_db(r$scope_current_assignments %||% NA_character_)
     )
   )
 }
+
 
 
 # =============================================================================
@@ -498,11 +505,22 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
   cur_assign_json      <- if (stage == "areas")  .to_json_for_db(data$current_assignments)   else NA_character_
   team_targets_json    <- if (stage == "areas")  .to_json_for_db(data$team_targets)          else NA_character_
   smoothed_dfa_json    <- if (stage == "areas")  .to_json_for_db(data$smoothed_dfa_sf)        else NA_character_
+  # Campaign scope -- same shape as the health-area grid (a small,
+  # gridded painting task with saved polygons + per-cell assignments),
+  # locked once facilities begins, same lifecycle as landmarks/
+  # facilities/boundary snapshots above -- so these are new columns on
+  # THIS table, not a separate versioned table the way team areas are
+  # (team areas need independent, per-health-area publishing; scope
+  # doesn't).
+  scope_saved_dfa_sf_json <- if (stage == "scope") .to_json_for_db(data$scope_saved_dfa_sf)       else NA_character_
+  scope_dfa_names_json    <- if (stage == "scope") .to_json_for_db(data$scope_dfa_names)          else NA_character_
+  scope_cur_assign_json   <- if (stage == "scope") .to_json_for_db(data$scope_current_assignments) else NA_character_
 
   has_landmarks    <- stage == "landmarks"
   has_facilities   <- stage == "facilities"
   has_idp          <- stage == "idp"
   has_health_areas <- stage == "areas"
+  has_scope        <- stage == "scope"
 
   smoothing_stamp <- stage == "areas"
 
@@ -520,26 +538,33 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
         current_assignments                  = COALESCE($9,  current_assignments),
         team_targets                           = COALESCE($10, team_targets),
         smoothed_dfa_sf                          = COALESCE($11, smoothed_dfa_sf),
+        scope_saved_dfa_sf                         = COALESCE($16, scope_saved_dfa_sf),
+        scope_dfa_names                              = COALESCE($17, scope_dfa_names),
+        scope_current_assignments                      = COALESCE($18, scope_current_assignments),
         %s
         has_landmarks    = has_landmarks    OR $12,
         has_facilities   = has_facilities   OR $13,
         has_idp          = has_idp          OR $14,
         has_health_areas = has_health_areas OR $15,
+        has_scope        = has_scope        OR $19,
         facilities_locked_at = CASE WHEN $13 AND facilities_locked_at IS NULL THEN NOW() ELSE facilities_locked_at END,
-        boundary_locked_at   = CASE WHEN $13 AND boundary_locked_at   IS NULL THEN NOW() ELSE boundary_locked_at   END
+        boundary_locked_at   = CASE WHEN $13 AND boundary_locked_at   IS NULL THEN NOW() ELSE boundary_locked_at   END,
+        scope_locked_at      = CASE WHEN $19 AND scope_locked_at      IS NULL THEN NOW() ELSE scope_locked_at      END
       WHERE version_id = $1
     ", if (smoothing_stamp) "smoothing_generated_at = NOW()," else ""),
       list(
         target_id, username,
         landmarks_json, odk_sf_json, app_sf_json, idp_json,
         saved_dfa_sf_json, dfa_names_json, cur_assign_json, team_targets_json, smoothed_dfa_json,
-        has_landmarks, has_facilities, has_idp, has_health_areas
+        has_landmarks, has_facilities, has_idp, has_health_areas,
+        scope_saved_dfa_sf_json, scope_dfa_names_json, scope_cur_assign_json, has_scope
       )
     )
   }, error = function(e) {
     cat('[db] submit_stage_v2 UPDATE error (', stage, '):', e$message, '\n')
     stop(e)
   })
+
 
   invisible(target_id)
 }
@@ -1237,7 +1262,7 @@ db_get_campaign_districts <- function(pool, campaign_id) {
 #' already assigned — the carry-forward prompt is only offered for
 #' districts genuinely NEW to the campaign (see mod_admin_tab_v2.R), so
 #' re-assigning an already-assigned district should never re-trigger it.
-#' mapping_scope: 'full' (default) or 'urban_only' -- see server.R's
+#' mapping_scope: 'full' (default) or 'partial' -- see server.R's
 #' planning_area_sf reactive for what this actually changes. ON CONFLICT
 #' DO NOTHING means re-assigning an already-assigned district does NOT
 #' update its existing mapping_scope -- use db_set_district_mapping_scope()

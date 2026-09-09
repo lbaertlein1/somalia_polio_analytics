@@ -109,6 +109,7 @@ app_ui <- function() {
             id = 'header-tabs',
             tags$button(class = 'hdr-tab hdr-tab-active', `data-tab` = 'tab_intro',         'Introduction'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_orientation',   'Landmarks'),
+            tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_campaign_scope', 'Campaign Scope'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_facility_mapping', 'Facilities'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_area_mapping',     'Health Areas'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_team_area_mapping',       'Team Areas'),
@@ -133,7 +134,10 @@ app_ui <- function() {
           
           tabPanel(title = 'Landmarks',       value = 'tab_orientation',
                    orientationTabUI('orientation')),
-          
+
+          tabPanel(title = 'Campaign Scope',  value = 'tab_campaign_scope',
+                   campaignScopeTabUI('campaign_scope')),
+
           tabPanel(title = 'Facilities',      value = 'tab_health_facility_mapping',
                    facilityTabUI('facility')),
           

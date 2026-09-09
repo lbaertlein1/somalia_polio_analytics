@@ -76,12 +76,17 @@ app_server <- function(input, output, session) {
   }, ignoreInit = TRUE)
 
   # Separate from subdivisions_rv above -- that one feeds the intro
-  # tab's subdivision-picker UI specifically. This is for URBAN
-  # CLASSIFICATION only (planning_area_sf below), fetched from its own
-  # admin-configurable URL (fetch_urban_areas_for_district(), which
-  # falls back to the same subdivisions layer until an admin sets a
-  # distinct one) -- decoupled so replacing one URL in the admin page
-  # can never silently change what the other feature uses.
+  # tab's subdivision-picker UI specifically. This is the PREFILL source
+  # for the Campaign Scope stage (mod_campaign_scope_tab.R) when a
+  # district is set to 'partial' -- fetched from its own admin-
+  # configurable URL (fetch_urban_areas_for_district(), which falls back
+  # to a WorldPop density approximation when no real urban-area GIS data
+  # exists, and to the same subdivisions layer until an admin sets a
+  # distinct URL) -- decoupled so replacing one URL in the admin page
+  # can never silently change what the other feature uses. No longer
+  # feeds planning_area_sf directly (see that reactive below) -- it only
+  # ever informs what the Scope stage's canvas starts painted as; the
+  # SAVED scope boundary, once painted, is what planning_area_sf reads.
   urban_areas_rv <- reactiveVal(NULL)
   observeEvent(active_district(), {
     urban_areas_rv(NULL)
@@ -92,10 +97,14 @@ app_server <- function(input, output, session) {
   }, ignoreInit = TRUE)
 
   # Whether the CURRENT (active_campaign_id, active_district) pair is
-  # scoped to 'urban_only' -- read live from campaign_districts, per
+  # scoped to 'partial' -- read live from campaign_districts, per
   # admin-configured setting (see mod_admin_tab_v2.R's Manage Districts
   # modal). 'full' (the only behavior that ever existed before this
-  # feature) whenever anything here is missing or fails.
+  # feature) whenever anything here is missing or fails. 'partial'
+  # (renamed from the old 'urban_only') means this district gets the
+  # Campaign Scope stage between Landmarks and Facilities -- it no
+  # longer implies a specific source (urban areas) or an automatically-
+  # computed boundary; see planning_area_sf below.
   active_mapping_scope <- reactive({
     cid <- active_campaign_id(); dn <- active_district()
     if (is.null(cid) || is.null(dn)) return('full')
@@ -110,43 +119,62 @@ app_server <- function(input, output, session) {
   # health areas, and (transitively, since team-area's own planning area
   # is derived from the health area's saved boundary, not the district
   # directly) team areas too. full_district_sf() unless this district is
-  # scoped to urban_only for the active campaign, in which case it's a
-  # buffered dissolve of that district's subdivision polygons instead --
-  # st_union() first (so multiple disconnected urban clusters/islands
-  # stay as one valid multi-part geometry, not merged into a single hull
-  # that would wrongly swallow rural land between them), buffered by the
-  # admin-configured urban_buffer_km, then clipped back to the district's
-  # own boundary (a district's planning area logically can't extend
-  # beyond the district itself, even if the buffer alone would push past
-  # it). Falls back to full_district_sf() on any failure or missing
-  # data -- this is a defensive fallback, not the primary enforcement of
-  # "no-subdivision districts can't be set to urban only", which is
-  # mod_admin_tab_v2.R's .validate_urban_scope(), applied at the point
-  # the admin actually sets the scope.
+  # scoped to 'partial' for the active campaign AND its Campaign Scope
+  # stage has actually been painted and saved -- in which case it's the
+  # "In Scope" polygon from that saved scope grid instead.
+  #
+  # Reads the CURRENT health-area session's own saved snapshot
+  # (scope_saved_dfa_sf, added alongside saved_dfa_sf/landmarks/etc. on
+  # mapping_versions -- same lifecycle, same table, see create_db_v2.R)
+  # rather than fetching anything live -- this is deliberately the same
+  # shape as saved_dfa_sf itself (a dissolved polygon per value, filtered
+  # by its dfa_name column, e.g. ha_sf[ha_sf$dfa_name == nm, ] elsewhere
+  # in this codebase), just with two possible values ('In Scope' / 'Out
+  # of Scope') instead of many health-area names.
+  #
+  # Falls back to full_district_sf() whenever scope hasn't been painted
+  # yet for the currently active draft (a 'partial' district's Campaign
+  # Scope stage genuinely hasn't been reached/saved yet -- e.g.
+  # Orientation, which runs before Landmarks and therefore before Scope
+  # too) or on any failure -- this is a graceful default for an
+  # in-progress draft, not the enforcement of anything; the Scope stage
+  # itself (mod_campaign_scope_tab.R) is what actually prevents Facilities
+  # from being reached without scope having been saved first, per the
+  # same has_scope-based lock pattern health_area_locked_to_current
+  # already uses for Landmarks/Facilities.
   planning_area_sf <- reactive({
     full_sf <- full_district_sf()
     req(!is.null(full_sf))
-    if (!identical(active_mapping_scope(), 'urban_only')) return(full_sf)
+    if (!identical(active_mapping_scope(), 'partial')) return(full_sf)
 
-    subs <- urban_areas_rv()
-    if (is.null(subs) || nrow(subs) == 0) return(full_sf)
+    # Prefer the live, just-submitted scope from THIS session
+    # (campaign_scope$submitted_scope_sf(), set the moment a submit
+    # actually completes) over health_area_session$restore_snapshot(),
+    # which is a snapshot taken once at session ACTIVATION time and
+    # never refreshes automatically after a later submit_stage_fn(
+    # 'scope', ...) call -- confirmed directly as a real bug (facility
+    # selection kept showing the full district after submitting a
+    # smaller scope, since restore_snapshot() still held the pre-
+    # submission, NULL-scope snapshot for the rest of the session).
+    # restore_snapshot() is still needed as the fallback for the case
+    # this doesn't cover: resuming a draft where scope was already
+    # submitted in a PREVIOUS session, before this one's activation
+    # snapshot was even taken.
+    live_scope <- tryCatch(campaign_scope$submitted_scope_sf(), error = function(e) NULL)
+    scope_polys <- if (!is.null(live_scope) && nrow(live_scope) > 0) {
+      live_scope
+    } else {
+      snap <- tryCatch(health_area_session$restore_snapshot(), error = function(e) NULL)
+      snap$scope_saved_dfa_sf
+    }
+    if (is.null(scope_polys) || nrow(scope_polys) == 0 || !('dfa_name' %in% names(scope_polys))) return(full_sf)
 
-    buffer_km <- tryCatch(db_get_generation_setting(pool, 'urban_buffer_km', active_campaign_id()),
-                          error = function(e) NA_real_)
-    if (is.na(buffer_km)) buffer_km <- 5
+    in_scope <- scope_polys[scope_polys$dfa_name == 'In Scope', , drop = FALSE]
+    if (nrow(in_scope) == 0 || all(sf::st_is_empty(in_scope))) return(full_sf)
 
-    tryCatch({
-      subs_3857   <- sf::st_transform(safe_make_valid(subs), 3857)
-      dissolved   <- sf::st_union(subs_3857)
-      buffered    <- sf::st_buffer(dissolved, buffer_km * 1000)
-      buffered_sf <- sf::st_sf(geometry = buffered, crs = 3857)
-      full_3857   <- sf::st_transform(full_sf, 3857)
-      clipped_sf  <- suppressWarnings(sf::st_intersection(buffered_sf, sf::st_geometry(full_3857)))
-      if (nrow(clipped_sf) == 0 || all(sf::st_is_empty(clipped_sf))) return(full_sf)
-      clipped_sf$district_name <- full_sf$district_name[1]
-      sf::st_transform(clipped_sf, 4326)
-    }, error = function(e) full_sf)
+    tryCatch(sf::st_transform(safe_make_valid(in_scope), 4326), error = function(e) full_sf)
   })
+
 
   zone_r <- reactive({
     req(!is.null(active_district()))
@@ -196,6 +224,17 @@ app_server <- function(input, output, session) {
   # incorrectly carries over from a previously continued district.
   health_area_locked_to_current <- reactiveVal(FALSE)
 
+  # Campaign Scope's own lock, same shape as health_area_locked_to_current
+  # above but one stage further along: TRUE once the CURRENTLY active
+  # draft's Facilities stage has ever been entered/has data (has_scope
+  # alone isn't the right signal -- painting scope doesn't itself lock
+  # it; only moving on to Facilities does, per "scope is locked once
+  # facilities begins"). Read from the same restore event's has_facilities
+  # flag as health_area_locked_to_current already reads has_boundaries
+  # from, so both locks are derived from the exact same activation
+  # payload rather than two separate DB reads that could disagree.
+  campaign_scope_locked_to_current <- reactiveVal(FALSE)
+
   observeEvent(intro$activate_health_area_request(), {
     req_ev <- intro$activate_health_area_request()
     req(!is.null(req_ev))
@@ -213,6 +252,7 @@ app_server <- function(input, output, session) {
     req(isTRUE(ok))
     already_mapped <- isTRUE(req_ev$has_boundaries)
     health_area_locked_to_current(already_mapped)
+    campaign_scope_locked_to_current(isTRUE(req_ev$has_facilities))
     updateTabsetPanel(session, 'main_tabs',
                       selected = if (already_mapped) 'tab_health_area_mapping' else 'tab_orientation')
   }, ignoreInit = TRUE)
@@ -235,7 +275,10 @@ app_server <- function(input, output, session) {
     # comment above) -- so if the user later navigates to Health Areas
     # from here via the header tab, it should show the same locked,
     # skip-Landmarks-and-Facilities state as arriving there directly.
+    # Same reasoning for Campaign Scope's own lock -- a published
+    # version has necessarily already passed Facilities.
     health_area_locked_to_current(TRUE)
+    campaign_scope_locked_to_current(TRUE)
     ta_ok <- team_area_session$activate_team_version_id(req_ev$team_version_id)
     req(isTRUE(ta_ok))
     updateTabsetPanel(session, 'main_tabs', selected = 'tab_team_area_mapping')
@@ -254,8 +297,31 @@ app_server <- function(input, output, session) {
     submit_stage_fn    = function(stage, data) health_area_session$submit_stage(stage, data),
     restore_r          = health_area_session$restore_snapshot,
     subdivisions_r     = subdivisions_rv,
-    planning_area_sf_r = planning_area_sf
+    planning_area_sf_r = planning_area_sf,
+    mapping_scope_r    = active_mapping_scope
   )
+
+  # ===========================================================================
+  # Campaign Scope tab -- district_sf_r is full_district_sf, NOT
+  # planning_area_sf (see mod_campaign_scope_tab.R's own comment on this):
+  # scope decides what subset of the FULL district counts, so painting
+  # needs the whole extent available to paint over.
+  # ===========================================================================
+  campaign_scope <- campaignScopeTabServer(
+    'campaign_scope',
+    district_sf_r         = full_district_sf,
+    urban_areas_r         = urban_areas_rv,
+    active_campaign_id_r  = active_campaign_id,
+    active_tab            = reactive(input$main_tabs),
+    landmarks_r           = orientation$landmarks_r,
+    subdivisions_r        = subdivisions_rv,
+    submit_stage_fn       = function(stage, data) health_area_session$submit_stage(stage, data),
+    restore_r             = health_area_session$restore_snapshot
+  )
+
+  observeEvent(campaign_scope$submitted(), {
+    updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_facility_mapping')
+  }, ignoreInit = TRUE)
 
   # ===========================================================================
   # Facility tab
@@ -405,8 +471,22 @@ app_server <- function(input, output, session) {
   observe({
     ready  <- isTRUE(district_ready())
     locked <- isTRUE(health_area_locked_to_current())
+    is_partial      <- identical(active_mapping_scope(), 'partial')
+    scope_locked    <- isTRUE(campaign_scope_locked_to_current())
     set_tab_enabled('tab_orientation',             ready && !locked,
                     title = if (locked) 'This district\'s health areas are already mapped -- Landmarks is locked for this session' else 'Choose a district from the Introduction tab first')
+    # Only shown as a usable option at all for a district set to
+    # 'partial' scope (see mod_admin_tab_v2.R) -- a 'full' district never
+    # gets this tab enabled, which is the entire mechanism for "skip the
+    # Campaign Scope stage" here: navigation in this app is tab-based,
+    # not a forced wizard sequence, so simply never enabling the tab for
+    # 'full' districts IS skipping it. Locks independently of
+    # health_area_locked_to_current -- scope locks one stage later, once
+    # Facilities begins, not at the same point Landmarks/Facilities do.
+    set_tab_enabled('tab_campaign_scope',          ready && is_partial && !scope_locked,
+                    title = if (!is_partial) 'This district is scoped to the full district -- Campaign Scope does not apply'
+                            else if (scope_locked) 'Campaign scope is locked for this session -- facilities work has already begun'
+                            else 'Choose a district from the Introduction tab first')
     set_tab_enabled('tab_health_facility_mapping', ready && !locked,
                     title = if (locked) 'This district\'s health areas are already mapped -- Facilities is locked for this session' else 'Choose a district from the Introduction tab first')
     set_tab_enabled('tab_health_area_mapping',     ready)
@@ -419,7 +499,7 @@ app_server <- function(input, output, session) {
        "| district_ready:", isTRUE(district_ready()),
        "| health_area_locked_to_current:", isTRUE(health_area_locked_to_current()),
        "| team_area_session$active:", isTRUE(team_area_session$active()), "\n")
-    locked_on_health_area <- c('tab_orientation', 'tab_health_facility_mapping', 'tab_health_area_mapping')
+    locked_on_health_area <- c('tab_orientation', 'tab_campaign_scope', 'tab_health_facility_mapping', 'tab_health_area_mapping')
     if (input$main_tabs %in% locked_on_health_area && !isTRUE(district_ready())) {
       cat("[navdebug] REDIRECT to tab_intro -- reason: locked_on_health_area tab with district_ready FALSE\n")
       updateTabsetPanel(session, 'main_tabs', selected = 'tab_intro')
@@ -436,6 +516,19 @@ app_server <- function(input, output, session) {
       updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_area_mapping')
       showNotification('This district\'s health areas are already mapped -- Landmarks and Facilities are locked for this session.',
                        type = 'message', duration = 4)
+      return()
+    }
+    # Same server-side enforcement for Campaign Scope specifically -- a
+    # 'full'-scope district landing here (e.g. a stale URL fragment from
+    # when the district was still 'partial') or a 'partial' district
+    # whose scope is already locked both redirect the same way
+    # set_tab_enabled()'s title text above explains why the tab wasn't
+    # clickable in the first place.
+    if (identical(input$main_tabs, 'tab_campaign_scope') &&
+        (!identical(active_mapping_scope(), 'partial') || isTRUE(campaign_scope_locked_to_current()))) {
+      cat("[navdebug] REDIRECT away from tab_campaign_scope -- reason: not partial scope or already locked\n")
+      updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_facility_mapping')
+      showNotification('Campaign Scope does not apply here.', type = 'message', duration = 3)
       return()
     }
     if (identical(input$main_tabs, 'tab_team_area_mapping') && !isTRUE(team_area_session$active())) {

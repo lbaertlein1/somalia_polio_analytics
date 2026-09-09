@@ -125,6 +125,9 @@ source('tabs/intro/mod_intro_tab_v2.R',          local = TRUE)
 
 source('tabs/orientation/mod_orientation_tab.R', local = TRUE)   # unchanged
 
+source('tabs/scope/mod_campaign_scope_controls.R', local = TRUE)   # new — controls sidebar for Campaign Scope, structurally mirrors mod_health_area_controls.R
+source('tabs/scope/mod_campaign_scope_tab.R',    local = TRUE)   # new — Campaign Scope stage, between Landmarks and Facilities
+
 source('tabs/facility/facility_helpers.R',             local = TRUE)
 source('tabs/facility/mod_facility_map.R',             local = TRUE)   # unchanged this pass — see note below
 source('tabs/facility/mod_facility_table.R',           local = TRUE)   # unchanged

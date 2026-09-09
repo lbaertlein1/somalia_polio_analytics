@@ -119,7 +119,12 @@ orientationTabServer <- function(
     save_snapshot_fn   = NULL,   # kept for compatibility, no-op
     restore_r          = reactive(NULL),
     subdivisions_r     = reactive(NULL),
-    planning_area_sf_r = reactive(NULL)
+    planning_area_sf_r = reactive(NULL),
+    # Added for the Campaign Scope stage -- defaults to 'full' so any
+    # OTHER caller of this module that doesn't pass it gets the exact
+    # same behavior as before this parameter existed (straight to
+    # Facilities, never to Campaign Scope).
+    mapping_scope_r     = reactive('full')
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -565,11 +570,13 @@ orientationTabServer <- function(
       }
     })
     
-    # ── Continue → facilities ────────────────────────────────────────────────
+    # ── Continue → facilities (or Campaign Scope first, if this district
+    # is 'partial') ──────────────────────────────────────────────────────
     
     .do_continue_to_facilities <- function() {
+      next_tab <- if (identical(mapping_scope_r(), 'partial')) 'tab_campaign_scope' else 'tab_health_facility_mapping'
       shinyjs::runjs(paste0("$('#main_tabs a[data-value=",
-                            '"tab_health_facility_mapping"',
+                            '"', next_tab, '"',
                             "]').tab('show');"))
     }
     

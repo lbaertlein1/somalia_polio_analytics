@@ -248,6 +248,22 @@ statements <- list(
 
   "CREATE INDEX IF NOT EXISTS idx_mv_owner    ON mapping_versions(owner_username)",
   "CREATE INDEX IF NOT EXISTS idx_mv_district ON mapping_versions(district_name)",
+
+  # Campaign scope stage -- same lifecycle as landmarks/facilities/
+  # boundary snapshots above (locked once the Facilities stage begins),
+  # not an independently-versioned track the way team areas are, so
+  # this lives here as columns rather than a separate table. ADD COLUMN
+  # IF NOT EXISTS as its own statement, not baked into the CREATE TABLE
+  # above, since that's a no-op against a database where this table
+  # already exists -- same reasoning as mapping_scope's own migration
+  # below.
+  "ALTER TABLE mapping_versions
+    ADD COLUMN IF NOT EXISTS scope_saved_dfa_sf         JSONB,
+    ADD COLUMN IF NOT EXISTS scope_dfa_names            JSONB,
+    ADD COLUMN IF NOT EXISTS scope_current_assignments  JSONB,
+    ADD COLUMN IF NOT EXISTS scope_locked_at            TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS has_scope                  BOOLEAN NOT NULL DEFAULT FALSE",
+
   "CREATE INDEX IF NOT EXISTS idx_mv_shared
      ON mapping_versions(district_name, campaign_id)
      WHERE is_shared = TRUE AND archived_at IS NULL",
@@ -335,9 +351,14 @@ statements <- list(
 
   # mapping_scope: 'full' (the whole district is in scope for landmarks,
   # facilities, health areas, and team areas -- the only behavior that
-  # ever existed before this) or 'urban_only' (all four are instead
-  # restricted to a buffered dissolve of that district's subdivision
-  # polygons -- see server.R's planning_area_sf reactive). ADD COLUMN IF
+  # ever existed before this) or 'partial' (this district gets a new
+  # Campaign Scope stage, between Landmarks and Facilities, where the
+  # actual in-scope/out-of-scope boundary is painted -- not computed
+  # automatically. "partial" replaces the old "urban_only" value, which
+  # both named a specific source (urban areas) and auto-computed a
+  # buffered boundary from it; that computation is now just the PREFILL
+  # for the Scope stage's painting canvas, not the live definition of
+  # the planning area -- see mod_campaign_scope_tab.R). ADD COLUMN IF
   # NOT EXISTS as a separate statement, not baked into the CREATE TABLE
   # above, since CREATE TABLE IF NOT EXISTS is a no-op on a database
   # where this table already exists from before this column existed --
@@ -437,7 +458,8 @@ default_settings <- list(
   list(key = 'pop_sat_weight',             val = 0.5,   desc = 'Weight applied to population saturation penalty'),
   list(key = 'pop_sat_max',                val = 0.3,   desc = 'Cap on population saturation penalty'),
   list(key = 'subdivision_boundary_penalty', val = 0.99, desc = 'Soft friction penalty for crossing a subdivision boundary during generation'),
-  list(key = 'urban_buffer_km', val = 5, desc = 'Buffer distance (km) added around a district\'s dissolved subdivision outer boundary when that district is scoped to urban areas only')
+  list(key = 'urban_buffer_km', val = 5, desc = 'Buffer distance (km) added around a district\'s dissolved subdivision outer boundary when that district is scoped to urban areas only'),
+  list(key = 'urban_approx_density_per_km2', val = 250, desc = 'Under-5 population density threshold (people per km2) used to approximate an urban area from the WorldPop raster when no real urban-area GIS data exists for a district -- a genuine judgment call (see approximate_urban_area_from_worldpop() in subdivision_helpers.R for why 250 rather than the more commonly-cited ~1500/km2 total-population threshold)')
 )
 
 for (s in default_settings) {

@@ -246,8 +246,15 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         return()
       }
       choices <- setNames(as.character(campaigns$campaign_id), campaigns$campaign_name)
+      # Defaults to the top campaign in the list (choices[1] -- campaigns
+      # come back ORDER BY created_at DESC from db_get_campaigns(), so
+      # this is the most recently created active campaign) rather than
+      # leaving the picker blank. "Select campaign..." stays available
+      # as an option for anyone who wants to explicitly clear it, just
+      # never the default.
       updateSelectInput(session, 'campaign',
-                        choices = c(setNames('', 'Select campaign...'), choices), selected = '')
+                        choices = c(setNames('', 'Select campaign...'), choices),
+                        selected = unname(choices[1]))
     })
 
     campaign_id <- reactive({
@@ -437,12 +444,6 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
                    if (is.null(campaign_id())) 'Select a campaign to see its districts.'
                    else 'No districts are assigned to this campaign yet — an admin can assign them from the Admin panel.'))
       }
-      DT::DTOutput(ns('district_table'))
-    })
-
-    output$district_table <- DT::renderDT({
-      df <- table_data()
-      req(!is.null(df))
       df <- df[order(df$region_name, df$district_name), ]
 
       ha_status <- ifelse(
@@ -457,7 +458,6 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
                ifelse(df$locked, ' \u00b7 \U0001F512 locked', '')),
         '\u2014'
       )
-
       action_ha <- vapply(df$district_name, function(dn) {
         sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sha_row_click\', \'%s\', {priority:\'event\'})">Health Areas</button>',
                ns(''), dn)
@@ -467,19 +467,74 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%steam_row_click\', \'%s\', {priority:\'event\'})">Team Areas</button>',
                ns(''), df$district_name[i])
       }, character(1))
-      actions <- paste(action_ha, action_team, sep = ' ')
 
-      display <- data.frame(
-        District      = df$district_name,
-        Region         = df$region_name,
-        `Health Areas`  = ha_status,
-        `Team Areas`     = team_status,
-        Actions           = actions,
-        check.names = FALSE, stringsAsFactors = FALSE
+      # Grouped into one native <details>/<summary> block per region --
+      # expands/collapses with zero JS (every modern browser handles this
+      # natively), which is why this replaced the single flat DT table
+      # rather than trying to add DT's RowGroup extension: RowGroup
+      # doesn't support collapse/expand out of the box either, and
+      # bolting that on would mean custom JS reaching into DT's
+      # re-rendered DOM on every sort/search, with real risk of losing
+      # collapse state on each redraw. The tradeoff worth knowing: this
+      # drops the DT search box the old table had -- there's no
+      # cross-region search now, only expand/collapse. Defaults to OPEN
+      # for every region (matching the old flat table's "everything
+      # visible" behavior) -- collapsing is something the user opts into
+      # per region, not a forced default.
+      # Fixed, IDENTICAL column widths across every region's table --
+      # each <table> below is otherwise independent (default table-
+      # layout: auto sizes every table's columns from its OWN content
+      # alone), which is exactly what made this look clunky: the same
+      # column landing at a different width in every region depending
+      # on what happened to be in it. A shared <colgroup> + table-
+      # layout:fixed forces every table to use these same widths
+      # regardless of content -- wrapping long status text onto a
+      # second line instead of truncating it, rather than growing the
+      # column (which is what caused the misalignment in the first
+      # place).
+      COL_WIDTHS <- c('18%', '32%', '30%', '20%')
+      col_group <- tags$colgroup(
+        tags$col(style = sprintf('width:%s;', COL_WIDTHS[1])),
+        tags$col(style = sprintf('width:%s;', COL_WIDTHS[2])),
+        tags$col(style = sprintf('width:%s;', COL_WIDTHS[3])),
+        tags$col(style = sprintf('width:%s;', COL_WIDTHS[4]))
       )
-      DT::datatable(display, escape = FALSE, rownames = FALSE, selection = 'none',
-                    options = list(dom = 'ft', pageLength = 200, scrollX = TRUE,
-                                  scrollY = 'calc(100vh - 420px)', scrollCollapse = TRUE))
+      cell_style <- 'padding:5px 8px;font-size:12px;word-break:break-word;'
+
+      regions <- unique(df$region_name)
+      region_blocks <- lapply(regions, function(rn) {
+        idx <- which(df$region_name == rn)
+        rows <- lapply(idx, function(i) {
+          tags$tr(
+            tags$td(style = cell_style, df$district_name[i]),
+            tags$td(style = cell_style, HTML(ha_status[i])),
+            tags$td(style = cell_style, HTML(team_status[i])),
+            tags$td(style = cell_style, HTML(paste(action_ha[i], action_team[i], sep = ' ')))
+          )
+        })
+        tags$details(
+          open = NA,   # NA renders the bare `open` attribute -- expanded by default
+          style = 'margin-bottom:4px;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;',
+          tags$summary(
+            style = 'cursor:pointer;padding:6px 10px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;list-style:none;',
+            sprintf('%s (%d district%s)', rn, length(idx), if (length(idx) == 1) '' else 's')
+          ),
+          tags$table(
+            style = 'width:100%;table-layout:fixed;border-collapse:collapse;',
+            col_group,
+            tags$thead(
+              tags$tr(
+                tags$th(style = 'text-align:left;padding:5px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0;', 'District'),
+                tags$th(style = 'text-align:left;padding:5px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0;', 'Health Areas'),
+                tags$th(style = 'text-align:left;padding:5px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0;', 'Team Areas'),
+                tags$th(style = 'text-align:left;padding:5px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0;', 'Actions')
+              )
+            ),
+            tags$tbody(rows)
+          )
+        )
+      })
+      div(style = 'overflow-y:auto;max-height:calc(100vh - 420px);', region_blocks)
     })
 
     # ── Request events consumed by server.R — this module never activates a
@@ -558,6 +613,11 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         district_name   = dname,
         version_id      = current$version_id,
         has_boundaries  = !is.null(current$snap$saved_dfa_sf) && nrow(current$snap$saved_dfa_sf) > 0,
+        # Drives campaign_scope_locked_to_current in server.R -- "Continue
+        # with current" is always an already-published, already-locked-in
+        # version, so this is effectively always TRUE here too, same
+        # reasoning as has_boundaries just above.
+        has_facilities  = isTRUE(current$has_facilities),
         ts              = Sys.time()
       ))
     }, ignoreInit = TRUE)
@@ -574,8 +634,11 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         )
         req(!is.null(new_id))
         # A genuinely fresh blank draft -- always has_boundaries = FALSE,
-        # never skips Landmarks/Facilities.
-        ha_request(list(district_name = dname, version_id = new_id, has_boundaries = FALSE, ts = Sys.time()))
+        # never skips Landmarks/Facilities. has_facilities = FALSE for
+        # the same reason -- Campaign Scope's own lock (see
+        # campaign_scope_locked_to_current in server.R) never applies to
+        # a brand-new draft either.
+        ha_request(list(district_name = dname, version_id = new_id, has_boundaries = FALSE, has_facilities = FALSE, ts = Sys.time()))
       } else {
         # own_drafts (which populated this dropdown) is metadata-only --
         # a real fetch is needed here to know whether this SPECIFIC draft
@@ -586,6 +649,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
           district_name  = dname,
           version_id     = picked_id,
           has_boundaries = !is.null(picked) && !is.null(picked$snap$saved_dfa_sf) && nrow(picked$snap$saved_dfa_sf) > 0,
+          has_facilities = !is.null(picked) && isTRUE(picked$has_facilities),
           ts             = Sys.time()
         ))
       }

@@ -280,13 +280,16 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
 
       # Individual inputs per district (not one checkboxGroupInput per
       # region, as this used to be) -- needed so each district can carry
-      # its own inline scope choice next to its checkbox. Subdivision
-      # availability is deliberately NOT checked here for every district
-      # up front (that would mean an ArcGIS call per district just to
-      # open this modal, for potentially 70+ districts at once) -- both
-      # options are always shown, and "Urban areas only" is validated
-      # lazily, only for districts actually requesting it, when Save is
-      # clicked (see .validate_urban_scope() in the save handler below).
+      # its own inline scope choice next to its checkbox. "Partial"
+      # no longer means "auto-restrict to a computed urban buffer" --
+      # it means "show this district's Campaign Scope stage" (between
+      # Landmarks and Facilities), where the actual boundary is painted
+      # by whoever runs the workflow, prefilled from urban-area data
+      # when available. Nothing to validate live against GIS data here
+      # anymore, unlike the old urban_only behavior -- "Partial" is
+      # always a valid choice regardless of what data exists for that
+      # district, since the Scope stage can always be painted manually
+      # even with no prefill at all.
       region_blocks <- lapply(sort(unique(by_region$region_name)), function(rn) {
         dists <- by_region$district_name[by_region$region_name == rn]
         rows <- lapply(dists, function(dn) {
@@ -298,7 +301,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
                 checkboxInput(session$ns(dist_id), dn, value = dn %in% assigned_names, width = '100%')),
             div(style = 'flex:1;',
                 radioButtons(session$ns(scope_id), NULL, inline = TRUE,
-                            choices = c('Full district' = 'full', 'Urban areas only' = 'urban_only'),
+                            choices = c('Full district' = 'full', 'Partial (paint scope)' = 'partial'),
                             # [[ throws "subscript out of bounds" for a name
                             # not present -- most districts aren't yet
                             # assigned to this campaign, so aren't in
@@ -325,39 +328,11 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
           actionButton(session$ns('save_manage_districts'), 'Save', class = 'btn btn-primary')
         ),
         tags$p(style = 'font-size:11px;color:#94a3b8;margin-bottom:8px;',
-               '"Urban areas only" restricts landmarks, facilities, and health/team area mapping to a ',
-               'buffered outline of that district\'s subdivisions -- only takes effect where subdivision ',
-               'data is actually available; otherwise it\'s kept as Full district automatically.'),
+               '"Partial" adds a Campaign Scope stage for that district, between Landmarks and Facilities, ',
+               'where the in-scope/out-of-scope boundary is painted directly -- prefilled from urban-area ',
+               'data where available, but never computed automatically.'),
         div(style = 'max-height:60vh;overflow-y:auto;', region_blocks)
       ))
-    }
-
-    # If requesting 'urban_only', fetches subdivisions live for this one
-    # district and falls back to 'full' (with a warning) if none are
-    # returned -- the actual enforcement of "no-subdivision districts
-    # can't be set to urban only", applied per-district only when
-    # actually requested, not to every district up front.
-    .validate_urban_scope <- function(district_name, requested_scope) {
-      if (!identical(requested_scope, 'urban_only')) return(requested_scope)
-      dinfo <- districts_shp |> dplyr::filter(district_name == !!district_name)
-      if (nrow(dinfo) == 0) return('full')
-      dsf <- dinfo |>
-        dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
-        sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326)
-      cat(sprintf('[urban_scope_debug] %s: resolved urban_areas_url = %s\n', district_name,
-                 tryCatch(db_get_data_source_url(pool, 'urban_areas_url'), error = function(e) sprintf('<error: %s>', e$message)) %||% '<NULL -- falls back to ARCGIS_SUBDIVISIONS_URL>'))
-      subs <- tryCatch(fetch_urban_areas_for_district(dsf),
-                       error = function(e) { cat(sprintf('[urban_scope_debug] %s: fetch_urban_areas_for_district ERRORED: %s\n', district_name, e$message)); NULL })
-      cat(sprintf('[urban_scope_debug] %s: subs is.null=%s, nrow=%s\n', district_name,
-                 is.null(subs), if (is.null(subs)) 'NA' else nrow(subs)))
-      if (is.null(subs) || nrow(subs) == 0) {
-        showNotification(
-          sprintf('%s has no urban-area data available -- kept as Full district.', district_name),
-          type = 'warning', duration = 6
-        )
-        return('full')
-      }
-      'urban_only'
     }
 
     observeEvent(input$save_manage_districts, {
@@ -387,8 +362,8 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       for (dn in newly_removed) db_remove_district_from_campaign(pool, cid, dn)
 
       for (dn in newly_added) {
-        final_scope <- .validate_urban_scope(dn, requested_scopes[[dn]] %||% 'full')
-        db_assign_district_to_campaign(pool, cid, dn, current_user(), mapping_scope = final_scope)
+        db_assign_district_to_campaign(pool, cid, dn, current_user(),
+                                       mapping_scope = requested_scopes[[dn]] %||% 'full')
       }
 
       # Already-assigned districts only get touched if their requested
@@ -407,10 +382,10 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         # stays defensive for consistency rather than relying on that.
         current_val <- unname(assigned_scopes[dn])
         if (!identical(requested, if (is.na(current_val)) 'full' else current_val)) {
-          final_scope <- .validate_urban_scope(dn, requested)
-          db_set_district_mapping_scope(pool, cid, dn, final_scope)
+          db_set_district_mapping_scope(pool, cid, dn, requested)
         }
       }
+
 
       removeModal()
       refresh_campaigns()
