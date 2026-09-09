@@ -96,6 +96,17 @@ app_server <- function(input, output, session) {
     urban_areas_rv(tryCatch(fetch_urban_areas_for_district(dsf), error = function(e) NULL))
   }, ignoreInit = TRUE)
 
+  # Whether urban_areas_rv() is a REAL, admin-configured boundary (the
+  # attr() marker fetch_urban_areas_for_district() sets) rather than the
+  # WorldPop density approximation -- used to decide whether Campaign
+  # Scope needs a human at all for a 'partial' district. The
+  # approximation is a genuine guess and still needs review; a real
+  # boundary doesn't.
+  urban_source_is_real <- reactive({
+    u <- tryCatch(urban_areas_rv(), error = function(e) NULL)
+    !is.null(u) && nrow(u) > 0 && identical(attr(u, 'urban_source'), 'real')
+  })
+
   # Whether the CURRENT (active_campaign_id, active_district) pair is
   # scoped to 'partial' -- read live from campaign_districts, per
   # admin-configured setting (see mod_admin_tab_v2.R's Manage Districts
@@ -298,7 +309,8 @@ app_server <- function(input, output, session) {
     restore_r          = health_area_session$restore_snapshot,
     subdivisions_r     = subdivisions_rv,
     planning_area_sf_r = planning_area_sf,
-    mapping_scope_r    = active_mapping_scope
+    mapping_scope_r    = active_mapping_scope,
+    urban_source_is_real_r = urban_source_is_real
   )
 
   # ===========================================================================
@@ -315,6 +327,7 @@ app_server <- function(input, output, session) {
     active_tab            = reactive(input$main_tabs),
     landmarks_r           = orientation$landmarks_r,
     subdivisions_r        = subdivisions_rv,
+    active_mapping_scope_r = active_mapping_scope,
     submit_stage_fn       = function(stage, data) health_area_session$submit_stage(stage, data),
     restore_r             = health_area_session$restore_snapshot
   )
@@ -473,6 +486,12 @@ app_server <- function(input, output, session) {
     locked <- isTRUE(health_area_locked_to_current())
     is_partial      <- identical(active_mapping_scope(), 'partial')
     scope_locked    <- isTRUE(campaign_scope_locked_to_current())
+    # A 'partial' district with a REAL admin-configured urban boundary
+    # (not the WorldPop approximation) is auto-scoped -- see
+    # mod_campaign_scope_tab.R's own auto-submit observer -- so this
+    # tab is never a usable option for it either, same mechanism as
+    # 'full' districts never getting it enabled at all.
+    auto_scoped     <- is_partial && isTRUE(urban_source_is_real())
     set_tab_enabled('tab_orientation',             ready && !locked,
                     title = if (locked) 'This district\'s health areas are already mapped -- Landmarks is locked for this session' else 'Choose a district from the Introduction tab first')
     # Only shown as a usable option at all for a district set to
@@ -483,8 +502,9 @@ app_server <- function(input, output, session) {
     # 'full' districts IS skipping it. Locks independently of
     # health_area_locked_to_current -- scope locks one stage later, once
     # Facilities begins, not at the same point Landmarks/Facilities do.
-    set_tab_enabled('tab_campaign_scope',          ready && is_partial && !scope_locked,
+    set_tab_enabled('tab_campaign_scope',          ready && is_partial && !auto_scoped && !scope_locked,
                     title = if (!is_partial) 'This district is scoped to the full district -- Campaign Scope does not apply'
+                            else if (auto_scoped) 'This district has a real, admin-configured urban boundary -- it was used as scope automatically'
                             else if (scope_locked) 'Campaign scope is locked for this session -- facilities work has already begun'
                             else 'Choose a district from the Introduction tab first')
     set_tab_enabled('tab_health_facility_mapping', ready && !locked,
@@ -495,6 +515,15 @@ app_server <- function(input, output, session) {
   })
 
   observeEvent(input$main_tabs, {
+    # Dismisses the intro tab's loading modal (mod_intro_tab_v2.R's
+    # .show_loading_modal()) -- this fires once the CLIENT confirms the
+    # tab has actually switched, which can only happen after every
+    # heavy computation in this reactive cascade (grid builds, raster
+    # extraction, urban-area fetches, etc. -- all of it, across every
+    # downstream module) has already finished server-side, since none
+    # of that outgoing state reaches the browser until this same flush
+    # completes. Harmless no-op if no modal is currently open.
+    removeModal()
     cat("[navdebug] input$main_tabs fired:", input$main_tabs,
        "| district_ready:", isTRUE(district_ready()),
        "| health_area_locked_to_current:", isTRUE(health_area_locked_to_current()),
@@ -520,13 +549,15 @@ app_server <- function(input, output, session) {
     }
     # Same server-side enforcement for Campaign Scope specifically -- a
     # 'full'-scope district landing here (e.g. a stale URL fragment from
-    # when the district was still 'partial') or a 'partial' district
-    # whose scope is already locked both redirect the same way
+    # when the district was still 'partial'), a 'partial' district that's
+    # auto-scoped from a real urban boundary, or a 'partial' district
+    # whose scope is already locked all redirect the same way
     # set_tab_enabled()'s title text above explains why the tab wasn't
     # clickable in the first place.
     if (identical(input$main_tabs, 'tab_campaign_scope') &&
-        (!identical(active_mapping_scope(), 'partial') || isTRUE(campaign_scope_locked_to_current()))) {
-      cat("[navdebug] REDIRECT away from tab_campaign_scope -- reason: not partial scope or already locked\n")
+        (!identical(active_mapping_scope(), 'partial') || isTRUE(urban_source_is_real()) ||
+         isTRUE(campaign_scope_locked_to_current()))) {
+      cat("[navdebug] REDIRECT away from tab_campaign_scope -- reason: not partial scope, auto-scoped, or already locked\n")
       updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_facility_mapping')
       showNotification('Campaign Scope does not apply here.', type = 'message', duration = 3)
       return()

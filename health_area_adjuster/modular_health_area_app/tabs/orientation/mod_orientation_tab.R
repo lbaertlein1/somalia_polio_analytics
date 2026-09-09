@@ -124,7 +124,13 @@ orientationTabServer <- function(
     # OTHER caller of this module that doesn't pass it gets the exact
     # same behavior as before this parameter existed (straight to
     # Facilities, never to Campaign Scope).
-    mapping_scope_r     = reactive('full')
+    mapping_scope_r     = reactive('full'),
+    # Whether urban_areas_rv() (server.R) is a REAL, admin-configured
+    # boundary rather than the WorldPop approximation -- a 'partial'
+    # district with a real boundary is auto-scoped (see mod_campaign_
+    # scope_tab.R's own auto-submit observer) and never needs the
+    # Campaign Scope stage either, same as a 'full' district.
+    urban_source_is_real_r = reactive(FALSE)
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -574,7 +580,14 @@ orientationTabServer <- function(
     # is 'partial') ──────────────────────────────────────────────────────
     
     .do_continue_to_facilities <- function() {
-      next_tab <- if (identical(mapping_scope_r(), 'partial')) 'tab_campaign_scope' else 'tab_health_facility_mapping'
+      # A 'partial' district with a REAL urban boundary is auto-scoped
+      # (see mod_campaign_scope_tab.R's own auto-submit observer) and
+      # skips this tab too, same as a 'full' district always has --
+      # only a 'partial' district with NO real boundary (missing, or
+      # only the WorldPop approximation) genuinely needs a human to
+      # paint/confirm scope.
+      needs_scope <- identical(mapping_scope_r(), 'partial') && !isTRUE(urban_source_is_real_r())
+      next_tab <- if (needs_scope) 'tab_campaign_scope' else 'tab_health_facility_mapping'
       shinyjs::runjs(paste0("$('#main_tabs a[data-value=",
                             '"', next_tab, '"',
                             "]').tab('show');"))

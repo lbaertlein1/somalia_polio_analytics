@@ -508,6 +508,16 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         parsed <- tryCatch(.from_json_vec_db(x), error = function(e) NULL)
         length(setdiff(parsed, c('Inaccessible', 'Unpopulated')))
       }, integer(1))
+      # as.integer(ifelse(...)) guards against %d ever receiving
+      # something sprintf can't format as a whole number -- confirmed
+      # directly as the actual crash: sprintf('%d', NaN) throws exactly
+      # this error ("use format %f, %e, %g..."), unlike NA which
+      # formats fine. team_areas_mapped_count is COALESCE(...,0) at the
+      # SQL level so shouldn't ever be NA/NaN, but this doesn't rely on
+      # that holding -- !is.finite() catches NA, NaN, and +/-Inf all at
+      # once, whatever the actual cause turns out to be.
+      team_count_safe <- as.integer(ifelse(!is.finite(df$team_areas_mapped_count), 0, df$team_areas_mapped_count))
+      n_health_areas_safe <- as.integer(ifelse(!is.finite(n_health_areas), 0, n_health_areas))
       display <- data.frame(
         District      = df$district_name,
         `Published by` = df$owner_username,
@@ -518,7 +528,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         IDP                   = vapply(df$has_idp, .flag, character(1)),
         `Health Areas`          = ifelse(is.na(n_health_areas), '\u2013', as.character(n_health_areas)),
         `Team Areas`              = ifelse(is.na(n_health_areas), '\u2013',
-                                          sprintf('%d of %d', df$team_areas_mapped_count, n_health_areas)),
+                                          sprintf('%d of %d', team_count_safe, n_health_areas_safe)),
         check.names = FALSE, stringsAsFactors = FALSE
       )
       DT::datatable(display, escape = FALSE, rownames = FALSE, selection = 'single',

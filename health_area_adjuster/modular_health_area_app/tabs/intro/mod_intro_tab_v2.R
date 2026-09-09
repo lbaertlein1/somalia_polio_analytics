@@ -237,6 +237,42 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
+    # Shown the moment a drill-down request actually starts firing --
+    # replaces whichever picker modal was open. Deliberately no footer/
+    # cancel button (the work is short and there's nothing sensible to
+    # cancel mid-flight). Dismissed once the client reports the tab
+    # switch has actually happened (server.R's own input$main_tabs
+    # observer), or explicitly on any error path below that aborts
+    # before a request ever fires (e.g. a failed db_create_*_version
+    # call) -- otherwise those specific error paths would leave this
+    # stuck open forever, since no tab switch ever happens to dismiss it.
+    #
+    # Needs session$onFlushed(..., once = TRUE) at every call site below,
+    # not just calling showModal() then doing the work inline -- Shiny
+    # batches an observer's outgoing messages into ONE flush sent to the
+    # client only once the whole observer finishes, so showing this modal
+    # and then immediately running the heavy work in the SAME observer
+    # would mean the client never actually sees it until that work is
+    # already done. onFlushed defers the real work to the NEXT flush,
+    # after THIS one (showing the modal) has actually reached the browser.
+    .show_loading_modal <- function(msg = 'Loading...') {
+      showModal(modalDialog(
+        title = NULL, size = 's', easyClose = FALSE, footer = NULL,
+        tags$div(
+          style = 'text-align:center;padding:6px 0;',
+          tags$style(HTML(
+            '@keyframes intro_loading_spin { to { transform: rotate(360deg); } }'
+          )),
+          tags$div(style = paste0(
+            'display:inline-block;width:26px;height:26px;margin-bottom:10px;',
+            'border:3px solid #e2e8f0;border-top-color:#0d9488;border-radius:50%;',
+            'animation:intro_loading_spin 0.8s linear infinite;'
+          )),
+          tags$p(style = 'font-size:13px;color:#334155;font-weight:600;margin:0;', msg)
+        )
+      ))
+    }
+
     # ── Campaign choices ──────────────────────────────────────────────────────
     observe({
       campaigns <- tryCatch(db_get_campaigns(pool, active_only = TRUE), error = function(e) NULL)
@@ -600,7 +636,8 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       dname <- picker_district(); req(!is.null(dname))
       current <- tryCatch(db_get_shared_version(pool, campaign_id(), dname), error = function(e) NULL)
       req(!is.null(current))
-      removeModal()
+      .show_loading_modal(paste0('Loading ', dname, '...'))
+      session$onFlushed(function() {
       # has_boundaries drives server.R's decision to skip straight to
       # Health Areas and lock out Landmarks/Facilities re-editing for
       # this session -- "Continue with current" always means an
@@ -620,19 +657,21 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         has_facilities  = isTRUE(current$has_facilities),
         ts              = Sys.time()
       ))
+      }, once = TRUE)
     }, ignoreInit = TRUE)
 
     observeEvent(input$ha_pick_dropdown_go, {
       dname <- picker_district(); req(!is.null(dname))
       choice <- input$ha_pick_dropdown %||% ''
       req(nzchar(choice))
-      removeModal()
+      .show_loading_modal(paste0('Loading ', dname, '...'))
+      session$onFlushed(function() {
       if (identical(choice, '__blank__')) {
         new_id <- tryCatch(
           db_create_blank_version(pool, username_r() %||% '', campaign_id(), dname),
           error = function(e) { showNotification(paste('Could not start a new draft:', e$message), type = 'error', duration = 6); NULL }
         )
-        req(!is.null(new_id))
+        if (is.null(new_id)) { removeModal(); return() }
         # A genuinely fresh blank draft -- always has_boundaries = FALSE,
         # never skips Landmarks/Facilities. has_facilities = FALSE for
         # the same reason -- Campaign Scope's own lock (see
@@ -645,6 +684,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         # already has saved boundaries or is still blank/in-progress.
         picked_id <- as.integer(choice)
         picked    <- tryCatch(db_get_version_by_id(pool, picked_id), error = function(e) NULL)
+        if (is.null(picked)) { removeModal(); return() }
         ha_request(list(
           district_name  = dname,
           version_id     = picked_id,
@@ -653,6 +693,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
           ts             = Sys.time()
         ))
       }
+      }, once = TRUE)
     }, ignoreInit = TRUE)
 
     # ── Team Areas drill-down (two steps: health area, then version) ────────
@@ -769,10 +810,12 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       current_ha <- tryCatch(db_get_shared_version(pool, cid, dname), error = function(e) NULL)
       current_team <- tryCatch(db_get_current_team_area_version(pool, cid, dname, han), error = function(e) NULL)
       req(!is.null(current_ha), !is.null(current_team))
-      removeModal()
-      team_request(list(district_name = dname, health_area_name = han,
-                        health_area_version_id = current_ha$version_id,
-                        team_version_id = current_team$team_version_id, ts = Sys.time()))
+      .show_loading_modal(paste0('Loading ', han, '...'))
+      session$onFlushed(function() {
+        team_request(list(district_name = dname, health_area_name = han,
+                          health_area_version_id = current_ha$version_id,
+                          team_version_id = current_team$team_version_id, ts = Sys.time()))
+      }, once = TRUE)
     }, ignoreInit = TRUE)
 
     observeEvent(input$team_pick_dropdown_go, {
@@ -783,13 +826,14 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       cid <- campaign_id()
       current_ha <- tryCatch(db_get_shared_version(pool, cid, dname), error = function(e) NULL)
       req(!is.null(current_ha))
-      removeModal()
+      .show_loading_modal(paste0('Loading ', han, '...'))
+      session$onFlushed(function() {
       if (identical(choice, '__blank__')) {
         new_id <- tryCatch(
           db_create_team_area_draft(pool, username_r() %||% '', cid, dname, han, current_ha$version_id),
           error = function(e) { showNotification(paste('Could not start a new team-area draft:', e$message), type = 'error', duration = 6); NULL }
         )
-        req(!is.null(new_id))
+        if (is.null(new_id)) { removeModal(); return() }
         team_request(list(district_name = dname, health_area_name = han,
                           health_area_version_id = current_ha$version_id,
                           team_version_id = new_id, ts = Sys.time()))
@@ -798,6 +842,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
                           health_area_version_id = current_ha$version_id,
                           team_version_id = as.integer(choice), ts = Sys.time()))
       }
+      }, once = TRUE)
     }, ignoreInit = TRUE)
 
     # ── Public interface ──────────────────────────────────────────────────────
