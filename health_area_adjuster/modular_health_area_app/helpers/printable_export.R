@@ -418,8 +418,6 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
       cat(sprintf('[export_debug] checkpoint "%s": team summary table done\n', nm))
     }
 
-    idp_table <- .build_idp_table(idp_one, team_one)
-    if (!is.null(idp_table)) .print_table_page(idp_table, paste0(district_name, ' \u2014 ', nm, ' \u2014 IDP Settlements'))
     cat(sprintf('[export_debug] === finished detail page loop for "%s" ===\n', nm))
   }
 
@@ -734,39 +732,7 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
   do.call(rbind, rows)
 }
 
-# One row per IDP settlement -- name and population only (households
-# not captured; idp_helpers.R only extracts a single population figure
-# per settlement from the source ArcGIS layer, not households
-# separately). Team Area column added only when team_one is supplied
-# and has rows -- otherwise omitted rather than shown as a blank column
-# for every row, since a health area with no team-area version yet has
-# nothing meaningful to put there. st_within against each team polygon
-# determines which team (if any) each point falls inside; a point that
-# doesn't fall within any team polygon (e.g. right on a boundary, or
-# team areas not yet covering the whole health area) gets "–" rather
-# than being silently dropped from the table.
-.build_idp_table <- function(idp_pts, team_one = NULL) {
-  if (is.null(idp_pts) || nrow(idp_pts) == 0) return(NULL)
-  has_teams <- !is.null(team_one) && nrow(team_one) > 0 && 'dfa_name' %in% names(team_one)
-
-  team_col <- if (has_teams) {
-    within_mat <- tryCatch(sf::st_within(idp_pts, team_one), error = function(e) NULL)
-    vapply(seq_len(nrow(idp_pts)), function(i) {
-      if (is.null(within_mat) || length(within_mat[[i]]) == 0) return('\u2013')
-      as.character(team_one$dfa_name[within_mat[[i]][1]])
-    }, character(1))
-  } else NULL
-
-  df <- data.frame(
-    `IDP Settlement` = if ('idp_name' %in% names(idp_pts)) as.character(idp_pts$idp_name) else paste('Settlement', seq_len(nrow(idp_pts))),
-    Population        = ifelse(is.na(idp_pts$idp_population %||% NA_real_), '\u2013',
-                               format(round(idp_pts$idp_population), big.mark = ',')),
-    check.names = FALSE, stringsAsFactors = FALSE
-  )
-  if (has_teams) df$`Team Area` <- team_col
-  df
-}
-
+#' Renders a data frame as its own PDF page (title + table), via the
 #' current grDevices::pdf() device already open in build_printable_maps_
 #' pdf() -- grid.newpage()/grid.arrange() draw directly to that device,
 #' the same way print()-ing a tmap object does for the map pages.

@@ -178,7 +178,19 @@ idp_sf_to_points_list <- function(idp_sf) {
   pts <- lapply(seq_len(nrow(idp_sf)), function(i) {
     coords <- tryCatch(sf::st_coordinates(sf::st_geometry(idp_sf)[i]), error = function(e) NULL)
     if (is.null(coords) || nrow(coords) == 0) return(NULL)
-    lon <- coords[1, 1]; lat <- coords[1, 2]
+    # unname() strips the "X"/"Y" colnames st_coordinates() leaves attached
+    # to a single-cell extraction -- without it, lon/lat come out as NAMED
+    # scalars (e.g. lon with a "X" name), which jsonlite then serializes as
+    # a JSON OBJECT ({"X": 43.6}) instead of a plain number when this list
+    # crosses to the client via session$sendCustomMessage(). The client's
+    # `pt.lon == null` check then sees an object, not a number, comparing
+    # unequal to null either way -- but pt.lon.toFixed()/Leaflet's
+    # L.circleMarker([pt.lat, pt.lon]) needs an actual number, so every
+    # point silently failed to draw with no error, just 0 markers where
+    # hundreds should have appeared. Confirmed from actual production
+    # output (browser console showed exactly this {"Y": ...} shape), not
+    # hypothetical.
+    lon <- unname(coords[1, 1]); lat <- unname(coords[1, 2])
     if (is.na(lon) || is.na(lat)) return(NULL)
     list(lat = lat, lon = lon, name = idp_sf$idp_name[i])
   })

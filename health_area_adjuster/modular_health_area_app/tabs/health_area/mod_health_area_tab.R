@@ -596,6 +596,8 @@ healthAreaTabServer <- function(
       }, error = function(e) NULL)
 
       idp_pts <- tryCatch(idp_sf_to_points_list(idp_sf_r()), error = function(e) list())
+      cat(sprintf('[idp_debug][HA] idp_sf_r() is.null=%s nrow=%s -> idp_pts length=%d\n',
+                  is.null(idp_sf_r()), if (is.null(idp_sf_r())) 'NA' else nrow(idp_sf_r()), length(idp_pts)))
       
       send_paint_message("show_loading")
       send_paint_message("paint_load_scene", list(
@@ -859,6 +861,8 @@ healthAreaTabServer <- function(
         if (!is.null(se) && nrow(se) > 0) as_geojson_text(se) else NULL
       }, error = function(e) NULL)
       idp_pts <- tryCatch(idp_sf_to_points_list(idp_sf_r()), error = function(e) list())
+      cat(sprintf('[idp_debug][HA] idp_sf_r() is.null=%s nrow=%s -> idp_pts length=%d\n',
+                  is.null(idp_sf_r()), if (is.null(idp_sf_r())) 'NA' else nrow(idp_sf_r()), length(idp_pts)))
       send_paint_message("paint_update_context_layers", list(
         settlementExtentsGeojson = settlement_extents_geojson,
         idpPoints                = idp_pts

@@ -2155,10 +2155,20 @@ function getApp(msg) {
       // a generic fallback (see fetch_idp_settlements_for_district() in
       // idp_helpers.R) -- either way still a usable label.
       drawIdpPoints: function(idpPoints) {
+        console.log('[idp_debug] drawIdpPoints called | this.map exists=' + !!this.map +
+                    ' | idpPoints type=' + (Array.isArray(idpPoints) ? 'array' : typeof idpPoints) +
+                    ' | length=' + (idpPoints ? idpPoints.length : 'N/A'));
+        if (idpPoints && idpPoints.length > 0) {
+          console.log('[idp_debug] first 3 raw points: ' + JSON.stringify(idpPoints.slice(0, 3)));
+        }
         this.clearIdpLayer();
-        if (!this.map || !idpPoints || !Array.isArray(idpPoints) || idpPoints.length === 0) return;
+        if (!this.map || !idpPoints || !Array.isArray(idpPoints) || idpPoints.length === 0) {
+          console.log('[idp_debug] drawIdpPoints bailing out early -- nothing will be drawn');
+          return;
+        }
 
         this.idpLayer = L.layerGroup();
+        let drawnCount = 0;
 
         idpPoints.forEach((pt) => {
           if (pt.lon == null || pt.lat == null || isNaN(pt.lon) || isNaN(pt.lat)) return;
@@ -2181,9 +2191,12 @@ function getApp(msg) {
           }
 
           marker.addTo(this.idpLayer);
+          drawnCount++;
         });
 
         this.idpLayer.addTo(this.map);
+        console.log('[idp_debug] drawIdpPoints finished | markers actually drawn=' + drawnCount +
+                    ' | idpLayer on map=' + this.map.hasLayer(this.idpLayer));
       },
 
       // Bring all point layers to front in correct order:

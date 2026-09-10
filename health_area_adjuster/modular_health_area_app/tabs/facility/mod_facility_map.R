@@ -265,21 +265,27 @@ facilityMapServer <- function(
           lng2 = bbox[['xmax']],
           lat2 = bbox[['ymax']]
         ) %>%
-        leaflet::addControl(
-          html = '
-          <div style="background:white;padding:8px 10px;border-radius:4px;
-                      font-size:12px;line-height:1.8;border:1px solid #ccc;">
-            <b>Facilities</b><br>
-            <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png"
-                 height="20"> Outreach Coordination Site<br>
-            <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"
-                 height="20"> Not a Coordination Site<br>
-            <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
-                 height="20"> Selected
-          </div>',
-          position = "bottomright",
-          layerId  = "facility_legend"
-        ) %>%
+        # No initial "facility_legend" addControl() here anymore -- there
+        # were previously TWO places building this control: this static,
+        # outdated one (only Outreach Coordination Site / Not a
+        # Coordination Site / Selected -- missing Landmark, Subdivision,
+        # IDP Settlement, and Settlement Extent entirely) set once at
+        # render time, and the full, correct, dynamically-rebuilt one in
+        # the observe() block below. leafletProxy() calls fired before
+        # the leaflet widget is fully bound client-side can be silently
+        # dropped (a known Shiny/leaflet race), so that observe() block's
+        # FIRST run (on initial page load, same as this renderLeaflet()
+        # call) was landing before the map existed and getting lost --
+        # leaving this stale, incomplete legend as the only one that
+        # actually showed, until the user toggled the population overlay
+        # and the observe() block re-fired AFTER the map was established.
+        # Confirmed real symptom (IDP Settlement missing from the legend
+        # by default, only appearing after toggling), not hypothetical.
+        # The observe() block below is now the single source of truth for
+        # this control, and IS still guaranteed to run at least once on
+        # initial load (observe() always runs immediately), so the
+        # legend is never actually missing -- it just wasn't THIS stale
+        # version.
         leaflet::addScaleBar(
           position = "bottomright",
           options  = leaflet::scaleBarOptions(imperial = FALSE, maxWidth = 200)
