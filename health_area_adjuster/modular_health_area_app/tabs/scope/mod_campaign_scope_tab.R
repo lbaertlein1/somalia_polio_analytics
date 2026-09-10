@@ -14,17 +14,36 @@
 # generation, wave-reveal animation, or a team-targets modal, none of which
 # scope has any use for either.
 #
+# THE CANVAS ITSELF, not just the prefill: campaign_extent_r() (the admin-
+# configured "campaign extent" layer, fetch_campaign_extent_for_district()
+# in subdivision_helpers.R) is the OUTER boundary scope painting is allowed
+# to exist within -- not a hint painted onto a full-district canvas. When
+# an extent exists for this district, the grid is built over that extent
+# CLIPPED to the district (never larger than the district even if the
+# extent itself extends past it), sized to the extent's own dimensions
+# (not the district's -- a small extent inside a large district gets a
+# fine grid, not one coarsened by the district's own size), and every
+# cell starts "In Scope" -- the extent IS the intended campaign area, the
+# user paints OUT anything to exclude. When NO extent exists for this
+# district, the canvas falls back to the whole district, sized to the
+# district's own dimensions, and every cell starts "Out of Scope" --
+# genuinely blank, painted in from nothing. There is no longer any
+# computed approximation (the WorldPop density approximation this used to
+# fall back to was removed) -- an admin either provides a real extent or
+# doesn't, and the tab behaves accordingly either way.
+#
 # What scope genuinely doesn't need, versus either of those tabs:
 #   - No facility-seeded initial generation (initialHealthAreaGenerationServer)
-#     -- prefilled instead from urban-area data (real GIS boundary, or the
-#     WorldPop density approximation as fallback -- both already built into
-#     fetch_urban_areas_for_district()), a simple inside/outside-a-buffered-
-#     polygon test, not a BFS propagation.
+#     -- the canvas defaults uniformly (see above), not a BFS propagation.
 #   - No wave-reveal animation, no team-targets modal, no per-area rename.
 #   - No independent "make current" / staleness handling -- scope is locked
 #     into the SAME draft's lifecycle as landmarks/facilities (see
 #     scope_locked_at in create_db_v2.R), not a separately-publishable track
 #     the way team areas are.
+#   - No auto-submit / auto-skip -- even when a real campaign extent exists,
+#     this tab is always reachable for a 'partial' district; the extent is
+#     a starting point for the user to refine within, never a substitute
+#     for their review (see mod_orientation_tab.R's .do_continue_to_facilities()).
 # =============================================================================
 
 IN_SCOPE_NAME  <- "In Scope"
@@ -50,17 +69,14 @@ campaignScopeTabServer <- function(
     # here would be circular after server.R's own redefinition of it
     # (which now reads scope's OWN saved output).
     district_sf_r,
-    urban_areas_r,
-    active_campaign_id_r,
+    campaign_extent_r,
     active_tab,
     landmarks_r      = reactive(NULL),
     subdivisions_r   = reactive(NULL),
-    # Whether this district is 'full' or 'partial' scope (see
-    # mod_admin_tab_v2.R) -- needed here specifically to gate the
-    # auto-submit-from-real-urban-data observer below; a 'full' district
-    # never has this tab instantiated as relevant in the first place, but
-    # this module doesn't otherwise know that on its own.
-    active_mapping_scope_r = reactive('full'),
+    # Context-only overlays, shown the same way subdivisions_r already
+    # is -- see server.R's settlement_extents_rv / idp_context_rv.
+    settlement_extents_r = reactive(NULL),
+    idp_sf_r             = reactive(NULL),
     submit_stage_fn  = NULL,
     restore_r        = reactive(NULL)
 ) {
@@ -105,6 +121,13 @@ campaignScopeTabServer <- function(
           ),
           tags$p(
             style = 'margin-top: 10px;',
+            'If a campaign extent has been configured for this district, the map only shows that extent ',
+            '(clipped to the district) -- scope can never spread past it. Everything starts "In Scope" in ',
+            'that case; paint out anything to exclude. With no extent configured, the whole district is ',
+            'shown instead, starting entirely "Out of Scope" -- paint in what belongs.'
+          ),
+          tags$p(
+            style = 'margin-top: 10px;',
             tags$strong('Refine Boundaries'), ' switches to editable vertex points along the scope edge -- ',
             'drag individual points for precise adjustments, and use the Smoothness and Stiffness sliders ',
             'to control how closely the line follows them.'
@@ -121,20 +144,14 @@ campaignScopeTabServer <- function(
     }
 
     rv <- reactiveValues(
-      district_sf = NULL, grid_sf = NULL, initial_assignments = NULL,
+      district_sf = NULL, canvas_sf = NULL, has_campaign_extent = FALSE,
+      grid_sf = NULL, initial_assignments = NULL,
       current_assignments = NULL, saved_scope_sf = NULL,
       neighbors_list = NULL, edge_list = NULL,
       pop_overlay_sf = NULL, pop_table = NULL,
       smoothed_scope_sf = NULL,
       vertex_mode_silently_entered = FALSE,
-      # The exact (non-griditized) buffered urban polygon this session's
-      # prefill came from, if any -- NULL for a district with no urban
-      # data at all (prefill defaults everything to Out of Scope, so
-      # there's no exact source polygon to fall back to). Used at
-      # save/submit time to bypass the grid/vertex approximation
-      # entirely when nothing has actually been painted differently.
-      prefill_buffered_urban_sf = NULL,
-      prefill_missing_urban_at_build = FALSE
+      extent_missing_at_build = FALSE
     )
 
     pending_action <- reactiveVal(NULL)
@@ -191,62 +208,55 @@ campaignScopeTabServer <- function(
       invisible(NULL)
     }
 
-    # ── Prefill: a cell's centroid falling inside the (buffered) urban-area
-    # polygon starts "In Scope"; everything else starts "Out of Scope" --
-    # the safer default when no urban data exists at all is to make the
-    # mapper explicitly paint scope in, not accidentally default the whole
-    # district to in-scope. Buffered by the same urban_buffer_km setting
-    # the pre-Campaign-Scope planning_area_sf computation used, for the
-    # same reason: a raw urban-area polygon is usually tighter than where
-    # campaign activity actually needs to extend.
+    # ── Canvas determination: campaign extent (clipped to the district),
+    # or the whole district when no extent exists. Returns NULL if
+    # building the canvas fails outright (defensive -- e.g. a genuinely
+    # invalid extent geometry) so the caller can decide how to fall back.
     #
-    # Returns BOTH the per-cell assignment vector (for painting) AND the
-    # exact buffered polygon itself (for saving without grid
-    # approximation if the user never actually paints anything -- see
-    # rv$prefill_buffered_urban_sf below and its use at save/submit
-    # time). The buffer is the only intentional adjustment; griditizing
-    # it onto the grid is fine for LIVE PAINTING (the canvas has to be
-    # cell-based to be paintable/undo-able at all), but was being baked
-    # into the SAVED result even when the user changed nothing, which
-    # this specifically avoids.
-    .prefill_assignments <- function(grid_sf, urban_sf, campaign_id) {
-      if (is.null(urban_sf) || nrow(urban_sf) == 0) {
-        return(list(assignments = rep(OUT_SCOPE_NAME, nrow(grid_sf)), buffered_urban_sf = NULL))
+    # An extent that doesn't actually overlap the district at all (a
+    # defensive edge case -- e.g. a stale/wrong URL configured for this
+    # campaign) is treated the SAME as no extent: falls back to the
+    # whole district, rather than silently producing an empty, unusable
+    # canvas.
+    .determine_canvas <- function(district_sf, extent_sf) {
+      if (is.null(extent_sf) || nrow(extent_sf) == 0) {
+        return(list(canvas_sf = district_sf, has_extent = FALSE))
       }
-      buffer_km <- tryCatch(db_get_generation_setting(pool, 'urban_buffer_km', campaign_id),
-                            error = function(e) NA_real_)
-      if (is.na(buffer_km)) buffer_km <- 5
-      tryCatch({
-        urban_3857 <- sf::st_transform(safe_make_valid(urban_sf), 3857)
-        buffered   <- sf::st_buffer(sf::st_union(urban_3857), buffer_km * 1000)
-        buffered_sf <- sf::st_sf(geometry = buffered, crs = 3857)
-        cent_3857  <- sf::st_transform(sf::st_centroid(grid_sf), 3857)
-        inside <- lengths(sf::st_within(cent_3857, buffered_sf)) > 0
-        list(
-          assignments       = ifelse(inside, IN_SCOPE_NAME, OUT_SCOPE_NAME),
-          buffered_urban_sf = sf::st_transform(buffered_sf, 4326)
-        )
-      }, error = function(e) list(assignments = rep(OUT_SCOPE_NAME, nrow(grid_sf)), buffered_urban_sf = NULL))
-    }
-
-    # Builds the EXACT (non-griditized) saved-scope polygon from the
-    # original buffered urban polygon, for the case the user submits
-    # without ever painting a different cell -- clipped to the
-    # district (scope logically can't extend past it, same reasoning
-    # as the old planning_area_sf's own clip step before this feature
-    # existed) with the district's remainder as "Out of Scope".
-    .build_exact_scope_from_prefill <- function(district_sf, buffered_urban_sf) {
       tryCatch({
         district_3857 <- sf::st_transform(safe_make_valid(district_sf), 3857)
-        buffered_3857 <- sf::st_transform(safe_make_valid(buffered_urban_sf), 3857)
-        in_scope_geom <- suppressWarnings(sf::st_intersection(sf::st_geometry(district_3857), sf::st_geometry(buffered_3857)))
-        out_scope_geom <- suppressWarnings(sf::st_difference(sf::st_geometry(district_3857), sf::st_geometry(buffered_3857)))
-        rows <- list()
-        if (length(in_scope_geom) > 0 && !all(sf::st_is_empty(in_scope_geom)))
-          rows$in_scope <- sf::st_sf(dfa_name = IN_SCOPE_NAME, geometry = sf::st_union(in_scope_geom), crs = 3857)
-        if (length(out_scope_geom) > 0 && !all(sf::st_is_empty(out_scope_geom)))
-          rows$out_scope <- sf::st_sf(dfa_name = OUT_SCOPE_NAME, geometry = sf::st_union(out_scope_geom), crs = 3857)
-        if (length(rows) == 0) return(NULL)
+        extent_3857   <- sf::st_transform(safe_make_valid(extent_sf), 3857)
+        clipped <- suppressWarnings(sf::st_intersection(sf::st_geometry(district_3857), sf::st_union(sf::st_geometry(extent_3857))))
+        if (length(clipped) == 0 || all(sf::st_is_empty(clipped))) {
+          return(list(canvas_sf = district_sf, has_extent = FALSE))
+        }
+        canvas <- sf::st_sf(district_name = district_sf$district_name[[1]], geometry = sf::st_union(clipped), crs = 3857)
+        canvas <- sf::st_transform(canvas, 4326)
+        list(canvas_sf = canvas, has_extent = TRUE)
+      }, error = function(e) list(canvas_sf = district_sf, has_extent = FALSE))
+    }
+
+    # Builds the EXACT (non-griditized) saved-scope polygon for the case
+    # the user submits without ever painting a different cell --
+    # canvas_sf itself tagged with whatever value every cell defaulted
+    # to, plus (only when an extent was used, and only if the extent
+    # doesn't already cover the whole district) the district's own
+    # remainder outside the canvas, always tagged Out of Scope -- that
+    # area was never even part of the paintable canvas to begin with,
+    # so it was never a candidate for "In Scope" regardless of what
+    # anyone paints inside the canvas itself.
+    .build_exact_untouched_scope <- function(district_sf, canvas_sf, default_dfa_name) {
+      tryCatch({
+        district_3857 <- sf::st_transform(safe_make_valid(district_sf), 3857)
+        canvas_3857   <- sf::st_transform(safe_make_valid(canvas_sf), 3857)
+        rows <- list(
+          canvas = sf::st_sf(dfa_name = default_dfa_name, geometry = sf::st_union(sf::st_geometry(canvas_3857)), crs = 3857)
+        )
+        if (!identical(default_dfa_name, OUT_SCOPE_NAME)) {
+          remainder <- suppressWarnings(sf::st_difference(sf::st_geometry(district_3857), sf::st_geometry(canvas_3857)))
+          if (length(remainder) > 0 && !all(sf::st_is_empty(remainder))) {
+            rows$remainder <- sf::st_sf(dfa_name = OUT_SCOPE_NAME, geometry = sf::st_union(remainder), crs = 3857)
+          }
+        }
         combined <- do.call(rbind, rows)
         sf::st_transform(combined, 4326)
       }, error = function(e) NULL)
@@ -295,11 +305,76 @@ campaignScopeTabServer <- function(
       if (!is.null(rv$grid_sf)) .apply_restore(snap) else pending_restore(snap)
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
-    # Builds the grid once per district (keyed by district_name, not
-    # nrow -- two different single-row districts could share an nrow,
-    # never a name). No facility-seeded scene() the way Health/Team Areas
-    # have -- just make_paint_grid() + the simple urban-buffer prefill
-    # above, since scope has no BFS propagation to run.
+    # Builds the grid once per (district, extent-availability) combination
+    # -- keyed by district_name plus whether an extent was actually used,
+    # not district_name alone, since the catch-up logic below can rebuild
+    # the WHOLE canvas (not just reassign cells) if a campaign extent
+    # arrives late. No facility-seeded scene() the way Health/Team Areas
+    # have -- just make_paint_grid() over whatever canvas_sf resolves to,
+    # since scope has no BFS propagation to run.
+    .build_scene_for_district <- function(dsf) {
+      extent_now <- tryCatch(campaign_extent_r(), error = function(e) NULL)
+      canvas_info <- .determine_canvas(dsf, extent_now)
+      canvas_sf  <- canvas_info$canvas_sf
+      has_extent <- canvas_info$has_extent
+
+      # make_paint_grid()'s OWN default cellsize formula has no upper
+      # cap -- it only scales cellsize UP to keep total cell count under
+      # max_cells (40000), with nothing stopping it from ballooning well
+      # past a few hundred meters for a genuinely large canvas. That's
+      # exactly what produced a handful of huge rectangular blocks
+      # instead of a grid fine enough to roughly trace a real boundary
+      # (confirmed directly against a real district). Passing an
+      # explicit grid_n, computed the SAME clamped way mod_health_area_
+      # tab.R's own grid_n reactive already does (max_dim/160, clamped
+      # to [100m, 500m]), bypasses make_paint_grid()'s uncapped branch
+      # entirely -- and computed from canvas_sf's OWN dimensions, not
+      # the district's, so a small extent inside a large district gets
+      # a fine grid rather than one coarsened by the district's size.
+      max_dim <- calc_district_max_dim(canvas_sf)
+      target_cellsize <- max_dim / 160
+      cellsize        <- max(100, min(500, target_cellsize))
+      grid_n          <- max(10L, as.integer(round(max_dim / cellsize)))
+
+      grid_info <- make_paint_grid(canvas_sf, grid_n = grid_n)
+      grid_sf <- grid_info$grid_sf
+      grid_sf$u5_pop <- tryCatch(extract_cell_population(grid_sf, u5_rast), error = function(e) rep(0, nrow(grid_sf)))
+
+      # Every cell starts In Scope when a real extent was used (the
+      # extent IS the intended campaign area -- paint OUT to exclude);
+      # every cell starts Out of Scope with no extent at all (genuinely
+      # blank -- paint IN what belongs). No per-cell test against the
+      # source polygon the way the old urban-buffer prefill needed --
+      # canvas_sf already IS exactly the extent (clipped to district),
+      # so there's nothing left to test cell-by-cell.
+      default_value <- if (has_extent) IN_SCOPE_NAME else OUT_SCOPE_NAME
+      default_assignments <- rep(default_value, nrow(grid_sf))
+
+      rv$district_sf          <- dsf
+      rv$canvas_sf              <- canvas_sf
+      rv$has_campaign_extent      <- has_extent
+      rv$grid_sf                    <- grid_sf
+      rv$neighbors_list                <- build_neighbors_list(grid_sf)
+      rv$edge_list                        <- .build_edge_list_simple(grid_sf, canvas_sf)
+      rv$initial_assignments                 <- default_assignments
+      rv$current_assignments                    <- default_assignments
+      rv$saved_scope_sf                            <- NULL
+      rv$smoothed_scope_sf                            <- NULL
+      # Tracks whether THIS build had no extent to work with, purely for
+      # the catch-up observer below (campaign_extent_r() involves a real
+      # ArcGIS network round trip in server.R, on its OWN observer keyed
+      # off active_district()/active_campaign_id() -- there's no
+      # guarantee that fetch has completed by the time this runs).
+      rv$extent_missing_at_build <- !has_extent
+
+      if (isTRUE(in_vertex_mode())) send_paint_message("paint_exit_vertex_mode")
+      in_vertex_mode(FALSE)
+      controls$set_vertex_mode_ui(FALSE)
+
+      recompute_population_table(rv$current_assignments)
+      invisible(NULL)
+    }
+
     observe({
       dsf <- district_sf_r()
       req(!is.null(dsf), nrow(dsf) > 0, "district_name" %in% names(dsf))
@@ -309,145 +384,41 @@ campaignScopeTabServer <- function(
       if (identical(last_scene_key(), new_key)) return()
       last_scene_key(new_key)
 
-      # make_paint_grid()'s OWN default cellsize formula has no upper
-      # cap -- it only scales cellsize UP to keep total cell count under
-      # max_cells (40000), with nothing stopping it from ballooning well
-      # past a few hundred meters for a genuinely large district. That's
-      # exactly what produced a handful of huge rectangular blocks
-      # instead of a grid fine enough to roughly trace a subdivision
-      # boundary (confirmed directly against a real district). Passing
-      # an explicit grid_n, computed the SAME clamped way mod_health_
-      # area_tab.R's own grid_n reactive already does (max_dim/160,
-      # clamped to [100m, 500m] regardless of district size), bypasses
-      # make_paint_grid()'s uncapped branch entirely and keeps this
-      # grid's resolution consistent with the one Health Areas uses.
-      max_dim <- calc_district_max_dim(dsf)
-      target_cellsize <- max_dim / 160
-      cellsize        <- max(100, min(500, target_cellsize))
-      grid_n          <- max(10L, as.integer(round(max_dim / cellsize)))
-
-      grid_info <- make_paint_grid(dsf, grid_n = grid_n)
-      grid_sf <- grid_info$grid_sf
-      grid_sf$u5_pop <- tryCatch(extract_cell_population(grid_sf, u5_rast), error = function(e) rep(0, nrow(grid_sf)))
-
-      urban_now <- tryCatch(urban_areas_r(), error = function(e) NULL)
-      prefill <- .prefill_assignments(grid_sf, urban_now, active_campaign_id_r())
-      # Tracks whether THIS build had no urban data to work with, purely
-      # for the catch-up observer below (urban_areas_r() involves a real
-      # ArcGIS network round trip in server.R, on its OWN observer keyed
-      # off active_district() -- there's no guarantee that fetch has
-      # completed by the time this block runs, and reading it via
-      # isolate() here means this block would never notice if it
-      # finished late). NULL, not FALSE, specifically so the catch-up
-      # observer can tell "never checked yet" apart from "checked and
-      # confirmed empty" if that distinction ever matters later.
-      rv$prefill_missing_urban_at_build <- is.null(urban_now) || nrow(urban_now) == 0
-
-      rv$district_sf         <- dsf
-      rv$grid_sf              <- grid_sf
-      rv$neighbors_list        <- build_neighbors_list(grid_sf)
-      rv$edge_list              <- .build_edge_list_simple(grid_sf, dsf)
-      rv$initial_assignments     <- prefill$assignments
-      rv$current_assignments      <- prefill$assignments
-      rv$prefill_buffered_urban_sf  <- prefill$buffered_urban_sf
-      rv$saved_scope_sf             <- NULL
-      rv$smoothed_scope_sf           <- NULL
+      .build_scene_for_district(dsf)
 
       pr <- pending_restore()
       if (!is.null(pr)) { .apply_restore(pr); pending_restore(NULL) }
 
-      if (isTRUE(in_vertex_mode())) send_paint_message("paint_exit_vertex_mode")
-      in_vertex_mode(FALSE)
-      controls$set_vertex_mode_ui(FALSE)
-
-      recompute_population_table(rv$current_assignments)
       if (tab_active()) send_current_scene()
       })
     })
 
-    # Catch-up for the race above: if urban data genuinely wasn't ready
-    # yet at grid-build time, but arrives afterward, re-run the prefill
-    # against it now -- ONLY if the user hasn't painted anything since
-    # (identical(current, initial) -- painting over their own edits
-    # would be a real regression, not a fix) and isn't mid-refine.
-    # Rebuilds just the prefill/assignments in place rather than the
-    # whole grid, since the grid itself doesn't depend on urban data at
-    # all.
-    observeEvent(urban_areas_r(), {
-      req(isTRUE(rv$prefill_missing_urban_at_build))
-      req(!is.null(rv$grid_sf), !isTRUE(in_vertex_mode()))
+    # Catch-up for the race above: if a campaign extent genuinely wasn't
+    # ready yet at grid-build time, but arrives afterward, rebuild the
+    # WHOLE canvas against it now -- ONLY if the user hasn't painted
+    # anything since (identical(current, initial) -- painting over their
+    # own edits would be a real regression, not a fix) and isn't mid-
+    # refine. A full rebuild, not just reassigning cells in place, since
+    # the extent arriving late changes the canvas SHAPE itself (grid
+    # cells, neighbors, edge list all need to change too), not just
+    # which value each already-existing cell starts at.
+    observeEvent(campaign_extent_r(), {
+      req(isTRUE(rv$extent_missing_at_build))
+      req(!is.null(rv$district_sf), !isTRUE(in_vertex_mode()))
       req(identical(rv$current_assignments, rv$initial_assignments))
-      urban_now <- tryCatch(urban_areas_r(), error = function(e) NULL)
-      req(!is.null(urban_now), nrow(urban_now) > 0)
+      extent_now <- tryCatch(campaign_extent_r(), error = function(e) NULL)
+      req(!is.null(extent_now), nrow(extent_now) > 0)
 
-      prefill <- .prefill_assignments(rv$grid_sf, urban_now, active_campaign_id_r())
-      rv$initial_assignments    <- prefill$assignments
-      rv$current_assignments     <- prefill$assignments
-      rv$prefill_buffered_urban_sf <- prefill$buffered_urban_sf
-      rv$prefill_missing_urban_at_build <- FALSE
-
-      recompute_population_table(rv$current_assignments)
+      .build_scene_for_district(rv$district_sf)
       if (tab_active()) send_current_scene()
     }, ignoreInit = TRUE, ignoreNULL = FALSE)
-
-    # ── Auto-submit when real (non-approximated) urban-area data exists ──
-    # A district set to 'partial' with a REAL admin-configured urban-
-    # area boundary (not the WorldPop density approximation, which is
-    # a genuine guess and needs a human to review it) never needs a
-    # human to paint or confirm anything -- the real boundary IS the
-    # scope, directly. This fires silently, independent of which tab
-    # the user is actually viewing (most likely they're still on
-    # Landmarks, since Campaign Scope comes right after it) -- it is
-    # NOT gated on tab_active() the way everything else in this module
-    # is. mod_orientation_tab.R's own Continue button is what actually
-    # skips PAST this tab when scope is auto-handled (checking the same
-    # active_mapping_scope_r + urban_source_is_real signal from
-    # server.R) -- this observer's only job is to make sure the real
-    # data has actually been written to the DB (and is live via
-    # submitted_scope_sf() below) by the time that skip happens.
-    observeEvent(list(district_sf_r(), urban_areas_r(), active_mapping_scope_r()), {
-      req(identical(active_mapping_scope_r(), 'partial'))
-      req(!is.null(rv$district_sf), !is.null(rv$grid_sf))
-      urban_now <- tryCatch(urban_areas_r(), error = function(e) NULL)
-      req(!is.null(urban_now), nrow(urban_now) > 0, identical(attr(urban_now, 'urban_source'), 'real'))
-
-      # Don't re-auto-submit if scope already has real data -- either
-      # from a previous session (restore_r()'s own snapshot) or from
-      # THIS session's own already-completed auto-submit.
-      already_has_scope <- !is.null(submitted_scope_sf())
-      if (!already_has_scope) {
-        snap <- tryCatch(restore_r(), error = function(e) NULL)
-        already_has_scope <- !is.null(snap$scope_saved_dfa_sf) && nrow(snap$scope_saved_dfa_sf) > 0
-      }
-      req(!already_has_scope)
-
-      prefill <- .prefill_assignments(rv$grid_sf, urban_now, active_campaign_id_r())
-      req(!is.null(prefill$buffered_urban_sf))
-      exact_sf <- .build_exact_scope_from_prefill(rv$district_sf, prefill$buffered_urban_sf)
-      req(!is.null(exact_sf))
-
-      if (!is.null(submit_stage_fn)) {
-        submit_stage_fn('scope', list(
-          scope_saved_dfa_sf         = exact_sf,
-          scope_dfa_names            = .scope_dfa_names,
-          scope_current_assignments  = setNames(as.list(prefill$assignments), as.character(rv$grid_sf$cell_id))
-        ))
-        submitted_scope_sf(exact_sf)
-        # Deliberately NOT incrementing submitted_counter() here -- that
-        # drives server.R's auto-advance-to-Facilities navigation, which
-        # is correct for a real user clicking Submit from this tab, but
-        # would be wrong here: forcibly yanking the user to Facilities
-        # the instant a district loads, regardless of which tab they're
-        # actually on, would be a real regression, not a convenience.
-      }
-    }, ignoreInit = TRUE)
 
     scene_ever_sent       <- reactiveVal(FALSE)
     scene_load_confirmed  <- reactiveVal(FALSE)
 
     send_current_scene <- function() {
       req(tab_active())
-      req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
+      req(!is.null(rv$canvas_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
       scene_ever_sent(TRUE)
       scene_load_confirmed(FALSE)
 
@@ -461,7 +432,7 @@ campaignScopeTabServer <- function(
       saved_sf <- rv$saved_scope_sf
       if (is.null(saved_sf))
         saved_sf <- build_saved_dfa_sf(grid_sf = rv$grid_sf, assignments = rv$current_assignments,
-                                       district_sf = rv$district_sf)
+                                       district_sf = rv$canvas_sf)
 
       landmark_pts <- list()
       lm_df <- tryCatch(landmarks_r(), error = function(e) NULL)
@@ -477,9 +448,21 @@ campaignScopeTabServer <- function(
         if (!is.null(bl) && nrow(bl) > 0) as_geojson_text(bl) else NULL
       }, error = function(e) NULL)
 
+      settlement_extents_geojson <- tryCatch({
+        se <- settlement_extents_r()
+        if (!is.null(se) && nrow(se) > 0) as_geojson_text(se) else NULL
+      }, error = function(e) NULL)
+
+      idp_pts <- tryCatch(idp_sf_to_points_list(idp_sf_r()), error = function(e) list())
+
       send_paint_message('show_loading')
       send_paint_message('paint_load_scene', list(
-        districtGeojson      = as_geojson_text(rv$district_sf),
+        # canvas_sf, not rv$district_sf -- the paintable/outer boundary
+        # IS the (district-clipped) campaign extent when one exists, per
+        # "scope is not allowed to spread outside of extent". Falls back
+        # to the whole district when no extent exists, since canvas_sf
+        # equals district_sf in that case (see .determine_canvas()).
+        districtGeojson      = as_geojson_text(rv$canvas_sf),
         gridGeojson          = as_geojson_text(rv$grid_sf),
         initialAssignments   = init_named,
         dfaColors            = as.list(current_fill_colors()),
@@ -489,7 +472,9 @@ campaignScopeTabServer <- function(
         brushSize            = (controls$brush_m() %||% 2000) / 2,
         boundaryOnly         = controls$boundary_only(),
         subdivisionGeojson   = subdiv_geojson,
+        settlementExtentsGeojson = settlement_extents_geojson,
         landmarkPoints       = landmark_pts,
+        idpPoints            = idp_pts,
         savedGeojson         = as_geojson_text(saved_sf)
       ))
     }
@@ -508,6 +493,29 @@ campaignScopeTabServer <- function(
       scene_load_confirmed(TRUE)
       if (tab_active() && !is.null(rv$grid_sf) && !isTRUE(scene_ever_sent())) send_current_scene()
     }, ignoreInit = TRUE)
+
+    # Catch-up for settlement_extents_r()/idp_sf_r() arriving AFTER the
+    # initial scene already sent -- each is its own independent ArcGIS
+    # fetch in server.R (settlement_extents_rv / idp_context_rv), with
+    # no guaranteed ordering against this tab's own grid-build. Gated
+    # on scene_ever_sent() -- if the scene hasn't sent yet, the
+    # upcoming send_current_scene() call will already pick up whatever
+    # these currently resolve to, so no separate update is needed. A
+    # LIGHTWEIGHT context-layer-only message, not a full resend (which
+    # would reset in-progress paint state) -- see paint-app.js's
+    # updateContextLayers for the JS side.
+    observeEvent(list(settlement_extents_r(), idp_sf_r()), {
+      req(isTRUE(scene_ever_sent()), tab_active())
+      settlement_extents_geojson <- tryCatch({
+        se <- settlement_extents_r()
+        if (!is.null(se) && nrow(se) > 0) as_geojson_text(se) else NULL
+      }, error = function(e) NULL)
+      idp_pts <- tryCatch(idp_sf_to_points_list(idp_sf_r()), error = function(e) list())
+      send_paint_message('paint_update_context_layers', list(
+        settlementExtentsGeojson = settlement_extents_geojson,
+        idpPoints                = idp_pts
+      ))
+    }, ignoreInit = TRUE, ignoreNULL = FALSE)
 
     observeEvent(map_mod$undo_count(), {
       shinyjs::toggleState(session$ns('controls-paint_undo_btn'),
@@ -530,10 +538,10 @@ campaignScopeTabServer <- function(
     }, ignoreInit = TRUE)
 
     observeEvent(controls$show_pop_raster(), {
-      req(tab_active(), !is.null(rv$district_sf))
+      req(tab_active(), !is.null(rv$canvas_sf))
       if (isTRUE(controls$show_pop_raster()) && is.null(rv$pop_overlay_sf)) {
         rv$pop_overlay_sf <- tryCatch(
-          make_population_overlay_sf(district_sf = rv$district_sf, u5_rast = u5_rast),
+          make_population_overlay_sf(district_sf = rv$canvas_sf, u5_rast = u5_rast),
           error = function(e) NULL)
       }
       geojson <- if (!is.null(rv$pop_overlay_sf)) as_geojson_text(rv$pop_overlay_sf) else NULL
@@ -734,7 +742,7 @@ campaignScopeTabServer <- function(
         saved_sf_override
       } else {
         tryCatch(
-          build_saved_dfa_sf(grid_sf = rv$grid_sf, assignments = ordered_assignments, district_sf = rv$district_sf),
+          build_saved_dfa_sf(grid_sf = rv$grid_sf, assignments = ordered_assignments, district_sf = rv$canvas_sf),
           error = function(e) NULL
         )
       }
@@ -771,15 +779,17 @@ campaignScopeTabServer <- function(
       # above for where finalize_save/finalize_submit actually complete.
       if (identical(act, 'save') || identical(act, 'submit')) {
         # EXCEPT when nothing has actually been painted differently from
-        # the original prefill and that prefill came from real urban-
-        # area data -- in that specific case, use the EXACT buffered
-        # polygon directly instead of ever routing it through the grid
-        # at all (see rv$prefill_buffered_urban_sf's own comment for
-        # why). The moment the user paints even one cell differently,
-        # grid-based editing is unavoidable and the normal vertex-
-        # conversion path below applies exactly as it did before this.
-        if (identical(ordered, rv$initial_assignments) && !is.null(rv$prefill_buffered_urban_sf)) {
-          exact_sf <- .build_exact_scope_from_prefill(rv$district_sf, rv$prefill_buffered_urban_sf)
+        # the original default -- in that specific case, use the EXACT
+        # canvas polygon directly (canvas_sf itself, tagged with
+        # whatever every cell defaulted to -- In Scope with a real
+        # extent, Out of Scope without one) instead of ever routing it
+        # through the grid at all. The moment the user paints even one
+        # cell differently, grid-based editing is unavoidable and the
+        # normal vertex-conversion path below applies exactly as it did
+        # before this.
+        if (identical(ordered, rv$initial_assignments)) {
+          default_dfa_name <- if (isTRUE(rv$has_campaign_extent)) IN_SCOPE_NAME else OUT_SCOPE_NAME
+          exact_sf <- .build_exact_untouched_scope(rv$district_sf, rv$canvas_sf, default_dfa_name)
           if (!is.null(exact_sf)) {
             rv$saved_scope_sf    <- exact_sf
             rv$smoothed_scope_sf <- exact_sf

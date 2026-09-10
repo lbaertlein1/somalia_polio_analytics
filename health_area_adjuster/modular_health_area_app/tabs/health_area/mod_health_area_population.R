@@ -188,6 +188,17 @@ healthAreaPopulationServer <- function(
           div(class = "legend-row",
               tags$span(class = "legend-box", style = "background:#FFFFFF;"),
               tags$span("Unpopulated")),
+          tags$div(style = "height:4px;"),
+          div(class = "legend-row",
+              tags$span(style = paste0(
+                "display:inline-block;width:10px;height:10px;border-radius:50%;",
+                "background:#FF1744;margin-right:6px;vertical-align:middle;")),
+              tags$span("IDP Settlement")),
+          div(class = "legend-row",
+              tags$span(style = paste0(
+                "display:inline-block;width:14px;height:0;border-top:2px dashed #0d9488;",
+                "margin-right:6px;vertical-align:middle;")),
+              tags$span("Settlement Extent")),
           if (isTRUE(show_pop_raster())) tagList(
             tags$div(style = "height:6px;"),
             tags$div(class = "mini-label", style = "margin-bottom:4px;", "WorldPop U5 Population"),

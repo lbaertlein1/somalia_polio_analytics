@@ -814,22 +814,68 @@ db_set_generation_setting <- function(pool, setting_key, setting_value, updated_
 #             health-facility ODK/Kobo endpoints stay hardcoded per config)
 # =============================================================================
 
-db_get_data_source_url <- function(pool, setting_key) {
-  row <- .db_query(pool, "SELECT setting_value FROM data_source_settings WHERE setting_key = ?k",
-                   list(k = setting_key))
+db_get_data_source_url <- function(pool, setting_key, campaign_id = NULL) {
+  if (!is.null(campaign_id)) {
+    row <- .db_query(pool, "
+      SELECT setting_value FROM data_source_settings
+      WHERE setting_key = ?k AND campaign_id = ?c
+    ", list(k = setting_key, c = as.integer(campaign_id)))
+    if (nrow(row) > 0) return(row$setting_value[1])
+  }
+  row <- .db_query(pool, "
+    SELECT setting_value FROM data_source_settings
+    WHERE setting_key = ?k AND campaign_id IS NULL
+  ", list(k = setting_key))
   if (nrow(row) == 0) return(NULL)
   row$setting_value[1]
 }
 
-db_set_data_source_url <- function(pool, setting_key, url, updated_by) {
+db_set_data_source_url <- function(pool, setting_key, url, updated_by, campaign_id = NULL) {
+  if (is.null(campaign_id)) {
+    .db_execute(pool, "
+      INSERT INTO data_source_settings (setting_key, campaign_id, setting_value, updated_by, updated_at)
+      VALUES (?k, NULL, ?v, ?u, NOW())
+      ON CONFLICT (setting_key) WHERE campaign_id IS NULL DO UPDATE SET
+        setting_value = EXCLUDED.setting_value,
+        updated_by    = EXCLUDED.updated_by,
+        updated_at    = NOW()
+    ", list(k = setting_key, v = url, u = updated_by))
+  } else {
+    .db_execute(pool, "
+      INSERT INTO data_source_settings (setting_key, campaign_id, setting_value, updated_by, updated_at)
+      VALUES (?k, ?c, ?v, ?u, NOW())
+      ON CONFLICT (setting_key, campaign_id) WHERE campaign_id IS NOT NULL DO UPDATE SET
+        setting_value = EXCLUDED.setting_value,
+        updated_by    = EXCLUDED.updated_by,
+        updated_at    = NOW()
+    ", list(k = setting_key, c = as.integer(campaign_id), v = url, u = updated_by))
+  }
+}
+
+db_get_data_source_url_campaign_specific <- function(pool, setting_key, campaign_id) {
+  # Deliberately NO fallback to the global row -- used only by admin UI
+  # that needs to distinguish "this campaign has its own override" from
+  # "this campaign is inheriting the global default" (db_get_data_source_
+  # url()'s own fallback-aware lookup would make those look identical).
+  if (is.null(campaign_id)) return(NULL)
+  row <- .db_query(pool, "
+    SELECT setting_value FROM data_source_settings
+    WHERE setting_key = ?k AND campaign_id = ?c
+  ", list(k = setting_key, c = as.integer(campaign_id)))
+  if (nrow(row) == 0) return(NULL)
+  row$setting_value[1]
+}
+
+db_delete_data_source_url <- function(pool, setting_key, campaign_id) {
+  # campaign_id must be non-NULL -- deleting the global (campaign_id IS
+  # NULL) row is never exposed to the admin UI, only per-campaign
+  # overrides are removable this way (reverting that campaign back to
+  # inheriting the global default).
+  if (is.null(campaign_id)) return(invisible(FALSE))
   .db_execute(pool, "
-    INSERT INTO data_source_settings (setting_key, setting_value, updated_by, updated_at)
-    VALUES (?k, ?v, ?u, NOW())
-    ON CONFLICT (setting_key) DO UPDATE SET
-      setting_value = EXCLUDED.setting_value,
-      updated_by    = EXCLUDED.updated_by,
-      updated_at    = NOW()
-  ", list(k = setting_key, v = url, u = updated_by))
+    DELETE FROM data_source_settings WHERE setting_key = ?k AND campaign_id = ?c
+  ", list(k = setting_key, c = as.integer(campaign_id)))
+  invisible(TRUE)
 }
 
 

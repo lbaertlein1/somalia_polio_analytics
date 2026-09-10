@@ -26,12 +26,17 @@
 # .subdivision_cache in subdivision_helpers.R.
 .idp_cache <- new.env(parent = emptyenv())
 
+# "Settlement" and "IDP_Indivi" confirmed directly against the actual
+# IDP Site Master List ArcGIS layer's real field metadata -- listed
+# first so they match before the generic fallbacks below do. The
+# generic candidates stay in the list for robustness against a
+# DIFFERENT IDP source ever being configured with its own field names.
 .name_field_candidates <- c(
-  "idp_name", "settlement_name", "site_name", "name", "NAME", "NAME_US", "SITE_NAME"
+  "Settlement", "idp_name", "settlement_name", "site_name", "name", "NAME", "NAME_US", "SITE_NAME"
 )
 
 .pop_field_candidates <- c(
-  "population", "pop", "idp_population", "num_individuals", "individuals", "hh_count", "households"
+  "IDP_Indivi", "population", "pop", "idp_population", "num_individuals", "individuals", "hh_count", "households"
 )
 
 .detect_field <- function(nm, candidates) {
@@ -147,4 +152,35 @@ fetch_idp_settlements_for_district <- function(district_sf) {
       if (is.na(name_field)) " (name field not detected — using generic labels)" else "", "\n")
   .idp_cache[[cache_key]] <- out
   out
+}
+
+# Converts an idp_sf (idp_name/idp_population/geometry, per the function
+# above) into the list(list(lat=, lon=, name=), ...) shape paint-app.js's
+# paint_load_scene expects for idpPoints -- same conversion mod_facility_
+# map.R and mod_campaign_scope_tab.R's own landmark_pts already do for
+# their respective point layers, pulled out here once since all three
+# paint-canvas tabs (Campaign Scope, Health Areas, Team Areas) need the
+# identical conversion for THIS specific data.
+idp_sf_to_points_list <- function(idp_sf) {
+  if (is.null(idp_sf) || nrow(idp_sf) == 0) return(list())
+  # Per-row st_coordinates(), NOT a single bulk call across the whole sf
+  # object -- fetch_idp_settlements_for_district() deliberately keeps
+  # BOTH POINT and MULTIPOINT geometries (idp_helpers.R's own geometry-
+  # type filter), and st_coordinates() on a MULTIPOINT returns one row
+  # per sub-point, not one row per feature. A single bulk call would
+  # silently misalign coords[i,] against idp_sf$idp_name[i] the moment
+  # any one row is a multipoint with >1 vertex -- producing wrong (or
+  # out-of-range/NA) coordinates for every row after it, which is
+  # exactly the kind of bad lat/lon that crashes Leaflet's CircleMarker
+  # on the client (`Cannot read properties of null (reading 'lat')`).
+  # Per-row extraction can never misalign across rows; a genuine
+  # multipoint feature just contributes its first vertex.
+  pts <- lapply(seq_len(nrow(idp_sf)), function(i) {
+    coords <- tryCatch(sf::st_coordinates(sf::st_geometry(idp_sf)[i]), error = function(e) NULL)
+    if (is.null(coords) || nrow(coords) == 0) return(NULL)
+    lon <- coords[1, 1]; lat <- coords[1, 2]
+    if (is.na(lon) || is.na(lat)) return(NULL)
+    list(lat = lat, lon = lon, name = idp_sf$idp_name[i])
+  })
+  Filter(Negate(is.null), pts)
 }

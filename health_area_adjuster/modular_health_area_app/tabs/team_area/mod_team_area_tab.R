@@ -79,7 +79,14 @@ teamAreaTabServer <- function(
     # stale is to say that plainly and send the user back to the
     # overview, not to offer a fix it can't actually perform itself.
     make_current_fn   = NULL,
-    is_stale_r        = reactive(FALSE)
+    is_stale_r        = reactive(FALSE),
+    # Context-only overlays, shown on every map -- see server.R's
+    # settlement_extents_rv / idp_context_rv. Team Areas has no
+    # subdivisions_r/subdiv_geojson wiring at all (unlike Campaign
+    # Scope and Health Areas) -- a pre-existing gap, not something this
+    # change expands into.
+    settlement_extents_r = reactive(NULL),
+    idp_sf_r             = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
 
@@ -297,8 +304,7 @@ teamAreaTabServer <- function(
     local_teams_override <- reactiveVal(NULL)
     modal_confirmed       <- reactiveVal(FALSE)
 
-    observeEvent(health_area_name(), {
-      req(nzchar(health_area_name() %||% ''))
+    .show_team_planning_modal <- function() {
       local_pop_override(NULL)
       local_teams_override(NULL)
       modal_confirmed(FALSE)
@@ -308,6 +314,21 @@ teamAreaTabServer <- function(
       # dependency that would re-trigger this observer itself.
       pop_default   <- isolate(round(area_population()))
       teams_default <- isolate(n_teams_r())
+      # Defensive coalesce: numericInput(value = NA, ...) renders a
+      # broken input the browser silently rejects ("The specified value
+      # 'NA' cannot be parsed"), and crucially the modal DOM can end up
+      # malformed enough that it never becomes visible/clickable at all
+      # -- leaving modal_confirmed() stuck at FALSE forever, since this
+      # whole observer only re-fires on the NEXT health_area_name()
+      # change. Rather than chase every possible upstream source of NA
+      # (area_population()/n_teams_r()/compute_n_teams(), the last of
+      # which isn't in a file available this session), coalescing right
+      # here guarantees the modal always renders with a valid, editable
+      # number -- worst case the user corrects an imperfect default,
+      # which is a minor inconvenience next to a silently unrecoverable
+      # stuck state.
+      if (is.na(pop_default)) pop_default <- 0
+      if (is.na(teams_default) || teams_default < 1) teams_default <- 1
       # Same WorldPop-vs-field distinction the Team Planning Targets
       # modal shows on the health-area side (mod_health_area_tab.R) --
       # shown here as reference text alongside the editable fields,
@@ -356,6 +377,55 @@ teamAreaTabServer <- function(
         footer = actionButton(session$ns('modal_confirm_btn'), 'Continue', class = 'btn-primary'),
         easyClose = FALSE
       ))
+    }
+
+    # SINGLE trigger for the modal, combining health_area_name() and
+    # team_targets_r() -- debounced, not two separate observers each
+    # calling showModal() independently. An earlier version of this had
+    # health_area_name() and team_targets_r() as separate observers
+    # (the second added specifically to catch team_targets_r() arriving
+    # late), but that meant EVERY intermediate change to either trigger
+    # called showModal() again immediately -- and team_targets_r() often
+    # settles through several values in quick succession as mod_health_
+    # area_tab.R's own DB-restore populates rv$team_targets (e.g. list()
+    # -> the restored value), each one replacing the modal Shiny had
+    # just rendered a moment before. The visible result was exactly what
+    # got reported: the modal flashing and closing before there was any
+    # chance to click "Continue". debounce() coalesces any burst of
+    # rapid changes into a single call once things go quiet for
+    # team_planning_debounce_ms -- team_targets_r() gets time to settle
+    # to its final value BEFORE the modal ever renders, rather than
+    # rendering once per intermediate value.
+    #
+    # tab_active() is now PART of this trigger too, not just health_area_
+    # name()/team_targets_r() -- confirmed directly (via [team_debug]
+    # logging) that health_area_name() changes and the modal calls
+    # showModal() successfully WHILE STILL ON THE INTRO TAB, before the
+    # tab switch to team_area_mapping has even happened yet (the intro
+    # page's "go to team areas" click sets health_area_name() and
+    # triggers the tab switch nearly simultaneously, and the tab switch
+    # itself isn't debounced the way this trigger now is). The modal
+    # was never actually broken -- it was popping up on the WRONG tab,
+    # an instant before Shiny navigated away from under it, which is
+    # exactly what "flashed and closed" looks like from the user's side.
+    # Only actually showing the modal once tab_active() is TRUE fixes
+    # this at its source.
+    team_planning_debounce_ms <- 400
+    team_planning_trigger <- reactive({
+      list(health_area_name(), tryCatch(team_targets_r(), error = function(e) NULL), tab_active())
+    })
+    team_planning_trigger_d <- debounce(team_planning_trigger, millis = team_planning_debounce_ms)
+
+    observeEvent(team_planning_trigger_d(), {
+      req(nzchar(health_area_name() %||% ''))
+      req(isTRUE(tab_active()))
+      # Once confirmed, a later settle of this SAME debounced trigger
+      # (team_targets_r() changing again for some unrelated reason,
+      # rare but possible) must never yank the user back into a
+      # confirmation dialog mid-work -- only re-show while still
+      # unconfirmed for the currently selected health area.
+      req(!isTRUE(modal_confirmed()))
+      .show_team_planning_modal()
     }, ignoreInit = FALSE)
 
     observeEvent(input$modal_confirm_btn, {
@@ -472,6 +542,13 @@ teamAreaTabServer <- function(
         landmark_pts <- lapply(seq_len(nrow(lm_df)), function(i)
           list(lat = lm_df$lat[i], lon = lm_df$lon[i], name = lm_df$landmark_name[i]))
 
+      settlement_extents_geojson <- tryCatch({
+        se <- settlement_extents_r()
+        if (!is.null(se) && nrow(se) > 0) as_geojson_text(se) else NULL
+      }, error = function(e) NULL)
+
+      idp_pts <- tryCatch(idp_sf_to_points_list(idp_sf_r()), error = function(e) list())
+
       send_paint_message('show_loading')
       send_paint_message('paint_load_scene', list(
         districtGeojson    = as_geojson_text(rv$district_sf),
@@ -486,6 +563,8 @@ teamAreaTabServer <- function(
         seedPoints         = rv$seed_points,
         facilityPoints     = facility_pts,
         landmarkPoints     = landmark_pts,
+        settlementExtentsGeojson = settlement_extents_geojson,
+        idpPoints          = idp_pts,
         savedGeojson       = as_geojson_text(saved_sf)
       ))
     }
@@ -604,6 +683,29 @@ teamAreaTabServer <- function(
       scene_load_confirmed(TRUE)
       if (tab_active() && !is.null(rv$grid_sf) && !isTRUE(scene_ever_sent())) send_current_scene()
     }, ignoreInit = TRUE)
+
+    # Catch-up for settlement_extents_r()/idp_sf_r() arriving AFTER the
+    # initial scene already sent -- each is its own independent ArcGIS
+    # fetch in server.R (settlement_extents_rv / idp_context_rv), with
+    # no guaranteed ordering against this tab's own grid-build. Gated
+    # on scene_ever_sent() -- if the scene hasn't sent yet, the
+    # upcoming send_current_scene() call will already pick up whatever
+    # these currently resolve to, so no separate update is needed. A
+    # LIGHTWEIGHT context-layer-only message, not a full resend (which
+    # would reset in-progress paint state) -- see paint-app.js's
+    # updateContextLayers for the JS side.
+    observeEvent(list(settlement_extents_r(), idp_sf_r()), {
+      req(isTRUE(scene_ever_sent()), tab_active())
+      settlement_extents_geojson <- tryCatch({
+        se <- settlement_extents_r()
+        if (!is.null(se) && nrow(se) > 0) as_geojson_text(se) else NULL
+      }, error = function(e) NULL)
+      idp_pts <- tryCatch(idp_sf_to_points_list(idp_sf_r()), error = function(e) list())
+      send_paint_message('paint_update_context_layers', list(
+        settlementExtentsGeojson = settlement_extents_geojson,
+        idpPoints                = idp_pts
+      ))
+    }, ignoreInit = TRUE, ignoreNULL = FALSE)
 
     observeEvent(map_mod$undo_count(), {
       shinyjs::toggleState(session$ns('controls-paint_undo_btn'),

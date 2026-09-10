@@ -125,6 +125,30 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   .write_sf(ha_sf,   paste0('health_areas.', spec$ext))
   .write_sf(team_sf, paste0('team_areas.', spec$ext))
 
+  # Subdivisions and campaign/urban extent, as their own data layers --
+  # matching what the printable PDF export now also draws on its maps
+  # (see printable_export.R), so someone opening this boundary export in
+  # GIS software gets the same context layers, not just health/team
+  # areas. Looked up from districts_shp by name, NOT snap$district_
+  # boundary_sf -- that field is a pre-existing, apparently-never-
+  # populated one (confirmed by checking every place it's written to;
+  # nothing in the app ever sets it), so relying on it here would
+  # silently skip these layers for every export. districts_shp is the
+  # same reliable source mod_facility_tab.R's own district_base() and
+  # printable_export.R's own zone/region lookup already trust.
+  district_sf_for_fetch <- tryCatch(
+    districts_shp |> dplyr::filter(district_name == !!district_name) |>
+      dplyr::group_by(district_name) |> dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+      sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326),
+    error = function(e) NULL
+  )
+  subdiv_sf_export <- if (!is.null(district_sf_for_fetch))
+    tryCatch(fetch_subdivisions_for_district(district_sf_for_fetch), error = function(e) NULL) else NULL
+  urban_sf_export <- if (!is.null(district_sf_for_fetch))
+    tryCatch(fetch_campaign_extent_for_district(district_sf_for_fetch, campaign_id), error = function(e) NULL) else NULL
+  .write_sf(subdiv_sf_export, paste0('subdivisions.', spec$ext))
+  .write_sf(urban_sf_export,  paste0('campaign_extent.', spec$ext))
+
   # Population/team-count summary CSVs -- reuses the exact same table
   # builders the printable PDF export already uses (printable_export.R),
   # rather than a second implementation of the same WorldPop-extraction +
@@ -136,8 +160,10 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   tryCatch({
     if (!is.null(ha_sf) && nrow(ha_sf) > 0) {
       team_targets <- snap$team_targets %||% list()
-      urban_sf <- if (!is.null(snap$district_boundary_sf) && nrow(snap$district_boundary_sf) > 0)
-        tryCatch(fetch_urban_areas_for_district(snap$district_boundary_sf), error = function(e) NULL) else NULL
+      # Reuses urban_sf_export (fetched once, above) rather than a
+      # second fetch_campaign_extent_for_district() call for the same
+      # district/campaign.
+      urban_sf <- urban_sf_export
       ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf)
       if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
         .write_csv_utf8_bom(cbind(district_name = district_name, ha_summary),
@@ -244,6 +270,8 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
   idp_parts      <- list()
   landmark_parts <- list()
   fac_parts      <- list()
+  subdiv_parts   <- list()
+  urban_parts    <- list()
   ha_summary_parts   <- list()
   team_summary_parts <- list()
 
@@ -259,6 +287,22 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     region_val <- if (nrow(dinfo) > 0) as.character(dinfo$region_name[1]) else ''
 
     snap <- version$snap %||% list()
+
+    # Subdivisions and campaign/urban extent for THIS district -- same
+    # per-district fetch as the single-district export path above, same
+    # reasoning for using districts_shp rather than snap$district_
+    # boundary_sf (see that path's own comment for why).
+    dsf_for_fetch <- if (nrow(dinfo) > 0) tryCatch(
+      dinfo |> dplyr::group_by(district_name) |> dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+        sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326),
+      error = function(e) NULL
+    ) else NULL
+    subdiv_d <- if (!is.null(dsf_for_fetch)) tryCatch(fetch_subdivisions_for_district(dsf_for_fetch), error = function(e) NULL) else NULL
+    urban_d  <- if (!is.null(dsf_for_fetch)) tryCatch(fetch_campaign_extent_for_district(dsf_for_fetch, campaign_id), error = function(e) NULL) else NULL
+    if (!is.null(subdiv_d) && nrow(subdiv_d) > 0)
+      subdiv_parts[[dname]] <- subdiv_d |> dplyr::mutate(zone_name = zone_val, region_name = region_val, district_name = dname)
+    if (!is.null(urban_d) && nrow(urban_d) > 0)
+      urban_parts[[dname]] <- urban_d |> dplyr::mutate(zone_name = zone_val, region_name = region_val, district_name = dname)
 
     # Health areas -- same smoothed-preferred-over-raw logic as the
     # per-district export, each district's piece tagged and reprojected
@@ -322,8 +366,9 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     tryCatch({
       if (!is.null(ha_sf) && nrow(ha_sf) > 0) {
         team_targets <- snap$team_targets %||% list()
-        urban_sf <- if (!is.null(snap$district_boundary_sf) && nrow(snap$district_boundary_sf) > 0)
-          tryCatch(fetch_urban_areas_for_district(snap$district_boundary_sf), error = function(e) NULL) else NULL
+        # Reuses urban_d (fetched once per district, above) rather than
+        # a second fetch_campaign_extent_for_district() call.
+        urban_sf <- urban_d
         ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf)
         if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
           ha_summary_parts[[dname]] <- cbind(district_name = dname, ha_summary)
@@ -360,6 +405,8 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
   .write_combined_sf(team_parts,     paste0('team_areas.', spec$ext))
   .write_combined_sf(idp_parts,      paste0('idp_settlements.', spec$ext))
   .write_combined_sf(landmark_parts, paste0('landmarks.', spec$ext))
+  .write_combined_sf(subdiv_parts,   paste0('subdivisions.', spec$ext))
+  .write_combined_sf(urban_parts,    paste0('campaign_extent.', spec$ext))
 
   if (length(ha_summary_parts) > 0) {
     combined <- dplyr::bind_rows(ha_summary_parts)

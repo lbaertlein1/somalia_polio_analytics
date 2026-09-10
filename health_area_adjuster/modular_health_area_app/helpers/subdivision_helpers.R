@@ -80,7 +80,19 @@ fetch_subdivisions_for_district <- function(district_sf, url = ARCGIS_SUBDIVISIO
     geometryType     = "esriGeometryEnvelope",
     inSR             = "4326",
     spatialRel       = "esriSpatialRelIntersects",
-    outFields        = "FID,NAME_US",
+    # "*" -- NOT the previous "FID,NAME_US". This function is shared by
+    # three different layers now (city sections, campaign extent,
+    # settlement extents), each with its OWN field schema -- "NAME_US"
+    # is specific to city sections (subdivisions_url); the capitals-
+    # bounding-box layer (campaign_extent_url) uses "NAME_L2" instead,
+    # and settlement extents uses plain "NAME". Requesting a field name
+    # a layer doesn't actually have is exactly what produced ArcGIS's
+    # "'outFields' parameter is invalid" error, confirmed directly
+    # against the capitals-bounding-box layer's real field list. "*"
+    # sidesteps needing to know each layer's exact schema up front --
+    # the name field itself is then auto-detected below from whatever
+    # actually came back, the same pattern idp_helpers.R already uses.
+    outFields        = "*",
     returnGeometry   = "true",
     outSR            = "4326",
     f                = "geojson"
@@ -147,13 +159,36 @@ fetch_subdivisions_for_district <- function(district_sf, url = ARCGIS_SUBDIVISIO
     return(NULL)
   }
   
-  # Standardise output — keep subdivision_name and geometry only
+  # Standardise output — keep subdivision_name and geometry only.
+  # Auto-detected from whatever name-like field actually exists on
+  # THIS layer's response, rather than assuming "NAME_US" specifically
+  # -- same reasoning as the outFields="*" change above, and the same
+  # auto-detection pattern idp_helpers.R already uses for its own
+  # per-source field-name variation. "subdivision_name" (the very
+  # column being built) is checked first, defensively, in case a
+  # future source is ever pre-shaped to already use that name.
+  .name_field_candidates <- c("subdivision_name", "NAME_US", "NAME_L2", "NAME", "Name", "name",
+                              "NAME_LS", "DISP_L2", "DISP_LS")
+  name_field <- .name_field_candidates[.name_field_candidates %in% names(clipped)][1]
+  name_field_found <- !is.na(name_field)
+
   out <- clipped |>
-    dplyr::transmute(
-      subdivision_name = as.character(NAME_US)
-    ) |>
-    dplyr::filter(!is.na(subdivision_name), nzchar(subdivision_name)) |>
-    dplyr::arrange(subdivision_name)
+    dplyr::mutate(subdivision_name = if (name_field_found) as.character(.data[[name_field]]) else "")
+
+  if (name_field_found) {
+    # A real name field exists -- an individual row missing its own
+    # name value is a genuine data-quality issue worth dropping, same
+    # as before this change.
+    out <- out |> dplyr::filter(!is.na(subdivision_name), nzchar(subdivision_name))
+  }
+  # No name field found at all on this layer (e.g. a source with no
+  # name-like column whatsoever) -- every row keeps subdivision_name =
+  # "" rather than being dropped entirely. The geometry itself is still
+  # perfectly valid and usable (this matters specifically for campaign
+  # extent, where the polygon is what's needed, not a label) -- an
+  # absent name should never silently discard otherwise-good shapes.
+
+  out <- out |> dplyr::select(subdivision_name) |> dplyr::arrange(subdivision_name)
   
   if (nrow(out) == 0) {
     .subdivision_cache[[cache_key]] <- NULL
@@ -167,38 +202,61 @@ fetch_subdivisions_for_district <- function(district_sf, url = ARCGIS_SUBDIVISIO
 
 
 # -----------------------------------------------------------------------------
-# fetch_urban_areas_for_district()
+# fetch_campaign_extent_for_district()
 #
-# Thin wrapper around fetch_subdivisions_for_district() for URBAN
-# CLASSIFICATION specifically (the urban-only mapping-scope buffer in
-# server.R's planning_area_sf, and mod_admin_tab_v2.R's
-# .validate_urban_scope() check) -- a conceptually separate use of a
-# subdivision-shaped ArcGIS layer from the intro tab's own subdivision
-# picker, which still uses fetch_subdivisions_for_district() directly
-# against ARCGIS_SUBDIVISIONS_URL unchanged. Reads its URL from the
-# admin-configurable 'urban_areas_url' data-source setting, falling
-# back to ARCGIS_SUBDIVISIONS_URL when no override has been saved yet --
-# i.e. it starts out pointing at the exact same subdivisions layer the
-# picker uses, until an admin replaces it with a real urban-areas layer.
+# Thin wrapper around fetch_subdivisions_for_district() for the "campaign
+# extent" layer specifically -- the outer boundary a 'partial' district's
+# Campaign Scope canvas is built over and can never paint past (see
+# mod_campaign_scope_tab.R). A conceptually separate use of a subdivision-
+# shaped ArcGIS layer from the intro tab's own subdivision picker, which
+# still uses fetch_subdivisions_for_district() directly against
+# ARCGIS_SUBDIVISIONS_URL unchanged.
 #
-# A separate cache_prefix ("urban_") keeps this from colliding with the
-# picker's own "dist_"-prefixed cache entries for the same district, in
-# the same shared .subdivision_cache environment -- harmless overlap
-# while the URL is still identical, but keeps the two logically
-# independent once an admin actually sets a distinct urban_areas_url
-# (a stale cached picker fetch must never silently satisfy an urban-
-# scope lookup, or vice versa).
+# Reads its URL from the admin-configurable 'campaign_extent_url' data-
+# source setting, which can be set globally or overridden per campaign
+# (db_get_data_source_url's own campaign_id parameter -- see mod_admin_
+# tab_v2.R's Manage Districts modal for the per-campaign override UI).
+# Returns NULL if no URL is configured at all, at either level -- no
+# computed fallback (the WorldPop density approximation this used to have
+# was removed; an admin either provides a real extent or the Scope canvas
+# is just the whole blank district instead).
+#
+# A separate cache_prefix (including campaign_id, since the URL can
+# differ per campaign) keeps this from colliding with the picker's own
+# "dist_"-prefixed cache entries for the same district, in the same
+# shared .subdivision_cache environment.
 #
 # Returns the same shape as fetch_subdivisions_for_district() --
-# subdivision_name/geometry columns -- since callers here (the buffer
-# computation, the has-any-features validation check) only ever use the
-# geometry, never that name column; keeping the same column name avoids
-# a second, parallel output shape for no actual behavioral reason.
+# subdivision_name/geometry columns -- since callers here only ever use
+# the geometry, never that name column; keeping the same column name
+# avoids a second, parallel output shape for no actual behavioral reason.
 # -----------------------------------------------------------------------------
-fetch_urban_areas_for_district <- function(district_sf) {
-  url <- tryCatch(db_get_data_source_url(pool, 'urban_areas_url'), error = function(e) NULL)
-  if (is.null(url) || !nzchar(url)) url <- ARCGIS_SUBDIVISIONS_URL
-  fetch_subdivisions_for_district(district_sf, url = url, cache_prefix = 'urban_')
+fetch_campaign_extent_for_district <- function(district_sf, campaign_id = NULL) {
+  url <- tryCatch(db_get_data_source_url(pool, 'campaign_extent_url', campaign_id = campaign_id), error = function(e) NULL)
+  if (is.null(url) || !nzchar(url)) return(NULL)
+  # cache_prefix includes campaign_id -- this URL can differ per campaign
+  # (db_get_data_source_url's own per-campaign override), so two different
+  # campaigns querying the same district must never share a cached result.
+  fetch_subdivisions_for_district(district_sf, url = url,
+                                  cache_prefix = paste0('extent_', campaign_id %||% 'global', '_'))
+}
+
+# -----------------------------------------------------------------------------
+# fetch_settlement_extents_for_district()
+#
+# WHO Settlement Extents (Capitals) -- shown as a context-only reference
+# overlay on every map (Landmarks, Facilities, Campaign Scope, Health Areas,
+# Team Areas), the same treatment fetch_subdivisions_for_district() already
+# gets. Never involved in BFS propagation, never used for scope's own
+# extent (that's fetch_campaign_extent_for_district() above, a distinct
+# admin-configured source), and returns NULL rather than falling back to
+# anything if no admin URL is configured -- there is nothing sensible to
+# approximate a "regional capital built-up area" from.
+# -----------------------------------------------------------------------------
+fetch_settlement_extents_for_district <- function(district_sf) {
+  url <- tryCatch(db_get_data_source_url(pool, 'settlement_extents_url'), error = function(e) NULL)
+  if (is.null(url) || !nzchar(url)) return(NULL)
+  fetch_subdivisions_for_district(district_sf, url = url, cache_prefix = 'settlement_extents_')
 }
 
 

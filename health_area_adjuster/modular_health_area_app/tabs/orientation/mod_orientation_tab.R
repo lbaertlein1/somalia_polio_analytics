@@ -120,17 +120,15 @@ orientationTabServer <- function(
     restore_r          = reactive(NULL),
     subdivisions_r     = reactive(NULL),
     planning_area_sf_r = reactive(NULL),
+    # Context-only overlays, shown the same way subdivisions_r already
+    # is -- see server.R's settlement_extents_rv / idp_context_rv.
+    settlement_extents_r = reactive(NULL),
+    idp_sf_r              = reactive(NULL),
     # Added for the Campaign Scope stage -- defaults to 'full' so any
     # OTHER caller of this module that doesn't pass it gets the exact
     # same behavior as before this parameter existed (straight to
     # Facilities, never to Campaign Scope).
-    mapping_scope_r     = reactive('full'),
-    # Whether urban_areas_rv() (server.R) is a REAL, admin-configured
-    # boundary rather than the WorldPop approximation -- a 'partial'
-    # district with a real boundary is auto-scoped (see mod_campaign_
-    # scope_tab.R's own auto-submit observer) and never needs the
-    # Campaign Scope stage either, same as a 'full' district.
-    urban_source_is_real_r = reactive(FALSE)
+    mapping_scope_r     = reactive('full')
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -229,6 +227,22 @@ orientationTabServer <- function(
         leaflet::addScaleBar(
           position = 'bottomright',
           options  = leaflet::scaleBarOptions(imperial = FALSE, maxWidth = 200)
+        ) |>
+        leaflet::addControl(
+          html = paste0(
+            '<div style="background:white;padding:8px 10px;border-radius:4px;',
+            'font-size:12px;line-height:1.8;border:1px solid #ccc;">',
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;',
+            'background:#7c3aed;margin-right:6px;vertical-align:middle;"></span>Landmark<br>',
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;',
+            'background:#FF1744;margin-right:6px;vertical-align:middle;"></span>IDP Settlement<br>',
+            '<span style="display:inline-block;width:14px;height:0;border-top:2px dashed #7c3aed;',
+            'margin-right:6px;vertical-align:middle;"></span>Subdivision<br>',
+            '<span style="display:inline-block;width:14px;height:0;border-top:2px dashed #0d9488;',
+            'margin-right:6px;vertical-align:middle;"></span>Settlement Extent',
+            '</div>'
+          ),
+          position = 'bottomleft'
         )
     })
     # Pre-render map while user is still on intro tab so the district boundary
@@ -332,7 +346,46 @@ orientationTabServer <- function(
       }
     })
     
-    # ── Draw / redraw all landmark markers ────────────────────────────────────
+    # ── Settlement extents (context-only) ───────────────
+    observe({
+      proxy <- leaflet::leafletProxy('map', session = session) |>
+        leaflet::clearGroup('settlement_extents')
+      se <- tryCatch(settlement_extents_r(), error = function(e) NULL)
+      if (is.null(se) || nrow(se) == 0) return()
+      proxy |>
+        leaflet::addPolygons(
+          data      = se,
+          group     = 'settlement_extents',
+          color     = '#0d9488',
+          weight    = 2,
+          dashArray = '2,4',
+          fill      = FALSE,
+          opacity   = 0.8
+        )
+    })
+
+    # ── IDP settlement points (context-only) ───────────
+    observe({
+      proxy <- leaflet::leafletProxy('map', session = session) |>
+        leaflet::clearGroup('idp_settlements')
+      idp <- tryCatch(idp_sf_r(), error = function(e) NULL)
+      if (is.null(idp) || nrow(idp) == 0) return()
+      coords <- sf::st_coordinates(sf::st_geometry(idp))
+      proxy |>
+        leaflet::addCircleMarkers(
+          lng         = coords[, 1],
+          lat         = coords[, 2],
+          group       = 'idp_settlements',
+          radius      = 4,
+          color       = '#ffffff',
+          weight      = 1,
+          fillColor   = '#FF1744',
+          fillOpacity = 0.9,
+          label       = idp$idp_name
+        )
+    })
+
+    # ── Draw / redraw all landmark markers ───────────────────────────────────────────────────────────────────
     .redraw_markers <- function() {
       proxy <- leaflet::leafletProxy('map', session = session) |>
         leaflet::clearGroup('landmarks')
@@ -580,13 +633,13 @@ orientationTabServer <- function(
     # is 'partial') ──────────────────────────────────────────────────────
     
     .do_continue_to_facilities <- function() {
-      # A 'partial' district with a REAL urban boundary is auto-scoped
-      # (see mod_campaign_scope_tab.R's own auto-submit observer) and
-      # skips this tab too, same as a 'full' district always has --
-      # only a 'partial' district with NO real boundary (missing, or
-      # only the WorldPop approximation) genuinely needs a human to
-      # paint/confirm scope.
-      needs_scope <- identical(mapping_scope_r(), 'partial') && !isTRUE(urban_source_is_real_r())
+      # Every 'partial' district routes here, regardless of whether a
+      # campaign extent exists for it -- the extent (when it exists) is
+      # just the starting canvas for Campaign Scope to refine within,
+      # never a reason to skip human review; with no extent, that tab's
+      # canvas is just the whole blank district instead (see mod_
+      # campaign_scope_tab.R).
+      needs_scope <- identical(mapping_scope_r(), 'partial')
       next_tab <- if (needs_scope) 'tab_campaign_scope' else 'tab_health_facility_mapping'
       shinyjs::runjs(paste0("$('#main_tabs a[data-value=",
                             '"', next_tab, '"',

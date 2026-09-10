@@ -66,8 +66,8 @@ app_server <- function(input, output, session) {
     req(!is.null(dsf))
     # Resolves the admin-configurable subdivisions_url (falling back to
     # the hardcoded ARCGIS_SUBDIVISIONS_URL when no override is saved)
-    # the same way fetch_urban_areas_for_district() already resolves its
-    # own URL -- this was the actual gap: fetch_subdivisions_for_district()
+    # the same way fetch_campaign_extent_for_district() already resolves
+    # its own URL -- this was the actual gap: fetch_subdivisions_for_district()
     # itself takes a url parameter now, but this, its only real caller,
     # was never passing one, so the admin field genuinely did nothing.
     subdiv_url <- tryCatch(db_get_data_source_url(pool, 'subdivisions_url'), error = function(e) NULL)
@@ -76,36 +76,67 @@ app_server <- function(input, output, session) {
   }, ignoreInit = TRUE)
 
   # Separate from subdivisions_rv above -- that one feeds the intro
-  # tab's subdivision-picker UI specifically. This is the PREFILL source
+  # tab's subdivision-picker UI specifically. This is the OUTER EXTENT
   # for the Campaign Scope stage (mod_campaign_scope_tab.R) when a
   # district is set to 'partial' -- fetched from its own admin-
-  # configurable URL (fetch_urban_areas_for_district(), which falls back
-  # to a WorldPop density approximation when no real urban-area GIS data
-  # exists, and to the same subdivisions layer until an admin sets a
-  # distinct URL) -- decoupled so replacing one URL in the admin page
-  # can never silently change what the other feature uses. No longer
-  # feeds planning_area_sf directly (see that reactive below) -- it only
-  # ever informs what the Scope stage's canvas starts painted as; the
-  # SAVED scope boundary, once painted, is what planning_area_sf reads.
-  urban_areas_rv <- reactiveVal(NULL)
-  observeEvent(active_district(), {
-    urban_areas_rv(NULL)
+  # configurable URL (campaign_extent_url, which can be set globally or
+  # overridden per campaign from that campaign's Manage Districts
+  # dialog) -- decoupled so replacing one URL in the admin page can
+  # never silently change what the other feature uses. Feeds
+  # planning_area_sf's Campaign Scope canvas as the outer extent scope
+  # painting can never spread past (see mod_campaign_scope_tab.R) --
+  # not just a prefill hint the way it briefly was. No computed fallback
+  # when no extent data exists (the WorldPop density approximation this
+  # briefly had was removed) -- the canvas is just the whole blank
+  # district instead in that case.
+  #
+  # Triggers on active_campaign_id() too, not just active_district() --
+  # campaign_extent_url can differ per campaign (db_get_data_source_url's
+  # own per-campaign override, set from a campaign's own Manage Districts
+  # dialog), so the same district can genuinely need a different fetch
+  # under a different campaign.
+  campaign_extent_rv <- reactiveVal(NULL)
+  observeEvent(list(active_district(), active_campaign_id()), {
+    campaign_extent_rv(NULL)
     req(!is.null(active_district()))
     dsf <- tryCatch(full_district_sf(), error = function(e) NULL)
     req(!is.null(dsf))
-    urban_areas_rv(tryCatch(fetch_urban_areas_for_district(dsf), error = function(e) NULL))
+    campaign_extent_rv(tryCatch(fetch_campaign_extent_for_district(dsf, active_campaign_id()), error = function(e) NULL))
   }, ignoreInit = TRUE)
 
-  # Whether urban_areas_rv() is a REAL, admin-configured boundary (the
-  # attr() marker fetch_urban_areas_for_district() sets) rather than the
-  # WorldPop density approximation -- used to decide whether Campaign
-  # Scope needs a human at all for a 'partial' district. The
-  # approximation is a genuine guess and still needs review; a real
-  # boundary doesn't.
-  urban_source_is_real <- reactive({
-    u <- tryCatch(urban_areas_rv(), error = function(e) NULL)
-    !is.null(u) && nrow(u) > 0 && identical(attr(u, 'urban_source'), 'real')
-  })
+  # WHO Settlement Extents (Capitals) -- context-only reference overlay,
+  # shown on every map the same way subdivisions are, never involved in
+  # scope, propagation, or any population figure. Global URL only (no
+  # per-campaign override need), so this only needs to refetch when the
+  # district itself changes.
+  settlement_extents_rv <- reactiveVal(NULL)
+  observeEvent(active_district(), {
+    settlement_extents_rv(NULL)
+    req(!is.null(active_district()))
+    dsf <- tryCatch(full_district_sf(), error = function(e) NULL)
+    req(!is.null(dsf))
+    settlement_extents_rv(tryCatch(fetch_settlement_extents_for_district(dsf), error = function(e) NULL))
+  }, ignoreInit = TRUE)
+
+  # IDP settlement points -- context-only, shown on every map the same
+  # way (points + legend entry, see paint-app.js's drawIdpPoints and
+  # mod_facility_map.R's own IDP layer). Deliberately SEPARATE from
+  # mod_facility_tab.R's own rv$idp_sf: that one is tied to the
+  # Facilities stage's submit/restore lifecycle (submit_stage_fn('idp',
+  # ...)), which the other four tabs have no business touching -- this
+  # one is purely a shared display source, refetched on district change
+  # like settlement_extents_rv above. fetch_idp_settlements_for_district()
+  # has its own cache (.idp_cache in idp_helpers.R), so this and the
+  # Facilities tab's own fetch for the same district are a cache hit
+  # against each other, not a duplicate network round trip.
+  idp_context_rv <- reactiveVal(NULL)
+  observeEvent(active_district(), {
+    idp_context_rv(NULL)
+    req(!is.null(active_district()))
+    dsf <- tryCatch(full_district_sf(), error = function(e) NULL)
+    req(!is.null(dsf))
+    idp_context_rv(tryCatch(fetch_idp_settlements_for_district(dsf), error = function(e) NULL))
+  }, ignoreInit = TRUE)
 
   # Whether the CURRENT (active_campaign_id, active_district) pair is
   # scoped to 'partial' -- read live from campaign_districts, per
@@ -308,9 +339,10 @@ app_server <- function(input, output, session) {
     submit_stage_fn    = function(stage, data) health_area_session$submit_stage(stage, data),
     restore_r          = health_area_session$restore_snapshot,
     subdivisions_r     = subdivisions_rv,
+    settlement_extents_r = settlement_extents_rv,
+    idp_sf_r           = idp_context_rv,
     planning_area_sf_r = planning_area_sf,
-    mapping_scope_r    = active_mapping_scope,
-    urban_source_is_real_r = urban_source_is_real
+    mapping_scope_r    = active_mapping_scope
   )
 
   # ===========================================================================
@@ -322,12 +354,12 @@ app_server <- function(input, output, session) {
   campaign_scope <- campaignScopeTabServer(
     'campaign_scope',
     district_sf_r         = full_district_sf,
-    urban_areas_r         = urban_areas_rv,
-    active_campaign_id_r  = active_campaign_id,
+    campaign_extent_r     = campaign_extent_rv,
     active_tab            = reactive(input$main_tabs),
     landmarks_r           = orientation$landmarks_r,
     subdivisions_r        = subdivisions_rv,
-    active_mapping_scope_r = active_mapping_scope,
+    settlement_extents_r  = settlement_extents_rv,
+    idp_sf_r              = idp_context_rv,
     submit_stage_fn       = function(stage, data) health_area_session$submit_stage(stage, data),
     restore_r             = health_area_session$restore_snapshot
   )
@@ -352,6 +384,7 @@ app_server <- function(input, output, session) {
     submit_stage_fn      = function(stage, data) health_area_session$submit_stage(stage, data),
     landmarks_r          = orientation$landmarks_r,
     subdivisions_r       = subdivisions_rv,
+    settlement_extents_r = settlement_extents_rv,
     planning_area_sf_r   = planning_area_sf,
     restore_r            = health_area_session$restore_snapshot,
     campaign_id          = reactive(active_campaign_id())
@@ -371,6 +404,8 @@ app_server <- function(input, output, session) {
     all_facilities_r         = facility$facility_data,
     landmarks_r              = orientation$landmarks_r,
     subdivisions_r           = subdivisions_rv,
+    settlement_extents_r     = settlement_extents_rv,
+    idp_sf_r                 = idp_context_rv,
     planning_area_sf_r       = planning_area_sf,
     submit_stage_fn          = function(stage, data) health_area_session$submit_stage(stage, data),
     restore_r                = health_area_session$restore_snapshot,
@@ -422,6 +457,8 @@ app_server <- function(input, output, session) {
     health_area_name  = active_team_health_area,
     all_facilities_r  = facility$facility_data,
     landmarks_r       = orientation$landmarks_r,
+    settlement_extents_r = settlement_extents_rv,
+    idp_sf_r          = idp_context_rv,
     submit_stage_fn   = function(data) team_area_session$submit_stage(data),
     restore_r         = team_area_session$restore_snapshot,
     team_targets_r    = health_area$team_targets_r,
@@ -486,12 +523,6 @@ app_server <- function(input, output, session) {
     locked <- isTRUE(health_area_locked_to_current())
     is_partial      <- identical(active_mapping_scope(), 'partial')
     scope_locked    <- isTRUE(campaign_scope_locked_to_current())
-    # A 'partial' district with a REAL admin-configured urban boundary
-    # (not the WorldPop approximation) is auto-scoped -- see
-    # mod_campaign_scope_tab.R's own auto-submit observer -- so this
-    # tab is never a usable option for it either, same mechanism as
-    # 'full' districts never getting it enabled at all.
-    auto_scoped     <- is_partial && isTRUE(urban_source_is_real())
     set_tab_enabled('tab_orientation',             ready && !locked,
                     title = if (locked) 'This district\'s health areas are already mapped -- Landmarks is locked for this session' else 'Choose a district from the Introduction tab first')
     # Only shown as a usable option at all for a district set to
@@ -499,12 +530,16 @@ app_server <- function(input, output, session) {
     # gets this tab enabled, which is the entire mechanism for "skip the
     # Campaign Scope stage" here: navigation in this app is tab-based,
     # not a forced wizard sequence, so simply never enabling the tab for
-    # 'full' districts IS skipping it. Locks independently of
-    # health_area_locked_to_current -- scope locks one stage later, once
-    # Facilities begins, not at the same point Landmarks/Facilities do.
-    set_tab_enabled('tab_campaign_scope',          ready && is_partial && !auto_scoped && !scope_locked,
+    # 'full' districts IS skipping it. A 'partial' district ALWAYS gets
+    # this tab enabled, regardless of whether a campaign extent exists
+    # for it -- the extent is a starting canvas to refine within, never
+    # a reason to skip human review; when no extent exists, the canvas
+    # is just the whole blank district instead (see mod_campaign_scope_
+    # tab.R). Locks independently of health_area_locked_to_current --
+    # scope locks one stage later, once Facilities begins, not at the
+    # same point Landmarks/Facilities do.
+    set_tab_enabled('tab_campaign_scope',          ready && is_partial && !scope_locked,
                     title = if (!is_partial) 'This district is scoped to the full district -- Campaign Scope does not apply'
-                            else if (auto_scoped) 'This district has a real, admin-configured urban boundary -- it was used as scope automatically'
                             else if (scope_locked) 'Campaign scope is locked for this session -- facilities work has already begun'
                             else 'Choose a district from the Introduction tab first')
     set_tab_enabled('tab_health_facility_mapping', ready && !locked,
@@ -549,15 +584,14 @@ app_server <- function(input, output, session) {
     }
     # Same server-side enforcement for Campaign Scope specifically -- a
     # 'full'-scope district landing here (e.g. a stale URL fragment from
-    # when the district was still 'partial'), a 'partial' district that's
-    # auto-scoped from a real urban boundary, or a 'partial' district
-    # whose scope is already locked all redirect the same way
+    # when the district was still 'partial') or a 'partial' district
+    # whose scope is already locked both redirect the same way
     # set_tab_enabled()'s title text above explains why the tab wasn't
     # clickable in the first place.
     if (identical(input$main_tabs, 'tab_campaign_scope') &&
-        (!identical(active_mapping_scope(), 'partial') || isTRUE(urban_source_is_real()) ||
+        (!identical(active_mapping_scope(), 'partial') ||
          isTRUE(campaign_scope_locked_to_current()))) {
-      cat("[navdebug] REDIRECT away from tab_campaign_scope -- reason: not partial scope, auto-scoped, or already locked\n")
+      cat("[navdebug] REDIRECT away from tab_campaign_scope -- reason: not partial scope or already locked\n")
       updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_facility_mapping')
       showNotification('Campaign Scope does not apply here.', type = 'message', duration = 3)
       return()

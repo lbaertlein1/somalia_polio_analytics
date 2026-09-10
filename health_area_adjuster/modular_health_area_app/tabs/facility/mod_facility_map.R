@@ -52,7 +52,15 @@ facilityMapServer <- function(
     all_district_densities,
     show_pop_r     = reactive(FALSE),
     landmarks_r    = reactive(NULL),   # data frame: landmark_id, landmark_name, lat, lon
-    subdivisions_r = reactive(NULL)
+    subdivisions_r = reactive(NULL),
+    # data frame: subdivision_name (used here as a generic label, not
+    # necessarily a real name -- see fetch_idp_settlements_for_district()),
+    # lon, lat. Context-only, same treatment as landmarks/subdivisions --
+    # never affects facility filtering, propagation, or any count.
+    idp_sf_r       = reactive(NULL),
+    # sf polygon/multipolygon, subdivision_name + geometry -- same shape
+    # as subdivisions_r, context-only overlay.
+    settlement_extents_r = reactive(NULL)
 ) {
   
   moduleServer(id, function(input, output, session) {
@@ -396,7 +404,13 @@ facilityMapServer <- function(
         '<img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"',
         ' height="20"> Selected<br>',
         '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;',
-        'background:#7c3aed;margin-right:6px;vertical-align:middle;"></span>Landmark',
+        'background:#7c3aed;margin-right:6px;vertical-align:middle;"></span>Landmark<br>',
+        '<span style="display:inline-block;width:14px;height:0;border-top:2px dashed #7c3aed;',
+        'margin-right:6px;vertical-align:middle;"></span>Subdivision<br>',
+        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;',
+        'background:#FF1744;margin-right:6px;vertical-align:middle;"></span>IDP Settlement<br>',
+        '<span style="display:inline-block;width:14px;height:0;border-top:2px dashed #0d9488;',
+        'margin-right:6px;vertical-align:middle;"></span>Settlement Extent',
         pop_section,
         '</div>'
       )
@@ -657,6 +671,43 @@ facilityMapServer <- function(
       }
     })
     
+    # ── IDP settlement points — context only, same treatment as landmark
+    # dots above (own color to stay visually distinct from them), never
+    # affects facility filtering or any count. idp_name is a real name
+    # when the source's own name field was detected, otherwise a
+    # generic "IDP Settlement N" fallback (see fetch_idp_settlements_
+    # for_district() in idp_helpers.R) -- either way still usable as a
+    # map label.
+    observe({
+      req(district_sf())   # re-fire when map becomes ready, not just when idp_sf_r changes
+      proxy <- leaflet::leafletProxy('map', session = session)
+      proxy |> leaflet::clearGroup('idp_settlements')
+
+      idp <- tryCatch(idp_sf_r(), error = function(e) NULL)
+      if (is.null(idp) || nrow(idp) == 0 || !inherits(idp, 'sf')) return()
+
+      coords <- sf::st_coordinates(sf::st_geometry(idp))
+      for (i in seq_len(nrow(idp))) {
+        label <- idp$idp_name[i]
+        if (!is.na(idp$idp_population[i]))
+          label <- paste0(label, ' (', format(round(idp$idp_population[i]), big.mark = ','), ')')
+        proxy <- proxy |>
+          leaflet::addCircleMarkers(
+            lng         = coords[i, 1],
+            lat         = coords[i, 2],
+            layerId     = paste0('idp_', i),
+            group       = 'idp_settlements',
+            radius      = 4,
+            color       = '#FF1744',
+            fillColor   = '#FF1744',
+            fillOpacity = 0.9,
+            weight      = 0,
+            label       = label,
+            labelOptions = leaflet::labelOptions(direction = 'right', offset = c(6, 0))
+          )
+      }
+    })
+
     # ── Subdivision boundaries ────────────────────────────────────────────────
     # Use observeEvent on both district_sf AND subdivisions_r so the layer
     # redraws when either changes. district_sf() guard ensures the map exists.
@@ -687,6 +738,30 @@ facilityMapServer <- function(
     observeEvent(district_sf(), { .draw_subdivision_boundaries() },
                  ignoreNULL = TRUE, ignoreInit = FALSE)
     observeEvent(subdivisions_r(), { .draw_subdivision_boundaries() },
+                 ignoreNULL = FALSE, ignoreInit = FALSE)
+
+    # ── Settlement extents ───────────────────────────
+    # Context-only shape overlay, same treatment as subdivision boundaries
+    # above -- own color (teal, not purple) to stay visually distinct.
+    .draw_settlement_extents <- function() {
+      proxy <- leaflet::leafletProxy('map', session = session) |>
+        leaflet::clearGroup('settlement_extents')
+      se <- tryCatch(settlement_extents_r(), error = function(e) NULL)
+      if (is.null(se) || nrow(se) == 0) return()
+      proxy |>
+        leaflet::addPolygons(
+          data        = se,
+          group       = 'settlement_extents',
+          color       = '#0d9488',
+          weight      = 2,
+          dashArray   = '2,4',
+          fill        = FALSE,
+          opacity     = 0.8
+        )
+    }
+    observeEvent(district_sf(), { .draw_settlement_extents() },
+                 ignoreNULL = TRUE, ignoreInit = FALSE)
+    observeEvent(settlement_extents_r(), { .draw_settlement_extents() },
                  ignoreNULL = FALSE, ignoreInit = FALSE)
   })
 }

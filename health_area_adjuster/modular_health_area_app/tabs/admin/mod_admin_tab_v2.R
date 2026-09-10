@@ -82,9 +82,9 @@ adminTabUI <- function(id) {
                             'Health-facility (ODK/Kobo) endpoints are configured in .env, not here.'),
                      div(class = 'mini-label', 'Subdivisions source URL'),
                      textInput(ns('subdivisions_url'), NULL, width = '100%'),
-                     div(class = 'mini-label', style = 'margin-top: 10px;', 'Urban areas source URL',
-                         title = 'Used for urban-only mapping scope specifically -- separate from the subdivisions URL above, even though it starts out pointing at the same layer. Replace with the real urban-areas ArcGIS layer once available.'),
-                     textInput(ns('urban_areas_url'), NULL, width = '100%'),
+                     div(class = 'mini-label', style = 'margin-top: 10px;', 'Settlement extents source URL',
+                         title = 'WHO-defined built-up-area extents for district/regional capitals -- shown as context on every map, never affects scope, propagation, or population figures.'),
+                     textInput(ns('settlement_extents_url'), NULL, width = '100%'),
                      div(class = 'mini-label', style = 'margin-top: 10px;', 'IDP settlements source URL'),
                      textInput(ns('idp_url'), NULL, width = '100%'),
                      actionButton(ns('save_sources_btn'), 'Save', class = 'btn btn-primary btn-sm', style = 'margin-top: 10px;')
@@ -329,8 +329,16 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         ),
         tags$p(style = 'font-size:11px;color:#94a3b8;margin-bottom:8px;',
                '"Partial" adds a Campaign Scope stage for that district, between Landmarks and Facilities, ',
-               'where the in-scope/out-of-scope boundary is painted directly -- prefilled from urban-area ',
-               'data where available, but never computed automatically.'),
+               'where the in-scope/out-of-scope boundary is painted directly, starting from the campaign ',
+               'extent below (clipped to the district) where available, or the whole blank district otherwise.'),
+        div(
+          style = 'border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:12px;background:#f8fafc;',
+          div(class = 'mini-label', 'Campaign extent URL (this campaign)',
+              title = 'Required for a real starting extent -- there is no global default anymore, extent layers are campaign-specific only. Leave blank if this campaign has no configured extent (Partial-scoped districts then fall back to the whole district as the Campaign Scope canvas).'),
+          textInput(session$ns('campaign_extent_url_override'), NULL, width = '100%',
+                   value = tryCatch(db_get_data_source_url_campaign_specific(pool, 'campaign_extent_url', cid),
+                                    error = function(e) '') %||% '')
+        ),
         div(style = 'max-height:60vh;overflow-y:auto;', region_blocks)
       ))
     }
@@ -339,6 +347,23 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       cid <- manage_districts_campaign_id(); req(!is.null(cid))
       all_dists <- districts_shp |> sf::st_drop_geometry() |>
         dplyr::distinct(district_name) |> dplyr::pull(district_name)
+
+      # Campaign extent for THIS campaign -- there is no global default
+      # to fall back to anymore (extent layers are campaign-specific
+      # only), so blank means "this campaign has no configured extent at
+      # all" (delete any existing row), not "revert to a global
+      # default". Partial-scoped districts fall back to the whole
+      # district as the Campaign Scope canvas in that case -- see
+      # mod_campaign_scope_tab.R's .determine_canvas().
+      extent_override <- trimws(input$campaign_extent_url_override %||% '')
+      tryCatch({
+        if (nzchar(extent_override)) {
+          db_set_data_source_url(pool, 'campaign_extent_url', extent_override, current_user(), campaign_id = cid)
+        } else {
+          db_delete_data_source_url(pool, 'campaign_extent_url', cid)
+        }
+        clear_subdivision_cache()
+      }, error = function(e) showNotification(paste('Failed to save campaign extent override:', e$message), type = 'error', duration = 6))
 
       checked <- character(0)
       requested_scopes <- list()
@@ -726,7 +751,6 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
 
       display <- data.frame(
         Owner    = df$owner_username,
-        Campaign = df$campaign_id,
         Version  = df$version_number,
         Current  = ifelse(df$is_shared, 'Yes', 'No'),
         Created  = format(df$created_at, '%d %b %Y %H:%M'),
@@ -799,7 +823,6 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       display <- data.frame(
         `Health area` = df$health_area_name,
         Owner          = df$owner_username,
-        Campaign        = df$campaign_id,
         Version          = df$version_number,
         Current           = ifelse(df$is_shared, 'Yes', 'No'),
         Updated             = format(df$last_updated_at, '%d %b %Y %H:%M'),
@@ -918,28 +941,21 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       # subdivisions_url falls back to ARCGIS_SUBDIVISIONS_URL (the actual
       # hardcoded constant fetch_subdivisions_for_district() uses in
       # subdivision_helpers.R) when the DB has no override saved yet.
-      # Both this and urban_areas_url below ARE now genuinely wired into
-      # their respective fetches (server.R's subdivisions_rv observer
-      # resolves this one; fetch_urban_areas_for_district() resolves its
-      # own internally) -- saving a new value in either really does
-      # change what gets fetched, including for a district that was
-      # already visited this session, since save_sources_btn's handler
-      # clears the shared fetch cache on every save.
       current_subdiv_url <- tryCatch(db_get_data_source_url(pool, 'subdivisions_url'), error = function(e) '') %||% ''
       hardcoded_subdiv_url <- tryCatch(ARCGIS_SUBDIVISIONS_URL, error = function(e) '')
       resolved_subdiv_url <- if (nzchar(current_subdiv_url)) current_subdiv_url else hardcoded_subdiv_url
       updateTextInput(session, 'subdivisions_url', value = resolved_subdiv_url)
-      # urban_areas_url pre-fills with whatever the subdivisions URL
-      # resolves to (its own saved override, or the hardcoded constant)
-      # until an admin has saved a distinct urban-areas override of its
-      # own -- exactly the "same layer for now, replace later" the admin
-      # was told to expect. Unlike subdivisions_url, this one IS actually
-      # wired into the fetch (fetch_urban_areas_for_district(),
-      # subdivision_helpers.R) -- saving a new value here really does
-      # change what urban-only mapping scope uses.
-      current_urban_url <- tryCatch(db_get_data_source_url(pool, 'urban_areas_url'), error = function(e) '') %||% ''
-      updateTextInput(session, 'urban_areas_url',
-                      value = if (nzchar(current_urban_url)) current_urban_url else resolved_subdiv_url)
+      # campaign_extent_url has NO global default anymore -- extent
+      # layers are campaign-specific only now, set exclusively from each
+      # campaign's own Manage Districts dialog (campaign_extent_url_
+      # override above). settlement_extents_url is a genuinely different
+      # dataset (WHO settlement extents, context-only, not scope-
+      # bounding) that still has a single global URL, no per-campaign
+      # concept -- no fallback pre-fill from resolved_subdiv_url the way
+      # this used to work for urban_areas_url, since there's no
+      # meaningful "same layer for now" relationship between them.
+      updateTextInput(session, 'settlement_extents_url',
+                      value = tryCatch(db_get_data_source_url(pool, 'settlement_extents_url'), error = function(e) '') %||% '')
       updateTextInput(session, 'idp_url',
                       value = tryCatch(db_get_data_source_url(pool, 'idp_settlements_url'), error = function(e) '') %||% '')
     })
@@ -948,17 +964,20 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       ok <- TRUE
       tryCatch(db_set_data_source_url(pool, 'subdivisions_url', trimws(input$subdivisions_url %||% ''), current_user()),
               error = function(e) { ok <<- FALSE; showNotification(paste('Failed (subdivisions):', e$message), type = 'error', duration = 6) })
-      tryCatch(db_set_data_source_url(pool, 'urban_areas_url', trimws(input$urban_areas_url %||% ''), current_user()),
-              error = function(e) { ok <<- FALSE; showNotification(paste('Failed (urban areas):', e$message), type = 'error', duration = 6) })
+      tryCatch(db_set_data_source_url(pool, 'settlement_extents_url', trimws(input$settlement_extents_url %||% ''), current_user()),
+              error = function(e) { ok <<- FALSE; showNotification(paste('Failed (settlement extents):', e$message), type = 'error', duration = 6) })
       tryCatch(db_set_data_source_url(pool, 'idp_settlements_url', trimws(input$idp_url %||% ''), current_user()),
               error = function(e) { ok <<- FALSE; showNotification(paste('Failed (IDP):', e$message), type = 'error', duration = 6) })
-      # Both subdivisions_url and urban_areas_url are read by
+      # subdivisions_url and settlement_extents_url are both read by
       # fetch_subdivisions_for_district() (subdivision_helpers.R), whose
       # cache is keyed only by district, not by URL -- without clearing
       # it here, a district visited before this save would keep
       # returning its old, stale fetch until the app restarted, even
-      # though the URL setting itself changed correctly. IDP has no
-      # such cache, so it needs no equivalent step.
+      # though the URL setting itself changed correctly. IDP has no such
+      # cache, so it needs no equivalent step. campaign_extent_url's own
+      # cache-clearing happens where its override is actually set/
+      # deleted now (see campaign_extent_url_override's own observer),
+      # not here.
       tryCatch(clear_subdivision_cache(), error = function(e) NULL)
       if (ok) showNotification('Data source URLs saved.', type = 'message', duration = 3)
     }, ignoreInit = TRUE)

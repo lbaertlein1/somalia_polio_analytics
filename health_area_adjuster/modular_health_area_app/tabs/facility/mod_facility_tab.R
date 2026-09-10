@@ -1,21 +1,13 @@
 # =============================================================================
 # mod_facility_tab.R  (v2)
 #
-# Only change from v1: IDP settlements added. Fetched automatically per
-# district (same deferred-until-tab-active pattern as the existing ODK
-# facility fetch), shown as a small read-only list in the sidebar, and
-# submitted alongside facilities when the Submit button is clicked.
-#
-# Deliberately NOT done in this pass: rendering IDP points on the Leaflet
-# map itself. That would mean editing mod_facility_map.R, which I haven't
-# read this session — after getting burned once already this session by
-# editing a shared file (bfs_propagate.cpp) without reading what else
-# depended on it first, I'm not repeating that on a 24K-line Leaflet
-# module blind. The sidebar list covers the "review" requirement; map
-# markers are a reasonable follow-up once mod_facility_map.R is actually
-# read and a similar point-layer pattern (it already draws landmarks/
-# facilities as points, per paint-app.js's equivalent) can be matched
-# properly instead of guessed at.
+# IDP settlements: fetched automatically per district (same deferred-
+# until-tab-active pattern as the existing ODK facility fetch), submitted
+# alongside facilities when the Submit button is clicked, and shown as
+# context-only points on the map itself (mod_facility_map.R's idp_sf_r,
+# matching the same treatment landmarks/subdivisions already get) with a
+# legend entry -- never a sidebar list; the sidebar only shows a brief
+# fetch-status line.
 # =============================================================================
 
 facilityTabUI <- function(id) {
@@ -75,12 +67,6 @@ facilityTabUI <- function(id) {
 
       tags$hr(style = 'margin: 6px 0;'),
 
-      div(class = 'rightbar-title', style = 'font-size: 12px;', 'IDP Settlements'),
-      uiOutput(ns('idp_status')),
-      uiOutput(ns('idp_list')),
-
-      tags$hr(style = 'margin: 6px 0;'),
-
       actionButton(ns('submit_facilities'), 'Submit',
                    class = 'btn-primary btn-sm', width = '100%',
                    icon = icon('check-circle')),
@@ -127,6 +113,7 @@ facilityTabServer <- function(
     submit_stage_fn    = NULL,
     landmarks_r        = reactive(NULL),
     subdivisions_r     = reactive(NULL),
+    settlement_extents_r = reactive(NULL),
     planning_area_sf_r = reactive(NULL),
     save_snapshot_fn   = NULL,   # kept for compatibility, no-op
     restore_r          = reactive(NULL),
@@ -166,9 +153,18 @@ facilityTabServer <- function(
           showNotification('Facility state restored.', type = 'message', duration = 2)
         }
       }
-      if (!is.null(snap$idp_settlements)) {
+      if (!is.null(snap$idp_settlements) && nrow(snap$idp_settlements) > 0) {
         needs_idp_fetch(FALSE)
-        rv$idp_sf <- snap$idp_settlements
+        # Same conversion the OTHER restore path (below, in this same
+        # file) already does correctly -- submitted IDP data is stored
+        # as a plain data.frame with lon/lat columns (st_drop_geometry()
+        # at submit time, see submit_stage_fn('idp', ...)), not as an sf
+        # object. Assigning snap$idp_settlements directly here (the bug
+        # this replaces) left rv$idp_sf as exactly that plain data.frame
+        # -- which crashed facilityMapServer's own idp_sf_r consumer the
+        # moment it tried sf::st_geometry() on it ("no applicable method
+        # for 'st_geometry' applied to an object of class 'data.frame'").
+        rv$idp_sf <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
       }
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
@@ -349,38 +345,12 @@ facilityTabServer <- function(
       }
     })
 
-    # -------------------------------------------------------------------------
-    # IDP status + list
-    # -------------------------------------------------------------------------
-    output$idp_status <- renderUI({
-      if (isTRUE(rv$idp_loading)) {
-        div(style = 'color: #2196F3; font-size: 11px; margin-bottom: 4px;',
-            icon('spinner', class = 'fa-spin'), ' Loading IDP settlements...')
-      } else if (!is.null(rv$idp_error)) {
-        div(style = 'color: #94a3b8; font-size: 11px; margin-bottom: 4px;', rv$idp_error)
-      } else if (!is.null(rv$idp_sf) && nrow(rv$idp_sf) > 0) {
-        div(style = 'color: #0d9488; font-size: 11px; margin-bottom: 4px;',
-            sprintf('%d settlement(s) found.', nrow(rv$idp_sf)))
-      }
-    })
-
-    output$idp_list <- renderUI({
-      req(!is.null(rv$idp_sf), nrow(rv$idp_sf) > 0)
-      df <- sf::st_drop_geometry(rv$idp_sf)
-      tagList(
-        div(
-          style = 'max-height: 160px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 4px; margin-bottom: 6px;',
-          lapply(seq_len(nrow(df)), function(i) {
-            div(
-              style = 'padding: 4px 8px; font-size: 11px; border-bottom: 1px solid #f1f5f9;',
-              tags$strong(df$idp_name[i]),
-              if (!is.na(df$idp_population[i]))
-                tags$span(style = 'color:#64748b;', sprintf('  \u00b7  %s people', format(round(df$idp_population[i]), big.mark = ',')))
-            )
-          })
-        )
-      )
-    })
+    # IDP settlements are context-only, shown as points on the map itself
+    # (see facilityMapServer's idp_sf_r) with a legend entry -- no
+    # separate sidebar status/list; the fetch/error/loading state below
+    # (rv$idp_loading, rv$idp_error, rv$idp_sf) still drives do_idp_fetch()
+    # and the submit_stage_fn('idp', ...) persistence, just without any
+    # UI output of its own anymore.
 
     # -------------------------------------------------------------------------
     # ODK fetch
@@ -615,7 +585,9 @@ facilityTabServer <- function(
       all_district_densities = all_district_densities,
       show_pop_r             = reactive(isTRUE(input$show_pop_raster)),
       landmarks_r            = landmarks_r,
-      subdivisions_r         = subdivisions_r
+      subdivisions_r         = subdivisions_r,
+      settlement_extents_r   = settlement_extents_r,
+      idp_sf_r               = reactive(rv$idp_sf)
     )
 
     facilityTableServer(

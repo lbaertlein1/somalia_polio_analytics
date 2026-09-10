@@ -1975,7 +1975,7 @@ function getApp(msg) {
         this.seedLayer = L.layerGroup();
 
         seedPoints.forEach((pt) => {
-          if (pt.lon == null || pt.lat == null) return;
+          if (pt.lon == null || pt.lat == null || isNaN(pt.lon) || isNaN(pt.lat)) return;
           // SIA coordination sites — most prominent
           const marker = L.circleMarker([pt.lat, pt.lon], {
             radius: 8,
@@ -2029,7 +2029,7 @@ function getApp(msg) {
         this.facilityLayer = L.layerGroup();
 
         facilityPoints.forEach((pt) => {
-          if (pt.lon == null || pt.lat == null) return;
+          if (pt.lon == null || pt.lat == null || isNaN(pt.lon) || isNaN(pt.lat)) return;
           // Non-SIA facilities — equal prominence to landmarks
           const marker = L.circleMarker([pt.lat, pt.lon], {
             radius: 5,
@@ -2063,7 +2063,7 @@ function getApp(msg) {
         this.landmarkLayer = L.layerGroup();
 
         landmarkPoints.forEach((pt) => {
-          if (pt.lon == null || pt.lat == null) return;
+          if (pt.lon == null || pt.lat == null || isNaN(pt.lon) || isNaN(pt.lat)) return;
           // Landmarks — equal prominence to non-SIA facilities
           const marker = L.circleMarker([pt.lat, pt.lon], {
             radius: 5,
@@ -2090,16 +2090,117 @@ function getApp(msg) {
         this.landmarkLayer.addTo(this.map);
       },
 
+      clearSettlementExtentsLayer: function() {
+        if (!this.map) return;
+        if (this.settlementExtentsLayer) {
+          this.map.removeLayer(this.settlementExtentsLayer);
+          this.settlementExtentsLayer = null;
+        }
+      },
+
+      // Context-only shape overlay -- own color/dash to stay visually
+      // distinct from subdivisionLayer (teal, not purple). Pulled out as
+      // its own method (not left inline in loadScene) so
+      // updateContextLayers below can call it too, independent of a
+      // full scene reload -- see that method's own comment for why.
+      updateSettlementExtentsLayer: function(settlementExtentsGeojson) {
+        this.clearSettlementExtentsLayer();
+        if (!this.map || !settlementExtentsGeojson) return;
+        const settlementGeo = (typeof settlementExtentsGeojson === 'string')
+          ? JSON.parse(settlementExtentsGeojson)
+          : settlementExtentsGeojson;
+        this.settlementExtentsLayer = L.geoJSON(settlementGeo, {
+          style: {
+            color: '#0d9488',
+            weight: 2,
+            dashArray: '2 4',
+            fill: false,
+            opacity: 0.85,
+            interactive: false
+          }
+        }).addTo(this.map);
+        this.bringSubdivisionToFront();
+      },
+
+      // Settlement extents and IDP points are both fetched independently
+      // in server.R (settlement_extents_rv / idp_context_rv), each its
+      // own ArcGIS network round trip -- there's no guarantee either has
+      // resolved by the time loadScene first runs and sends
+      // paint_load_scene, the same race campaign_extent_r already had a
+      // catch-up observer for on the R side. Rather than resending the
+      // ENTIRE scene (which would reset in-progress paint state) when
+      // either arrives late, this updates just these two context layers
+      // in place -- called from a separate, lightweight
+      // paint_update_context_layers message the R side sends once
+      // either reactive resolves after the initial scene load.
+      updateContextLayers: function(msg) {
+        if (!this.map) return;
+        this.updateSettlementExtentsLayer(msg.settlementExtentsGeojson);
+        this.drawIdpPoints(msg.idpPoints || []);
+        this.bringPointLayersToFront();
+      },
+
+      clearIdpLayer: function() {
+        if (!this.map) return;
+        if (this.idpLayer) {
+          this.map.removeLayer(this.idpLayer);
+          this.idpLayer = null;
+        }
+      },
+
+      // IDP settlement points -- context only, same treatment/color as
+      // mod_facility_map.R's own IDP layer (#FF1744) for visual
+      // consistency across the whole app. pt.name is a real settlement
+      // name when the source's own name field was detected, otherwise
+      // a generic fallback (see fetch_idp_settlements_for_district() in
+      // idp_helpers.R) -- either way still a usable label.
+      drawIdpPoints: function(idpPoints) {
+        this.clearIdpLayer();
+        if (!this.map || !idpPoints || !Array.isArray(idpPoints) || idpPoints.length === 0) return;
+
+        this.idpLayer = L.layerGroup();
+
+        idpPoints.forEach((pt) => {
+          if (pt.lon == null || pt.lat == null || isNaN(pt.lon) || isNaN(pt.lat)) return;
+          const marker = L.circleMarker([pt.lat, pt.lon], {
+            radius: 4,
+            color: '#ffffff',
+            weight: 1,
+            opacity: 1,
+            fillColor: '#FF1744',
+            fillOpacity: 0.9,
+            interactive: false
+          });
+
+          if (pt.name) {
+            marker.bindTooltip(String(pt.name), {
+              direction: 'right',
+              offset: [6, 0],
+              className: 'idp-label'
+            });
+          }
+
+          marker.addTo(this.idpLayer);
+        });
+
+        this.idpLayer.addTo(this.map);
+      },
+
       // Bring all point layers to front in correct order:
       // landmarks → facilities → seeds (seeds always on top)
       bringSubdivisionToFront: function() {
         if (this.subdivisionLayer && this.map.hasLayer(this.subdivisionLayer))
           this.subdivisionLayer.bringToFront();
+        if (this.settlementExtentsLayer && this.map.hasLayer(this.settlementExtentsLayer))
+          this.settlementExtentsLayer.bringToFront();
       },
 
       bringPointLayersToFront: function() {
         if (this.landmarkLayer) {
           this.landmarkLayer.eachLayer(function(l) { if (l.bringToFront) l.bringToFront(); });
+        }
+        if (this.idpLayer) {
+          this.idpLayer.eachLayer(function(l) { if (l.bringToFront) l.bringToFront(); });
         }
         if (this.facilityLayer) {
           this.facilityLayer.eachLayer(function(l) { if (l.bringToFront) l.bringToFront(); });
@@ -2128,6 +2229,10 @@ function getApp(msg) {
           this.map.removeLayer(this.landmarkLayer);
           this.landmarkLayer = null;
         }
+        if (this.idpLayer) {
+          this.map.removeLayer(this.idpLayer);
+          this.idpLayer = null;
+        }
         if (this.popLayer) {
           this.map.removeLayer(this.popLayer);
           this.popLayer = null;
@@ -2139,6 +2244,10 @@ function getApp(msg) {
         if (this.subdivisionLayer) {
           this.map.removeLayer(this.subdivisionLayer);
           this.subdivisionLayer = null;
+        }
+        if (this.settlementExtentsLayer) {
+          this.map.removeLayer(this.settlementExtentsLayer);
+          this.settlementExtentsLayer = null;
         }
         if (this.gridLayer) {
           this.map.removeLayer(this.gridLayer);
@@ -2294,6 +2403,10 @@ function getApp(msg) {
           }).addTo(this.map);
         }
 
+        if (msg.settlementExtentsGeojson) {
+          this.updateSettlementExtentsLayer(msg.settlementExtentsGeojson);
+        }
+
         this.gridLayer = L.geoJSON(gridGeo, {
           style: (feature) => this.styleForFeature(feature),
           onEachFeature: (feature, layer) => {
@@ -2338,6 +2451,7 @@ function getApp(msg) {
         this.drawSeedPoints(msg.seedPoints || []);
         this.drawFacilityPoints(msg.facilityPoints || []);
         this.drawLandmarkPoints(msg.landmarkPoints || []);
+        this.drawIdpPoints(msg.idpPoints || []);
         this.bringPointLayersToFront();
         this.map.fitBounds(this.districtLayer.getBounds(), { padding: [10, 10] });
 
@@ -2478,6 +2592,10 @@ function getApp(msg) {
 
     Shiny.addCustomMessageHandler('paint_load_scene', function(msg) {
       getApp(msg).loadScene(msg);
+    });
+
+    Shiny.addCustomMessageHandler('paint_update_context_layers', function(msg) {
+      getApp(msg).updateContextLayers(msg);
     });
 
     Shiny.addCustomMessageHandler('paint_reveal_wave', function(msg) {

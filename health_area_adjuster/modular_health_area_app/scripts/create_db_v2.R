@@ -390,14 +390,28 @@ statements <- list(
 
   # ── Admin-configurable external data source URLs ────────────────────────────
   # Health-facility (ODK/Kobo) endpoints stay hardcoded in facility_helpers.R /
-  # .env — deliberately NOT included here.
+  # .env — deliberately NOT included here. campaign_id NULL = global default;
+  # non-null = per-campaign override, same (setting_key, campaign_id) pattern
+  # generation_settings already uses -- only campaign_extent_url actually
+  # needs a per-campaign override (different campaigns may use different
+  # extent layers); subdivisions_url/idp_settlements_url/settlement_extents_
+  # url just never get one set, which is fine, the lookup falls back to the
+  # global row either way.
   "CREATE TABLE IF NOT EXISTS data_source_settings (
-    setting_key    TEXT PRIMARY KEY
-                    CHECK (setting_key IN ('subdivisions_url', 'idp_settlements_url')),
+    id             SERIAL PRIMARY KEY,
+    setting_key    TEXT        NOT NULL
+                    CHECK (setting_key IN ('subdivisions_url', 'idp_settlements_url',
+                                           'campaign_extent_url', 'settlement_extents_url')),
+    campaign_id    INTEGER REFERENCES campaigns(campaign_id),
     setting_value   TEXT        NOT NULL,
     updated_by       TEXT REFERENCES users(username),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )"
+  )",
+
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_dss_global_unique
+     ON data_source_settings(setting_key) WHERE campaign_id IS NULL",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_dss_campaign_unique
+     ON data_source_settings(setting_key, campaign_id) WHERE campaign_id IS NOT NULL"
 )
 
 cat("Creating tables...\n")
@@ -457,9 +471,7 @@ default_settings <- list(
   list(key = 'pop_sat_pct',                val = 1.0,   desc = 'Population saturation threshold (fraction of target before penalty kicks in)'),
   list(key = 'pop_sat_weight',             val = 0.5,   desc = 'Weight applied to population saturation penalty'),
   list(key = 'pop_sat_max',                val = 0.3,   desc = 'Cap on population saturation penalty'),
-  list(key = 'subdivision_boundary_penalty', val = 0.99, desc = 'Soft friction penalty for crossing a subdivision boundary during generation'),
-  list(key = 'urban_buffer_km', val = 5, desc = 'Buffer distance (km) added around a district\'s dissolved subdivision outer boundary when that district is scoped to urban areas only'),
-  list(key = 'urban_approx_density_per_km2', val = 250, desc = 'Under-5 population density threshold (people per km2) used to approximate an urban area from the WorldPop raster when no real urban-area GIS data exists for a district -- a genuine judgment call (see approximate_urban_area_from_worldpop() in subdivision_helpers.R for why 250 rather than the more commonly-cited ~1500/km2 total-population threshold)')
+  list(key = 'subdivision_boundary_penalty', val = 0.99, desc = 'Soft friction penalty for crossing a subdivision boundary during generation')
 )
 
 for (s in default_settings) {

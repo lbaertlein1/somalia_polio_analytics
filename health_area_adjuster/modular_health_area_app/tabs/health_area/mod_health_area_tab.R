@@ -38,7 +38,11 @@ healthAreaTabServer <- function(
     # tab makes any decision based on role anymore.
     make_current_fn          = NULL,
     is_locked_for_publish_r  = reactive(FALSE),
-    actor_role_r             = reactive('user')
+    actor_role_r             = reactive('user'),
+    # Context-only overlays, shown the same way subdivisions_r already
+    # is -- see server.R's settlement_extents_rv / idp_context_rv.
+    settlement_extents_r     = reactive(NULL),
+    idp_sf_r                 = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -585,6 +589,13 @@ healthAreaTabServer <- function(
         bl <- subdivision_boundary_lines_r()
         if (!is.null(bl) && nrow(bl) > 0) as_geojson_text(bl) else NULL
       }, error = function(e) NULL)
+
+      settlement_extents_geojson <- tryCatch({
+        se <- settlement_extents_r()
+        if (!is.null(se) && nrow(se) > 0) as_geojson_text(se) else NULL
+      }, error = function(e) NULL)
+
+      idp_pts <- tryCatch(idp_sf_to_points_list(idp_sf_r()), error = function(e) list())
       
       send_paint_message("show_loading")
       send_paint_message("paint_load_scene", list(
@@ -593,6 +604,7 @@ healthAreaTabServer <- function(
         popGeojson           = pop_geojson,
         frictionGeojson      = friction_geojson,
         subdivisionGeojson   = subdiv_geojson,
+        settlementExtentsGeojson = settlement_extents_geojson,
         showPop              = isolate(controls$show_pop_raster()),
         showFriction         = isolate(controls$show_friction_raster()),
         initialAssignments   = init_named,
@@ -605,6 +617,7 @@ healthAreaTabServer <- function(
         seedPoints           = rv$seed_points,
         facilityPoints       = facility_pts,
         landmarkPoints       = landmark_pts,
+        idpPoints            = idp_pts,
         savedGeojson         = as_geojson_text(saved_sf)
       ))
     }
@@ -828,6 +841,29 @@ healthAreaTabServer <- function(
       if (tab_active() && isTRUE(district_ready()) && !is.null(rv$grid_sf) && !isTRUE(scene_ever_sent()))
         send_current_scene()
     }, ignoreInit = TRUE)
+
+    # Catch-up for settlement_extents_r()/idp_sf_r() arriving AFTER the
+    # initial scene already sent -- each is its own independent ArcGIS
+    # fetch in server.R (settlement_extents_rv / idp_context_rv), with
+    # no guaranteed ordering against this tab's own grid-build. Gated
+    # on scene_ever_sent() -- if the scene hasn't sent yet, the
+    # upcoming send_current_scene() call will already pick up whatever
+    # these currently resolve to, so no separate update is needed. A
+    # LIGHTWEIGHT context-layer-only message, not a full resend (which
+    # would reset in-progress paint state) -- see paint-app.js's
+    # updateContextLayers for the JS side.
+    observeEvent(list(settlement_extents_r(), idp_sf_r()), {
+      req(isTRUE(scene_ever_sent()), tab_active())
+      settlement_extents_geojson <- tryCatch({
+        se <- settlement_extents_r()
+        if (!is.null(se) && nrow(se) > 0) as_geojson_text(se) else NULL
+      }, error = function(e) NULL)
+      idp_pts <- tryCatch(idp_sf_to_points_list(idp_sf_r()), error = function(e) list())
+      send_paint_message("paint_update_context_layers", list(
+        settlementExtentsGeojson = settlement_extents_geojson,
+        idpPoints                = idp_pts
+      ))
+    }, ignoreInit = TRUE, ignoreNULL = FALSE)
 
     # Enable/disable the paint-step Undo button based on stack depth --
     # same pattern as mod_team_area_tab.R's identical wiring. Harmless if
