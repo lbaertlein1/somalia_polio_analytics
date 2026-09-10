@@ -694,6 +694,20 @@ campaignScopeTabServer <- function(
         pending_action(NULL)
         return()
       }
+      # A syntactically valid but EMPTY FeatureCollection (0 rows) parses
+      # without error, but geojsonsf::sf_geojson() on an empty sf object
+      # can return a length-0 result instead of a valid (empty) GeoJSON
+      # string -- which then crashes jsonlite::toJSON() inside
+      # send_paint_message() with "values must be length 1, but FUN(...)
+      # result is length 0" (confirmed from an actual production crash,
+      # not hypothetical). Catching it here, before it ever reaches
+      # as_geojson_text()/send_paint_message(), turns a hard crash into a
+      # clear notification and an abandoned save instead.
+      if (is.null(parsed) || nrow(parsed) == 0) {
+        showNotification("The edited boundary came back empty -- nothing was saved. Try refining the boundary again.", type = "error", duration = 8)
+        pending_action(NULL)
+        return()
+      }
       sf::st_crs(parsed) <- 4326
 
       if (identical(act, "manual_refine_save")) {
@@ -746,7 +760,15 @@ campaignScopeTabServer <- function(
           error = function(e) NULL
         )
       }
-      if (is.null(saved)) return(invisible(NULL))
+      # Second layer of the same guard the vertex_geojson() observer
+      # above already has for its own path into this function -- this
+      # one covers the OTHER caller (the assignments() observer, via
+      # build_saved_dfa_sf()), which could in principle also produce an
+      # empty result. Without this, an empty `saved` would reach
+      # send_paint_message()'s as_geojson_text() call below and crash
+      # jsonlite::toJSON() the same way (confirmed real failure mode,
+      # not hypothetical, for the other call path).
+      if (is.null(saved) || nrow(saved) == 0) return(invisible(NULL))
       rv$saved_scope_sf <- saved
       send_paint_message('paint_show_saved', list(geojson = as_geojson_text(saved)))
       invisible(saved)
