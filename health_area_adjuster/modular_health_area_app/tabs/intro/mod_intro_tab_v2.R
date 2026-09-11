@@ -54,6 +54,9 @@ introTabUI <- function(id) {
             tags$p(style = 'font-size: 13px; color: #64748b; margin: 0;',
                    'Select a campaign to see progress across its districts.')
           ),
+          # The User Guide link used to live here -- it's now in the
+          # persistent app-header bar (see ui.R) instead, so it's visible
+          # from every tab rather than just this one.
           div(
             style = 'width:260px;',
             div(class = 'mini-label', 'Campaign'),

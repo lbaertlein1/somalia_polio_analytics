@@ -114,6 +114,21 @@ app_ui <- function() {
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_area_mapping',     'Health Areas'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_team_area_mapping',       'Team Areas'),
             tags$button(class = 'hdr-tab', `data-tab` = 'tab_export', 'Export')
+          ),
+
+          # Guide link, pinned to the far right of the header bar regardless
+          # of how #app-header's own flex layout is set up in styles.css --
+          # margin-left:auto pushes it past #header-title/#header-tabs
+          # without needing to touch that stylesheet. Opens in a separate
+          # browser tab (target="_blank") so it can be viewed side by side
+          # with the tool -- same link mod_intro_tab_v2.R used to render
+          # next to the campaign selector; now that it's here globally,
+          # that copy has been removed from the Introduction tab.
+          tags$a(
+            id = 'header-guide-link',
+            href = 'guide/index.html', target = '_blank',
+            style = 'margin-left:auto; display:flex; align-items:center; gap:6px; font-size: 13px; color: #ffffff; text-decoration: none; white-space: nowrap; opacity: 0.85;',
+            icon('book'), 'User Guide'
           )
         ),
 

@@ -569,6 +569,14 @@ healthAreaTabServer <- function(
         saved_sf <- build_saved_dfa_sf(grid_sf = rv$grid_sf,
                                        assignments = rv$current_assignments,
                                        district_sf = rv$district_sf)
+      # Guarded before being turned into GeoJSON below (savedGeojson) --
+      # this is the INITIAL scene-load path (send_current_scene(), called
+      # whenever this tab/district loads, not just on a vertex edit), so
+      # an unconditional as_geojson_text(saved_sf) here was a more
+      # serious version of the same bug already confirmed elsewhere: a
+      # null or empty saved_sf would crash jsonlite::toJSON() on every
+      # load of this tab, not just one save action.
+      saved_geojson_text <- if (!is.null(saved_sf) && nrow(saved_sf) > 0) as_geojson_text(saved_sf) else NULL
       facility_pts <- list()
       fac_df <- tryCatch(all_facilities_r(), error = function(e) NULL)
       if (!is.null(fac_df) && nrow(fac_df) > 0) {
@@ -620,7 +628,7 @@ healthAreaTabServer <- function(
         facilityPoints       = facility_pts,
         landmarkPoints       = landmark_pts,
         idpPoints            = idp_pts,
-        savedGeojson         = as_geojson_text(saved_sf)
+        savedGeojson         = saved_geojson_text
       ))
     }
     
@@ -1152,6 +1160,20 @@ healthAreaTabServer <- function(
         pending_action(NULL)
         return()
       }
+      # A syntactically valid but EMPTY FeatureCollection (0 rows) parses
+      # without error, but geojsonsf::sf_geojson() on an empty sf object
+      # can return a length-0 result instead of a valid (empty) GeoJSON
+      # string -- which then crashes jsonlite::toJSON() downstream with
+      # "values must be length 1, but FUN(...) result is length 0".
+      # Confirmed as a real crash in the same vertex_geojson() pattern in
+      # both mod_campaign_scope_tab.R and mod_team_area_tab.R -- applied
+      # here preemptively since this tab shares the identical structure,
+      # not because it's been observed crashing here yet.
+      if (is.null(parsed) || nrow(parsed) == 0) {
+        showNotification("The edited boundary came back empty -- nothing was saved. Try refining the boundary again.", type = "error", duration = 8)
+        pending_action(NULL)
+        return()
+      }
       # geojson_sf's default geometry CRS is unset; the JS emits lng/lat
       # (EPSG:4326) coordinates directly (same convention as gridGeojson),
       # so set it explicitly rather than relying on a default.
@@ -1246,7 +1268,12 @@ healthAreaTabServer <- function(
                              district_sf = rv$district_sf),
           error = function(e) NULL
         )
-        if (!is.null(saved)) {
+        # nrow(saved) == 0 guard, not just is.null(saved) -- an empty-but-
+        # non-null result would still reach as_geojson_text()/
+        # send_paint_message() below and crash jsonlite::toJSON() the same
+        # way already confirmed in mod_campaign_scope_tab.R and
+        # mod_team_area_tab.R's own vertex_geojson() observers.
+        if (!is.null(saved) && nrow(saved) > 0) {
           rv$saved_dfa_sf <- saved
           send_paint_message("paint_show_saved", list(geojson = as_geojson_text(saved)))
         }

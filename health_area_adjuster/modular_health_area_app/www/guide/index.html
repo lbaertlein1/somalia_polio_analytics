@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>User Guide — Somalia District Health Area Planning</title>
+<link rel="stylesheet" href="guide.css">
+<!-- Small, well-known markdown renderer via CDN -- this is a plain
+     static page (not a Shiny module), so there's no R-side rendering
+     available; marked.js keeps guide.js itself simple, per the "keep
+     this simple" instruction, rather than hand-rolling a parser. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+</head>
+<body>
+  <div id="guide-shell">
+    <nav id="guide-sidebar">
+      <div id="guide-sidebar-header">
+        <div id="guide-title">User Guide</div>
+        <input id="guide-search" type="text" placeholder="Search...">
+        <div id="guide-search-results"></div>
+      </div>
+      <div id="guide-nav"><!-- populated by guide.js from PAGES below --></div>
+    </nav>
+    <main id="guide-content">
+      <div id="guide-content-inner">Loading...</div>
+    </main>
+  </div>
+  <script src="guide.js"></script>
+</body>
+</html>

@@ -192,8 +192,25 @@ calc_brush_limits <- function(max_dim_m) {
 
 calc_district_max_dim <- function(district_sf) {
   district_3857 <- st_transform(safe_make_valid(district_sf), 3857)
-  bbox <- st_bbox(district_3857)
-  as.numeric(max(bbox$xmax - bbox$xmin, bbox$ymax - bbox$ymin))
+  # Largest INDIVIDUAL connected part's own bounding-box dimension, not
+  # the bounding box of the whole geometry combined. For a single,
+  # contiguous district this is identical to the old behavior (one part
+  # == the whole shape). It only diverges for multi-part geometry --
+  # most notably a district scoped to "urban areas only" with several
+  # disconnected towns -- where the OLD bbox-of-everything approach
+  # measured the gap BETWEEN towns as if it were the thing being
+  # painted, producing an unnecessarily coarse cell size (and an
+  # unnecessarily large brush range, since calc_brush_limits() uses this
+  # same value) for towns that are each individually small. st_cast to
+  # POLYGON splits a MULTIPOLYGON into one row per part; a single-part
+  # input already comes back as exactly one row, so this is a strict
+  # generalization, not a special case bolted on.
+  parts <- tryCatch(sf::st_cast(district_3857, 'POLYGON', warn = FALSE), error = function(e) district_3857)
+  part_dims <- vapply(seq_len(nrow(parts)), function(i) {
+    bbox <- st_bbox(parts[i, ])
+    as.numeric(max(bbox$xmax - bbox$xmin, bbox$ymax - bbox$ymin))
+  }, numeric(1))
+  max(part_dims)
 }
 
 as_geojson_text <- function(x) {
@@ -312,6 +329,20 @@ build_dfa_polygons_from_assignments <- function(grid_sf, assignments, district_s
     group_by(dfa_name) |>
     summarise(geometry = st_union(geometry), .groups = 'drop')
   
+  # group_by()/summarise() leave `out` tibble-classed -- st_intersection()
+  # can legitimately split ONE input row (one dfa_name's unioned shape)
+  # into MULTIPLE disjoint output rows when it intersects district_sf
+  # (e.g. a health area whose cells end up split by the district
+  # boundary into two separate pieces). A plain data.frame-backed sf
+  # object handles that split fine (the dfa_name attribute is just
+  # duplicated across the new rows), but a tibble-backed one can hit a
+  # vctrs recycling error doing the same thing ("Existing data has 1
+  # row, Assigned data has 2 rows") -- confirmed from an actual
+  # production crash, not hypothetical. Dropping the tbl_df/tbl classes
+  # here, right before the intersection, sidesteps that without
+  # changing anything about the actual geometry produced.
+  class(out) <- setdiff(class(out), c('tbl_df', 'tbl'))
+  
   out <- safe_make_valid(out)
   out <- suppressWarnings(st_intersection(out, district_sf))
   out <- safe_make_valid(out)
@@ -335,6 +366,17 @@ smooth_dfa_boundaries <- function(dfa_sf, district_sf, iterations = 1) {
     method = "chaikin",
     iterations = iterations
   )
+  
+  # Same tibble-vs-st_intersection() bug as build_dfa_polygons_from_
+  # assignments() above -- ms_smooth() can hand back (or simply pass
+  # through) a tibble-classed sf object, and the intersection below can
+  # legitimately split one smoothed health-area shape into multiple
+  # disjoint pieces against district_sf, which a tibble-backed object
+  # can fail on (vctrs row-recycling error) where a plain data.frame-
+  # backed one won't. See that function's own comment for the full
+  # explanation; not re-verified as ms_smooth()'s specific output class,
+  # but stripping these classes is harmless either way.
+  class(dfa_sf) <- setdiff(class(dfa_sf), c('tbl_df', 'tbl'))
   
   dfa_sf <- suppressWarnings(sf::st_intersection(dfa_sf, district_sf))
   dfa_sf <- safe_make_valid(dfa_sf)

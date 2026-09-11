@@ -1,0 +1,141 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1e293b;
+  background: #ffffff;
+}
+
+#guide-shell {
+  display: flex;
+  height: 100vh;
+}
+
+/* Sidebar */
+#guide-sidebar {
+  width: 260px;
+  flex: 0 0 260px;
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+  overflow-y: auto;
+  padding: 16px 0;
+}
+#guide-sidebar-header {
+  padding: 0 16px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 12px;
+}
+#guide-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+#guide-search {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+#guide-search-results {
+  margin-top: 6px;
+}
+#guide-search-results a {
+  display: block;
+  font-size: 12px;
+  padding: 4px 6px;
+  color: #0d9488;
+  text-decoration: none;
+  border-radius: 3px;
+}
+#guide-search-results a:hover { background: #e2e8f0; }
+#guide-search-results .snippet { color: #64748b; font-size: 11px; }
+
+#guide-nav .guide-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  padding: 10px 16px 4px;
+}
+#guide-nav a {
+  display: block;
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #334155;
+  text-decoration: none;
+  border-radius: 4px;
+  margin: 0 8px;
+}
+#guide-nav a:hover { background: #e2e8f0; }
+#guide-nav a.active {
+  background: #0d9488;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Content */
+#guide-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 32px 40px;
+}
+#guide-content-inner {
+  max-width: 760px;
+  margin: 0 auto;
+}
+#guide-content-inner h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 0;
+}
+#guide-content-inner h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 28px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+}
+#guide-content-inner h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+#guide-content-inner p, #guide-content-inner li { font-size: 14px; line-height: 1.6; }
+#guide-content-inner code {
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 13px;
+}
+#guide-content-inner a { color: #0d9488; }
+#guide-content-inner table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+#guide-content-inner th, #guide-content-inner td {
+  border: 1px solid #e2e8f0;
+  padding: 6px 10px;
+  font-size: 13px;
+  text-align: left;
+}
+#guide-content-inner th { background: #f8fafc; }
+#guide-content-inner img {
+  max-width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin: 12px 0 4px;
+  display: block;
+}
+/* Explicit class, not a blanket em selector -- styling every <em> would
+   also hit ordinary italic emphasis inside normal prose throughout the
+   guide, not just image captions. Captions are written as raw HTML
+   (<p class="img-caption">...</p>) in the markdown source specifically
+   so this class can target them precisely. */
+#guide-content-inner p.img-caption {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0 0 16px;
+}
