@@ -104,10 +104,16 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   # polygons look unprofessional outside the app; fall back to raw if no
   # smoothed geometry was generated yet (e.g. version never submitted).
   ha_sf <- snap$smoothed_dfa_sf %||% snap$saved_dfa_sf
+  # Computed-at-submit WorldPop per health area (mapping_versions.dfa_
+  # worldpop_pop) -- read here so .build_health_area_summary_table()
+  # can use it instead of re-extracting from the raster.
+  dfa_worldpop_pop <- snap$dfa_worldpop_pop %||% list()
 
   # Team areas: combine every health area's CURRENT team-area version —
   # there is no single "the district's team areas" anymore, only
   # per-health-area ones, each independently current or not.
+  team_field_overrides_by_ha <- list()
+  team_worldpop_by_ha <- list()
   team_sf <- tryCatch({
     ha_names <- setdiff(unlist(snap$dfa_names %||% list()), c('Inaccessible', 'Unpopulated'))
     parts <- lapply(ha_names, function(han) {
@@ -116,6 +122,10 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
       geom <- tv$snap$smoothed_team_sf %||% tv$snap$saved_team_sf
       if (is.null(geom) || nrow(geom) == 0) return(NULL)
       geom$health_area <- han
+      team_field_overrides_by_ha[[han]] <<- tv$snap$team_field_pop_overrides %||% list()
+      # Computed-at-submit WorldPop per team (team_area_versions.team_
+      # worldpop_pop) -- same reasoning as dfa_worldpop_pop above.
+      team_worldpop_by_ha[[han]] <<- tv$snap$team_worldpop_pop %||% list()
       geom
     })
     parts <- Filter(Negate(is.null), parts)
@@ -164,7 +174,16 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
       # second fetch_campaign_extent_for_district() call for the same
       # district/campaign.
       urban_sf <- urban_sf_export
-      ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf)
+      # Same construction as printable_export.R's own idp_sf and
+      # mod_intro_tab_v2.R's popup -- missing this argument entirely
+      # (as this call previously did) is the exact bug that left IDP
+      # counts at 0 in this CSV regardless of what was actually stored.
+      idp_sf_export <- NULL
+      if (!is.null(snap$idp_settlements) && nrow(snap$idp_settlements) > 0 &&
+          all(c('lon', 'lat') %in% names(snap$idp_settlements))) {
+        idp_sf_export <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
+      }
+      ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop)
       if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
         .write_csv_utf8_bom(cbind(district_name = district_name, ha_summary),
                  file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
@@ -175,9 +194,9 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
           team_one <- team_sf[team_sf$health_area == han, , drop = FALSE]
           tgt <- team_targets[[han]]
           field_target <- .unwrap_num(tgt$target_pop)
-          tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf)
+          tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]])
           if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
-          cbind(district_name = district_name, `Health Area` = han, tbl, check.names = FALSE)
+          cbind(district_name = district_name, `Health Area` = han, tbl)
         })
         team_rows <- Filter(Negate(is.null), team_rows)
         if (length(team_rows) > 0) {
@@ -309,6 +328,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     # to a common CRS (4326) before collecting, since sf requires a
     # single matching CRS across everything eventually combined.
     ha_sf <- snap$smoothed_dfa_sf %||% snap$saved_dfa_sf
+    dfa_worldpop_pop <- snap$dfa_worldpop_pop %||% list()
     if (!is.null(ha_sf) && nrow(ha_sf) > 0) {
       ha_parts[[dname]] <- ha_sf |>
         dplyr::mutate(zone_name = zone_val, region_name = region_val, district_name = dname) |>
@@ -318,6 +338,8 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     # Team areas -- same per-health-area combination as the per-district
     # export (there is no single "this district's team areas" row,
     # only independently-current ones per health area).
+    team_field_overrides_by_ha <- list()
+    team_worldpop_by_ha <- list()
     team_sf <- tryCatch({
       ha_names <- setdiff(unlist(snap$dfa_names %||% list()), c('Inaccessible', 'Unpopulated'))
       tparts <- lapply(ha_names, function(han) {
@@ -326,6 +348,8 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
         geom <- tv$snap$smoothed_team_sf %||% tv$snap$saved_team_sf
         if (is.null(geom) || nrow(geom) == 0) return(NULL)
         geom$health_area <- han
+        team_field_overrides_by_ha[[han]] <<- tv$snap$team_field_pop_overrides %||% list()
+        team_worldpop_by_ha[[han]] <<- tv$snap$team_worldpop_pop %||% list()
         geom
       })
       tparts <- Filter(Negate(is.null), tparts)
@@ -369,7 +393,13 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
         # Reuses urban_d (fetched once per district, above) rather than
         # a second fetch_campaign_extent_for_district() call.
         urban_sf <- urban_d
-        ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf)
+        # Same construction as the single-district export above.
+        idp_sf_export <- NULL
+        if (!is.null(snap$idp_settlements) && nrow(snap$idp_settlements) > 0 &&
+            all(c('lon', 'lat') %in% names(snap$idp_settlements))) {
+          idp_sf_export <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
+        }
+        ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop)
         if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
           ha_summary_parts[[dname]] <- cbind(district_name = dname, ha_summary)
         }
@@ -378,9 +408,9 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
             team_one <- team_sf[team_sf$health_area == han, , drop = FALSE]
             tgt <- team_targets[[han]]
             field_target <- .unwrap_num(tgt$target_pop)
-            tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf)
+            tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]])
             if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
-            cbind(district_name = dname, `Health Area` = han, tbl, check.names = FALSE)
+            cbind(district_name = dname, `Health Area` = han, tbl)
           })
           d_team_rows <- Filter(Negate(is.null), d_team_rows)
           if (length(d_team_rows) > 0) team_summary_parts[[dname]] <- do.call(rbind, d_team_rows)

@@ -455,7 +455,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         ),
         tags$p(style = 'font-size:12px;color:#64748b;margin-bottom:10px;',
               'For each district below, carrying forward brings in its most recently published health-area ',
-              'map and any current team-area maps from another campaign, and marks them current here too.'),
+              'map and any published team-area maps from another campaign, and marks them published here too.'),
         div(rows_ui)
       ))
       pending_carry_forward_cid(cid)
@@ -627,7 +627,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
                               error = function(e) NULL))
     }
 
-    # The CURRENT health-area version for whichever district/campaign is
+    # The PUBLISHED health-area version for whichever district/campaign is
     # under review -- falls back to the most recent version if none is
     # shared yet (e.g. a district still in draft), so the boundary
     # preview and population table below still show something rather
@@ -649,9 +649,9 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         title = sprintf('%s — District Review', district_name), size = 'xl', easyClose = TRUE,
         footer = modalButton('Close'),
         div(
-          div(class = 'mini-label', style = 'margin: 4px 0 4px;', 'Boundary preview (current health-area version)'),
+          div(class = 'mini-label', style = 'margin: 4px 0 4px;', 'Boundary preview (published health-area version)'),
           leaflet::leafletOutput(session$ns('review_map'), height = '320px'),
-          div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Population & team targets (current health-area version)'),
+          div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Population & team targets (published health-area version)'),
           DT::DTOutput(session$ns('boundary_review_table'), width = '100%'),
           div(class = 'mini-label', style = 'margin: 16px 0 4px;', 'Health area versions'),
           DT::DTOutput(session$ns('ha_version_table'), width = '100%'),
@@ -737,7 +737,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         btns <- character(0)
         if (!isTRUE(df$is_shared[i]))
           btns <- c(btns, sprintf(
-            '<button class="btn btn-default btn-xs" style="color:#166534;border-color:#166534;" onclick="Shiny.setInputValue(\'%sha_make_current_row\', %d, {priority:\'event\'})">Make current</button>',
+            '<button class="btn btn-default btn-xs" style="color:#166534;border-color:#166534;" onclick="Shiny.setInputValue(\'%sha_make_current_row\', %d, {priority:\'event\'})">Publish</button>',
             ns_str, df$version_id[i]))
         if (isTRUE(df$is_shared[i]))
           btns <- c(btns, sprintf(
@@ -766,7 +766,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       tryCatch({
         db_publish_version(pool, input$ha_make_current_row, actor_role = 'admin')
         refresh_review(); refresh_progress()
-        showNotification('Set as current health-area version.', type = 'message', duration = 3)
+        showNotification('Published health-area version.', type = 'message', duration = 3)
       }, error = function(e) showNotification(paste('Failed:', e$message), type = 'error', duration = 6))
     }, ignoreInit = TRUE)
 
@@ -808,7 +808,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         btns <- character(0)
         if (!isTRUE(df$is_shared[i]))
           btns <- c(btns, sprintf(
-            '<button class="btn btn-default btn-xs" style="color:#166534;border-color:#166534;" onclick="Shiny.setInputValue(\'%sta_make_current_row\', %d, {priority:\'event\'})">Make current</button>',
+            '<button class="btn btn-default btn-xs" style="color:#166534;border-color:#166534;" onclick="Shiny.setInputValue(\'%sta_make_current_row\', %d, {priority:\'event\'})">Publish</button>',
             ns_str, df$team_version_id[i]))
         if (isTRUE(df$is_shared[i]))
           btns <- c(btns, sprintf(
@@ -837,7 +837,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       tryCatch({
         db_publish_team_area(pool, input$ta_make_current_row)
         refresh_review()
-        showNotification('Set as current team-area version.', type = 'message', duration = 3)
+        showNotification('Published team-area version.', type = 'message', duration = 3)
       }, error = function(e) {
         # This is where a stale-publish refusal from db_publish_team_area()
         # surfaces. Admin restore never bypasses that check -- there is no
@@ -845,8 +845,8 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         # current again first (Health area versions, above), which will
         # then let this same action succeed.
         showNotification(
-          paste0('Could not set as current: ', e$message,
-                ' Make that health-area version current in the table above, then try again.'),
+          paste0('Could not publish: ', e$message,
+                ' Publish that health-area version in the table above, then try again.'),
           type = 'error', duration = 8
         )
       })

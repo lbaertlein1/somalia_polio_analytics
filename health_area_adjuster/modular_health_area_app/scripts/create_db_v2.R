@@ -217,6 +217,14 @@ statements <- list(
     saved_dfa_sf             JSONB,       -- health area polygons (raw grid)
     dfa_names                 JSONB,
     current_assignments       JSONB,
+    -- COMPUTED WorldPop population per health area, keyed by name --
+    -- list(health_area_name = numeric). Computed once at submit time
+    -- from the just-submitted boundary + the WorldPop raster, stored
+    -- here so exports/the intro popup/etc. read this instead of
+    -- re-running raster extraction every single time the number is
+    -- needed. NULL for any version submitted before this column
+    -- existed -- consumers fall back to live extraction in that case.
+    dfa_worldpop_pop           JSONB,
     team_targets                JSONB,       -- per-health-area field target
       -- population / requested team count from the post-submit modal
       -- (mod_health_area_tab.R's .show_team_targets_modal()). Purely
@@ -314,6 +322,17 @@ statements <- list(
     saved_team_sf                             JSONB,
     team_names                                  JSONB,
     current_team_assignments                      JSONB,
+    -- per-team field-verified population, keyed by team name --
+    -- list(team_name = numeric). Read by .build_team_summary_table()
+    -- (printable_export.R) in place of the calculated proportional-
+    -- share estimate for any team that has one.
+    team_field_pop_overrides                        JSONB,
+    -- COMPUTED WorldPop population per team, keyed by team name --
+    -- same reasoning as mapping_versions.dfa_worldpop_pop above:
+    -- computed once at submit time, stored here so it's never
+    -- re-extracted from the raster on every read. NULL for any
+    -- version submitted before this column existed.
+    team_worldpop_pop                                  JSONB,
 
     -- presentation (smoothed/snapped) geometry
     smoothed_team_sf                                JSONB,

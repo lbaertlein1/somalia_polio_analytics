@@ -19,14 +19,14 @@ The district table, grouped by region, is how you actually get into a district's
 
 Either path leads to the same kind of choice:
 
-![The version-picker modal, showing "Continue with current", a dropdown of prior drafts, and "Start blank"](images/dashboard-version-picker.png)
+![The version-picker modal, showing "Continue with published", a dropdown of prior drafts, and "Start blank"](images/dashboard-version-picker.png)
 <p class="img-caption">Opened via a district's Health Areas or Team Areas button.</p>
 
-- **Continue with current** — the version currently published and live in the tool, shown with who published it and when.
+- **Continue with published** — the version currently published and live in the tool, shown with who published it and when.
 - **Continue a previous version** — pick a specific earlier draft from the dropdown (e.g. your own unpublished work) and resume it.
 - **Start blank** — begin from nothing, ignoring any existing version.
 
-Picking one of these takes you into the corresponding tab — [Health Areas](health-areas) or [Team Areas](team-areas) — with that version loaded and ready to work on. Submitting there creates a new version rather than overwriting anything; it's an admin, from the [Admin](admin) panel, who decides which submitted version actually becomes "current."
+Picking one of these takes you into the corresponding tab — [Health Areas](health-areas) or [Team Areas](team-areas) — with that version loaded and ready to work on. Submitting there creates a new version rather than overwriting anything; it's an admin, from the [Admin](admin) panel, who decides which submitted version actually becomes "published."
 
 ## Locked
 

@@ -3,7 +3,7 @@
 ![The Export tab with a campaign selected, showing the Boundary export section (Scope, Format, Prepare download) and the Printable maps section below it (District picker, Basemap, zoom, page dimensions, and an empty preview panel)](images/export-overview.png)
 <p class="img-caption">Two separate export tools on one tab: Boundary export for data files, Printable maps for PDFs.</p>
 
-Downloads current, published boundaries and data. For a specific past version or a draft, an admin can pull it from the Admin panel instead — this tab only exports what's currently live.
+Downloads the published boundaries and data. For a specific past version or a draft, an admin can pull it from the Admin panel instead — this tab only exports what's currently live.
 
 ## Picking a campaign
 

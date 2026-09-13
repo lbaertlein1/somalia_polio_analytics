@@ -91,7 +91,7 @@ healthAreaSessionServer <- function(id, username_r, district_r, campaign_id_r) {
     output$session_label <- renderUI({
       req(rv$active)
       badge <- if (isTRUE(rv$is_shared))
-        .session_badge('CURRENT', '#f0fdf4', '#166534', '#bbf7d0')
+        .session_badge('PUBLISHED', '#f0fdf4', '#166534', '#bbf7d0')
       else
         .session_badge('DRAFT', '#fef9c3', '#854d0e', '#fde68a')
       tagList(
@@ -143,11 +143,11 @@ healthAreaSessionServer <- function(id, username_r, district_r, campaign_id_r) {
       tryCatch({
         db_publish_version(pool, rv$version_id, actor_role = actor_role)
         rv$is_shared <- TRUE
-        showNotification("Set as this district's current health area map.",
+        showNotification("Published as this district's current health area map.",
                          type = 'message', duration = 3)
         invisible(TRUE)
       }, error = function(e) {
-        showNotification(paste0('Could not set as current: ', e$message), type = 'error', duration = 6)
+        showNotification(paste0('Could not publish: ', e$message), type = 'error', duration = 6)
         invisible(FALSE)
       })
     }
@@ -251,7 +251,7 @@ teamAreaSessionServer <- function(id, username_r, district_r, campaign_id_r, hea
       badge <- if (isTRUE(rv$is_stale))
         .session_badge('OUTDATED HEALTH AREA', '#fff7ed', '#9a3412', '#fed7aa')
       else if (isTRUE(rv$is_shared))
-        .session_badge('CURRENT', '#f0fdf4', '#166534', '#bbf7d0')
+        .session_badge('PUBLISHED', '#f0fdf4', '#166534', '#bbf7d0')
       else
         .session_badge('DRAFT', '#fef9c3', '#854d0e', '#fde68a')
       tagList(
@@ -295,11 +295,11 @@ teamAreaSessionServer <- function(id, username_r, district_r, campaign_id_r, hea
       tryCatch({
         db_publish_team_area(pool, rv$team_version_id)
         rv$is_shared <- TRUE
-        showNotification("Set as this health area's current team map.",
+        showNotification("Published as this health area's current team map.",
                          type = 'message', duration = 3)
         invisible(TRUE)
       }, error = function(e) {
-        showNotification(paste0('Could not set as current: ', e$message), type = 'error', duration = 6)
+        showNotification(paste0('Could not publish: ', e$message), type = 'error', duration = 6)
         invisible(FALSE)
       })
     }

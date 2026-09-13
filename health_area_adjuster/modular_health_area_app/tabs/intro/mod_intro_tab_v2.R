@@ -15,8 +15,8 @@
 #     already-completed stages just show as already done, same as the old
 #     app's restore-a-snapshot behavior always worked.
 #   - "Team Areas" — two steps: first pick a health area (from the
-#     district's CURRENT health-area version's dfa_names — team areas are
-#     unavailable entirely for a district with no current health-area
+#     district's PUBLISHED health-area version's dfa_names — team areas are
+#     unavailable entirely for a district with no published health-area
 #     version yet), then the SAME current-or-draft picker one level down,
 #     scoped to that health area. Landing tab is tab_team_area_mapping
 #     directly — team areas don't depend on orientation/facilities being
@@ -24,7 +24,7 @@
 #     this module activates silently in the background (the user never
 #     sees a health-area picker for this path — it's always "whatever is
 #     currently current district-wide", per the rule that team areas can
-#     only ever be drawn against a district's current health-area map).
+#     only ever be drawn against a district's published health-area map).
 #
 # This module doesn't call session-manager activation functions directly —
 # those instances live in server.R, instantiated once per session alongside
@@ -54,9 +54,15 @@ introTabUI <- function(id) {
             tags$p(style = 'font-size: 13px; color: #64748b; margin: 0;',
                    'Select a campaign to see progress across its districts.')
           ),
-          # The User Guide link used to live here -- it's now in the
-          # persistent app-header bar (see ui.R) instead, so it's visible
-          # from every tab rather than just this one.
+          # Opens in a separate browser tab (target="_blank") rather than
+          # navigating within the app, so it can be viewed side by side
+          # with the tool -- a plain static page under www/guide/, not a
+          # Shiny module, per that explicit requirement.
+          tags$a(
+            href = 'guide/index.html', target = '_blank',
+            style = 'font-size: 13px; color: #0d9488; text-decoration: none; white-space: nowrap;',
+            icon('book'), ' User Guide'
+          ),
           div(
             style = 'width:260px;',
             div(class = 'mini-label', 'Campaign'),
@@ -169,7 +175,7 @@ introTabUI <- function(id) {
                            paste0(
                              'A sub-division of a health area assigned to a single outreach team. Drawn the ',
                              'same way as health areas, but nested within a health area\u2019s boundary, and can ',
-                             'only ever be drawn against that district\u2019s CURRENT health area map.'
+                             'only ever be drawn against that district\u2019s PUBLISHED health area map.'
                            )
                          ),
                          .concept_block(
@@ -192,13 +198,13 @@ introTabUI <- function(id) {
                                      paste0('Each district row has two entry points. Health Areas covers landmarks, ',
                                             'facilities, and health-area boundaries. Team Areas covers outreach-team ',
                                             'territory within one health area at a time, and only opens once a ',
-                                            'district has a current health-area map.')),
-                         .intro_step('3', 'Choose current, or one of your own drafts',
-                                     paste0('The current version is always the default choice. Your own past drafts ',
+                                            'district has a published health-area map.')),
+                         .intro_step('3', 'Choose the published version, or one of your own drafts',
+                                     paste0('The published version is always the default choice. Your own past drafts ',
                                             '(if any) and "Start blank" are one click away in the dropdown below it.')),
-                         .intro_step('4', 'Submit, and set as current when ready',
-                                     paste0('Submitting a health-area or team-area map offers the option to make it ',
-                                            'the current one right there — no separate publish step.'))
+                         .intro_step('4', 'Submit, and publish when ready',
+                                     paste0('Submitting a health-area or team-area map offers the option to publish it ',
+                                            'right there — no separate step later.'))
                        )
         )
         )
@@ -262,7 +268,7 @@ introTabUI <- function(id) {
   not_associated       = '#e2e8f0',  # neutral gray -- outside this campaign entirely
   ha_not_mapped        = '#fca5a5',  # light red -- assigned, nothing published yet
   ha_mapped_ta_pending = '#fcd34d',  # amber -- health areas published, team areas incomplete
-  all_mapped           = '#86efac'   # light green -- every health area has current team areas
+  all_mapped           = '#86efac'   # light green -- every health area has published team areas
 )
 .CAMPAIGN_MAP_LABELS <- c(
   not_associated       = 'Not associated with this campaign',
@@ -502,21 +508,71 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
     # to see one district's detail.
     .fetch_district_boundaries_for_review <- function(cid, dname) {
       ver <- tryCatch(db_get_shared_version(pool, cid, dname), error = function(e) NULL)
-      if (is.null(ver)) return(list(ha_sf = NULL, ta_sf = NULL))
+      if (is.null(ver)) return(list(ha_sf = NULL, ta_sf = NULL, team_targets = list(), team_field_overrides_by_ha = list(), idp_sf = NULL, dfa_worldpop_pop = list(), team_worldpop_by_ha = list()))
       ha_geom <- ver$snap$smoothed_dfa_sf %||% ver$snap$saved_dfa_sf
       ha_sf <- if (!is.null(ha_geom) && nrow(ha_geom) > 0) sf::st_transform(safe_make_valid(ha_geom), 4326) else NULL
+      # Computed-at-submit WorldPop per health area (mapping_versions.
+      # dfa_worldpop_pop) -- read here so .build_health_area_summary_
+      # table() can use it instead of re-extracting from the raster.
+      dfa_worldpop_pop <- ver$snap$dfa_worldpop_pop %||% list()
+
+      # IDP settlements, same source and construction as printable_
+      # export.R's .prepare_export_context() -- stored as a plain lon/lat
+      # data frame on the health-area version's snapshot, not fetched
+      # separately. Missing this was the actual cause of a real reported
+      # bug: IDP counts always showing 0 on this popup's health area
+      # table despite being correct on the PDF/CSV exports, since
+      # .build_health_area_summary_table()'s idp_sf argument was never
+      # being passed at all (silently defaulting to NULL) rather than
+      # any problem with the underlying stored data.
+      idp_sf <- NULL
+      if (!is.null(ver$snap$idp_settlements) && nrow(ver$snap$idp_settlements) > 0 &&
+          all(c('lon', 'lat') %in% names(ver$snap$idp_settlements))) {
+        idp_sf <- sf::st_as_sf(ver$snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
+      }
 
       ta_parts <- list()
+      # Per-team field-verified populations, persisted alongside the
+      # team boundaries themselves (see mod_team_area_tab.R's own
+      # submit_stage_fn call) -- fetched here the same way
+      # printable_export.R's .prepare_export_context() does, so the
+      # tables below show the same numbers the PDF/CSV exports would.
+      team_field_overrides_by_ha <- list()
+      team_worldpop_by_ha <- list()
       ha_names <- setdiff(unlist(ver$snap$dfa_names %||% list()), c('Inaccessible', 'Unpopulated'))
+      cat(sprintf('[intro_ta_debug] district=%s ha_names=%s\n', dname, paste(ha_names, collapse = ', ')))
       for (han in ha_names) {
         tv <- tryCatch(db_get_current_team_area_version(pool, cid, dname, han), error = function(e) NULL)
+        cat(sprintf('[intro_ta_debug]   health_area=%s tv_is_null=%s\n', han, is.null(tv)))
         if (is.null(tv)) next
         ta_geom <- tv$snap$smoothed_team_sf %||% tv$snap$saved_team_sf
-        if (!is.null(ta_geom) && nrow(ta_geom) > 0) ta_parts[[han]] <- sf::st_transform(safe_make_valid(ta_geom), 4326)
+        cat(sprintf('[intro_ta_debug]   health_area=%s ta_geom_is_null=%s nrow=%s\n', han,
+                    is.null(ta_geom), if (is.null(ta_geom)) 'NA' else nrow(ta_geom)))
+        if (!is.null(ta_geom) && nrow(ta_geom) > 0) {
+          # Missing this line entirely was the actual cause of a real
+          # reported bug: the team table's own renderTable groups by this
+          # exact column (bounds$ta_sf$health_area), so without it the
+          # column simply didn't exist, unique() on a NULL silently
+          # returned nothing, and the team loop produced zero rows --
+          # not an error, just nothing to show. Same column
+          # printable_export.R's own version of this fetch already sets.
+          ta_geom$health_area <- han
+          ta_parts[[han]] <- sf::st_transform(safe_make_valid(ta_geom), 4326)
+        }
+        # Computed-at-submit WorldPop per team (team_area_versions.
+        # team_worldpop_pop) -- same reasoning as dfa_worldpop_pop above.
+        team_worldpop_by_ha[[han]] <- tv$snap$team_worldpop_pop %||% list()
+        team_field_overrides_by_ha[[han]] <- tv$snap$team_field_pop_overrides %||% list()
       }
+      cat(sprintf('[intro_ta_debug] final ta_parts length=%d\n', length(ta_parts)))
       list(
         ha_sf = ha_sf,
-        ta_sf = if (length(ta_parts) > 0) dplyr::bind_rows(ta_parts) else NULL
+        ta_sf = if (length(ta_parts) > 0) dplyr::bind_rows(ta_parts) else NULL,
+        team_targets = ver$snap$team_targets %||% list(),
+        idp_sf = idp_sf,
+        team_field_overrides_by_ha = team_field_overrides_by_ha,
+        dfa_worldpop_pop = dfa_worldpop_pop,
+        team_worldpop_by_ha = team_worldpop_by_ha
       )
     }
 
@@ -538,20 +594,31 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         )
     })
 
-    # ── District boundary-review popup -- view-only current health-area
+    # ── District boundary-review popup -- view-only published health-area
     # and team-area boundaries for ONE district, opened either by
     # clicking its polygon on the overview map or the "View" button on
     # its table row (both call this same function).
     .show_district_boundary_popup <- function(dname) {
       cid <- campaign_id(); req(!is.null(cid), nzchar(dname %||% ''))
       showModal(modalDialog(
-        title = sprintf('%s \u2014 Current Boundaries', dname), size = 'l', easyClose = TRUE,
+        title = sprintf('%s \u2014 Published Boundaries', dname), size = 'l', easyClose = TRUE,
         footer = modalButton('Close'),
         tags$p(style = 'font-size:11px;color:#94a3b8;margin:0 0 8px;',
-               'View only -- current published health-area and team-area boundaries for this district.'),
-        leaflet::leafletOutput(session$ns('district_review_popup_map'), height = '420px')
+               'View only -- currently published health-area and team-area boundaries for this district.'),
+        leaflet::leafletOutput(session$ns('district_review_popup_map'), height = '420px'),
+        tags$div(style = 'margin-top:14px;',
+          tags$div(class = 'mini-label', 'Health Areas'),
+          tableOutput(session$ns('district_review_ha_table'))
+        ),
+        tags$div(style = 'margin-top:10px;',
+          tags$div(class = 'mini-label', 'Team Areas'),
+          tableOutput(session$ns('district_review_ta_table'))
+        )
       ))
-      bounds <- tryCatch(.fetch_district_boundaries_for_review(cid, dname), error = function(e) list(ha_sf = NULL, ta_sf = NULL))
+      bounds <- tryCatch(
+        .fetch_district_boundaries_for_review(cid, dname),
+        error = function(e) list(ha_sf = NULL, ta_sf = NULL, team_targets = list(), team_field_overrides_by_ha = list())
+      )
       output$district_review_popup_map <- leaflet::renderLeaflet({
         if (is.null(bounds$ha_sf) || nrow(bounds$ha_sf) == 0) {
           return(leaflet::leaflet() |> leaflet::addProviderTiles('OpenStreetMap') |>
@@ -573,6 +640,72 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         }
         m
       })
+
+      # Both tables reuse the exact same builders printable_export.R's
+      # PDF and download_helpers_v2.R's boundary-export CSVs already use
+      # (.build_health_area_summary_table()/.build_team_summary_table()),
+      # so the numbers shown here can never drift from what those
+      # exports would show for the same district -- one calculation,
+      # three consumers, rather than a fourth reimplementation of the
+      # same WorldPop-extraction + field-target logic.
+      output$district_review_ha_table <- renderTable({
+        if (is.null(bounds$ha_sf) || nrow(bounds$ha_sf) == 0)
+          return(data.frame(Note = 'No health areas mapped yet for this district.', check.names = FALSE))
+        tbl <- tryCatch(
+          .build_health_area_summary_table(bounds$ha_sf, bounds$team_targets, u5_rast, cid, NULL, bounds$idp_sf, bounds$dfa_worldpop_pop),
+          error = function(e) NULL
+        )
+        if (is.null(tbl) || nrow(tbl) == 0) data.frame(Note = 'Not available.', check.names = FALSE) else tbl
+      }, striped = TRUE, spacing = 'xs', width = '100%')
+
+      output$district_review_ta_table <- renderTable({
+        cat(sprintf('[intro_ta_debug] render: ta_sf_is_null=%s nrow=%s\n',
+                    is.null(bounds$ta_sf), if (is.null(bounds$ta_sf)) 'NA' else nrow(bounds$ta_sf)))
+        if (is.null(bounds$ta_sf) || nrow(bounds$ta_sf) == 0)
+          return(data.frame(Note = 'No team areas mapped yet for this district.', check.names = FALSE))
+        result <- tryCatch({
+          rows <- lapply(unique(as.character(bounds$ta_sf$health_area)), function(han) {
+            team_one <- bounds$ta_sf[bounds$ta_sf$health_area == han, , drop = FALSE]
+            # .unwrap_num(), not plain as.numeric() -- team_targets comes
+            # from .from_json_db()'s simplifyVector=FALSE parsing, so
+            # target_pop can arrive wrapped in its own length-1 list
+            # (e.g. list(1114), not 1114); see .unwrap_num()'s own
+            # docstring in printable_export.R. Same fix just applied
+            # inside .build_team_summary_table() itself for the
+            # equivalent team_field_overrides case -- both were feeding
+            # an unreliable value into an is.na() check downstream.
+            field_target <- .unwrap_num(bounds$team_targets[[han]]$target_pop)
+            tbl <- tryCatch(
+              .build_team_summary_table(team_one, field_target, u5_rast, NULL, bounds$team_field_overrides_by_ha[[han]], bounds$team_worldpop_by_ha[[han]]),
+              error = function(e) {
+                cat(sprintf('[intro_ta_debug]   build_team_summary_table error for %s: %s\n', han, conditionMessage(e)))
+                NULL
+              }
+            )
+            if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
+            # No explicit check.names = FALSE here -- cbind.data.frame()
+          # already passes that internally to its own data.frame() call,
+          # and an explicit one here collides with it ("formal argument
+          # 'check.names' matched by multiple actual arguments"),
+          # confirmed as a real crash, not hypothetical.
+          cbind(`Health Area` = han, tbl)
+          })
+          rows <- Filter(Negate(is.null), rows)
+          cat(sprintf('[intro_ta_debug] render: rows length=%d\n', length(rows)))
+          if (length(rows) == 0) data.frame(Note = 'Not available.', check.names = FALSE) else do.call(rbind, rows)
+        }, error = function(e) {
+          # This whole block was previously NOT wrapped in its own
+          # tryCatch (only the inner .build_team_summary_table() call
+          # was), so any error in the surrounding logic -- e.g. from
+          # unique(), the lapply itself, or do.call(rbind, ...) -- would
+          # have crashed this renderTable silently, showing as a
+          # genuinely empty table with no fallback row at all, which
+          # matches the exact symptom reported.
+          cat(sprintf('[intro_ta_debug] render error: %s\n', conditionMessage(e)))
+          data.frame(Note = paste('Error building team table:', conditionMessage(e)), check.names = FALSE)
+        })
+        result
+      }, striped = TRUE, spacing = 'xs', width = '100%')
     }
 
     observeEvent(input$campaign_map_shape_click, {
@@ -731,16 +864,16 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         if (!is.null(current)) {
           div(
             style = 'border:1px solid #99f6e4;border-radius:8px;padding:12px 14px;margin-bottom:14px;background:#f0fdfa;',
-            div(style = 'font-size:12px;font-weight:600;color:#0f172a;margin-bottom:4px;', 'Current version'),
+            div(style = 'font-size:12px;font-weight:600;color:#0f172a;margin-bottom:4px;', 'Published version'),
             div(style = 'font-size:11px;color:#64748b;margin-bottom:8px;',
                sprintf('Published by %s on %s', current$submitted_by %||% current$owner_username,
                        tryCatch(format(current$shared_at, '%d %b %Y'), error = function(e) ''))),
-            actionButton(ns('ha_pick_current'), 'Continue with current',
+            actionButton(ns('ha_pick_current'), 'Continue with published',
                         class = 'btn btn-primary', style = 'font-weight:600;')
           )
         } else {
           div(style = 'font-size:12px;color:#64748b;margin-bottom:14px;',
-             'No current health-area map for this district yet.')
+             'No published health-area map for this district yet.')
         },
         div(style = 'font-size:11px;color:#64748b;margin-bottom:6px;', 'Or continue a previous version'),
         div(
@@ -759,7 +892,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       session$onFlushed(function() {
       # has_boundaries drives server.R's decision to skip straight to
       # Health Areas and lock out Landmarks/Facilities re-editing for
-      # this session -- "Continue with current" always means an
+      # this session -- "Continue with published" always means an
       # already-published, already-locked-in version, so this is
       # effectively always TRUE here, but computed properly (not just
       # assumed) in case a shared version somehow has no saved boundaries
@@ -840,7 +973,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
           title = paste0('Team Areas \u2014 ', district_name), size = 's', easyClose = TRUE,
           footer = modalButton('Close'),
           tags$p(style = 'font-size:13px;color:#64748b;',
-                'This district needs a current health-area map before team areas can be mapped.')
+                'This district needs a published health-area map before team areas can be mapped.')
         ))
         return(invisible(NULL))
       }
@@ -852,7 +985,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         div(
           style = 'display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #f1f5f9;',
           div(style = 'font-size:13px;color:#0f172a;', han,
-             if (has_current) tags$span(style = 'color:#166534;font-size:11px;margin-left:6px;', '\u2713 current mapped')),
+             if (has_current) tags$span(style = 'color:#166534;font-size:11px;margin-left:6px;', '\u2713 published')),
           tags$button(
             class = 'btn btn-default btn-xs', type = 'button', 'Open',
             onclick = sprintf("Shiny.setInputValue('%steam_pick_ha', '%s', {priority:'event'})", ns(''), han)
@@ -904,16 +1037,16 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         if (!is.null(current)) {
           div(
             style = 'border:1px solid #99f6e4;border-radius:8px;padding:12px 14px;margin-bottom:14px;background:#f0fdfa;',
-            div(style = 'font-size:12px;font-weight:600;color:#0f172a;margin-bottom:4px;', 'Current version'),
+            div(style = 'font-size:12px;font-weight:600;color:#0f172a;margin-bottom:4px;', 'Published version'),
             div(style = 'font-size:11px;color:#64748b;margin-bottom:8px;',
                sprintf('Published by %s on %s', current$submitted_by %||% current$owner_username,
                        tryCatch(format(current$shared_at, '%d %b %Y'), error = function(e) ''))),
-            actionButton(ns('team_pick_current'), 'Continue with current',
+            actionButton(ns('team_pick_current'), 'Continue with published',
                         class = 'btn btn-primary', style = 'font-weight:600;')
           )
         } else {
           div(style = 'font-size:12px;color:#64748b;margin-bottom:14px;',
-             'No current team map for this health area yet.')
+             'No published team map for this health area yet.')
         },
         div(style = 'font-size:11px;color:#64748b;margin-bottom:6px;', 'Or continue a previous version'),
         div(

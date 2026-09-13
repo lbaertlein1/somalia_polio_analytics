@@ -101,7 +101,19 @@ app_server <- function(input, output, session) {
     req(!is.null(active_district()))
     dsf <- tryCatch(full_district_sf(), error = function(e) NULL)
     req(!is.null(dsf))
-    campaign_extent_rv(tryCatch(fetch_campaign_extent_for_district(dsf, active_campaign_id()), error = function(e) NULL))
+    fetched <- tryCatch(fetch_campaign_extent_for_district(dsf, active_campaign_id()), error = function(e) NULL)
+    # Tagged with the district it was actually fetched for -- this fetch
+    # is a real network round trip, so by the time it resolves the user
+    # may already have switched to a DIFFERENT district (e.g. two
+    # adjacent ones like "Galkayu North"/"Galkayu South", switched
+    # between quickly). Without this tag, a consumer reading
+    # campaign_extent_r() has no way to tell "this is a stale extent
+    # from the district I was just on" apart from "no extent yet" --
+    # both look like an ordinary non-null sf object. Confirmed as the
+    # actual cause of a real reported bug (Campaign Scope silently using
+    # the wrong district's extent), not hypothetical.
+    if (!is.null(fetched)) attr(fetched, "fetched_for_district") <- active_district()
+    campaign_extent_rv(fetched)
   }, ignoreInit = TRUE)
 
   # WHO Settlement Extents (Capitals) -- context-only reference overlay,
@@ -461,7 +473,6 @@ app_server <- function(input, output, session) {
     idp_sf_r          = idp_context_rv,
     submit_stage_fn   = function(data) team_area_session$submit_stage(data),
     restore_r         = team_area_session$restore_snapshot,
-    team_targets_r    = health_area$team_targets_r,
     make_current_fn   = function() team_area_session$make_current(),
     is_stale_r        = team_area_session$is_stale
   )

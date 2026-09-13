@@ -128,7 +128,17 @@ facilityTabServer <- function(
       odk_error    = NULL,
       idp_sf       = NULL,
       idp_loading  = FALSE,
-      idp_error    = NULL
+      idp_error    = NULL,
+      # TRUE once do_idp_fetch() has completed (success OR failure) at
+      # least once for the CURRENTLY selected district -- distinct from
+      # idp_loading, which starts FALSE before the fetch has even begun
+      # (same as "fetch finished"), so idp_loading alone can't tell
+      # "genuinely no IDP settlements" apart from "fetch hasn't run yet".
+      # .submit_all() below uses this to warn and refuse to submit while
+      # still unknown, rather than silently saving no IDP data at all --
+      # confirmed as a real cause of IDP counts permanently missing for a
+      # published version, not hypothetical.
+      idp_fetch_done = FALSE
     )
 
     selected_id     <- reactiveVal(NULL)
@@ -165,6 +175,10 @@ facilityTabServer <- function(
         # moment it tried sf::st_geometry() on it ("no applicable method
         # for 'st_geometry' applied to an object of class 'data.frame'").
         rv$idp_sf <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
+        # Restoring valid data counts as "resolved" the same way a fresh
+        # fetch completing does -- otherwise .submit_all()'s guard would
+        # block submission even though good IDP data is already present.
+        rv$idp_fetch_done <- TRUE
       }
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
@@ -441,6 +455,7 @@ facilityTabServer <- function(
       })
 
       rv$idp_loading <- FALSE
+      rv$idp_fetch_done <- TRUE
     }
 
     # -------------------------------------------------------------------------
@@ -452,6 +467,7 @@ facilityTabServer <- function(
       editing_locked(FALSE)
       needs_odk_fetch(TRUE)
       needs_idp_fetch(TRUE)
+      rv$idp_fetch_done <- FALSE
     }, ignoreInit = FALSE)
 
     observeEvent(planning_area_sf_r(), {
@@ -605,6 +621,24 @@ facilityTabServer <- function(
     }
 
     .submit_all <- function() {
+      # Refuses to submit while the IDP fetch for this district hasn't
+      # actually resolved yet, rather than silently submitting without
+      # any IDP data at all -- the actual cause of a real reported bug
+      # (IDP settlement counts staying at 0 in the database permanently,
+      # on both the export and the intro-page popup, since neither reads
+      # anything this submit never wrote). idp_loading alone can't
+      # distinguish "genuinely no IDP settlements for this district" from
+      # "the fetch hasn't run yet" -- both look like rv$idp_sf being
+      # empty -- so this uses idp_fetch_done specifically, which is only
+      # ever set once the fetch (or a snapshot restore) has actually
+      # resolved one way or the other.
+      if (!isTRUE(rv$idp_fetch_done)) {
+        showNotification(
+          'IDP settlement data is still loading for this district -- please wait a moment and submit again.',
+          type = 'warning', duration = 6
+        )
+        return(invisible(NULL))
+      }
       df    <- facility_data()
       seeds <- df |> dplyr::filter(polio_sia_coordination_site == "Yes")
       submitted_facilities(seeds)
@@ -617,6 +651,7 @@ facilityTabServer <- function(
                           lat = sf::st_coordinates(rv$idp_sf)[, 2])
           )))
       }
+      invisible(NULL)
     }
 
     .do_submit_and_continue_facilities <- function() {
@@ -707,6 +742,10 @@ facilityTabServer <- function(
         if (!is.null(snap$idp_settlements) && nrow(snap$idp_settlements) > 0) {
           needs_idp_fetch(FALSE)
           rv$idp_sf <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
+          # Same reasoning as the other restore path above -- restoring
+          # valid data resolves the "is this genuinely empty, or just not
+          # loaded yet" question .submit_all()'s guard depends on.
+          rv$idp_fetch_done <- TRUE
         }
       }
     )

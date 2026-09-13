@@ -27,7 +27,18 @@ healthAreaPopulationServer <- function(
     # value -- rhandsontable doesn't do that on its own.
     name_col_label = "Health Area",
     allow_rename = FALSE,
-    on_rename = NULL
+    on_rename = NULL,
+    # Column header for the population column -- defaults to "WorldPop
+    # U5 Population" for Health Area Mapping and Campaign Scope, where
+    # the value really is a raw WorldPop extraction. Team Areas passes
+    # "Target Population" instead, since its values are scaled to match
+    # a field-entered health area target when one exists, so calling it
+    # "WorldPop" there would misstate where the number came from. Only
+    # ever ONE population column, regardless of caller -- population
+    # field-entry itself happens in a submit-time modal (see
+    # mod_team_area_tab.R's own .show_team_population_targets_modal()),
+    # not as a second, always-editable column here.
+    pop_col_label = "WorldPop U5 Population"
 ) {
   moduleServer(id, function(input, output, session) {
 
@@ -43,7 +54,15 @@ healthAreaPopulationServer <- function(
       df <- pop_table()
       if (is.null(df) || nrow(df) == 0) return(NULL)
       
-      is_total   <- df$area_name == "District Total"
+      # This module is shared across three tabs whose total row is
+      # labeled differently: "District Total" (Health Area Mapping,
+      # Campaign Scope) vs "Health Area Total" (Team Areas). A check
+      # against "District Total" alone silently never matches on Team
+      # Areas, which meant total_row_js below pointed one row past the
+      # table's actual last row there -- the grey highlight was computed
+      # but never visibly landed on anything. Confirmed as a real,
+      # reported bug, not hypothetical.
+      is_total   <- df$area_name %in% c("District Total", "Health Area Total")
       # No row highlighted while refining -- all boundaries are shown
       # together for editing, with no notion of a single "active" area,
       # so nothing in the table should read as selected either.
@@ -60,7 +79,7 @@ healthAreaPopulationServer <- function(
         check.names        = FALSE
       )
       names(display_df)[names(display_df) == "name_display"] <- name_col_label
-      names(display_df)[names(display_df) == "pop_display"]  <- "WorldPop U5 Population"
+      names(display_df)[names(display_df) == "pop_display"]  <- pop_col_label
       
       row_renderer <- htmlwidgets::JS(sprintf("
   function(instance, td, row, col, prop, value, cellProperties) {
@@ -96,7 +115,7 @@ healthAreaPopulationServer <- function(
       ) |>
         rhandsontable::hot_col("area_name_internal", width = 1,   readOnly = TRUE, renderer = blank_renderer) |>
         rhandsontable::hot_col(name_col_label,        width = 180, readOnly = !allow_rename || isTRUE(in_vertex_mode()), renderer = row_renderer) |>
-        rhandsontable::hot_col("WorldPop U5 Population",        width = 110,  readOnly = TRUE, renderer = row_renderer) |>
+        rhandsontable::hot_col(pop_col_label,        width = 110,  readOnly = TRUE, renderer = row_renderer) |>
         rhandsontable::hot_table(
           highlightRow   = TRUE,
           columnSorting  = FALSE,
@@ -124,7 +143,7 @@ healthAreaPopulationServer <- function(
       row_index <- as.integer(input$selected_row)
       req(!is.na(row_index), row_index >= 1, row_index <= nrow(df))
       area <- df$area_name[row_index]
-      if (area != "District Total") active_dfa_rv(area)
+      if (!(area %in% c("District Total", "Health Area Total"))) active_dfa_rv(area)
     })
 
     # Inline rename via direct table edit -- only wired when allow_rename
@@ -142,7 +161,7 @@ healthAreaPopulationServer <- function(
         if (is.na(col_idx) || col_idx != 1L) next   # only the name column (index 1) is renameable
         row_idx <- suppressWarnings(as.integer(chg[[1]])) + 1L
         if (is.na(row_idx) || row_idx < 1 || row_idx > nrow(df)) next
-        if (identical(df$area_name[row_idx], "District Total")) next
+        if (df$area_name[row_idx] %in% c("District Total", "Health Area Total")) next
 
         old_name <- as.character(chg[[3]])
         new_name <- trimws(as.character(chg[[4]]))

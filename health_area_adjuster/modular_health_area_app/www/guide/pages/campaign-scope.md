@@ -13,7 +13,12 @@ The canvas starts with everything marked **In Scope** by default — you're pain
 
 ## Painting and refining
 
-Pick **In Scope** or **Out of Scope**, then paint and refine the boundary using the same brush-and-vertex mechanics used on every mapping tab — see [Mapping Mechanics](mapping-mechanics) for the full rundown of the brush, the smoothing sliders, and vertex editing. **Save** to confirm painting, **Save Refinements** to confirm refining, then **Submit** when done.
+Pick **In Scope** or **Out of Scope**, then paint and refine the boundary using the same brush-and-vertex mechanics used on every mapping tab. **Save** to confirm painting, **Save Refinements** to confirm refining, then **Submit** when done.
+
+<div class="mechanics-box">
+<span class="mechanics-label">Mapping mechanics</span>
+<p>Select a category, size the brush, and drag on the map to paint a rough shape. Then use the Smoothness/Stiffness/Snap tolerance sliders, Clean Up Boundaries, or drag individual vertices to refine it. See <a href="mapping-mechanics">Mapping Mechanics</a> for the full walkthrough, with screenshots of both steps.</p>
+</div>
 
 A couple of display options specific to this tab:
 
@@ -21,7 +26,7 @@ A couple of display options specific to this tab:
 - **Boundaries only** — a display option, likely to show outlines without the filled color, for a clearer view while painting.
 
 ![The same boundary after refining, now a smooth curve instead of a jagged edge](images/campaign-scope-refine-smoothed.png)
-<p class="img-caption">A painted edge after refining (Smoothness 6 / Stiffness 14 / Snap tolerance 20%) — see Mapping Mechanics for what these sliders do.</p>
+<p class="img-caption">This tab's boundary after refining (Smoothness 6 / Stiffness 14 / Snap tolerance 20%).</p>
 
 ## The legend and population table
 

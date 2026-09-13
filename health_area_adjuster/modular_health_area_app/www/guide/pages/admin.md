@@ -27,28 +27,28 @@ For each district assigned to the campaign, choose:
 
 ### Carry forward
 
-When you assign a district to a campaign for the first time, if that district has a published health/team area map in some *other* campaign, you'll be offered the option to carry that work forward — bringing in the most recent published health area map (and any current team area maps) and marking them current in the new campaign too. Districts with nothing to carry forward from just start blank.
+When you assign a district to a campaign for the first time, if that district has a published health/team area map in some *other* campaign, you'll be offered the option to carry that work forward — bringing in the most recent published health area map (and any published team area maps) and marking them published in the new campaign too. Districts with nothing to carry forward from just start blank.
 
 ## District progress
 
 A table of every district in the selected campaign with its current status. **Click a row** to open the District Review modal for that district.
 
-![The Belet Weyne District Review modal, showing a boundary preview map colored by health area, a Population & team targets table, and a Health area versions table with two rows — one Current (Unshare/Archive) and one not (Make current/Archive)](images/admin-district-review-modal.png)
+![The Belet Weyne District Review modal, showing a boundary preview map colored by health area, a Population & team targets table, and a Health area versions table with two rows — one Published (Unshare/Archive) and one not (Publish/Archive)](images/admin-district-review-modal.png)
 <p class="img-caption">This is where an admin sees every version anyone has worked on for a district, and controls which one is actually published.</p>
 
 The modal shows:
 
-- A boundary preview map of the current health-area version.
+- A boundary preview map of the published health-area version.
 - Population and team targets for that version (WorldPop Population, Field Target Population, Recommended Teams, Field Requested Teams — per health area).
 - Full health-area version history, one row per version, with:
   - **Owner** — who created that version.
-  - **Current** — whether this is the version currently published and live in the tool.
-  - **Make current** — publishes this version instead, replacing whichever one was current. Only shown on versions that aren't already current.
-  - **Unshare** — un-publishes the current version, taking it back out of "current" status without deleting it. This is the action needed before a different health-area version can be published for a district whose team areas are locked (see the 🔒 locked indicator on [Introduction](dashboard)) — unsharing first, then publishing the new version, avoids orphaning team-area work built on the old boundary.
+  - **Published** — whether this is the version currently published and live in the tool.
+  - **Publish** — publishes this version instead, replacing whichever one was published. Only shown on versions that aren't already published.
+  - **Unshare** — un-publishes the published version, taking it back out of "published" status without deleting it. This is the action needed before a different health-area version can be published for a district whose team areas are locked (see the 🔒 locked indicator on [Introduction](dashboard)) — unsharing first, then publishing the new version, avoids orphaning team-area work built on the old boundary.
   - **Archive** — retires a version so it's no longer offered in the version picker, without deleting its data outright.
-- Full team-area version history, broken out by health area, with the same Owner/Current/Make current/Unshare/Archive controls.
+- Full team-area version history, broken out by health area, with the same Owner/Published/Publish/Unshare/Archive controls.
 
-In short: any user can draft and submit a version, but it's the admin, from here, who decides which submitted version actually counts as the district's official, current one.
+In short: any user can draft and submit a version, but it's the admin, from here, who decides which submitted version actually counts as the district's official, published one.
 
 ## Generation settings
 

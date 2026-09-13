@@ -676,6 +676,19 @@ healthAreaTabServer <- function(
     .apply_restore <- function(snap) {
       restore_just_applied(TRUE)
       if (!is.null(snap$dfa_names)) rv$dfa_names <- snap$dfa_names
+      # This was the actual cause of a real reported bug: field targets
+      # entered on a PREVIOUS session (or even earlier in this same
+      # session, before a restore) never reappeared anywhere -- Team
+      # Area Mapping's planning modal would show "Field target: –" even
+      # when a real value was stored in the database, because rv$
+      # team_targets started at list() and nothing in the normal
+      # district-open/restore path (this function) ever loaded it from
+      # snap$team_targets. The exposed restore_from_snapshot() below did
+      # have this exact line already, but that function is never actually
+      # called anywhere in server.R -- effectively dead code duplicating
+      # logic that needed to live here, on the restore path that's
+      # actually used.
+      if (!is.null(snap$team_targets)) rv$team_targets <- .unwrap_team_targets(snap$team_targets)
       n_grid <- nrow(rv$grid_sf)
       ca <- snap$current_assignments
 
@@ -1207,12 +1220,29 @@ healthAreaTabServer <- function(
 
         if (identical(act, "finalize_submit")) {
           if (!is.null(submit_stage_fn)) {
+            # Computed WorldPop per health area, from the just-submitted
+            # boundary -- stored alongside it (dfa_worldpop_pop) so
+            # every later read (PDF/CSV export, the intro popup) uses
+            # this instead of re-running raster extraction every time.
+            # .polygon_u5_population() (printable_export.R), not the
+            # urban/rural split variant -- this is a plain total, no
+            # urban/rural breakdown is stored or needed here.
+            dfa_worldpop_list <- tryCatch({
+              nms <- setdiff(unique(as.character(parsed$dfa_name)), extra_dfa_names)
+              vals <- lapply(nms, function(nm) {
+                poly <- parsed[parsed$dfa_name == nm, , drop = FALSE]
+                sum(.polygon_u5_population(poly, u5_rast), na.rm = TRUE)
+              })
+              setNames(vals, nms)
+            }, error = function(e) list())
+
             submit_stage_fn('areas', list(
               saved_dfa_sf        = parsed,
               dfa_names           = rv$dfa_names,
               current_assignments = rv$current_assignments,
               smoothed_dfa_sf     = parsed,
-              team_targets        = rv$team_targets
+              team_targets        = rv$team_targets,
+              dfa_worldpop_pop    = dfa_worldpop_list
             ))
             areas_submitted_to_db(TRUE)
             .show_team_targets_modal()
@@ -1453,8 +1483,8 @@ healthAreaTabServer <- function(
             style = 'font-size:13px;color:#475569;line-height:1.6;',
             tags$p(tags$strong('This district is locked.')),
             tags$p(
-              'At least one health area already has a published team-area map. To set a ',
-              'different health-area version as current, the current team-area version(s) must ',
+              'At least one health area already has a published team-area map. To publish a ',
+              'different health-area version, the published team-area version(s) must ',
               'first be unshared (District review, in the Admin panel). Your submission is saved ',
               'and can still be reviewed or built on.'
             )
@@ -1467,12 +1497,12 @@ healthAreaTabServer <- function(
         title = 'Health areas submitted', size = 's', easyClose = FALSE,
         footer = tagList(
           actionButton(session$ns('make_current_skip'), 'Not now', class = 'btn btn-default'),
-          actionButton(session$ns('make_current_confirm'), 'Set as current', class = 'btn btn-primary')
+          actionButton(session$ns('make_current_confirm'), 'Publish', class = 'btn btn-primary')
         ),
         div(
           style = 'font-size:13px;color:#475569;line-height:1.6;',
-          tags$p('Set this submission as ', tags$strong(district() %||% 'this district'),
-                "'s current health area map?")
+          tags$p('Publish this submission as ', tags$strong(district() %||% 'this district'),
+                "'s health area map?")
         )
       ))
     }
@@ -1528,8 +1558,7 @@ healthAreaTabServer <- function(
         
         if (!is.null(rv$grid_sf)) .apply_restore(snap)
         else pending_restore(snap)
-      },
-      team_targets_r = reactive(rv$team_targets)
+      }
     )
   })
 }

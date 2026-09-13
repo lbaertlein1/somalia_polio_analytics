@@ -11,7 +11,7 @@ From the [Introduction](dashboard) tab, click the **Team Areas** button on the d
 ![The "choose a health area" modal listing Belet Weyne's four health areas, each with an Open button](images/team-areas-choose-health-area.png)
 <p class="img-caption">One health area = one team map. Pick which one you're working on.</p>
 
-Clicking **Open** on a health area brings up the same kind of version picker used on the [Introduction](dashboard) tab — **Continue with current** if a team map already exists for that health area, a dropdown of prior drafts, or **Start blank**. Before the map opens, you're shown a confirmation step for the population estimate and team count (see below), then **Continue** takes you into the map itself.
+Clicking **Open** on a health area brings up the same kind of version picker used on the [Introduction](dashboard) tab — **Continue with published** if a team map already exists for that health area, a dropdown of prior drafts, or **Start blank**. Before the map opens, you're shown a confirmation step for the population estimate and team count (see below), then **Continue** takes you into the map itself.
 
 ## How team allocation works
 
@@ -30,7 +30,12 @@ Before generating, you confirm or adjust the population estimate and team count 
 
 ## Painting and renaming
 
-Same tools as [Health Areas](health-areas), and the same shared brush/refine mechanics as every mapping tab — see [Mapping Mechanics](mapping-mechanics) for the full rundown. Select a team from the table on the right, paint cells onto it with the brush, then refine.
+Same tools as [Health Areas](health-areas). Select a team from the table on the right, paint cells onto it with the brush, then refine.
+
+<div class="mechanics-box">
+<span class="mechanics-label">Mapping mechanics</span>
+<p>Select a team from the table, size the brush, and drag on the map to paint a rough shape. Then use the Smoothness/Stiffness/Snap tolerance sliders, Clean Up Boundaries, or drag individual vertices to refine it. See <a href="mapping-mechanics">Mapping Mechanics</a> for the full walkthrough, with screenshots of both steps.</p>
+</div>
 
 ![The Team Areas map for Hiran Regional Hospital, with Team 1, Team 2, and Team 3 already painted, Team 3 selected and highlighted yellow, and the Legend & Population table showing each team's WorldPop U5 population](images/team-areas-painting.png)
 <p class="img-caption">Selecting a team's row (Team 3, highlighted) shows its painted area on the map — same interaction as health area painting.</p>
@@ -42,14 +47,14 @@ Same tools as [Health Areas](health-areas), and the same shared brush/refine mec
 
 **Show WorldPop U5 Population** and **Boundaries only** work the same as on other tabs — useful together to see population density under the team boundaries without the fill color obscuring it. **Save** and **Save Refinements** work exactly as they do for health areas — confirming your work without submitting yet.
 
-## Submitting and setting as current
+## Submitting and setting as published
 
 **Submit Team Areas** saves the team-area boundaries for all teams worked on so far to the database. After submitting, you're asked whether to publish this version as the health area's active team map:
 
-![The "Team areas submitted" dialog asking "Set this submission as Hiran Regional Hospital's current team map?" with Not now and Set as current buttons](images/team-areas-set-as-current.png)
-<p class="img-caption">Submitting saves the draft either way — Set as current is what actually publishes it.</p>
+![The "Team areas submitted" dialog asking "Set this submission as Hiran Regional Hospital's published team map?" with Not now and Set as published buttons](images/team-areas-set-as-current.png)
+<p class="img-caption">Submitting saves the draft either way — Set as published is what actually publishes it.</p>
 
-- **Set as current** — publishes this version as the health area's active team map. This is also what triggers the 🔒 **locked** indicator on the [Introduction](dashboard) tab, since a published team map locks its parent health-area boundary against being swapped for a different version.
+- **Set as published** — publishes this version as the health area's active team map. This is also what triggers the 🔒 **locked** indicator on the [Introduction](dashboard) tab, since a published team map locks its parent health-area boundary against being swapped for a different version.
 - **Not now** — the submission is still saved as a draft you (or someone else) can pick up later from the version picker, but it doesn't become the active team map yet.
 
 Each health area has its own independent team-area version history, separate from every other health area in the district.

@@ -314,6 +314,22 @@ campaignScopeTabServer <- function(
     # since scope has no BFS propagation to run.
     .build_scene_for_district <- function(dsf) {
       extent_now <- tryCatch(campaign_extent_r(), error = function(e) NULL)
+      # Guards against the real race this whole function's docstring
+      # already warns about: campaign_extent_r() is a network round trip
+      # keyed off active_district() in server.R, so at the moment this
+      # runs it can still be holding the PREVIOUS district's already-
+      # fetched extent -- non-null, so it looked "ready" even though it
+      # belongs to a different district entirely (confirmed as a real
+      # bug: two adjacent districts switched between quickly would both
+      # end up clipped to whichever one's extent happened to be cached).
+      # Treating a mismatched tag the same as "not arrived yet" lets the
+      # existing catch-up observer below do its job once the correct
+      # extent actually arrives, instead of settling permanently on the
+      # wrong one.
+      if (!is.null(extent_now) &&
+          !identical(attr(extent_now, "fetched_for_district"), as.character(dsf$district_name[[1]]))) {
+        extent_now <- NULL
+      }
       canvas_info <- .determine_canvas(dsf, extent_now)
       canvas_sf  <- canvas_info$canvas_sf
       has_extent <- canvas_info$has_extent
@@ -408,6 +424,13 @@ campaignScopeTabServer <- function(
       req(identical(rv$current_assignments, rv$initial_assignments))
       extent_now <- tryCatch(campaign_extent_r(), error = function(e) NULL)
       req(!is.null(extent_now), nrow(extent_now) > 0)
+      # Same district-tag check as .build_scene_for_district() itself --
+      # without it, this observer could fire on an extent that just
+      # arrived for a DIFFERENT district than the one currently open
+      # (e.g. the user already switched again), attempting a rebuild
+      # that .build_scene_for_district() would then correctly reject
+      # anyway, but pointlessly.
+      req(identical(attr(extent_now, "fetched_for_district"), as.character(rv$district_sf$district_name[[1]])))
 
       .build_scene_for_district(rv$district_sf)
       if (tab_active()) send_current_scene()

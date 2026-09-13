@@ -20,7 +20,12 @@ Clicking a row in the **Health Area** table on the right selects that health are
 
 ## Painting and refining
 
-Painting and refining use the same brush, sliders, and vertex tools as every other mapping tab — see [Mapping Mechanics](mapping-mechanics) for the full rundown. **Save** to confirm painting, **Save Refinements** to confirm refining, then **Submit** when done.
+Painting and refining use the same brush, sliders, and vertex tools as every other mapping tab. **Save** to confirm painting, **Save Refinements** to confirm refining, then **Submit** when done.
+
+<div class="mechanics-box">
+<span class="mechanics-label">Mapping mechanics</span>
+<p>Select a health area (or Inaccessible/Unpopulated) from the table, size the brush, and drag on the map to paint a rough shape. Then use the Smoothness/Stiffness/Snap tolerance sliders, Clean Up Boundaries, or drag individual vertices to refine it. See <a href="mapping-mechanics">Mapping Mechanics</a> for the full walkthrough, with screenshots of both steps.</p>
+</div>
 
 ### Marking Inaccessible and Unpopulated areas
 

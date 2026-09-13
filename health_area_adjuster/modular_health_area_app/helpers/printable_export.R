@@ -131,6 +131,10 @@ library(png)
   ha_sf <- snap$smoothed_dfa_sf %||% snap$saved_dfa_sf
   district_sf <- snap$district_boundary_sf
   team_targets <- snap$team_targets %||% list()
+  # Computed-at-submit WorldPop per health area (mapping_versions.dfa_
+  # worldpop_pop) -- read here so .build_health_area_summary_table()
+  # can use it instead of re-extracting from the raster.
+  dfa_worldpop_pop <- snap$dfa_worldpop_pop %||% list()
   cat('[export_debug] checkpoint: snap/ha_sf/district_sf unpacked\n')
 
   # Team areas: combine every health area's CURRENT team-area version —
@@ -138,6 +142,8 @@ library(png)
   # health-area version's own snapshot anymore, only per-health-area ones.
   # health_area column matches what the per-page lookup below
   # (team_sf$health_area == nm) already expects.
+  team_field_overrides_by_ha <- list()
+  team_worldpop_by_ha <- list()
   team_sf <- tryCatch({
     ha_names <- setdiff(unlist(snap$dfa_names %||% list()), extra_dfa_names)
     parts <- lapply(ha_names, function(han) {
@@ -146,6 +152,15 @@ library(png)
       geom <- tv$snap$smoothed_team_sf %||% tv$snap$saved_team_sf
       if (is.null(geom) || nrow(geom) == 0) return(NULL)
       geom$health_area <- han
+      # Per-team field-verified populations, persisted alongside the
+      # team boundaries themselves (see mod_team_area_tab.R's own
+      # submit_stage_fn call) -- used by .build_team_summary_table()
+      # below in place of naively dividing the health area's field
+      # target equally across teams.
+      team_field_overrides_by_ha[[han]] <<- tv$snap$team_field_pop_overrides %||% list()
+      # Computed-at-submit WorldPop per team (team_area_versions.team_
+      # worldpop_pop) -- same reasoning as dfa_worldpop_pop above.
+      team_worldpop_by_ha[[han]] <<- tv$snap$team_worldpop_pop %||% list()
       geom
     })
     parts <- Filter(Negate(is.null), parts)
@@ -275,7 +290,9 @@ library(png)
   list(ha_sf = ha_sf, district_sf = district_sf, team_sf = team_sf, team_targets = team_targets,
        fac_sf = fac_sf, idp_sf = idp_sf, pop_sf = pop_sf, urban_sf = urban_sf, subdiv_sf = subdiv_sf,
        zone_val = zone_val, region_val = region_val, area_names = area_names,
-       ha_stats_list = ha_stats_list, u5_rast = u5_rast)
+       ha_stats_list = ha_stats_list, u5_rast = u5_rast,
+       team_field_overrides_by_ha = team_field_overrides_by_ha,
+       dfa_worldpop_pop = dfa_worldpop_pop, team_worldpop_by_ha = team_worldpop_by_ha)
 }
 
 build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
@@ -298,6 +315,9 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   zone_val <- ctx$zone_val; region_val <- ctx$region_val
   area_names <- ctx$area_names; ha_stats_list <- ctx$ha_stats_list
   u5_rast <- ctx$u5_rast
+  team_field_overrides_by_ha <- ctx$team_field_overrides_by_ha
+  dfa_worldpop_pop <- ctx$dfa_worldpop_pop
+  team_worldpop_by_ha <- ctx$team_worldpop_by_ha
 
   # page_width_in/page_height_in (free-form, in inches) override the
   # named paper preset when given -- the preset stays as the default
@@ -353,7 +373,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   )
   cat('[export_debug] checkpoint: district overview page printed OK\n')
 
-  summary_df <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf)
+  summary_df <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf, dfa_worldpop_pop)
   cat('[export_debug] checkpoint: summary_df built OK\n')
   .print_table_page(summary_df, paste0(district_name, ' \u2014 Health Area Summary'))
   cat('[export_debug] checkpoint: summary table page printed OK\n')
@@ -413,7 +433,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
 
     if (!is.null(team_one) && nrow(team_one) > 0) {
       field_target <- .unwrap_num(team_targets[[nm]]$target_pop)
-      team_df <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf)
+      team_df <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[nm]], team_worldpop_by_ha[[nm]])
       if (!is.null(team_df)) .print_table_page(team_df, paste0(district_name, ' \u2014 ', nm, ' \u2014 Team Summary'))
       cat(sprintf('[export_debug] checkpoint "%s": team summary table done\n', nm))
     }
@@ -609,18 +629,30 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
 #' urban_sf may be NULL (no urban-areas layer available for this
 #' district) -- every area's urban component is then 0, rural equals the
 #' unstratified total, rather than failing the whole table.
-.build_health_area_summary_table <- function(ha_sf, team_targets, u5_rast, campaign_id, urban_sf = NULL, idp_sf = NULL) {
+.build_health_area_summary_table <- function(ha_sf, team_targets, u5_rast, campaign_id, urban_sf = NULL, idp_sf = NULL, stored_worldpop = NULL) {
   area_names <- setdiff(unique(as.character(ha_sf$dfa_name)), extra_dfa_names)
   rows <- lapply(area_names, function(nm) {
     poly    <- ha_sf[ha_sf$dfa_name == nm, , drop = FALSE]
-    # Urban/rural split removed from this table's output -- not
-    # requested, only the combined total is shown here now. Still
-    # computed via .polygon_u5_population_urban_rural() rather than the
-    # plain .polygon_u5_population() so the WorldPop total itself stays
-    # identical to what that function already produces elsewhere (the
-    # per-team table), not a second, potentially-drifting computation.
-    split   <- .polygon_u5_population_urban_rural(poly, u5_rast, urban_sf)
-    wp_val  <- sum(split$total, na.rm = TRUE)
+    # Prefer the COMPUTED-AT-SUBMIT value (stored_worldpop, from
+    # mapping_versions.dfa_worldpop_pop) over live raster extraction --
+    # re-extracting WorldPop from the raster on every single read
+    # (every export, every popup open) was real, avoidable cost for a
+    # number that only changes when the boundary itself changes.
+    # Live extraction is kept ONLY as a fallback for a version
+    # submitted before this was computed and stored (stored_worldpop[[nm]]
+    # missing/NA in that case), not the default path anymore.
+    wp_val <- .unwrap_num(stored_worldpop[[nm]])
+    if (is.na(wp_val)) {
+      # Urban/rural split removed from this table's output -- not
+      # requested, only the combined total is shown here now. Still
+      # computed via .polygon_u5_population_urban_rural() rather than
+      # the plain .polygon_u5_population() so the WorldPop total itself
+      # stays identical to what that function already produces
+      # elsewhere (the per-team table), not a second, potentially-
+      # drifting computation.
+      split  <- .polygon_u5_population_urban_rural(poly, u5_rast, urban_sf)
+      wp_val <- sum(split$total, na.rm = TRUE)
+    }
 
     idp_count <- if (is.null(idp_sf) || nrow(idp_sf) == 0) 0 else {
       one <- tryCatch(.points_within(idp_sf, poly), error = function(e) NULL)
@@ -640,7 +672,7 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
       `Health Area`             = nm,
       `Target Pop (WorldPop)`   = .fmt_pop(wp_val),
       `Target Pop (Field)`       = .fmt_field(field_pop),
-      `IDP Settlements`          = idp_count,
+      `IDP Settlements`          = as.character(idp_count),
       `Recommended Teams`        = if (is.na(recommended_teams)) '\u2013' else as.character(as.integer(recommended_teams)),
       `Field Requested Teams`    = if (is.na(req_teams) || req_teams <= 0) '\u2013' else as.character(as.integer(req_teams)),
       check.names = FALSE, stringsAsFactors = FALSE
@@ -705,27 +737,79 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
 #' target set. Also splits each team's own population into urban/rural
 #' components, same urban_sf/reporting-only caveat as the health-area
 #' table above.
-.build_team_summary_table <- function(team_one, health_area_field_target, u5_rast, urban_sf = NULL) {
+.build_team_summary_table <- function(team_one, health_area_field_target, u5_rast, urban_sf = NULL, team_field_overrides = NULL, stored_worldpop = NULL) {
   if (is.null(team_one) || nrow(team_one) == 0) return(NULL)
   team_names <- setdiff(unique(as.character(team_one$dfa_name)), extra_dfa_names)
   if (length(team_names) == 0) return(NULL)
-  n_teams <- length(team_names)
-  per_team_field <- if (!is.na(health_area_field_target) && n_teams > 0)
-    health_area_field_target / n_teams else NA_real_
 
-  rows <- lapply(team_names, function(tn) {
-    poly    <- team_one[team_one$dfa_name == tn, , drop = FALSE]
+  # WorldPop computed for every team FIRST, before any field-population
+  # fallback logic -- needed because the fallback below is proportional
+  # to each team's own WorldPop share, not an even split, so every
+  # team's figure has to exist before any one team's share can be
+  # calculated.
+  #
+  # Prefers the COMPUTED-AT-SUBMIT value (stored_worldpop, from
+  # team_area_versions.team_worldpop_pop) over live raster extraction --
+  # re-extracting on every single read was real, avoidable cost for a
+  # number that only changes when the boundary itself changes. Live
+  # extraction is kept ONLY as a fallback for a version submitted before
+  # this was computed and stored.
+  wp_vals <- vapply(team_names, function(tn) {
+    stored <- .unwrap_num(stored_worldpop[[tn]])
+    if (!is.na(stored)) return(stored)
+    poly  <- team_one[team_one$dfa_name == tn, , drop = FALSE]
     # Urban/rural split not shown in this table's output -- only the
     # combined total, same as .build_health_area_summary_table(). Still
     # computed via .polygon_u5_population_urban_rural() rather than the
     # plain .polygon_u5_population() so the WorldPop total itself stays
     # identical either way.
-    split   <- .polygon_u5_population_urban_rural(poly, u5_rast, urban_sf)
-    wp_val  <- sum(split$total, na.rm = TRUE)
+    split <- .polygon_u5_population_urban_rural(poly, u5_rast, urban_sf)
+    sum(split$total, na.rm = TRUE)
+  }, numeric(1))
+  names(wp_vals) <- team_names
+  total_wp <- sum(wp_vals, na.rm = TRUE)
+
+  # Fallback for teams that don't have their OWN field-verified
+  # population entered (team_field_overrides, persisted from
+  # mod_team_area_tab.R's per-team Field Population column): each
+  # team's share of the health area's field target IN THE SAME
+  # PROPORTION as its own share of the health area's total WorldPop --
+  # e.g. a team with 40% of the WorldPop total gets 40% of the field
+  # target, not container-share (n_teams-way) split. Explicit instruction,
+  # not a guess -- an even split was flagged as wrong specifically
+  # because it doesn't reflect how population is actually distributed
+  # across a health area's teams. Falls back to an even split only if
+  # total_wp is 0 (every team came back with zero WorldPop, so a
+  # proportional share is undefined -- avoids a divide-by-zero, not a
+  # silent return to the old behavior in the normal case).
+  per_team_field_fallback <- setNames(rep(NA_real_, length(team_names)), team_names)
+  if (!is.na(health_area_field_target)) {
+    if (total_wp > 0) {
+      per_team_field_fallback <- (wp_vals / total_wp) * health_area_field_target
+    } else if (length(team_names) > 0) {
+      per_team_field_fallback <- setNames(rep(health_area_field_target / length(team_names), length(team_names)), team_names)
+    }
+  }
+
+  rows <- lapply(team_names, function(tn) {
+    wp_val <- wp_vals[[tn]]
+    # .unwrap_num(), not plain as.numeric() -- team_field_overrides comes
+    # from the same .from_json_db()-parsed, simplifyVector=FALSE JSON
+    # structure as team_targets (see .unwrap_num()'s own docstring
+    # above), so a per-team value here can arrive wrapped in its own
+    # length-1 list (e.g. list(500), not 500). Plain as.numeric() on
+    # that wrapped form -- or on NULL, the common case where a team has
+    # no override at all -- either mis-evaluates or produces a length-
+    # zero result, and the is.na() check right below then throws
+    # "missing value where TRUE/FALSE needed" or "argument is of length
+    # zero" depending on which. Confirmed as the actual cause of a real
+    # production error, not hypothetical.
+    own_field <- .unwrap_num(team_field_overrides[[tn]])
+    field_val <- if (!is.na(own_field) && own_field >= 0) own_field else per_team_field_fallback[[tn]]
     data.frame(
       Team                     = tn,
       `Target Pop (WorldPop)` = .fmt_pop(wp_val),
-      `Target Pop (Field)`     = .fmt_field(per_team_field),
+      `Target Pop (Field)`     = .fmt_field(field_val),
       check.names = FALSE, stringsAsFactors = FALSE
     )
   })
@@ -1075,7 +1159,7 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
   # export; if it's not actually rendering a halo, that's the first thing
   # to check.
   m <- m +
-    tmap::tm_borders(col = border_col, lwd = if (needs_high_contrast) 1.2 else 0.8) +
+    tmap::tm_borders(col = border_col, lwd = if (needs_high_contrast) 2.5 else 2) +
     tmap::tm_text('dfa_name', size = 0.45, col = text_col, fontface = 'bold',
                   shadow = TRUE, shadow.col = 'white')
 
@@ -1147,7 +1231,7 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
   # No fill here either -- the health area's own boundary is already this
   # page's title/context, so it gets a border only, no label needed on
   # the shape itself.
-  m <- m + tmap::tm_borders(col = ha_border_col, lwd = if (needs_high_contrast) 2.5 else 2)
+  m <- m + tmap::tm_borders(col = ha_border_col, lwd = if (needs_high_contrast) 3.5 else 3)
 
   # Subdivisions and campaign/urban extent -- same context-only styling
   # convention as .district_overview_map() above; see that function's
@@ -1161,7 +1245,7 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
 
   if (!is.null(team_one) && nrow(team_one) > 0)
     m <- m + tmap::tm_shape(team_one) +
-      tmap::tm_borders(col = team_border_col, lwd = 0.6) +
+      tmap::tm_borders(col = team_border_col, lwd = if (needs_high_contrast) 2.5 else 2) +
       tmap::tm_text('dfa_name', size = 0.4, col = team_text_col, fontface = 'bold',
                     shadow = TRUE, shadow.col = 'white')
 

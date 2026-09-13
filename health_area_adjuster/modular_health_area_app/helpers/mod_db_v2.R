@@ -225,7 +225,7 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
   "odk_sf, app_sf, district_boundary_sf,",
   "saved_dfa_sf, dfa_names, current_assignments, team_targets,",
   "smoothed_dfa_sf, smoothing_generated_at,",
-  "landmarks, idp_settlements,",
+  "landmarks, idp_settlements, dfa_worldpop_pop,",
   "scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope"
 )
 
@@ -262,6 +262,7 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
       smoothed_dfa_sf                    = .from_json_sf_db(r$smoothed_dfa_sf %||% NA_character_),
       landmarks                            = .from_json_df_db(r$landmarks %||% NA_character_),
       idp_settlements                        = .from_json_df_db(r$idp_settlements %||% NA_character_),
+      dfa_worldpop_pop                          = .from_json_db(r$dfa_worldpop_pop %||% NA_character_),
       scope_saved_dfa_sf                        = .from_json_sf_db(r$scope_saved_dfa_sf %||% NA_character_),
       scope_dfa_names                              = .from_json_vec_db(r$scope_dfa_names %||% NA_character_),
       scope_current_assignments                      = .from_json_vec_db(r$scope_current_assignments %||% NA_character_)
@@ -430,7 +431,7 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         boundary_locked_at, district_boundary_sf,
         saved_dfa_sf, dfa_names, current_assignments, team_targets,
         smoothed_dfa_sf, smoothing_generated_at,
-        landmarks, idp_settlements,
+        landmarks, idp_settlements, dfa_worldpop_pop,
         has_landmarks, has_facilities, has_idp, has_health_areas
       )
       SELECT
@@ -440,7 +441,7 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         boundary_locked_at, district_boundary_sf,
         saved_dfa_sf, dfa_names, current_assignments, team_targets,
         smoothed_dfa_sf, smoothing_generated_at,
-        landmarks, idp_settlements,
+        landmarks, idp_settlements, dfa_worldpop_pop,
         has_landmarks, has_facilities, has_idp, has_health_areas
       FROM mapping_versions
       WHERE version_id = $1
@@ -505,6 +506,10 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
   cur_assign_json      <- if (stage == "areas")  .to_json_for_db(data$current_assignments)   else NA_character_
   team_targets_json    <- if (stage == "areas")  .to_json_for_db(data$team_targets)          else NA_character_
   smoothed_dfa_json    <- if (stage == "areas")  .to_json_for_db(data$smoothed_dfa_sf)        else NA_character_
+  # Computed WorldPop snapshot, stored so it's never re-extracted from
+  # the raster on every read -- only written on the "areas" stage, same
+  # lifecycle as the boundary it was computed from.
+  dfa_worldpop_json    <- if (stage == "areas")  .to_json_for_db(data$dfa_worldpop_pop)       else NA_character_
   # Campaign scope -- same shape as the health-area grid (a small,
   # gridded painting task with saved polygons + per-cell assignments),
   # locked once facilities begins, same lifecycle as landmarks/
@@ -538,6 +543,7 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
         current_assignments                  = COALESCE($9,  current_assignments),
         team_targets                           = COALESCE($10, team_targets),
         smoothed_dfa_sf                          = COALESCE($11, smoothed_dfa_sf),
+        dfa_worldpop_pop                           = COALESCE($20, dfa_worldpop_pop),
         scope_saved_dfa_sf                         = COALESCE($16, scope_saved_dfa_sf),
         scope_dfa_names                              = COALESCE($17, scope_dfa_names),
         scope_current_assignments                      = COALESCE($18, scope_current_assignments),
@@ -557,7 +563,8 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
         landmarks_json, odk_sf_json, app_sf_json, idp_json,
         saved_dfa_sf_json, dfa_names_json, cur_assign_json, team_targets_json, smoothed_dfa_json,
         has_landmarks, has_facilities, has_idp, has_health_areas,
-        scope_saved_dfa_sf_json, scope_dfa_names_json, scope_cur_assign_json, has_scope
+        scope_saved_dfa_sf_json, scope_dfa_names_json, scope_cur_assign_json, has_scope,
+        dfa_worldpop_json
       )
     )
   }, error = function(e) {
@@ -567,6 +574,61 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
 
 
   invisible(target_id)
+}
+
+#' Updates ONE health area's field target population within the current
+#' SHARED health-area version's team_targets, IN PLACE -- deliberately
+#' does NOT fork a new draft, unlike db_submit_stage_v2()'s normal
+#' "editing a shared version forks" rule. Team area mapping is built
+#' directly against the currently shared health-area version, and when
+#' a team-level field population is entered, revising that same shared
+#' version's own field target in place is the intended behavior --
+#' spinning off a new unpublished draft every time would be a heavier,
+#' more surprising side effect than what was actually asked for.
+#'
+#' Preserves every other health area's entry in team_targets untouched,
+#' and this health area's own requested_teams -- only target_pop for
+#' the named health area changes. Returns TRUE on success, FALSE if no
+#' current shared version exists for this campaign/district or the
+#' write fails.
+db_update_health_area_field_target <- function(pool, campaign_id, district_name, health_area_name, new_target_pop) {
+  cat(sprintf('[db] update_health_area_field_target: called with campaign_id=%s district_name=%s health_area_name=%s new_target_pop=%s\n',
+              campaign_id, district_name, health_area_name, new_target_pop))
+  conn <- pool::poolCheckout(pool)
+  on.exit(pool::poolReturn(conn))
+  tryCatch({
+    cur <- DBI::dbGetQuery(conn,
+      "SELECT version_id, team_targets FROM mapping_versions
+       WHERE campaign_id = $1 AND district_name = $2 AND is_shared = TRUE AND archived_at IS NULL
+       LIMIT 1",
+      list(as.integer(campaign_id), district_name))
+    cat(sprintf('[db] update_health_area_field_target: SELECT returned %d row(s)\n', nrow(cur)))
+    if (nrow(cur) == 0) {
+      cat('[db] update_health_area_field_target: no current shared version for',
+          district_name, '/ campaign', campaign_id, '\n')
+      return(FALSE)
+    }
+    version_id <- as.integer(cur$version_id[1])
+    cat(sprintf('[db] update_health_area_field_target: version_id=%d, existing team_targets is.na=%s\n',
+                version_id, is.na(cur$team_targets[1])))
+    existing_targets <- .from_json_db(cur$team_targets[1] %||% NA_character_) %||% list()
+    existing_entry <- existing_targets[[health_area_name]] %||% list()
+    cat(sprintf('[db] update_health_area_field_target: health area "%s" found in existing_targets=%s (names present: %s)\n',
+                health_area_name, health_area_name %in% names(existing_targets),
+                paste(names(existing_targets), collapse = ' | ')))
+    existing_entry$target_pop <- new_target_pop
+    existing_targets[[health_area_name]] <- existing_entry
+
+    n_affected <- DBI::dbExecute(conn,
+      "UPDATE mapping_versions SET team_targets = $2, last_updated_at = NOW()
+       WHERE version_id = $1",
+      list(version_id, .to_json_for_db(existing_targets)))
+    cat(sprintf('[db] update_health_area_field_target: UPDATE affected %s row(s)\n', n_affected))
+    TRUE
+  }, error = function(e) {
+    cat('[db] update_health_area_field_target error:', conditionMessage(e), '\n')
+    FALSE
+  })
 }
 
 #' Explicit "Refresh from source" — updates the locked facility/boundary
@@ -911,7 +973,7 @@ db_delete_data_source_url <- function(pool, setting_key, campaign_id) {
 .tav_full_cols <- paste(
   .tav_meta_cols, ",",
   "saved_team_sf, team_names, current_team_assignments,",
-  "smoothed_team_sf, smoothing_generated_at"
+  "smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop"
 )
 
 .parse_tav_row <- function(r) {
@@ -934,7 +996,9 @@ db_delete_data_source_url <- function(pool, setting_key, campaign_id) {
       saved_team_sf                = .from_json_sf_db(r$saved_team_sf %||% NA_character_),
       team_names                     = .from_json_vec_db(r$team_names %||% NA_character_),
       current_team_assignments         = .from_json_vec_db(r$current_team_assignments %||% NA_character_),
-      smoothed_team_sf                    = .from_json_sf_db(r$smoothed_team_sf %||% NA_character_)
+      smoothed_team_sf                    = .from_json_sf_db(r$smoothed_team_sf %||% NA_character_),
+      team_field_pop_overrides               = .from_json_db(r$team_field_pop_overrides %||% NA_character_),
+      team_worldpop_pop                         = .from_json_db(r$team_worldpop_pop %||% NA_character_)
     )
   )
 }
@@ -1021,13 +1085,13 @@ db_branch_team_area_version <- function(pool, source_team_version_id, owner_user
         owner_username, campaign_id, district_name, health_area_name,
         based_on_health_area_version_id, version_number, branched_from_id, submitted_by,
         saved_team_sf, team_names, current_team_assignments,
-        smoothed_team_sf, smoothing_generated_at
+        smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop
       )
       SELECT
         $2, campaign_id, district_name, health_area_name,
         based_on_health_area_version_id, $3, team_version_id, $2,
         saved_team_sf, team_names, current_team_assignments,
-        smoothed_team_sf, smoothing_generated_at
+        smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop
       FROM team_area_versions
       WHERE team_version_id = $1
       RETURNING team_version_id
@@ -1069,12 +1133,26 @@ db_submit_team_area_stage <- function(pool, team_version_id, username, data) {
         team_names                     = COALESCE($4, team_names),
         current_team_assignments         = COALESCE($5, current_team_assignments),
         smoothed_team_sf                   = COALESCE($6, smoothed_team_sf),
-        smoothing_generated_at               = CASE WHEN $6 IS NOT NULL THEN NOW() ELSE smoothing_generated_at END
+        smoothing_generated_at               = CASE WHEN $6 IS NOT NULL THEN NOW() ELSE smoothing_generated_at END,
+        team_field_pop_overrides               = COALESCE($7, team_field_pop_overrides),
+        team_worldpop_pop                        = COALESCE($8, team_worldpop_pop)
       WHERE team_version_id = $1
     ", list(
       target_id, username,
       .to_json_for_db(data$saved_team_sf), .to_json_for_db(data$team_names),
-      .to_json_for_db(data$current_team_assignments), .to_json_for_db(data$smoothed_team_sf)
+      .to_json_for_db(data$current_team_assignments), .to_json_for_db(data$smoothed_team_sf),
+      # This column was previously never written at all -- the UPDATE
+      # statement simply didn't have it, so every team-level field
+      # population a user entered was silently discarded on submit no
+      # matter what the R side sent. Confirmed as the actual root cause
+      # of a real reported bug (entered field values reverting to the
+      # calculated proportional-share estimate every time the data was
+      # read back), not a display or calculation bug.
+      .to_json_for_db(data$team_field_pop_overrides),
+      # Computed WorldPop snapshot -- same lifecycle as the boundary it
+      # was computed from, stored so it's never re-extracted from the
+      # raster on every read.
+      .to_json_for_db(data$team_worldpop_pop)
     ))
   }, error = function(e) {
     cat('[db] submit_team_area_stage UPDATE error:', e$message, '\n')

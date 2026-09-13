@@ -139,3 +139,29 @@ body {
   color: #94a3b8;
   margin: 0 0 16px;
 }
+
+/* Mechanics summary box: a compact callout used on Campaign Scope,
+   Health Areas, and Team Areas to recap the shared painting/refining
+   mechanics at a glance and link out to the full Mapping Mechanics
+   page, instead of repeating the full explanation on every tab. */
+#guide-content-inner div.mechanics-box {
+  background: #eef6f6;
+  border: 1px solid #b6dede;
+  border-left: 4px solid #0d9488;
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin: 16px 0 24px;
+}
+#guide-content-inner div.mechanics-box p {
+  margin: 4px 0;
+  font-size: 13.5px;
+}
+#guide-content-inner div.mechanics-box .mechanics-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #0d9488;
+  margin-bottom: 6px;
+}
