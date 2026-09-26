@@ -385,10 +385,28 @@ build_neighbors_list <- function(grid_sf, allow_diagonal = TRUE,
   neighbors_list
 }
 
+# Each grid cell's friction = the AVERAGE of the friction raster cells inside
+# it (area-weighted, same approach extract_cell_population() uses for
+# population). Grid cells are 100-500m and the raster is 100m, so a single
+# centre sample would pick one arbitrary pixel out of up to 25. Falls back
+# to the centre sample only if the averaging itself fails.
+#
+# Pixels outside the district are stored as 0 in the per-district files
+# (parse_district_friction_surfaces.R), and real friction is never below
+# 0.05, so 0 is treated as "no data" here. Otherwise every grid cell on the
+# district edge would average in zeros from outside and become a cheap
+# corridor running all the way round the district.
 extract_cell_friction_from_raster <- function(grid_sf, district_sf, friction_path) {
   if (!file.exists(friction_path)) stop("Friction raster not found: ", friction_path)
-  r     <- terra::rast(friction_path)
-  vals  <- as.numeric(terra::extract(r, terra::centroids(terra::vect(sf::st_transform(grid_sf, terra::crs(r)))))[, 2])
+  r         <- terra::subst(terra::rast(friction_path), 0, NA)
+  grid_proj <- sf::st_transform(grid_sf, sf::st_crs(terra::crs(r)))
+  vals <- tryCatch(
+    as.numeric(exactextractr::exact_extract(x = raster::raster(r), y = grid_proj, fun = "mean", progress = FALSE)),
+    error = function(e) {
+      cat("[friction] mean extraction failed, using cell centres:", conditionMessage(e), "\n")
+      as.numeric(terra::extract(r, terra::centroids(terra::vect(grid_proj)))[, 2])
+    }
+  )
   if (all(is.na(vals))) stop("All friction values are NA for: ", friction_path)
   if (anyNA(vals)) vals[is.na(vals)] <- stats::median(vals, na.rm = TRUE)
   vals[!is.finite(vals)] <- stats::median(vals[is.finite(vals)], na.rm = TRUE)
@@ -422,10 +440,10 @@ initialHealthAreaGenerationServer <- function(
     subdivision_lines_sf = reactive(NULL),
     subdivision_boundary_penalty = 0.99,
     allow_diagonal = TRUE,
-    friction_dir = file.path(getwd(), "data", "friction", "district_standardized"),
-    friction_lookup_csv = file.path(
-      getwd(), "data", "friction", "district_standardized", "district_friction_index.csv"
-    ),
+    # Folder of per-district friction files. A reactive (the campaign's
+    # boundary set -- friction_dir_for_campaign()) or a plain path.
+    friction_dir = reactive(friction_dir_for_campaign(NULL)),
+    friction_lookup_csv = NULL,   # NULL = <friction_dir>/district_friction_index.csv
     # WorldPop raster — if provided, enables population saturation penalty
     u5_rast = NULL,
     # Raw friction addition per step (0-1 scale), independent of terrain.
@@ -793,10 +811,12 @@ initialHealthAreaGenerationServer <- function(
         fdsf <- tryCatch(friction_district_sf(), error = function(e) NULL)
         if (!is.null(fdsf) && nrow(fdsf) > 0) fdsf else district_sf_value
       } else district_sf_value
+      friction_dir_value <- if (is.function(friction_dir)) friction_dir() else friction_dir
       friction_path_value <- get_district_friction_path(
         district_sf = friction_sf_for_lookup,
-        friction_dir = friction_dir,
-        friction_lookup_csv = friction_lookup_csv
+        friction_dir = friction_dir_value,
+        friction_lookup_csv = friction_lookup_csv %||%
+          file.path(friction_dir_value, "district_friction_index.csv")
       )
       
       cell_friction_raw_value <- .t("friction extract", {

@@ -177,6 +177,37 @@ statements <- list(
     is_active     BOOLEAN     NOT NULL DEFAULT TRUE
   )",
 
+  # District boundary sets -- one row per set, label matches the folder
+  # data/boundary_sets/<label>/ (districts_shp.Rds) and data/friction/<label>/.
+  # Exactly one is current; new campaigns take the current set at creation
+  # (db_create_campaign()). Must exist before campaigns.boundary_set below.
+  "CREATE TABLE IF NOT EXISTS boundary_sets (
+    set_label   TEXT PRIMARY KEY,
+    description TEXT,
+    loaded_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_current  BOOLEAN     NOT NULL DEFAULT FALSE
+  )",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_bs_one_current ON boundary_sets(is_current) WHERE is_current",
+  "ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS boundary_set TEXT REFERENCES boundary_sets(set_label)",
+  # Per-set district list. shape_key is shared across sets only where the
+  # district's boundary is unchanged -- carry-forward requires matching keys
+  # (db_get_carry_forward_source()). Filled by load_boundary_set_districts.R.
+  "CREATE TABLE IF NOT EXISTS boundary_set_districts (
+    set_label     TEXT NOT NULL REFERENCES boundary_sets(set_label),
+    district_name TEXT NOT NULL,
+    dist_uid      TEXT NOT NULL,
+    shape_key     TEXT NOT NULL,
+    PRIMARY KEY (set_label, district_name)
+  )",
+
+  # Campaign start date -- decides which earlier campaign a district is
+  # carried forward from (db_get_carry_forward_source() in mod_db_v2.R).
+  # Separate ALTER so existing databases pick it up too. Existing campaigns
+  # get their real dates from migrate_campaign_start_dates.R; new ones are
+  # required to have one by db_create_campaign(). Nullable only so a
+  # practice campaign can be left without one.
+  "ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS start_date DATE",
+
   # ── Mapping versions — the core rework ──────────────────────────────────────
   "CREATE TABLE IF NOT EXISTS mapping_versions (
     version_id          SERIAL PRIMARY KEY,

@@ -120,6 +120,7 @@ orientationTabServer <- function(
     restore_r          = reactive(NULL),
     subdivisions_r     = reactive(NULL),
     planning_area_sf_r = reactive(NULL),
+    campaign_id        = reactive(NULL),   # for the district-outline fallback below
     # Context-only overlays, shown the same way subdivisions_r already
     # is -- see server.R's settlement_extents_rv / idp_context_rv.
     settlement_extents_r = reactive(NULL),
@@ -158,7 +159,7 @@ orientationTabServer <- function(
         return(pa)
       }
       req(zone(), region(), district())
-      sf <- districts_shp |>
+      sf <- districts_shp_for_campaign(campaign_id()) |>
         dplyr::filter(
           zone_name     == zone(),
           region_name   == region(),

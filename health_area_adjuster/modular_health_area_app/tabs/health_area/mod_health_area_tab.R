@@ -56,7 +56,7 @@ healthAreaTabServer <- function(
     changed_areas_rv          <- reactiveVal(character(0))
     last_scene_key            <- reactiveVal(NULL)
     areas_submitted_to_db     <- reactiveVal(FALSE)   # TRUE after submit, FALSE after any assignment change
-
+    
     # ── Animated propagation reveal ──────────────────────────────────────────
     # Cosmetic only: propagate_assignments() itself still runs as one
     # single, blocking call with its full friction/population-weighted
@@ -70,11 +70,11 @@ healthAreaTabServer <- function(
     # algorithm shared with team-area generation.
     WAVE_COUNT       <- 24
     WAVE_INTERVAL_MS <- 150   # was 60 -- too fast to actually see; 24 waves
-                              # at 150ms is ~3.6s total, matching the pace
-                              # confirmed visible in the scale-test demo.
+    # at 150ms is ~3.6s total, matching the pace
+    # confirmed visible in the scale-test demo.
     wave_queue <- reactiveVal(NULL)   # list of {cellId: dfaName} maps, one per remaining wave, or NULL when idle
     wave_final <- reactiveVal(NULL)   # the real, full assignments to restore into rv$current_assignments once done
-
+    
     # Set right when a freshly-generated scene sends itself (with the
     # animation's distinct colors) as part of the SAME tab-switch event
     # that also fires observeEvent(active_tab()) below -- navigating to
@@ -90,7 +90,7 @@ healthAreaTabServer <- function(
     # once, rather than every genuine "tab became visible again" case
     # after that.
     scene_claimed_this_tab_switch <- reactiveVal(FALSE)
-
+    
     start_wave_reveal <- function(cell_ids, costs, area_by_cell) {
       # Defensive fallback: if costs is ever missing/malformed for any
       # reason (e.g. a future refactor of selected_scene()'s reconstructed
@@ -112,7 +112,7 @@ healthAreaTabServer <- function(
       })
       wave_queue(Filter(Negate(is.null), waves))
     }
-
+    
     # A distinct color per health area, for the animation's duration only.
     # make_fill_colors()/current_fill_colors() -- the normal palette --
     # is deliberately built for paint mode's own UX: every area gets the
@@ -140,16 +140,16 @@ healthAreaTabServer <- function(
       out[names_u[!(names_u %in% names(out))]] <- nonselected_fill_color
       out
     }
-
+    
     HIGHLIGHT_TICKS <- 5   # ~5 * WAVE_INTERVAL_MS (750ms) of all-boundaries
-                           # highlight after the last wave, before settling
-                           # into normal paint mode's usual appearance.
+    # highlight after the last wave, before settling
+    # into normal paint mode's usual appearance.
     highlight_ticks_remaining <- reactiveVal(0L)
-
+    
     wave_timer <- reactiveTimer(WAVE_INTERVAL_MS)
     observeEvent(wave_timer(), {
       q <- wave_queue()
-
+      
       if (!is.null(q) && length(q) > 0) {
         send_paint_message('paint_reveal_wave', list(assignments = q[[1]]))
         if (length(q) <= 1) {
@@ -165,7 +165,7 @@ healthAreaTabServer <- function(
         }
         return()
       }
-
+      
       if (highlight_ticks_remaining() > 0) {
         remaining <- highlight_ticks_remaining() - 1L
         highlight_ticks_remaining(remaining)
@@ -204,7 +204,7 @@ healthAreaTabServer <- function(
         }
       }
     })
-
+    
     normalize_dfa_names <- function(x) {
       x <- unique(as.character(x)); x <- x[!is.na(x) & nzchar(x)]
       c(setdiff(x, extra_dfa_names), extra_dfa_names)
@@ -244,13 +244,13 @@ healthAreaTabServer <- function(
       # requested-teams value is present.
       team_targets = list()
     )
-
+    
     in_vertex_mode <- reactiveVal(FALSE)
     
     observeEvent(controls$help_click(), { show_help_modal(session, campaign_id = campaign_id()) })
     
     tab_active <- reactive({ identical(active_tab(), "tab_health_area_mapping") })
-
+    
     # Reset every user-adjustable control (brush size, overlay toggles,
     # paint/refine step, smoothness/stiffness) back to default the moment
     # the user navigates AWAY from this tab -- resetting on exit rather
@@ -346,7 +346,7 @@ healthAreaTabServer <- function(
                     brush_limits = calc_brush_limits(max_dim_m)))
       }
       req(zone(), region(), district())
-      dsf <- districts_shp |>
+      dsf <- districts_shp_for_campaign(campaign_id()) |>
         dplyr::filter(zone_name == zone(), region_name == region(), district_name == district()) |>
         dplyr::select(admin_id, district_name, region_id, region_name, zone_id, zone_name, geometry)
       req(nrow(dsf) >= 1)
@@ -434,7 +434,7 @@ healthAreaTabServer <- function(
     # used for friction path lookup regardless of planning unit.
     full_district_sf_r <- reactive({
       req(district_ready(), zone(), region(), district())
-      dsf <- districts_shp |>
+      dsf <- districts_shp_for_campaign(campaign_id()) |>
         dplyr::filter(zone_name == zone(), region_name == region(),
                       district_name == district()) |>
         dplyr::summarise(
@@ -446,17 +446,28 @@ healthAreaTabServer <- function(
       dsf
     })
     
-    # Subdivision boundary lines — derived once per district, used as soft
-    # barriers in the health area generation (penalty = 0.99 raw friction).
+    # Subdivision boundary lines -- drawn on the map (subdivisionGeojson).
     subdivision_boundary_lines_r <- reactive({
       subs <- tryCatch(subdivisions_r(), error = function(e) NULL)
       subdivisions_to_boundary_lines(subs)
+    })
+    
+    # Soft barrier lines for health area GENERATION only (penalty = 0.99 raw
+    # friction on any step that CROSSES a line): subdivision boundaries plus
+    # the district's primary roads and primary rivers, so health-area
+    # boundaries tend to follow them rather than cut across them. Kept
+    # separate from the displayed layer above, so roads/rivers aren't drawn
+    # as if they were subdivision boundaries.
+    generation_barrier_lines_r <- reactive({
+      roads_rivers <- tryCatch(primary_lines_for_area(full_district_sf_r()), error = function(e) NULL)
+      combine_line_layers(subdivision_boundary_lines_r(), roads_rivers)
     })
     
     initial_scene <- initialHealthAreaGenerationServer(
       "initial_scene",
       district_sf                  = reactive({ req(district_base()); district_base()$district_sf }),
       friction_district_sf         = full_district_sf_r,
+      friction_dir                 = reactive(friction_dir_for_campaign(campaign_id())),
       grid_n                       = reactive({
         req(district_base())
         max_dim  <- district_base()$max_dim_m
@@ -480,7 +491,7 @@ healthAreaTabServer <- function(
       seed                         = reactive({ req(district()); sum(utf8ToInt(district())) }),
       facility_seed_sf             = facility_seed_sf,
       facility_name_col            = "facility_name",
-      subdivision_lines_sf         = subdivision_boundary_lines_r,
+      subdivision_lines_sf         = generation_barrier_lines_r,
       subdivision_boundary_penalty = 0.99,
       u5_rast                      = u5_rast
     )
@@ -535,13 +546,13 @@ healthAreaTabServer <- function(
     # client-side state (this.assignments/this.cellLayers) that isn't
     # trustworthy until that's actually finished.
     scene_load_confirmed <- reactiveVal(FALSE)
-
+    
     send_current_scene <- function(dfa_colors_override = NULL) {
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
       scene_ever_sent(TRUE)
       scene_load_confirmed(FALSE)
-
+      
       # Unconditionally force the JS side back to paint mode before every
       # scene (re)load, regardless of what in_vertex_mode() currently
       # thinks. Belt-and-suspenders against the JS side ever getting
@@ -558,7 +569,7 @@ healthAreaTabServer <- function(
         in_vertex_mode(FALSE)
         controls$set_vertex_mode_ui(FALSE)
       }
-
+      
       init_named       <- setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id))
       pop_geojson      <- if (!is.null(rv$pop_overlay_sf) && nrow(rv$pop_overlay_sf) > 0)
         as_geojson_text(rv$pop_overlay_sf) else NULL
@@ -597,18 +608,18 @@ healthAreaTabServer <- function(
         bl <- subdivision_boundary_lines_r()
         if (!is.null(bl) && nrow(bl) > 0) as_geojson_text(bl) else NULL
       }, error = function(e) NULL)
-
+      
       settlement_extents_geojson <- tryCatch({
         se <- settlement_extents_r()
         if (!is.null(se) && nrow(se) > 0) as_geojson_text(se) else NULL
       }, error = function(e) NULL)
-
+      
       idp_pts <- tryCatch(idp_sf_to_points_list(idp_sf_r()), error = function(e) list())
       cat(sprintf('[idp_debug][HA] idp_sf_r() is.null=%s nrow=%s -> idp_pts length=%d\n',
                   is.null(idp_sf_r()), if (is.null(idp_sf_r())) 'NA' else nrow(idp_sf_r()), length(idp_pts)))
       
       send_paint_message("show_loading")
-      send_paint_message("paint_load_scene", list(
+      scene_payload <- list(
         districtGeojson      = as_geojson_text(rv$district_sf),
         gridGeojson          = as_geojson_text(rv$grid_sf),
         popGeojson           = pop_geojson,
@@ -629,7 +640,18 @@ healthAreaTabServer <- function(
         landmarkPoints       = landmark_pts,
         idpPoints            = idp_pts,
         savedGeojson         = saved_geojson_text
-      ))
+      )
+      # [json_debug] Finds which part of the scene can't be serialised
+      # before sending, so a failure names the culprit instead of only
+      # failing inside session$sendCustomMessage().
+      for (nm in names(scene_payload)) {
+        tryCatch(invisible(shiny:::toJSON(list(x = scene_payload[[nm]]))),   # Shiny's own serializer, same options as sendCustomMessage
+                 error = function(e) {
+                   cat(sprintf('[json_debug] paint_load_scene element "%s" FAILS: %s\n', nm, conditionMessage(e)))
+                   cat('[json_debug] structure:\n'); utils::str(scene_payload[[nm]], max.level = 2, list.len = 15)
+                 })
+      }
+      send_paint_message("paint_load_scene", scene_payload)
     }
     
     # Spatially re-derives cell assignments from the SAVED BOUNDARY
@@ -649,7 +671,7 @@ healthAreaTabServer <- function(
       if (is.null(poly_sf) || nrow(poly_sf) == 0) poly_sf <- snap$saved_dfa_sf
       if (is.null(poly_sf) || nrow(poly_sf) == 0) return(NULL)
       area_col <- if ('dfa_name' %in% names(poly_sf)) 'dfa_name' else names(poly_sf)[1]
-
+      
       tryCatch({
         poly_valid <- safe_make_valid(sf::st_transform(poly_sf, 4326))
         centroids  <- sf::st_centroid(sf::st_transform(grid_sf, sf::st_crs(poly_valid)))
@@ -672,7 +694,7 @@ healthAreaTabServer <- function(
         out
       }, error = function(e) NULL)
     }
-
+    
     .apply_restore <- function(snap) {
       restore_just_applied(TRUE)
       if (!is.null(snap$dfa_names)) rv$dfa_names <- snap$dfa_names
@@ -691,7 +713,7 @@ healthAreaTabServer <- function(
       if (!is.null(snap$team_targets)) rv$team_targets <- .unwrap_team_targets(snap$team_targets)
       n_grid <- nrow(rv$grid_sf)
       ca <- snap$current_assignments
-
+      
       if (!is.null(ca) && length(ca) > 0 && is.list(ca)) {
         # Named-list form: keyed by cell_id, not position, so remapping
         # by name is inherently resolution-safe already (any cell_id not
@@ -864,7 +886,7 @@ healthAreaTabServer <- function(
       if (tab_active() && isTRUE(district_ready()) && !is.null(rv$grid_sf) && !isTRUE(scene_ever_sent()))
         send_current_scene()
     }, ignoreInit = TRUE)
-
+    
     # Catch-up for settlement_extents_r()/idp_sf_r() arriving AFTER the
     # initial scene already sent -- each is its own independent ArcGIS
     # fetch in server.R (settlement_extents_rv / idp_context_rv), with
@@ -889,7 +911,7 @@ healthAreaTabServer <- function(
         idpPoints                = idp_pts
       ))
     }, ignoreInit = TRUE, ignoreNULL = FALSE)
-
+    
     # Enable/disable the paint-step Undo button based on stack depth --
     # same pattern as mod_team_area_tab.R's identical wiring. Harmless if
     # the button isn't currently in the DOM (refining mode hides it via
@@ -899,7 +921,7 @@ healthAreaTabServer <- function(
       shinyjs::toggleState(session$ns('controls-paint_undo_btn'),
                            condition = isTRUE(map_mod$undo_count() > 0))
     }, ignoreInit = TRUE, ignoreNULL = FALSE)
-
+    
     # Same for the refine-step Undo button. This was the missing half of
     # the refine undo wiring -- without it, the button is always
     # clickable even with an empty stack, so clicking it with nothing to
@@ -1021,7 +1043,7 @@ healthAreaTabServer <- function(
                          list(colors = as.list(current_fill_colors()), activeDfa = selected_dfa))
       recompute_population_table(rv$initial_assignments)
     })
-
+    
     # ── Undo (painting) ──────────────────────────────────────────────────────
     observeEvent(controls$paint_undo_click(), {
       req(isTRUE(district_ready()), tab_active(), !isTRUE(in_vertex_mode()))
@@ -1029,16 +1051,16 @@ healthAreaTabServer <- function(
       pending_action("refresh")
       send_paint_message("paint_request_assignments")
     }, ignoreInit = TRUE)
-
+    
     # ── Refine boundaries (vertex editing) ──────────────────────────────
     observeEvent(controls$refine_boundaries_click(), {
       req(isTRUE(district_ready()), tab_active())
       cat("[refine_debug] click fired. scene_load_confirmed:", isTRUE(scene_load_confirmed()),
-         "| in_vertex_mode:", isTRUE(in_vertex_mode()),
-         "| grid_sf rows:", if (!is.null(rv$grid_sf)) nrow(rv$grid_sf) else NA,
-         "| current_assignments length:", length(rv$current_assignments),
-         "| current_assignments NAs:", if (!is.null(rv$current_assignments)) sum(is.na(rv$current_assignments)) else NA,
-         "\n")
+          "| in_vertex_mode:", isTRUE(in_vertex_mode()),
+          "| grid_sf rows:", if (!is.null(rv$grid_sf)) nrow(rv$grid_sf) else NA,
+          "| current_assignments length:", length(rv$current_assignments),
+          "| current_assignments NAs:", if (!is.null(rv$current_assignments)) sum(is.na(rv$current_assignments)) else NA,
+          "\n")
       if (isTRUE(in_vertex_mode())) {
         send_paint_message("paint_exit_vertex_mode")
         in_vertex_mode(FALSE)
@@ -1069,7 +1091,7 @@ healthAreaTabServer <- function(
       }
       controls$set_vertex_mode_ui(in_vertex_mode())
     }, ignoreInit = TRUE)
-
+    
     # Live re-simplify / re-stiffen while already in vertex mode. Both
     # discard in-progress manual edits (they re-derive from the cached raw
     # trace on the JS side) -- same as re-entering vertex mode does, and
@@ -1078,12 +1100,12 @@ healthAreaTabServer <- function(
       req(isTRUE(in_vertex_mode()))
       send_paint_message("paint_set_vertex_smoothness", list(value = controls$vertex_smoothness()))
     }, ignoreInit = TRUE)
-
+    
     observeEvent(controls$vertex_stiffness(), {
       req(isTRUE(in_vertex_mode()))
       send_paint_message("paint_set_vertex_stiffness", list(value = controls$vertex_stiffness()))
     }, ignoreInit = TRUE)
-
+    
     # Snap tolerance only affects the engine's constants going forward
     # (see setVertexSnapTolerance's own comment on the JS side) -- same
     # live-update treatment as stiffness, no manual-edit discard.
@@ -1091,14 +1113,14 @@ healthAreaTabServer <- function(
       req(isTRUE(in_vertex_mode()))
       send_paint_message("paint_set_vertex_snap_tolerance", list(value = controls$vertex_snap_tolerance()))
     }, ignoreInit = TRUE)
-
+    
     observeEvent(controls$save_refinements_click(), {
       req(isTRUE(in_vertex_mode()))
       pending_action("manual_refine_save")
       send_paint_message("paint_save_vertex_edits")
       send_paint_message("paint_request_vertex_geojson")
     }, ignoreInit = TRUE)
-
+    
     # ── Undo / Reset (refining) ──────────────────────────────────────────────
     # Both are no-ops on the JS side if there's nothing to undo/nothing
     # traced yet, so no extra guard beyond in_vertex_mode() is needed here.
@@ -1106,19 +1128,19 @@ healthAreaTabServer <- function(
       req(isTRUE(in_vertex_mode()))
       send_paint_message("paint_vertex_undo")
     }, ignoreInit = TRUE)
-
+    
     observeEvent(controls$refine_reset_click(), {
       req(isTRUE(in_vertex_mode()))
       send_paint_message("paint_reset_vertex_edits")
     }, ignoreInit = TRUE)
-
+    
     observeEvent(controls$cleanup_boundaries_click(), {
       cat("[cleanup_debug] button click fired. in_vertex_mode:", isTRUE(in_vertex_mode()), "\n")
       req(isTRUE(in_vertex_mode()))
       cat("[cleanup_debug] sending paint_run_cleanup\n")
       send_paint_message("paint_run_cleanup")
     }, ignoreInit = TRUE)
-
+    
     # Reports what runCleanUpBoundaries() actually changed -- same
     # wording style as saveVertexEdits()'s own log messages (which never
     # actually surface anywhere visible to the user, since the JS-side
@@ -1149,7 +1171,7 @@ healthAreaTabServer <- function(
         )
       }
     }, ignoreInit = TRUE)
-
+    
     # ── Receive the vertex-refined boundary from JS ─────────────────────
     # Fires for three distinct reasons, distinguished by pending_action():
     #   "manual_refine_save" -- user explicitly clicked Save Refinements
@@ -1166,7 +1188,7 @@ healthAreaTabServer <- function(
       payload <- map_mod$vertex_geojson()
       req(!is.null(payload$geojson))
       act <- pending_action()
-
+      
       parsed <- tryCatch(geojsonsf::geojson_sf(payload$geojson), error = function(e) e)
       if (inherits(parsed, "error")) {
         showNotification(paste("Could not read boundary:", parsed$message), type = "error", duration = 8)
@@ -1191,7 +1213,7 @@ healthAreaTabServer <- function(
       # (EPSG:4326) coordinates directly (same convention as gridGeojson),
       # so set it explicitly rather than relying on a default.
       sf::st_crs(parsed) <- 4326
-
+      
       if (identical(act, "manual_refine_save")) {
         rv$saved_dfa_sf    <- parsed
         rv$smoothed_dfa_sf <- parsed
@@ -1200,7 +1222,7 @@ healthAreaTabServer <- function(
         pending_action(NULL)
         return()
       }
-
+      
       if (identical(act, "finalize_save") || identical(act, "finalize_submit")) {
         old_saved <- rv$pending_old_saved_dfa_sf
         rv$saved_dfa_sf    <- parsed
@@ -1208,7 +1230,7 @@ healthAreaTabServer <- function(
         send_paint_message("paint_show_saved", list(geojson = as_geojson_text(parsed)))
         recompute_population_table(rv$current_assignments)
         changed_areas_rv(.find_changed_areas(old_saved, parsed))
-
+        
         # If this conversion ran silently (the user hadn't opened Refine
         # Boundaries themselves), return them to the paint view they were
         # actually looking at rather than leaving them in a refinement
@@ -1217,7 +1239,7 @@ healthAreaTabServer <- function(
           send_paint_message("paint_exit_vertex_mode")
           rv$vertex_mode_silently_entered <- FALSE
         }
-
+        
         if (identical(act, "finalize_submit")) {
           if (!is.null(submit_stage_fn)) {
             # Computed WorldPop per health area, from the just-submitted
@@ -1235,7 +1257,7 @@ healthAreaTabServer <- function(
               })
               setNames(vals, nms)
             }, error = function(e) list())
-
+            
             submit_stage_fn('areas', list(
               saved_dfa_sf        = parsed,
               dfa_names           = rv$dfa_names,
@@ -1337,7 +1359,7 @@ healthAreaTabServer <- function(
         }
         rv$pending_old_saved_dfa_sf <- rv$saved_dfa_sf
         recompute_population_table(ordered_assignments)
-
+        
         pending_action(if (identical(act, "save")) "finalize_save" else "finalize_submit")
         if (!isTRUE(in_vertex_mode())) {
           # Silent conversion -- deliberately does NOT flip in_vertex_mode()
@@ -1369,7 +1391,7 @@ healthAreaTabServer <- function(
       pending_action("capture")
       send_paint_message("paint_request_assignments")
     }, ignoreInit = TRUE)
-
+    
     # ── Post-submit team planning targets modal ──────────────────────────────
     # Fires once per successful submit. One row per real health area
     # (Inaccessible/Unpopulated excluded -- they don't get outreach teams).
@@ -1380,18 +1402,18 @@ healthAreaTabServer <- function(
     # admin-entered population per team"). Field Requested Teams is what
     # actually overrides Team Areas' own team count when non-blank.
     .safe_target_id <- function(area_name) gsub("[^A-Za-z0-9]+", "_", area_name)
-
+    
     .show_team_targets_modal <- function() {
       if (is.null(rv$pop_table)) return(invisible(NULL))
       area_rows <- rv$pop_table[!(rv$pop_table$area_name %in% c("District Total", extra_dfa_names)), , drop = FALSE]
       if (nrow(area_rows) == 0) return(invisible(NULL))
-
+      
       header_row <- tagList(
         tags$strong('Health Area'), tags$strong('WorldPop U5 Pop.'),
         tags$strong('Field Target Population'), tags$strong('Recommended Teams'),
         tags$strong('Field Requested Teams')
       )
-
+      
       data_rows <- lapply(seq_len(nrow(area_rows)), function(i) {
         area_name <- area_rows$area_name[i]
         area_pop  <- area_rows$est_u5_pop[i]
@@ -1401,7 +1423,7 @@ healthAreaTabServer <- function(
           error = function(e) NA_integer_
         )
         existing <- rv$team_targets[[area_name]]
-
+        
         tagList(
           div(style = 'align-self:center;font-size:12px;', area_name),
           div(style = 'align-self:center;font-size:12px;', format(round(area_pop), big.mark = ',')),
@@ -1412,7 +1434,7 @@ healthAreaTabServer <- function(
                        value = existing$requested_teams %||% NA, min = 1, step = 1, width = '100%')
         )
       })
-
+      
       showModal(modalDialog(
         title = 'Team Planning Targets', size = 'l', easyClose = FALSE,
         footer = actionButton(session$ns('team_targets_done'), 'Done', class = 'btn btn-primary'),
@@ -1430,7 +1452,7 @@ healthAreaTabServer <- function(
         )
       ))
     }
-
+    
     observeEvent(input$team_targets_done, {
       if (!is.null(rv$pop_table)) {
         area_rows <- rv$pop_table[!(rv$pop_table$area_name %in% c("District Total", extra_dfa_names)), , drop = FALSE]
@@ -1447,7 +1469,7 @@ healthAreaTabServer <- function(
           )
         }
         rv$team_targets <- new_targets
-
+        
         # Persist alongside the boundary data already submitted, so team
         # targets survive a session restore -- reuses whatever was just
         # submitted (still current in rv$saved_dfa_sf etc. at this point).
@@ -1463,7 +1485,7 @@ healthAreaTabServer <- function(
       }
       .show_make_current_prompt()
     }, ignoreInit = TRUE)
-
+    
     # ── "Make current" prompt — shown right after a health-area submission,
     # replacing the old standalone top-bar Publish button entirely. The
     # lock is unconditional now (no admin override) -- a locked district
@@ -1475,7 +1497,7 @@ healthAreaTabServer <- function(
     .show_make_current_prompt <- function() {
       if (is.null(make_current_fn)) { removeModal(); return(invisible(NULL)) }
       locked <- isTRUE(is_locked_for_publish_r())
-
+      
       if (locked) {
         showModal(modalDialog(
           title = 'Health areas submitted', size = 's', easyClose = TRUE, footer = modalButton('Done'),
@@ -1492,7 +1514,7 @@ healthAreaTabServer <- function(
         ))
         return(invisible(NULL))
       }
-
+      
       showModal(modalDialog(
         title = 'Health areas submitted', size = 's', easyClose = FALSE,
         footer = tagList(
@@ -1502,18 +1524,18 @@ healthAreaTabServer <- function(
         div(
           style = 'font-size:13px;color:#475569;line-height:1.6;',
           tags$p('Publish this submission as ', tags$strong(district() %||% 'this district'),
-                "'s health area map?")
+                 "'s health area map?")
         )
       ))
     }
-
+    
     observeEvent(input$make_current_skip, { removeModal() }, ignoreInit = TRUE)
-
+    
     observeEvent(input$make_current_confirm, {
       removeModal()
       if (!is.null(make_current_fn)) make_current_fn(actor_role = actor_role_r() %||% 'user')
     }, ignoreInit = TRUE)
-
+    
     # team_targets, once restored from the DB, needs unwrapping: .from_json_db()
     # (mod_db_v2.R) deliberately uses jsonlite's simplifyVector = FALSE to
     # preserve team_targets' named-list-keyed-by-health-area-name structure,
@@ -1536,7 +1558,7 @@ healthAreaTabServer <- function(
         requested_teams = .unwrap_num(entry$requested_teams)
       ))
     }
-
+    
     list(
       has_scene             = reactive(!is.null(rv$grid_sf)),
       friction_path         = reactive(rv$friction_path),

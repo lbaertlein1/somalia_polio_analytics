@@ -128,7 +128,9 @@ REGISTRY_BASE_URL <- paste0(
   df
 }
 
-fetch_facilities_odk <- function(zone_name, district_name) {
+# districts: the district boundary set to filter against -- pass the
+# campaign's set (districts_shp_for_campaign()); defaults to the current set.
+fetch_facilities_odk <- function(zone_name, district_name, districts = districts_shp) {
   
   raw <- .get_registry()
   if (is.null(raw) || nrow(raw) == 0) return(NULL)
@@ -149,7 +151,7 @@ fetch_facilities_odk <- function(zone_name, district_name) {
   # -------------------------------------------------------------------------
   .shp <- district_name
   
-  district_rows <- districts_shp |>
+  district_rows <- districts |>
     dplyr::filter(district_name == .shp)
   
   district_geom_proj <- district_rows |>

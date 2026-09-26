@@ -467,132 +467,67 @@ make_population_overlay_sf <- function(district_sf, u5_rast, max_dim_cells = Inf
 }
 
 
+# Friction overlay classes -- ONE definition, used by both the map overlay
+# (make_friction_overlay_sf) and the legend (mod_health_area_population.R).
+# Classes follow what the friction surface actually contains
+# (build_national_friction_surface.R):
+#   roads                 below ~0.35 (road corridor over settled or empty land)
+#   settled land          0.35-0.85, rising with density
+#   empty land            0.90
+#   Jubba/Shabelle channel 0.99
+#   water bodies          1.00
+# Intervals are [lower, upper).
+FRICTION_CLASSES <- data.frame(
+  lower = c(0,         0.20,       0.35,       0.50,       0.60,       0.70,       0.80,       0.89,          0.95,          0.999999),
+  upper = c(0.20,      0.35,       0.50,       0.60,       0.70,       0.80,       0.89,       0.95,          0.999999,      1.000001),
+  color = c('#1a9850', '#91cf60',  '#d9ef8b',  '#fee08b',  '#fdae61',  '#f46d43',  '#d73027',  '#bdbdbd',     '#2166ac',     '#053061'),
+  label = c('< 0.2 (roads)', '0.2\u20130.35 (roads)', '0.35\u20130.5', '0.5\u20130.6',
+            '0.6\u20130.7', '0.7\u20130.8', '0.8\u20130.89', '0.9 (empty land)',
+            '0.99 (river)', '1 (water)'),
+  stringsAsFactors = FALSE
+)
+
 make_friction_overlay_sf <- function(
     district_sf,
     friction_rast,
     max_dim_cells = Inf
 ) {
-  cat("\n--- make_friction_overlay_sf running ---\n")
-  
   district_vect <- terra::vect(
     sf::st_transform(district_sf, terra::crs(friction_rast))
   )
-  
+
   r_crop <- terra::crop(friction_rast, district_vect, snap = "out")
   r_mask <- terra::mask(r_crop, district_vect)
-  
+  # Outside-district pixels are stored as 0 -- never real friction
+  r_mask <- terra::subst(r_mask, 0, NA)
+
   vals0 <- terra::values(r_mask)
   vals0 <- vals0[is.finite(vals0) & !is.na(vals0)]
-  
   if (length(vals0) == 0) return(NULL)
-  
-  cat("raw masked quantiles:\n")
-  print(quantile(vals0, probs = c(0, 0.50, 0.80, 0.93, 0.98, 1), na.rm = TRUE))
-  
+
   factor_x <- max(1, ceiling(ncol(r_mask) / max_dim_cells))
   factor_y <- max(1, ceiling(nrow(r_mask) / max_dim_cells))
   fact <- max(factor_x, factor_y)
-  
-  cat("aggregation fact:", fact, "\n")
-  
-  r_small <- terra::aggregate(
-    r_mask,
-    fact = fact,
-    fun = max,
-    na.rm = TRUE
-  )
-  
-  vals_small <- terra::values(r_small)
-  vals_small <- vals_small[is.finite(vals_small) & !is.na(vals_small)]
-  
-  if (length(vals_small) == 0) return(NULL)
-  
-  cat("aggregated quantiles:\n")
-  print(quantile(vals_small, probs = c(0, 0.50, 0.80, 0.93, 0.98, 1), na.rm = TRUE))
-  
-  # Fixed breaks from the viewer that worked better
-  breaks_raw <- c(
-    0,
-    0.000001,
-    0.05,
-    0.1,
-    0.2,
-    0.4,
-    0.6,
-    0.8,
-    0.999999,
-    1.000001
-  )
-  
-  friction_cols <- c(
-    "#FFFFFF",  # 0
-    "#440154",
-    "#3B528B",
-    "#21918C",
-    "#5DC863",
-    "#FDE725",
-    "#FDB863",
-    "#E66101",
-    "#B2182B"   # 1 / impassable
-  )
-  
-  friction_labels <- c(
-    "0 (zero)",
-    "0–0.05",
-    "0.05–0.1",
-    "0.1–0.2",
-    "0.2–0.4",
-    "0.4–0.6",
-    "0.6–0.8",
-    "0.8–<1",
-    "1 (impassable)"
-  )
-  
-  cat("breaks used:\n")
-  print(breaks_raw)
-  
-  # --------------------------------------------------
-  # IMPORTANT: classify raster FIRST, polygonize SECOND
-  # --------------------------------------------------
-  m <- matrix(
-    c(
-      breaks_raw[-length(breaks_raw)],
-      breaks_raw[-1],
-      seq_len(length(breaks_raw) - 1)
-    ),
-    ncol = 3
-  )
-  
-  r_class <- terra::classify(
-    r_small,
-    rcl = m,
-    include.lowest = TRUE,
-    right = FALSE
-  )
-  
-  vals_class <- terra::values(r_class)
-  vals_class <- vals_class[is.finite(vals_class) & !is.na(vals_class)]
-  
-  cat("classified raster counts:\n")
-  print(table(vals_class, useNA = "ifany"))
-  
+  r_small <- if (fact > 1) terra::aggregate(r_mask, fact = fact, fun = mean, na.rm = TRUE) else r_mask
+
+  # Classify raster FIRST, polygonize SECOND (one polygon per class patch)
+  m <- cbind(FRICTION_CLASSES$lower, FRICTION_CLASSES$upper, seq_len(nrow(FRICTION_CLASSES)))
+  r_class <- terra::classify(r_small, rcl = m, include.lowest = TRUE, right = FALSE)
+
   p <- terra::as.polygons(r_class, na.rm = TRUE)
   names(p) <- "friction_class"
-  
+
   friction_sf <- sf::st_as_sf(p)
   friction_sf <- sf::st_transform(friction_sf, 4326)
   friction_sf <- safe_make_valid(friction_sf)
-  
+
   idx <- as.integer(friction_sf$friction_class)
-  
-  cat("polygon class counts:\n")
-  print(table(idx, useNA = "ifany"))
-  
-  friction_sf$fill_color <- friction_cols[idx]
-  friction_sf$friction_label <- friction_labels[idx]
-  
-  cat("friction polygons:", nrow(friction_sf), "\n")
-  
+  friction_sf$fill_color     <- FRICTION_CLASSES$color[idx]
+  friction_sf$friction_label <- FRICTION_CLASSES$label[idx]
+
+  cat("[friction overlay] class counts:",
+      paste(sprintf("%s=%d", FRICTION_CLASSES$label[sort(unique(idx))], as.integer(table(idx))), collapse = " | "), "\n")
+
   friction_sf
 }
 # write_raster_overlay_png <- function(

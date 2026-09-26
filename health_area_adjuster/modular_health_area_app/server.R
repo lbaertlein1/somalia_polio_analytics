@@ -48,7 +48,7 @@ app_server <- function(input, output, session) {
   # active_district(), since the intro tab no longer owns that concept.
   full_district_sf <- reactive({
     req(!is.null(active_district()))
-    districts_shp |>
+    districts_shp_for_campaign(active_campaign_id()) |>
       dplyr::filter(district_name == active_district()) |>
       dplyr::summarise(
         district_name = dplyr::first(district_name),
@@ -232,12 +232,12 @@ app_server <- function(input, output, session) {
 
   zone_r <- reactive({
     req(!is.null(active_district()))
-    d <- districts_shp |> dplyr::filter(district_name == active_district())
+    d <- districts_shp_for_campaign(active_campaign_id()) |> dplyr::filter(district_name == active_district())
     if (nrow(d) == 0) '' else as.character(d$zone_name[1]) %||% ''
   })
   region_r <- reactive({
     req(!is.null(active_district()))
-    d <- districts_shp |> dplyr::filter(district_name == active_district())
+    d <- districts_shp_for_campaign(active_campaign_id()) |> dplyr::filter(district_name == active_district())
     if (nrow(d) == 0) '' else as.character(d$region_name[1]) %||% ''
   })
 
@@ -354,7 +354,8 @@ app_server <- function(input, output, session) {
     settlement_extents_r = settlement_extents_rv,
     idp_sf_r           = idp_context_rv,
     planning_area_sf_r = planning_area_sf,
-    mapping_scope_r    = active_mapping_scope
+    mapping_scope_r    = active_mapping_scope,
+    campaign_id        = active_campaign_id
   )
 
   # ===========================================================================

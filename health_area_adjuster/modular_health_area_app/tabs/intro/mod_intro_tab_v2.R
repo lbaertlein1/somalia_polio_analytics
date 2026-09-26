@@ -419,7 +419,8 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
     # "what stage is this district at".
     campaign_district_status <- reactive({
       cid <- campaign_id()
-      all_districts <- districts_shp |>
+      # District outlines from the selected campaign's boundary set
+      all_districts <- districts_shp_for_campaign(cid) |>
         dplyr::group_by(district_name) |>
         dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
         sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326)

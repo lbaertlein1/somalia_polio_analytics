@@ -29,16 +29,18 @@ if (file.exists('.env')) dotenv::load_dot_env('.env')
 # =============================================================================
 # Data files
 # =============================================================================
-districts_file           <- 'data/districts_shp.Rds'
-worldpop_t_u1_1to4_file  <- 'data/som_u5_population_2025_100m.tif'
+boundary_sets_dir        <- 'data/boundary_sets'   # one folder per set: <set>/districts_shp.Rds
+friction_root_dir        <- 'data/friction'        # one folder per set: <set>/district_standardized/
+boundary_lines_file      <- 'data/boundary_lines/somalia_primary_lines.rds'   # build_boundary_lines.R
+worldpop_t_u1_1to4_file  <- 'data/som_u5_population_2026_100m.tif'
 
 # =============================================================================
 # App constants
 # =============================================================================
 default_grid_n        <- 100
 n_start_dfas          <- 5    # only used as a fallback default now — real health
-                              # area count comes from facility-based seeding once
-                              # coordination sites are selected
+# area count comes from facility-based seeding once
+# coordination sites are selected
 min_brush_m           <- 50
 max_brush_m           <- 10000
 brush_step_m          <- 50
@@ -79,31 +81,6 @@ source('helpers/printable_export.R', local = TRUE)
 
 sourceCpp('bfs_propagate.cpp')
 
-# =============================================================================
-# Districts shapefile — unchanged, still a fixed set (tied to pre-cut
-# per-district friction .tif files)
-# =============================================================================
-districts_path <- path.expand(districts_file)
-if (!file.exists(districts_path)) {
-  stop(sprintf('Could not find districts file: %s', districts_file))
-}
-
-districts_shp          <- readRDS(districts_path)
-all_district_densities <- districts_shp$u5_pop_density_km2
-districts_shp          <- safe_make_valid(districts_shp)
-
-required_cols <- c('zone_name', 'region_name', 'district_name')
-missing_cols  <- setdiff(required_cols, names(districts_shp))
-if (length(missing_cols) > 0) {
-  stop(sprintf(
-    'districts_shp is missing required column(s): %s',
-    paste(missing_cols, collapse = ', ')
-  ))
-}
-
-zone_choices <- sort(unique(as.character(stats::na.omit(districts_shp$zone_name))))
-
-
 # Connect to Database — DB_NAME in .env should point at the v2 database
 # (e.g. somalia_health_areas_v2), not the old one.
 cat('DB_HOST:', Sys.getenv('DB_HOST'), '\n')
@@ -113,6 +90,114 @@ pool <- tryCatch(
   error = function(e) { message('DB connection failed: ', e$message); NULL }
 )
 onStop(function() pool::poolClose(pool))
+
+# =============================================================================
+# District boundary sets
+#
+# Every set in data/boundary_sets/<set>/districts_shp.Rds is loaded. Each
+# campaign uses ONE set (campaigns.boundary_set, fixed at creation), so
+# anything that draws or measures a district FOR A CAMPAIGN must use
+# districts_shp_for_campaign(campaign_id), and friction files come from
+# friction_dir_for_campaign(campaign_id).
+#
+# districts_shp itself is the CURRENT set (boundary_sets.is_current). Use it
+# only where the set doesn't matter: district/region/zone names and IDs,
+# which are identical across sets.
+# =============================================================================
+.set_dirs <- list.dirs(boundary_sets_dir, recursive = FALSE)
+.set_dirs <- .set_dirs[file.exists(file.path(.set_dirs, 'districts_shp.Rds'))]
+if (length(.set_dirs) == 0) stop('No boundary sets found in ', boundary_sets_dir)
+
+boundary_sets_shp <- lapply(.set_dirs, function(d) {
+  x <- safe_make_valid(readRDS(file.path(d, 'districts_shp.Rds')))
+  missing_cols <- setdiff(c('zone_name', 'region_name', 'district_name'), names(x))
+  if (length(missing_cols) > 0)
+    stop(sprintf('%s is missing required column(s): %s', d, paste(missing_cols, collapse = ', ')))
+  x
+})
+names(boundary_sets_shp) <- basename(.set_dirs)
+cat('Boundary sets loaded:', paste(names(boundary_sets_shp), collapse = ', '), '\n')
+
+current_boundary_set <- tryCatch(
+  DBI::dbGetQuery(pool, 'SELECT set_label FROM boundary_sets WHERE is_current')$set_label[1],
+  error = function(e) NA_character_)
+if (is.na(current_boundary_set) || !(current_boundary_set %in% names(boundary_sets_shp))) {
+  current_boundary_set <- tail(sort(names(boundary_sets_shp)), 1)
+  message('WARNING: current boundary set not readable from the database -- using ', current_boundary_set)
+}
+cat('Current boundary set:', current_boundary_set, '\n')
+
+districts_shp          <- boundary_sets_shp[[current_boundary_set]]
+all_district_densities <- districts_shp$u5_pop_density_km2
+zone_choices <- sort(unique(as.character(stats::na.omit(districts_shp$zone_name))))
+
+# campaign_id -> set label. Cached for the life of the R process: a
+# campaign's set is fixed at creation, so it only changes if an admin
+# reassigns it directly in the database -- restart the app after that.
+.campaign_set_cache <- new.env()
+campaign_boundary_set <- function(campaign_id) {
+  if (is.null(campaign_id) || length(campaign_id) != 1 || is.na(campaign_id)) return(current_boundary_set)
+  key <- as.character(campaign_id)
+  if (!is.null(.campaign_set_cache[[key]])) return(.campaign_set_cache[[key]])
+  set <- tryCatch(
+    DBI::dbGetQuery(pool, 'SELECT boundary_set FROM campaigns WHERE campaign_id = $1',
+                    list(as.integer(campaign_id)))$boundary_set[1],
+    error = function(e) NA_character_)
+  if (is.na(set) || !(set %in% names(boundary_sets_shp)))
+    stop(sprintf('Campaign %s uses boundary set "%s", which is not in %s', key, set, boundary_sets_dir))
+  assign(key, set, envir = .campaign_set_cache)
+  set
+}
+
+districts_shp_for_campaign <- function(campaign_id) boundary_sets_shp[[campaign_boundary_set(campaign_id)]]
+
+friction_dir_for_campaign <- function(campaign_id)
+  file.path(getwd(), friction_root_dir, campaign_boundary_set(campaign_id), 'district_standardized')
+
+# =============================================================================
+# Primary roads + primary rivers (build_boundary_lines.R, EPSG:3857).
+# Health-area and team-area generation treat these as soft crossing
+# barriers -- same channel and penalty as subdivision boundaries -- so
+# boundaries tend to follow them instead of cutting across. Optional: if
+# the file is missing, generation simply runs without them.
+# =============================================================================
+boundary_lines_sf <- if (file.exists(boundary_lines_file)) {
+  tryCatch(readRDS(boundary_lines_file), error = function(e) { message('Boundary lines not loaded: ', e$message); NULL })
+} else {
+  message('WARNING: ', boundary_lines_file, ' not found -- roads/rivers not used as boundary preferences')
+  NULL
+}
+if (!is.null(boundary_lines_sf))
+  cat('Boundary lines loaded:', nrow(boundary_lines_sf), 'primary road/river lines\n')
+
+# The primary road/river lines within (and buffer_m around) an area, as an
+# sf of LINESTRINGs in EPSG:4326, or NULL if there are none.
+primary_lines_for_area <- function(area_sf, buffer_m = 1000) {
+  if (is.null(boundary_lines_sf) || is.null(area_sf) || nrow(area_sf) == 0) return(NULL)
+  area <- sf::st_buffer(sf::st_union(sf::st_geometry(sf::st_transform(area_sf, 3857))), buffer_m)
+  hit  <- boundary_lines_sf[lengths(sf::st_intersects(boundary_lines_sf, area)) > 0, ]
+  if (nrow(hit) == 0) return(NULL)
+  g <- suppressWarnings(sf::st_intersection(sf::st_geometry(hit), area))
+  g <- g[!sf::st_is_empty(g)]
+  g <- tryCatch(suppressWarnings(sf::st_collection_extract(g, 'LINESTRING')), error = function(e) g)
+  g <- g[sf::st_geometry_type(g) %in% c('LINESTRING', 'MULTILINESTRING')]
+  if (length(g) == 0) return(NULL)
+  # ONE feature (a single MULTILINESTRING): these lines are also sent to
+  # the browser map as GeoJSON, where the app expects one feature
+  sf::st_sf(geometry = sf::st_transform(sf::st_union(g), 4326))
+}
+
+# Combine line layers (any may be NULL/empty) into one geometry-only sf,
+# EPSG:4326 -- NULL if nothing is left.
+combine_line_layers <- function(...) {
+  parts <- Filter(function(x) !is.null(x) && inherits(x, c('sf', 'sfc')) && length(sf::st_geometry(x)) > 0, list(...))
+  if (length(parts) == 0) return(NULL)
+  geoms <- lapply(parts, function(x) sf::st_geometry(sf::st_transform(x, 4326)))
+  # Unioned into ONE feature -- the combined layer is sent to the browser
+  # map as subdivisionGeojson, which must be a single GeoJSON string; one
+  # feature per line made it a vector of strings, which Shiny can't send.
+  sf::st_sf(geometry = sf::st_union(do.call(c, geoms)))
+}
 
 # =============================================================================
 # Module sources

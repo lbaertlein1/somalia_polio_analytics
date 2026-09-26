@@ -1,23 +1,23 @@
 all_files <- rsconnect::listBundleFiles(getwd())$contents
 
+# Folders that are pipeline inputs/scratch only -- never deployed.
 rscignore <- c(
   "data/osm_inputs",
   "data/land_surface_cache",
-  "data/friction/01_population_cost.tif",
-  "data/friction/01b_after_land_surface.tif",
-  "data/friction/02_after_roads.tif",
-  "data/friction/03_after_rivers.tif",
-  "data/friction/04_after_bridges.tif",
-  "data/friction/05_after_water.tif",
-  "data/friction/06_after_boundary.tif",
-  "data/friction/somalia_friction_100m.tif",
-  "data/friction/somalia_population_cost_100m.tif",
-  "data/friction/somalia_template_100m.tif"
+  "data/terra_temp"
 )
 
 exclude <- all_files[sapply(all_files, function(f) {
   any(sapply(rscignore, function(pattern) startsWith(f, pattern)))
 })]
+
+# Friction: the app only reads the per-district files of each boundary set,
+# data/friction/<set>/district_standardized/*.tif. Everything else under
+# data/friction/ (national surfaces, intermediate steps, and the old
+# un-versioned data/friction/district_standardized/) is left out.
+friction_files <- all_files[startsWith(all_files, "data/friction/")]
+friction_keep  <- grepl("^data/friction/[^/]+/district_standardized/[^/]+\\.tif$", friction_files)
+exclude <- union(exclude, friction_files[!friction_keep])
 
 app_files <- setdiff(all_files, exclude)
 

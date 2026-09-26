@@ -143,22 +143,39 @@ db_delete_user <- function(pool, username) {
 # =============================================================================
 
 db_get_campaigns <- function(pool, active_only = TRUE) {
-  sql <- "SELECT campaign_id, campaign_name, description, created_by, created_at, is_active
+  sql <- "SELECT campaign_id, campaign_name, description, start_date, boundary_set, created_by, created_at, is_active
           FROM campaigns"
   if (active_only) sql <- paste(sql, "WHERE is_active = TRUE")
-  sql <- paste(sql, "ORDER BY created_at DESC")
+  sql <- paste(sql, "ORDER BY start_date DESC, created_at DESC")
   tryCatch(.db_query(pool, sql), error = function(e) { cat('[db] get_campaigns error:', e$message, '\n'); NULL })
 }
 
-db_create_campaign <- function(pool, campaign_name, description, created_by) {
+#' start_date is required (a Date or "YYYY-MM-DD"). It decides which prior
+#' campaign a district is carried forward from -- see
+#' db_get_carry_forward_source().
+#'
+#' The campaign's district boundary set is whichever set is current at
+#' creation (boundary_sets.is_current) and never changes afterwards on its
+#' own -- loading a newer set later doesn't move existing campaigns.
+db_create_campaign <- function(pool, campaign_name, description, created_by, start_date) {
   tryCatch({
+    start_date <- as.Date(start_date)
+    if (length(start_date) != 1 || is.na(start_date)) stop('start_date is required')
     row <- .db_query(pool, "
-      INSERT INTO campaigns (campaign_name, description, created_by)
-      VALUES (?n, ?d, ?u)
+      INSERT INTO campaigns (campaign_name, description, created_by, start_date, boundary_set)
+      VALUES (?n, ?d, ?u, ?s, (SELECT set_label FROM boundary_sets WHERE is_current))
       RETURNING campaign_id
-    ", list(n = campaign_name, d = description %||% NA_character_, u = created_by))
+    ", list(n = campaign_name, d = description %||% NA_character_, u = created_by,
+            s = format(start_date)))
     as.integer(row$campaign_id[1])
   }, error = function(e) { cat('[db] create_campaign error:', e$message, '\n'); NULL })
+}
+
+db_set_campaign_start_date <- function(pool, campaign_id, start_date) {
+  start_date <- as.Date(start_date)
+  if (length(start_date) != 1 || is.na(start_date)) stop('start_date is required')
+  .db_execute(pool, "UPDATE campaigns SET start_date = ?s WHERE campaign_id = ?c",
+              list(s = format(start_date), c = as.integer(campaign_id)))
 }
 
 db_set_campaign_active <- function(pool, campaign_id, is_active) {
@@ -1417,35 +1434,93 @@ db_remove_district_from_campaign <- function(pool, campaign_id, district_name) {
   ", list(c = as.integer(campaign_id), d = district_name))
 }
 
+# Campaigns never used as a carry-forward source (compared case-insensitively,
+# ignoring leading/trailing spaces).
+CARRY_FORWARD_EXCLUDED_CAMPAIGNS <- c('practice campaign')
+
+#' Where a district would be carried forward from when it's assigned to
+#' target_campaign_id. Looks at the MOST RECENT earlier campaign (by
+#' start_date, never one in CARRY_FORWARD_EXCLUDED_CAMPAIGNS, inactive ones
+#' included) that has a published version of this district, then checks
+#' that campaign's district boundary against the target campaign's:
+#'
+#'   boundary_matches = TRUE  when both campaigns use the same boundary set,
+#'                            or the district's shape is unchanged between
+#'                            the two sets (same shape_key in
+#'                            boundary_set_districts)
+#'   boundary_matches = FALSE otherwise -- the district can NOT be carried
+#'                            forward and starts blank. It does not fall
+#'                            back to an older campaign, which would bring
+#'                            in outdated work.
+#'
+#' Returns a one-row data.frame (version_id, campaign_id, campaign_name,
+#' start_date, source_set, target_set, boundary_matches), or NULL when no
+#' earlier campaign has a published version of the district. The admin UI
+#' calls this too, so what it shows is exactly what carry-forward does.
+db_get_carry_forward_source <- function(pool, target_campaign_id, district_name) {
+  rows <- tryCatch(
+    .db_query(pool, "
+      SELECT mv.version_id, mv.campaign_id, c.campaign_name, c.start_date,
+             c.boundary_set AS source_set, t.boundary_set AS target_set,
+             (c.boundary_set = t.boundary_set
+              OR (sd.shape_key IS NOT NULL AND sd.shape_key = td.shape_key)) AS boundary_matches
+      FROM mapping_versions mv
+      JOIN campaigns c ON c.campaign_id = mv.campaign_id
+      JOIN campaigns t ON t.campaign_id = ?t
+      LEFT JOIN boundary_set_districts sd
+             ON sd.set_label = c.boundary_set AND sd.district_name = mv.district_name
+      LEFT JOIN boundary_set_districts td
+             ON td.set_label = t.boundary_set AND td.district_name = mv.district_name
+      WHERE mv.district_name = ?d
+        AND mv.is_shared = TRUE AND mv.archived_at IS NULL
+        AND mv.campaign_id <> ?t
+        AND NOT (lower(trim(c.campaign_name)) = ANY (?x::text[]))
+        AND c.start_date < t.start_date
+      ORDER BY c.start_date DESC, c.campaign_id DESC
+      LIMIT 1
+    ", list(t = as.integer(target_campaign_id), d = district_name,
+            x = paste0('{', paste0('"', tolower(trimws(CARRY_FORWARD_EXCLUDED_CAMPAIGNS)), '"',
+                                   collapse = ','), '}'))),
+    error = function(e) { cat('[db] get_carry_forward_source error:', e$message, '\n'); NULL }
+  )
+  if (is.null(rows) || nrow(rows) == 0) return(NULL)
+  rows$boundary_matches <- isTRUE(rows$boundary_matches[1])
+  rows[1, ]
+}
+
 #' Bundled carry-forward for one district newly assigned to
-#' target_campaign_id: finds the most recently PUBLISHED health-area
-#' version for that district in any OTHER campaign, branches it into
-#' target_campaign_id, publishes the branch immediately (this IS an
-#' explicit admin action — it deliberately bypasses the normal submit-time
+#' target_campaign_id: takes the source from db_get_carry_forward_source()
+#' (the district's published version in the most recent earlier campaign by
+#' start_date, never the practice campaign), branches it into
+#' target_campaign_id, and publishes the branch immediately (this IS an
+#' explicit admin action -- it deliberately bypasses the normal submit-time
 #' "make current" prompt, since bulk-assigning districts to a campaign is
 #' inherently a bulk publish decision, not an individual user's
 #' incremental submission). Then does the same for every health area that
-#' had a current team-area version under that source health-area version —
+#' had a current team-area version under that source health-area version --
 #' each copied via a plain SQL INSERT...SELECT (mirroring db_branch_version's
 #' own pattern) rather than a fetch-then-reinsert round-trip through R,
-#' and each published too. Staleness never arises here — the health-area
+#' and each published too. Staleness never arises here -- the health-area
 #' boundary is copied unchanged from its source, not generated fresh, so
 #' nothing about it could have diverged from what any pinned team-area
 #' version already assumes.
 #'
-#' Returns NULL if the district has no prior published health-area version
-#' in any other campaign — nothing to carry forward; the caller should
-#' simply not call this (district starts blank in the new campaign) rather
-#' than treat NULL as an error.
+#' Returns NULL if there is no earlier campaign with a published version of
+#' this district, or if that campaign's boundary for the district differs
+#' from the target campaign's -- nothing to carry forward; the caller should simply not
+#' call this (district starts blank in the new campaign) rather than treat
+#' NULL as an error.
 db_carry_forward_district_to_campaign <- function(pool, target_campaign_id, district_name, admin_username) {
-  source_ha <- tryCatch({
-    rows <- db_get_shareable_versions(pool, district_name, campaign_id = NULL)
-    if (is.null(rows) || nrow(rows) == 0) return(NULL)
-    rows <- rows[rows$campaign_id != target_campaign_id, , drop = FALSE]
-    if (nrow(rows) == 0) return(NULL)
-    rows[order(rows$shared_at, decreasing = TRUE), ][1, ]
-  }, error = function(e) NULL)
+  source_ha <- db_get_carry_forward_source(pool, target_campaign_id, district_name)
   if (is.null(source_ha)) return(NULL)
+  if (!isTRUE(source_ha$boundary_matches)) {
+    cat(sprintf('[db] carry_forward: %s NOT carried forward -- boundary differs between "%s" (%s) and the target campaign (%s)\n',
+                district_name, source_ha$campaign_name, source_ha$source_set, source_ha$target_set))
+    return(NULL)
+  }
+  cat(sprintf('[db] carry_forward: %s <- version %d from campaign "%s" (start %s)\n',
+              district_name, as.integer(source_ha$version_id), source_ha$campaign_name,
+              format(source_ha$start_date)))
 
   new_ha_id <- db_branch_version(
     pool, source_version_id = source_ha$version_id, owner_username = admin_username,

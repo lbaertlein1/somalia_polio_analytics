@@ -31,15 +31,19 @@ suppressPackageStartupMessages({
 # USER SETTINGS
 # =============================================================================
 
+# District boundary set to cut for -- must match the set the national
+# surface was built for (build_national_friction_surface.R's BOUNDARY_SET)
+BOUNDARY_SET <- "2026b"
+
 cfg <- list(
   # Input national friction raster created by build_national_friction_surface.R
-  friction_file = "data/friction/somalia_friction_100m.tif",
+  friction_file = file.path("data/friction", BOUNDARY_SET, "somalia_friction_100m.tif"),
   
-  # District shapefile object saved as RDS
-  districts_file = "data/districts_shp.Rds",
+  # District boundaries for this set (setup_boundary_sets.R)
+  districts_file = file.path("data/boundary_sets", BOUNDARY_SET, "districts_shp.Rds"),
   
   # Output folder
-  output_dir = "data/friction/district_standardized",
+  output_dir = file.path("data/friction", BOUNDARY_SET, "district_standardized"),
   
   # Write options
   overwrite = TRUE
@@ -140,6 +144,9 @@ assert_file_exists(cfg$friction_file, "friction_file")
 assert_file_exists(cfg$districts_file, "districts_file")
 
 friction_r <- terra::rast(cfg$friction_file)
+if (!isTRUE(all.equal(terra::res(friction_r), c(100, 100), tolerance = 1e-6)))
+  stop("National friction raster is ", paste(terra::res(friction_r), collapse = " x "),
+       "m, not 100m -- rebuild it before cutting districts", call. = FALSE)
 districts_sf <- read_districts_safe(cfg$districts_file)
 
 dir.create(cfg$output_dir, recursive = TRUE, showWarnings = FALSE)

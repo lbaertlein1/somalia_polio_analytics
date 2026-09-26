@@ -147,7 +147,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   # same reliable source mod_facility_tab.R's own district_base() and
   # printable_export.R's own zone/region lookup already trust.
   district_sf_for_fetch <- tryCatch(
-    districts_shp |> dplyr::filter(district_name == !!district_name) |>
+    districts_shp_for_campaign(campaign_id) |> dplyr::filter(district_name == !!district_name) |>
       dplyr::group_by(district_name) |> dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
       sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326),
     error = function(e) NULL
@@ -301,7 +301,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     version <- tryCatch(db_get_version_by_id(pool, ver_id), error = function(e) NULL)
     if (is.null(version)) next
 
-    dinfo <- districts_shp |> dplyr::filter(district_name == dname)
+    dinfo <- districts_shp_for_campaign(campaign_id) |> dplyr::filter(district_name == dname)
     zone_val   <- if (nrow(dinfo) > 0) as.character(dinfo$zone_name[1])   else ''
     region_val <- if (nrow(dinfo) > 0) as.character(dinfo$region_name[1]) else ''
 
@@ -467,7 +467,8 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
   campaign_districts <- tryCatch(db_get_campaign_districts(pool, campaign_id), error = function(e) NULL)
   campaign_district_names <- if (!is.null(campaign_districts) && nrow(campaign_districts) > 0)
     campaign_districts$district_name else character(0)
-  districts_out <- districts_shp |>
+  # Outlines from THIS campaign's boundary set
+  districts_out <- districts_shp_for_campaign(campaign_id) |>
     dplyr::mutate(in_campaign = district_name %in% campaign_district_names) |>
     sf::st_transform(4326)
   tryCatch(

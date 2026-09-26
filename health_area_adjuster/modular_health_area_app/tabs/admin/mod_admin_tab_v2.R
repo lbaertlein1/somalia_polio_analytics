@@ -274,7 +274,8 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       assigned_names  <- if (!is.null(assigned)) assigned$district_name else character(0)
       assigned_scopes <- if (!is.null(assigned)) setNames(assigned$mapping_scope, assigned$district_name) else character(0)
 
-      by_region <- districts_shp |> sf::st_drop_geometry() |>
+      # Districts offered = the ones in THIS campaign's boundary set
+      by_region <- districts_shp_for_campaign(cid) |> sf::st_drop_geometry() |>
         dplyr::distinct(district_name, region_name) |>
         dplyr::arrange(region_name, district_name)
 
@@ -345,7 +346,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
 
     observeEvent(input$save_manage_districts, {
       cid <- manage_districts_campaign_id(); req(!is.null(cid))
-      all_dists <- districts_shp |> sf::st_drop_geometry() |>
+      all_dists <- districts_shp_for_campaign(cid) |> sf::st_drop_geometry() |>
         dplyr::distinct(district_name) |> dplyr::pull(district_name)
 
       # Campaign extent for THIS campaign -- there is no global default

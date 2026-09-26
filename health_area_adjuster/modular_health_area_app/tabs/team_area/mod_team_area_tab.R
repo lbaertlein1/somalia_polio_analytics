@@ -470,7 +470,7 @@ teamAreaTabServer <- function(
 
     full_district_sf_r <- reactive({
       req(district_ready(), district())
-      districts_shp |>
+      districts_shp_for_campaign(campaign_id()) |>
         dplyr::filter(district_name == district()) |>
         dplyr::summarise(
           admin_id = dplyr::first(admin_id), district_name = dplyr::first(district_name),
@@ -731,6 +731,7 @@ teamAreaTabServer <- function(
       progress_message      = 'Generating team area boundaries...',
       district_sf           = reactive({ req(selected_health_area_sf()); selected_health_area_sf() }),
       friction_district_sf  = full_district_sf_r,
+      friction_dir          = reactive(friction_dir_for_campaign(campaign_id())),
       grid_n                = reactive({
         req(selected_health_area_sf())
         # Gated on the population/team-count confirmation modal (see
@@ -768,6 +769,11 @@ teamAreaTabServer <- function(
       seed                  = reactive(sum(utf8ToInt(health_area_name() %||% 'x'))),
       facility_seed_sf      = team_seed_sf,
       facility_name_col     = 'team_name',
+      # Primary roads/rivers inside this health area as soft barriers, so
+      # team-area boundaries tend to follow them (same 0.99 penalty on
+      # steps that cross a line as health-area generation uses).
+      subdivision_lines_sf  = reactive(tryCatch(primary_lines_for_area(selected_health_area_sf()),
+                                                error = function(e) NULL)),
       subdivision_boundary_penalty = 0.99,
       u5_rast               = u5_rast,
       # Without this, scene() computes (grid build, friction extraction,

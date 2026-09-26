@@ -1,31 +1,38 @@
 # =============================================================================
 # build_national_friction_surface.R
 #
-# Rewritten to minimise terra temp disk usage:
-#   - Each step reads from the previously saved .tif rather than chaining
-#     in-memory SpatRasters, so terra never needs to hold more than one
-#     full-country raster in its temp directory at a time.
-#   - Intermediate objects are rm()'d and gc()'d immediately after saving.
-#   - Terra temp is redirected to data/terra_temp which is wiped at the
-#     start of each step.
+# Builds the national 100m friction surface (0-1) that health-area and
+# team-area generation spread across. Four ingredients:
 #
-# PIPELINE ORDER:
-#   01  population baseline
-#   01b land surface (land cover + slope)
-#   02  roads
-#   03  rivers
-#   04  bridges
-#   05  water bodies
-#   06  district boundaries
+#   01  population  - settled land costs 0.35-0.85 (rising with density);
+#                     empty land costs more than any settled land (0.90),
+#                     so areas follow where people live
+#   02  roads       - cheaper corridors (road +/- 100m) that areas stretch along
+#   03  rivers      - the Jubba and Shabelle channels (0.99), open at bridges
+#   04  water       - lakes and other water bodies are impassable (1.0)
 #   final mask to country
+#
+# What is deliberately NOT here (and why):
+#   - seasonal rivers / togga: usually dry, unevenly mapped in OSM
+#   - land cover and slope: only available at ~1 km, mostly a uniform offset
+#   - a district-boundary band: each district's surface is cut to its own
+#     outline, and the app's grid never extends past it
+#
+# Keeping boundaries ON primary roads and on the Jubba/Shabelle is done in
+# the app (a crossing penalty on those lines), not here.
+#
+# Disk usage: each step reads the previous step's saved .tif rather than
+# chaining in-memory rasters, and terra's temp folder (data/terra_temp) is
+# wiped after every step.
+#
+# Output goes to data/friction/<BOUNDARY_SET>/. The boundary set is only
+# used for the country outline (final mask).
 # =============================================================================
 
 suppressPackageStartupMessages({
   library(sf)
   library(terra)
   library(dplyr)
-  library(elevatr)
-  library(geodata)
 })
 
 # Redirect terra temp to a controlled location and clean it before starting
@@ -33,57 +40,61 @@ terra_tmp <- "data/terra_temp"
 dir.create(terra_tmp, recursive = TRUE, showWarnings = FALSE)
 terra::terraOptions(tempdir = terra_tmp, memfrac = 0.6)
 
-source("scripts/get_boundaries.R")
+# District boundary set to build for (see setup_boundary_sets.R)
+BOUNDARY_SET  <- "2026b"
+districts_file <- file.path("data/boundary_sets", BOUNDARY_SET, "districts_shp.Rds")
+if (!file.exists(districts_file)) stop("Boundary set not found: ", districts_file)
+districts <- readRDS(districts_file)
+message("Boundary set ", BOUNDARY_SET, ": ", nrow(districts), " districts")
 
 # =============================================================================
 # SETTINGS
 # =============================================================================
 
 cfg <- list(
-  worldpop_file          = "data/som_u5_population_2025_100m.tif",
-  roads_file             = "data/osm_inputs/somalia_roads.gpkg",
-  rivers_file            = "data/osm_inputs/somalia_rivers.gpkg",
-  bridges_file           = "data/osm_inputs/somalia_bridges.gpkg",
-  water_bodies_file      = "data/osm_inputs/somalia_water_bodies.gpkg",
-  output_dir             = "data/friction",
-  land_surface_cache_dir = "data/land_surface_cache",
-  target_crs             = "EPSG:3857",
-  target_resolution_m    = 100
+  worldpop_file       = "data/som_u5_population_2026_100m.tif",
+  roads_file          = "data/osm_inputs/somalia_roads.gpkg",
+  rivers_file         = "data/osm_inputs/somalia_rivers.gpkg",
+  bridges_file        = "data/osm_inputs/somalia_bridges.gpkg",
+  water_bodies_file   = "data/osm_inputs/somalia_water_bodies.gpkg",
+  output_dir          = file.path("data/friction", BOUNDARY_SET),
+  target_crs          = "EPSG:3857",
+  target_resolution_m = 100
 )
 
 rules <- list(
   population = list(
-    aggregate_factor   = 5,
-    smoothing_radius_m = 500,
-    min_cost           = 0.35,
-    max_cost           = 0.85,
-    zero_pop_cost      = 0.35,
-    zero_pop_surcharge    = 0.25
+    density_unit_km2   = 0.25,  # children per 0.25 km2 (= the old 500m cell)
+    smoothing_radius_m = 250,   # ~0.2 km2 circle: fills streets and gaps between
+    # compounds within a settlement, while gaps of
+    # more than ~500m between settlements stay empty
+    min_cost           = 0.35,  # sparsest settled land
+    max_cost           = 0.85,  # densest settled land
+    empty_threshold    = 0.01,  # smoothed density at or below this = empty
+    empty_cost         = 0.90   # above any settled land, so fronts stay in
+    # populated areas; not higher, because the app
+    # treats friction above 0.90 as near-impassable
   ),
-  land_surface = list(
-    lulc_penalties = list(
-      cropland  = 0.00,
-      bare      = 0.00,
-      grassland = 0.05,
-      shrubs    = 0.05,
-      trees     = 0.10,
-      wetland   = 0.10,
-      other     = 0.05
-    ),
-    slope_flat_max_deg   = 10,
-    slope_penalty        = 0.08,
-    max_combined_penalty = 0.15
-  ),
+  # buffer_m = how far either side of the line the feature's effect reaches
+  # (0 = only the 100m cells the line passes through).
   roads = list(
-    primary      = 0.35,
-    secondary    = 0.50,
-    min_buffer_m = 15,
-    max_buffer_m = 80
+    primary   = 0.35,   # friction multiplier inside the corridor
+    secondary = 0.50,
+    buffer_m  = 100     # ~300m corridor: roughly how far teams walk off a road
   ),
-  rivers          = list(major = 0.99, buffer_m = 400),
-  bridges         = list(primary = 0.35, secondary = 0.50),
-  water           = list(major_cost = 1.00),
-  district_boundary = list(cost = 1.00, buffer_m = 100)
+  rivers = list(
+    # Only the permanent Jubba and Shabelle, matched by OSM name. The app
+    # keeps boundaries on them with a crossing penalty, so here they only
+    # cover the channel itself. Every other river in the file is left out:
+    # they're mostly seasonal togga, often dry (and then used as routes
+    # rather than obstacles), and too unevenly mapped in OSM to treat as
+    # barriers.
+    primary_pattern = "jubba|shabeel|shebel",
+    channel_cost    = 0.99,
+    bridge_gap_m    = 100   # the channel is left open within this distance of
+    # a bridge (the road corridor gives the discount)
+  ),
+  water = list(cost = 1.00)
 )
 
 # =============================================================================
@@ -118,6 +129,21 @@ write_step <- function(r, name) {
 
 read_step <- function(name) terra::rast(step_file(name))
 
+copy_step <- function(from, to) {
+  message("Nothing to apply -- copying ", from, " as ", to)
+  file.copy(step_file(from), step_file(to), overwrite = TRUE)
+}
+
+# Rasterize line features (column friction_val) onto the template grid,
+# widened by buffer_m either side. Unbuffered lines take every cell they
+# touch, so the result is continuous; buffered bands take cells whose centre
+# is inside the band.
+rasterize_band <- function(x, template, buffer_m, fun, touches = buffer_m == 0) {
+  g <- if (buffer_m > 0) sf::st_buffer(x, buffer_m) else x
+  terra::rasterize(terra::vect(g), template, field = "friction_val", fun = fun,
+                   touches = touches, background = NA)
+}
+
 read_vector <- function(path) {
   if (!file.exists(path)) return(NULL)
   sf::st_read(path, quiet = TRUE) |> sf::st_make_valid() |>
@@ -134,9 +160,9 @@ districts <- districts |>
   sf::st_make_valid() |>
   sf::st_transform(cfg$target_crs)
 
-country_union        <- dplyr::summarise(districts, geometry = sf::st_union(geometry))
-country_union_latlon <- sf::st_transform(country_union, "EPSG:4326")
-country_vect         <- terra::vect(country_union)
+country_union <- dplyr::summarise(districts, geometry = sf::st_union(geometry))
+country_vect  <- terra::vect(country_union)
+rm(districts, country_union); gc()
 
 # Build template from WorldPop
 wp       <- terra::rast(cfg$worldpop_file)
@@ -148,7 +174,7 @@ template <- terra::resample(wp_proj, template)
 names(template) <- "u5_pop"
 rm(wp_proj); gc()
 
-# Fill interior NA cells — WorldPop uses NA for zero-population cells,
+# Fill interior NA cells -- WorldPop uses NA for zero-population cells,
 # which would create holes throughout the friction surface.
 # Replace any NA inside the country boundary with 0.
 country_fill <- terra::rasterize(country_vect, template,
@@ -161,20 +187,26 @@ terra::writeRaster(template,
                    overwrite = TRUE)
 
 # =============================================================================
-# 01 POPULATION BASELINE
+# 01 POPULATION
 # =============================================================================
-message("--- 01 Population baseline ---")
+message("--- 01 Population ---")
 
 p <- rules$population
 
-pop_coarse <- terra::aggregate(template, fact = p$aggregate_factor,
-                               fun = sum, na.rm = TRUE)
+# Native 100m: counts per cell -> children per density_unit_km2, so values
+# don't depend on the grid resolution. focalMat(type = "circle") weights sum
+# to 1, so focal(fun = sum) gives the weighted MEAN density in the window.
+cell_km2    <- prod(terra::res(template)) / 1e6
+pop_density <- template * (p$density_unit_km2 / cell_km2)
 
-w          <- terra::focalMat(pop_coarse, d = p$smoothing_radius_m, type = "circle")
-pop_smooth <- terra::focal(pop_coarse, w = w, fun = sum,
+w          <- terra::focalMat(pop_density, d = p$smoothing_radius_m, type = "circle")
+message("Smoothing window: ", sum(w > 0), " cells (",
+        round(sum(w > 0) * cell_km2, 2), " km2)")
+pop_smooth <- terra::focal(pop_density, w = w, fun = sum,
                            na.rm = TRUE, fillvalue = 0)
-rm(pop_coarse, w); gc()
+rm(pop_density, w); gc()
 
+# Settled land: min_cost to max_cost, rising with log density
 pop_log  <- log1p(pop_smooth)
 gmin     <- as.numeric(terra::global(pop_log, "min", na.rm = TRUE)[[1]])
 gmax     <- as.numeric(terra::global(pop_log, "max", na.rm = TRUE)[[1]])
@@ -182,65 +214,22 @@ pop_norm <- (pop_log - gmin) / (gmax - gmin)
 rm(pop_log); gc()
 
 pop_cost <- p$min_cost + pop_norm * (p$max_cost - p$min_cost)
-pop_cost <- terra::ifel(pop_smooth <= 0.01, p$zero_pop_cost, pop_cost)
-pop_cost <- terra::ifel(
-  pop_smooth <= 0.01,
-  pop_cost + p$zero_pop_surcharge,
-  pop_cost
-)
+rm(pop_norm); gc()
+
+# Empty land: one fixed cost, above any settled land
+pop_cost <- terra::ifel(pop_smooth <= p$empty_threshold, p$empty_cost, pop_cost)
+message(sprintf("Empty cells (smoothed density <= %s): %.1f%% of the country",
+                p$empty_threshold,
+                100 * as.numeric(terra::global(pop_smooth <= p$empty_threshold, "mean", na.rm = TRUE)[[1]])))
+rm(pop_smooth); gc()
+
 pop_cost <- terra::clamp(pop_cost, 0, 1)
-rm(pop_norm, pop_smooth); gc()
+names(pop_cost) <- "population_cost"
 
-write_step(pop_cost, "01_population_cost")
+stopifnot("Population cost is not at target resolution" =
+            isTRUE(all.equal(terra::res(pop_cost), rep(cfg$target_resolution_m, 2), tolerance = 1e-6)))
 
-# =============================================================================
-# 01b LAND SURFACE (land cover + slope)
-# =============================================================================
-message("--- 01b Land surface ---")
-
-ls  <- rules$land_surface
-pen <- ls$lulc_penalties
-
-message("Loading land cover...")
-lc_layers <- c("trees","shrubs","grassland","cropland","bare","wetland")
-
-lc_list <- lapply(lc_layers, function(var) {
-  r <- geodata::landcover(var = var, path = cfg$land_surface_cache_dir)
-  terra::project(r, template, method = "bilinear")
-})
-lc_stack        <- terra::rast(lc_list); rm(lc_list); gc()
-names(lc_stack) <- lc_layers
-
-dominant_idx <- terra::which.max(lc_stack); rm(lc_stack); gc()
-
-penalty_vals <- c(pen$trees, pen$shrubs, pen$grassland,
-                  pen$cropland, pen$bare, pen$wetland)
-lulc_penalty <- terra::classify(dominant_idx,
-                                rcl = cbind(seq_along(lc_layers), penalty_vals))
-lulc_penalty <- terra::ifel(is.na(lulc_penalty), pen$other, lulc_penalty)
-rm(dominant_idx); gc()
-
-message("Loading elevation / slope...")
-elev_raw     <- terra::rast(elevatr::get_elev_raster(
-  locations = country_union_latlon, z = 7, clip = "locations"))
-elev_proj    <- terra::project(elev_raw, template, method = "bilinear")
-rm(elev_raw); gc()
-slope_deg    <- terra::terrain(elev_proj, v = "slope", unit = "degrees")
-rm(elev_proj); gc()
-slope_penalty <- terra::ifel(slope_deg > ls$slope_flat_max_deg,
-                             ls$slope_penalty, 0)
-rm(slope_deg); gc()
-
-land_penalty <- terra::clamp(lulc_penalty + slope_penalty,
-                             lower = 0, upper = ls$max_combined_penalty)
-rm(lulc_penalty, slope_penalty); gc()
-
-pop_cost     <- read_step("01_population_cost")
-land_penalty <- terra::resample(land_penalty, pop_cost, method = "bilinear")
-friction     <- terra::clamp(pop_cost + land_penalty, 0, 1)
-rm(pop_cost, land_penalty); gc()
-
-write_step(friction, "01b_after_land_surface")
+write_step(pop_cost, "01_population")
 
 # =============================================================================
 # 02 ROADS
@@ -251,199 +240,121 @@ roads <- read_vector(cfg$roads_file)
 
 if (!is.null(roads) && nrow(roads) > 0) {
   
-  friction <- read_step("01b_after_land_surface")
-  pop_cost <- read_step("01_population_cost")
+  friction <- read_step("01_population")
   
-  roads$road_class <- dplyr::case_when(
-    roads$highway %in% c("motorway","trunk","primary") ~ "primary",
-    TRUE                                               ~ "secondary"
-  )
   roads$friction_val <- dplyr::if_else(
-    roads$road_class == "primary",
+    roads$highway %in% c("motorway", "trunk", "primary"),
     rules$roads$primary, rules$roads$secondary
   )
   
-  road_mid        <- sf::st_point_on_surface(roads)
-  roads$pop_local <- terra::extract(pop_cost, terra::vect(road_mid))[, 2]
-  rm(pop_cost, road_mid); gc()
-  
-  roads$buffer_m <- dplyr::case_when(
-    is.na(roads$pop_local)  ~ 100,
-    roads$pop_local <= 0.40 ~ 200,
-    roads$pop_local <= 0.50 ~ 120,
-    TRUE                    ~ 60
-  )
-  
-  roads_buf <- sf::st_make_valid(
-    do.call(rbind, lapply(split(roads, roads$buffer_m), function(x)
-      sf::st_buffer(x, dist = unique(x$buffer_m)[1])))
-  )
-  
-  # --- binary rasterization (hard road cost within buffer) ---
-  road_r   <- terra::rasterize(terra::vect(roads_buf), friction,
-                               field = "friction_val", fun = "min",
-                               background = NA)
-  rm(roads_buf); gc()
+  # Road corridor = the road line widened by rules$roads$buffer_m either side
+  road_r <- rasterize_band(roads, friction, rules$roads$buffer_m, fun = "min")
+  rm(roads); gc()
   
   friction <- terra::ifel(!is.na(road_r), friction * road_r, friction)
+  friction <- terra::clamp(friction, 0.05, 1)
   rm(road_r); gc()
   
-  # --- gradient falloff: taper cost reduction beyond buffer edge ---
-  roads_vect <- terra::vect(roads)
-  road_dist  <- terra::distance(friction, roads_vect)
-  rm(roads_vect); gc()
+  message(sprintf("Road corridor: road +/- %sm", rules$roads$buffer_m))
+  write_step(friction, "02_roads")
   
-  road_bonus <- terra::ifel(
-    road_dist < 500,
-    (1 - rules$roads$primary) * exp(-road_dist / 200),
-    0
-  )
-  rm(road_dist); gc()
-  
-  friction <- terra::clamp(friction - road_bonus, 0.05, 1)
-  rm(road_bonus); gc()
-  
-  write_step(friction, "02_after_roads")
-  
-} else {
-  message("No roads found — copying 01b as 02")
-  file.copy(step_file("01b_after_land_surface"), step_file("02_after_roads"),
-            overwrite = TRUE)
-}
+} else copy_step("01_population", "02_roads")
 
 # =============================================================================
-# 03 RIVERS
+# 03 RIVERS (Jubba and Shabelle channels, open at bridges)
 # =============================================================================
 message("--- 03 Rivers ---")
 
 rivers <- read_vector(cfg$rivers_file)
+rv     <- rules$rivers
 
+prim <- NULL
 if (!is.null(rivers) && nrow(rivers) > 0) {
-  
-  friction          <- read_step("02_after_roads")
-  rivers$friction_val <- rules$rivers$major
-  rivers_buf        <- sf::st_buffer(rivers, rules$rivers$buffer_m)
-  rm(rivers); gc()
-  
-  river_r  <- terra::rasterize(terra::vect(rivers_buf), friction,
-                               field = "friction_val", fun = "max",
-                               background = NA)
-  rm(rivers_buf); gc()
-  
-  friction <- terra::ifel(!is.na(river_r) & river_r > friction, river_r, friction)
-  rm(river_r); gc()
-  
-  write_step(friction, "03_after_rivers")
-  
-} else {
-  message("No rivers — copying 02 as 03")
-  file.copy(step_file("02_after_roads"), step_file("03_after_rivers"),
-            overwrite = TRUE)
+  nm         <- if ("name" %in% names(rivers)) tolower(rivers$name) else rep(NA_character_, nrow(rivers))
+  is_primary <- !is.na(nm) & grepl(rv$primary_pattern, nm)
+  message(sprintf("Rivers: %d Jubba/Shabelle segments (%.0f km) used; %d others (%.0f km) left out",
+                  sum(is_primary), as.numeric(sum(sf::st_length(rivers[is_primary, ]))) / 1000,
+                  sum(!is_primary), as.numeric(sum(sf::st_length(rivers[!is_primary, ]))) / 1000))
+  prim <- rivers[is_primary, ]
+  rm(rivers, nm, is_primary); gc()
 }
 
-# =============================================================================
-# 04 BRIDGES
-# =============================================================================
-message("--- 04 Bridges ---")
-
-bridges <- read_vector(cfg$bridges_file)
-
-if (!is.null(bridges) && nrow(bridges) > 0) {
+if (!is.null(prim) && nrow(prim) > 0) {
   
-  friction <- read_step("03_after_rivers")
+  friction <- read_step("02_roads")
   
-  bridges$friction_val <- dplyr::if_else(
-    bridges$highway %in% c("motorway","trunk","primary"),
-    rules$bridges$primary, rules$bridges$secondary
-  )
+  prim$friction_val <- rv$channel_cost
+  channel_r <- rasterize_band(prim, friction, 0, fun = "max")
+  rm(prim); gc()
   
-  bridge_r <- terra::rasterize(terra::vect(bridges), friction,
-                               field = "friction_val", fun = "min",
-                               background = NA)
-  rm(bridges); gc()
+  # Leave the channel open near bridges
+  bridges <- read_vector(cfg$bridges_file)
+  if (!is.null(bridges) && nrow(bridges) > 0) {
+    bridges$friction_val <- 1
+    bridge_r  <- rasterize_band(bridges, friction, rv$bridge_gap_m, fun = "max", touches = TRUE)
+    n_open    <- as.numeric(terra::global(!is.na(channel_r) & !is.na(bridge_r), "sum", na.rm = TRUE)[[1]])
+    channel_r <- terra::ifel(!is.na(bridge_r), NA, channel_r)
+    message(sprintf("Channel cells left open at bridges: %.0f", n_open))
+    rm(bridge_r, bridges); gc()
+  }
   
-  friction <- terra::ifel(!is.na(bridge_r) & bridge_r < friction,
-                          bridge_r, friction)
-  rm(bridge_r); gc()
+  friction <- terra::ifel(!is.na(channel_r) & channel_r > friction, channel_r, friction)
+  rm(channel_r); gc()
   
-  write_step(friction, "04_after_bridges")
+  write_step(friction, "03_rivers")
   
-} else {
-  message("No bridges — copying 03 as 04")
-  file.copy(step_file("03_after_rivers"), step_file("04_after_bridges"),
-            overwrite = TRUE)
-}
+} else copy_step("02_roads", "03_rivers")
 
 # =============================================================================
-# 05 WATER BODIES
+# 04 WATER BODIES
 # =============================================================================
-message("--- 05 Water bodies ---")
+message("--- 04 Water bodies ---")
 
 water <- read_vector(cfg$water_bodies_file)
 
 if (!is.null(water) && nrow(water) > 0) {
   
-  friction          <- read_step("04_after_bridges")
-  water$friction_val <- rules$water$major_cost
+  friction <- read_step("03_rivers")
+  water$friction_val <- rules$water$cost
   
-  water_r  <- terra::rasterize(terra::vect(water), friction,
-                               field = "friction_val", fun = "max",
-                               background = NA)
+  water_r <- terra::rasterize(terra::vect(water), friction,
+                              field = "friction_val", fun = "max",
+                              background = NA)
   rm(water); gc()
   
   friction <- terra::ifel(!is.na(water_r), water_r, friction)
   rm(water_r); gc()
   
-  write_step(friction, "05_after_water")
+  write_step(friction, "04_water")
   
-} else {
-  message("No water bodies — copying 04 as 05")
-  file.copy(step_file("04_after_bridges"), step_file("05_after_water"),
-            overwrite = TRUE)
-}
-
-# =============================================================================
-# 06 DISTRICT BOUNDARIES
-# =============================================================================
-message("--- 06 District boundaries ---")
-
-friction     <- read_step("05_after_water")
-dist_lines   <- sf::st_boundary(districts)
-dist_buf     <- sf::st_buffer(dist_lines, rules$district_boundary$buffer_m)
-rm(dist_lines); gc()
-
-district_r   <- terra::rasterize(terra::vect(dist_buf), friction,
-                                 field = 1, background = NA)
-rm(dist_buf); gc()
-
-friction     <- terra::ifel(!is.na(district_r),
-                            rules$district_boundary$cost, friction)
-rm(district_r); gc()
-
-write_step(friction, "06_after_boundary")
+} else copy_step("03_rivers", "04_water")
 
 # =============================================================================
 # FINAL: MASK TO COUNTRY
 # =============================================================================
 message("--- Final mask ---")
 
-friction  <- read_step("06_after_boundary")
+friction  <- read_step("04_water")
 country_r <- terra::rasterize(country_vect, friction, field = 1, background = NA)
 friction  <- terra::mask(friction, country_r)
 rm(country_r); gc()
 
 friction <- terra::clamp(friction, lower = 0.05, upper = 1)
+names(friction) <- "friction"
 
-out_file  <- file.path(cfg$output_dir, "somalia_friction_100m.tif")
+stopifnot("Final friction raster is not at target resolution" =
+            isTRUE(all.equal(terra::res(friction), rep(cfg$target_resolution_m, 2), tolerance = 1e-6)))
+
+out_file <- file.path(cfg$output_dir, "somalia_friction_100m.tif")
 terra::writeRaster(friction, out_file, overwrite = TRUE,
                    gdal = c("COMPRESS=DEFLATE", "TILED=YES", "BIGTIFF=YES"))
 
-vals     <- terra::values(friction, mat = FALSE)
-message("\n[FINAL] range: ", round(min(vals, na.rm=TRUE), 4),
-        " - ", round(max(vals, na.rm=TRUE), 4))
-print(round(quantile(vals, c(0,.05,.25,.5,.75,.95,1), na.rm=TRUE), 4))
+vals <- terra::values(friction, mat = FALSE)
+message("\n[FINAL] range: ", round(min(vals, na.rm = TRUE), 4),
+        " - ", round(max(vals, na.rm = TRUE), 4))
+print(round(quantile(vals, c(0, .05, .25, .5, .75, .95, 1), na.rm = TRUE), 4))
 
-rm(friction); gc()
+rm(friction, vals); gc()
 wipe_terra_tmp()
 
 message("\nDone. Saved to: ", normalizePath(out_file))

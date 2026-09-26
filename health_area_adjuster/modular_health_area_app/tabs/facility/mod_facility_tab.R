@@ -193,7 +193,7 @@ facilityTabServer <- function(
         pa <- sf::st_transform(pa, 3857)
         pa <- tryCatch(sf::st_collection_extract(pa, 'POLYGON'), error = function(e) pa)
         density <- tryCatch({
-          districts_shp |>
+          districts_shp_for_campaign(campaign_id()) |>
             sf::st_drop_geometry() |>
             dplyr::filter(district_name == district()) |>
             dplyr::pull(u5_pop_density_km2) |>
@@ -204,7 +204,7 @@ facilityTabServer <- function(
         return(pa)
       }
       req(zone(), region(), district())
-      district_sf <- districts_shp |>
+      district_sf <- districts_shp_for_campaign(campaign_id()) |>
         dplyr::filter(
           zone_name     == zone(),
           region_name   == region(),
@@ -274,7 +274,7 @@ facilityTabServer <- function(
         if (!is.null(pop) && pop > 0) return(pop)
       }
 
-      districts_shp |>
+      districts_shp_for_campaign(campaign_id()) |>
         sf::st_drop_geometry() |>
         dplyr::filter(district_name == district()) |>
         dplyr::pull(WP_U5) |>
@@ -379,7 +379,8 @@ facilityTabServer <- function(
       tryCatch({
         fresh <- fetch_facilities_odk(
           zone_name     = zone(),
-          district_name = district()
+          district_name = district(),
+          districts     = districts_shp_for_campaign(campaign_id())
         )
 
         if (!is.null(fresh) && nrow(fresh) > 0) {

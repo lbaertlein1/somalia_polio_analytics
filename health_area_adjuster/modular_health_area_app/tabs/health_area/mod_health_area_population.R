@@ -186,9 +186,6 @@ healthAreaPopulationServer <- function(
       
       raster_cols     <- pop_palette(5)
       raster_labels   <- c("Low", "", "", "", "High")
-      friction_cols   <- c("#FFFFFF","#440154","#3B528B","#21918C","#5DC863",
-                           "#FDE725","#FDB863","#E66101","#B2182B")
-      friction_labels <- c("0","0.05","0.1","0.2","0.4","0.6","0.8","<1","1")
       
       tagList(
         div(
@@ -231,12 +228,12 @@ healthAreaPopulationServer <- function(
           if (isTRUE(show_friction_raster())) tagList(
             tags$div(style = "height:6px;"),
             tags$div(class = "mini-label", style = "margin-bottom:4px;", "Friction surface"),
-            tags$div(style = "display:flex; gap:0; margin-bottom:3px;",
-                     lapply(friction_cols, function(clr) tags$div(style = paste0(
-                       "flex:1; height:10px; background:", clr,
-                       "; border-top:1px solid #999; border-bottom:1px solid #999;")))),
-            tags$div(style = "display:flex; justify-content:space-between; font-size:10px; color:#666;",
-                     lapply(friction_labels, tags$span)),
+            # Same classes as the map overlay (FRICTION_CLASSES in
+            # health_area_helpers.R), one row each
+            lapply(seq_len(nrow(FRICTION_CLASSES)), function(i) div(
+              class = "legend-row",
+              tags$span(class = "legend-box", style = paste0("background:", FRICTION_CLASSES$color[i], ";")),
+              tags$span(style = "font-size:11px;", FRICTION_CLASSES$label[i]))),
             tags$div(class = "mini-label", style = "margin-top:3px; color:#666;",
                      "Low = easier movement, High = harder movement")
           )
