@@ -17,6 +17,7 @@ library(stringr)
 library(purrr)
 library(DT)
 library(readxl)
+library(ruODK)
 library(leaflet)
 
 source("R/utils.R")
@@ -45,18 +46,18 @@ needs_refresh <- function() {
   }
   
   tryCatch({
-    # Uses ODK Central's REST API directly (not OData) — /submissions
-    # returns lightweight metadata including createdAt for every submission,
-    # which is all we need to check for freshness.
-    list_url <- paste0(Sys.getenv("ODKC_URL"),
-                       "/v1/projects/", Sys.getenv("ODKC_PID"),
-                       "/forms/", Sys.getenv("ODKC_FID_CAMPS"), "/submissions")
-    resp <- httr::GET(list_url,
-                      httr::authenticate(Sys.getenv("ODKC_UN"), Sys.getenv("ODKC_PW")),
-                      httr::timeout(30))
-    httr::stop_for_status(resp)
-    subs <- jsonlite::fromJSON(httr::content(resp, as = "text", encoding = "UTF-8"))
-    latest_odk <- max(lubridate::as_datetime(subs$createdAt), na.rm = TRUE)
+    ruODK::ru_setup(
+      svc = paste0(Sys.getenv("ODKC_URL"),
+                   "/v1/projects/", Sys.getenv("ODKC_PID"),
+                   "/forms/", Sys.getenv("ODKC_FID_CAMPS"), ".svc"),
+      un  = Sys.getenv("ODKC_UN"),
+      pw  = Sys.getenv("ODKC_PW"),
+      verbose = FALSE
+    )
+    latest_odk <- ruODK::submission_list() |>
+      dplyr::pull(createdAt) |>
+      max(na.rm = TRUE) |>
+      lubridate::as_datetime()
     
     if (latest_odk > last_in_data) {
       message("New ODK submissions since last pull — refreshing...")
@@ -76,6 +77,7 @@ if (needs_refresh()) {
 } else {
   nomad_data <- readRDS(rds_path)
 }
+
 
 date_labels <- list(
   all    = "Jun 2024 \u2013 present",

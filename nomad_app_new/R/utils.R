@@ -44,6 +44,7 @@ DISTRICT_CROSSWALK <- c(
   "Badhaade"           = "Badhadhe",
   "Badhaadha"          = "Badhadhe",
   "BADHAADHE"          = "Badhadhe",
+  "BADHADHE"           = "Badhadhe",
   # ── Belet-hawa ───────────────────────────────────────────────────────────
   "Belet-hawa"         = "Belet-hawa",
   "Belet-hawa "        = "Belet-hawa",
@@ -85,6 +86,7 @@ DISTRICT_CROSSWALK <- c(
   "Beledxawa"          = "Belet-hawa",
   " Belet-hawa "       = "Belet-hawa",
   "Balat-hawa "        = "Belet-hawa",
+  "BELET HAWA"         = "Belet-hawa",
   # ── Beledweyne ───────────────────────────────────────────────────────────
   "Beledweyne"         = "Beledweyne",
   "Beledweyne "        = "Beledweyne",
