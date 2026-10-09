@@ -36,3 +36,4 @@ rsconnect/
 data
 health_area_adjuster/modular_health_area_app/.env
 
+nomad_app_new/environ_gen_somalia.R
