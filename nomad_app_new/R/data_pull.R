@@ -1,11 +1,13 @@
 # R/data_pull.R
 # ─────────────────────────────────────────────────────────────────────────────
 # Fetches both ODK forms, joins to ArcGIS district geometry, aggregates all
-# dashboard data objects, and writes data/nomad_data.rds
+# dashboard data objects in memory, and exports current ODK camps to CSV
 #
 # Run locally:  source("odk_credentials.R"); source("refresh_data.R")
-# Called by global.R automatically when ODK has newer data
+# Called by global.R on every app startup
 # ─────────────────────────────────────────────────────────────────────────────
+
+if (file.exists(".Renviron")) readRenviron(".Renviron")
 
 # Load libs if not already loaded (handles standalone sourcing)
 for (pkg in c("ruODK","dplyr","tidyr","lubridate","sf","httr","jsonlite","stringr","purrr","readxl")) {
@@ -14,6 +16,25 @@ for (pkg in c("ruODK","dplyr","tidyr","lubridate","sf","httr","jsonlite","string
 }
 
 if (!exists("normalise_district", mode = "function")) source("R\\utils.R")
+
+rename_flexible <- function(df, pattern, new_name) {
+  col <- grep(pattern, names(df), value = TRUE, ignore.case = TRUE)[1]
+  if (!is.na(col) && col != new_name) dplyr::rename(df, !!new_name := dplyr::all_of(col))
+  else df
+}
+
+parse_survey_date <- function(x) {
+  if (inherits(x, "Date")) return(as.Date(x))
+  if (inherits(x, "POSIXt")) return(lubridate::as_date(x))
+
+  text <- trimws(as.character(x))
+  parsed <- suppressWarnings(as.Date(substr(text, 1, 10), format = "%Y-%m-%d"))
+  missing <- is.na(parsed) & !is.na(text) & nzchar(trimws(text))
+  parsed[missing] <- suppressWarnings(lubridate::mdy(text[missing], quiet = TRUE))
+  missing <- is.na(parsed) & !is.na(text) & nzchar(trimws(text))
+  parsed[missing] <- suppressWarnings(lubridate::dmy(text[missing], quiet = TRUE))
+  lubridate::as_date(parsed)
+}
 
 message("── [1/6] Authenticating with ODK Central ──")
 ruODK::ru_setup(
@@ -57,7 +78,88 @@ ruODK::ru_setup(
 camps_raw <- ruODK::odata_submission_get(
   table  = "Submissions",
   parse  = TRUE,
+  download = FALSE,
 )
+
+odk_camps_csv <- camps_raw
+list_cols <- names(odk_camps_csv)[vapply(odk_camps_csv, is.list, logical(1))]
+for (field in list_cols) {
+  odk_camps_csv[[field]] <- vapply(odk_camps_csv[[field]], function(value) {
+    as.character(jsonlite::toJSON(value, auto_unbox = TRUE, null = "null", na = "null"))
+  }, character(1))
+}
+if (!dir.exists("data")) dir.create("data")
+utils::write.csv(odk_camps_csv, "data/odk_camps_current.csv", row.names = FALSE, na = "")
+message("  Saved fresh ODK camp download to data/odk_camps_current.csv")
+
+historical_camps_path <- file.path(
+  "data", "ODK_Data_2024_2025_2026_cleanUp_18Aug26(Survey Data_Clean).csv"
+)
+if (!file.exists(historical_camps_path)) {
+  stop("Historical camp data file not found: ", historical_camps_path)
+}
+
+camp_cutoff <- as.Date("2026-07-31")
+historical_camps <- utils::read.csv(
+  historical_camps_path,
+  check.names = FALSE,
+  stringsAsFactors = FALSE,
+  na.strings = c("", "NA")
+)
+names(historical_camps) <- gsub("-", "_", names(historical_camps), fixed = TRUE)
+historical_camps <- historical_camps |>
+  rename_flexible("group_profile.*today_date", "camp_survey_date") |>
+  rename_flexible("^submissiondate$", "system_submission_date") |>
+  dplyr::mutate(dplyr::across(dplyr::everything(), as.character)) |>
+  dplyr::mutate(
+    id = paste0("historical_", dplyr::row_number()),
+    data_source = "historical"
+  )
+
+camps_odk <- camps_raw |>
+  rename_flexible("group_profile.*today_date", "camp_survey_date") |>
+  dplyr::mutate(dplyr::across(dplyr::everything(), as.character)) |>
+  dplyr::mutate(
+    id = dplyr::if_else(
+      !is.na(id) & nzchar(id), paste0("odk_", id),
+      paste0("odk_row_", dplyr::row_number())
+    ),
+    data_source = "odk"
+  )
+
+historical_camps <- historical_camps |>
+  dplyr::mutate(camp_survey_date = parse_survey_date(camp_survey_date))
+camps_odk <- camps_odk |>
+  dplyr::mutate(camp_survey_date = parse_survey_date(camp_survey_date))
+historical_missing_date <- sum(is.na(historical_camps$camp_survey_date))
+odk_missing_date <- sum(is.na(camps_odk$camp_survey_date))
+historical_camps <- historical_camps |>
+  dplyr::filter(!is.na(camp_survey_date), camp_survey_date <= camp_cutoff)
+camps_odk <- camps_odk |>
+  dplyr::filter(!is.na(camp_survey_date), camp_survey_date > camp_cutoff)
+camps_raw <- dplyr::bind_rows(historical_camps, camps_odk)
+
+message("  Historical camp rows through 31 Jul 2026: ", nrow(historical_camps),
+        " (", historical_missing_date, " missing survey dates excluded)")
+message("  ODK camp rows from 1 Aug 2026: ", nrow(camps_odk),
+        " (", odk_missing_date, " missing survey dates excluded)")
+
+enumerator_district_col <- grep(
+  "^group_profile.*enumerator.*district$",
+  names(camps_raw), ignore.case = TRUE, value = TRUE
+)[1]
+if (is.na(enumerator_district_col)) {
+  stop("Could not find group_profile enumerator district field in camp data")
+}
+enumerator_district_counts <- camps_raw |>
+  dplyr::transmute(
+    enumerator_district = trimws(as.character(.data[[enumerator_district_col]]))
+  ) |>
+  dplyr::filter(!is.na(enumerator_district), enumerator_district != "") |>
+  dplyr::count(enumerator_district, name = "appearances") |>
+  dplyr::arrange(dplyr::desc(appearances), enumerator_district)
+message("Enumerator district appearances:")
+print(as.data.frame(enumerator_district_counts), row.names = FALSE)
 
 # Transport is a flat group
 
@@ -79,14 +181,6 @@ outreach_raw <- ruODK::odata_submission_get(
 
 kobo_path <- "data/kobo_outreach.xlsx"
 
-# ── Helper: flexible column rename ───────────────────────────────────────────
-rename_flexible <- function(df, pattern, new_name) {
-  col <- grep(pattern, names(df), value = TRUE, ignore.case = TRUE)[1]
-  if (!is.na(col) && col != new_name) dplyr::rename(df, !!new_name := dplyr::all_of(col))
-  else df
-}
-
-  
 # Rename ODK columns to final names BEFORE binding with KoBoToolbox
   
 message("  ODK outreach cols: ", paste(sort(names(outreach_raw)), collapse = ", "))
@@ -254,7 +348,9 @@ camps <- camps_raw |>
   rename_flexible("camp_hf_ri_num",                     "hf_travel_min") |>
   # Settlement and enumerator
   rename_flexible("community_level_camp_settlement",     "settlement_type") |>
+  rename_flexible("community_level_camp_settlement_name", "camp_name") |>
   rename_flexible("group_profile_enumerator_district",   "enum_district") |>
+  rename_flexible("group_code$",                         "camp_code") |>
   # GPS — ruODK splits geopoint; raw string col is community_level_gps exactly
   rename_flexible("^community_level_gps$",               "gps_raw") |>
   # Population — under /polio/ group
@@ -262,18 +358,14 @@ camps <- camps_raw |>
   rename_flexible("polio_camp_pop_12to59_months$",       "pop_12to59") |>
   rename_flexible("polio_camp_tot_pop",                  "pop_total") |>
   # Zero-dose — ruODK lowercases camelCase: zeroDose → zero_dose
-  rename_flexible("polio_camp_pop_0to11_months_zero_dose",  "zd_0to11") |>
-  rename_flexible("polio_camp_pop_12to59_months_zero_dose", "zd_12to59") |>
+  rename_flexible("polio_camp_pop_0to11_months_?zero_?dose",  "zd_0to11") |>
+  rename_flexible("polio_camp_pop_12to59_months_?zero_?dose", "zd_12to59") |>
   # Challenges — ruODK lowercases to polio_camp_previous_service_challenges
   rename_flexible("polio_camp_previous_service_challenges", "challenge") |>
   # Transport (flat group, not repeat)
   rename_flexible("transport_type_transport_infrastructure", "transport_infra") |>
   rename_flexible("transport_type_migratory_route",         "route_type") |>
   rename_flexible("transport_name_migratory_route",         "route_name") |>
-  # District fields from tribe_subtribe group (fallback)
-  rename_flexible("tribe_subtribe_district",             "recorded_district") |>
-  
-  
   dplyr::mutate(
     # Coerce numeric
     pop_0to11     = suppressWarnings(as.numeric(pop_0to11)),
@@ -305,8 +397,8 @@ camps <- camps_raw |>
     # Normalise recorded district names via crosswalk
     next_district    = normalise_district(next_district),
     prev_district    = normalise_district(prev_district),
-    enum_district    = normalise_district(
-      dplyr::coalesce(enum_district, recorded_district)
+    enum_district = normalise_district(
+      dplyr::na_if(trimws(as.character(enum_district)), "")
     )
   )
 
@@ -338,41 +430,29 @@ if (!is.na(lat_col) && !is.na(lon_col)) {
   message("  WARNING: no GPS columns found in camps form")
 }
 
-# ── Spatial join: assign district from GPS, fall back to recorded ─────────────
-if (!is.null(districts_sf) && "lat" %in% names(camps) && "lon" %in% names(camps)) {
-  camps_with_coords <- camps |>
-    dplyr::filter(!is.na(lat) & !is.na(lon) & lat != 0 & lon != 0)
-  
-  camps_sf <- sf::st_as_sf(camps_with_coords,
-                           coords = c("lon", "lat"), crs = 4326, remove = FALSE)
-  
-  joined <- sf::st_join(camps_sf, districts_sf, join = sf::st_within) |>
-    sf::st_drop_geometry() |>
-    dplyr::select(id, spatial_district = district_name)
-  
-  camps <- camps |>
-    dplyr::left_join(joined, by = "id") |>
-    dplyr::mutate(
-      district = normalise_district(dplyr::coalesce(spatial_district, enum_district))
-    )
-} else {
-  camps <- camps |> dplyr::mutate(district = enum_district)
-}
+camps <- camps |>
+  dplyr::mutate(district = enum_district)
 
-# Submission year — use today.start (ruODK standard) or system_submission_date
-if ("today.start" %in% names(camps)) {
-  camps <- camps |>
-    dplyr::mutate(
-      sub_date = lubridate::ymd(as.character(today.start)),
-      year     = lubridate::year(sub_date)
-    )
-} else if ("system_submission_date" %in% names(camps)) {
-  camps <- camps |>
-    dplyr::mutate(
-      sub_date = lubridate::as_date(system_submission_date),
-      year     = lubridate::year(sub_date)
-    )
-}
+# Use the form's survey date for both historical and ODK camp records.
+camps <- camps |>
+  dplyr::mutate(
+    sub_date = camp_survey_date,
+    year = lubridate::year(sub_date)
+  )
+
+camp_appearance_counts <- camps |>
+  dplyr::filter(!is.na(camp_code), trimws(camp_code) != "") |>
+  dplyr::count(camp_code, camp_name, district, name = "appearances") |>
+  dplyr::arrange(dplyr::desc(appearances), camp_code)
+utils::write.csv(camp_appearance_counts, "camp_appearance_counts.csv", row.names = FALSE)
+
+camp_appearance_counts_by_source <- camps |>
+  dplyr::filter(!is.na(camp_code), trimws(camp_code) != "") |>
+  dplyr::count(data_source, camp_code, camp_name, district, name = "appearances") |>
+  dplyr::arrange(data_source, dplyr::desc(appearances), camp_code)
+utils::write.csv(camp_appearance_counts_by_source,
+                 "camp_appearance_counts_by_source.csv", row.names = FALSE)
+message("  Wrote camp appearance summaries to the working directory")
 
 # ruodk_names: transport_type_transport_infrastructure, transport_type_migratory_route,
 #              transport_name_migratory_route
@@ -612,6 +692,11 @@ perf_table <- purrr::map(years, function(yr) {
     dplyr::arrange(dplyr::desc(gap))
 }) |> purrr::set_names(years)
 
+district_coverage_gap <- dplyr::bind_rows(perf_table, .id = "year") |>
+  dplyr::select(year, district, zd_identified = zd_id,
+                vaccinated, gap, coverage_pct = cov_pct)
+utils::write.csv(district_coverage_gap, "district_coverage_gap.csv", row.names = FALSE)
+message("  Saved District Coverage Gap table to district_coverage_gap.csv")
 
 
 # ── ZD-RI vs ZD-Polio by district from outreach report ────────────────────────
@@ -852,13 +937,12 @@ nomad_data <- list(
   districts_geojson = districts_geojson,
   states_geojson    = states_geojson,
   pulled_at         = Sys.time(),
+  camp_source_cutoff = camp_cutoff,
   latest_submission = max(
     suppressWarnings(lubridate::as_datetime(camps$system_submission_date)),
     na.rm = TRUE
   )
 )
 
-if (!dir.exists("data")) dir.create("data")
-saveRDS(nomad_data, "data/nomad_data.rds")
-message("✓ Saved data/nomad_data.rds (", nrow(camps), " camp records, ",
+message("✓ Built nomad_data in memory (", nrow(camps), " camp records, ",
         nrow(outreach), " outreach sessions)")

@@ -36,6 +36,7 @@ DISTRICT_CROSSWALK <- c(
   "Bardhera"           = "Baardhere",
   "Bardhera "          = "Baardhere",
   "Badheere"           = "Baardhere",
+  "gedo_bardheere"     = "Baardhere",
   # ── Badhadhe ─────────────────────────────────────────────────────────────
   "Badhadhe"           = "Badhadhe",
   "Badhadhe "          = "Badhadhe",
@@ -145,6 +146,7 @@ DISTRICT_CROSSWALK <- c(
   "Ceelbarde"          = "El Barde",
   "Celbarde"           = "El Barde",
   "Celbarde "          = "El Barde",
+  "El-barde"           = "El Barde",
   # ── Garbaharey ────────────────────────────────────────────────────────────
   "Garbaharey"         = "Garbaharey",
   "Garbaharey "        = "Garbaharey",
@@ -213,6 +215,7 @@ DISTRICT_CROSSWALK <- c(
 normalise_district <- function(x) {
   x_trimmed <- trimws(as.character(x))
   mapped <- dplyr::case_when(
+    tolower(x_trimmed) == "test" ~ NA_character_,
     x_trimmed %in% names(DISTRICT_CROSSWALK) ~ unname(DISTRICT_CROSSWALK[x_trimmed]),
     TRUE ~ x_trimmed
   )

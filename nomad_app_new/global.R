@@ -28,55 +28,7 @@ source("R/mod_zerodose.R")
 source("R/mod_access.R")
 source("R/mod_report.R")
 
-# ── Auto-refresh: pull only if ODK has submissions newer than cached data ─────
-rds_path <- "data/nomad_data.rds"
-
-needs_refresh <- function() {
-  if (!file.exists(rds_path)) {
-    message("No cached data — pulling from ODK...")
-    return(TRUE)
-  }
-  
-  cached      <- readRDS(rds_path)
-  last_in_data <- cached$latest_submission  # date of newest submission in the data
-  
-  if (is.null(last_in_data)) {
-    message("Cache has no submission timestamp — pulling to be safe...")
-    return(TRUE)
-  }
-  
-  tryCatch({
-    ruODK::ru_setup(
-      svc = paste0(Sys.getenv("ODKC_URL"),
-                   "/v1/projects/", Sys.getenv("ODKC_PID"),
-                   "/forms/", Sys.getenv("ODKC_FID_CAMPS"), ".svc"),
-      un  = Sys.getenv("ODKC_UN"),
-      pw  = Sys.getenv("ODKC_PW"),
-      verbose = FALSE
-    )
-    latest_odk <- ruODK::submission_list() |>
-      dplyr::pull(createdAt) |>
-      max(na.rm = TRUE) |>
-      lubridate::as_datetime()
-    
-    if (latest_odk > last_in_data) {
-      message("New ODK submissions since last pull — refreshing...")
-      return(TRUE)
-    }
-    message("Data is current (last submission: ",
-            format(last_in_data, "%d %b %Y %H:%M"), ")")
-    return(FALSE)
-  }, error = function(e) {
-    message("Could not reach ODK — using cached data. (", e$message, ")")
-    return(FALSE)
-  })
-}
-
-if (needs_refresh()) {
-  source("R/data_pull.R")
-} else {
-  nomad_data <- readRDS(rds_path)
-}
+source("R/data_pull.R")
 
 
 date_labels <- list(
