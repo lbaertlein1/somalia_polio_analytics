@@ -36,6 +36,7 @@ DISTRICT_CROSSWALK <- c(
   "Bardhera"           = "Baardhere",
   "Bardhera "          = "Baardhere",
   "Badheere"           = "Baardhere",
+  "gedo_bardheere"     = "Baardhere",
   # ── Badhadhe ─────────────────────────────────────────────────────────────
   "Badhadhe"           = "Badhadhe",
   "Badhadhe "          = "Badhadhe",
@@ -44,6 +45,7 @@ DISTRICT_CROSSWALK <- c(
   "Badhaade"           = "Badhadhe",
   "Badhaadha"          = "Badhadhe",
   "BADHAADHE"          = "Badhadhe",
+  "BADHADHE"           = "Badhadhe",
   # ── Belet-hawa ───────────────────────────────────────────────────────────
   "Belet-hawa"         = "Belet-hawa",
   "Belet-hawa "        = "Belet-hawa",
@@ -51,6 +53,7 @@ DISTRICT_CROSSWALK <- c(
   "BELET HAWA"         = "Belet-hawa",
   "Balat-hawa"         = "Belet-hawa",
   "Balat-hawa "        = "Belet-hawa",
+  "Balathawa"          = "Belet-hawa",
   "balat-hawa "        = "Belet-hawa",
   "Balet-hawa"         = "Belet-hawa",
   "Balet xaw"          = "Belet-hawa",
@@ -85,11 +88,13 @@ DISTRICT_CROSSWALK <- c(
   "Beledxawa"          = "Belet-hawa",
   " Belet-hawa "       = "Belet-hawa",
   "Balat-hawa "        = "Belet-hawa",
+  "BELET HAWA"         = "Belet-hawa",
   # ── Beledweyne ───────────────────────────────────────────────────────────
   "Beledweyne"         = "Beledweyne",
   "Beledweyne "        = "Beledweyne",
   "Beledweyn"          = "Beledweyne",
   "Beledweyn "         = "Beledweyne",
+  "Baledweyn"          = "Beledweyne",
   "Beletweyn"          = "Beledweyne",
   "Beletweyn "         = "Beledweyne",
   "BELET WEYNE"        = "Beledweyne",
@@ -143,6 +148,7 @@ DISTRICT_CROSSWALK <- c(
   "Ceelbarde"          = "El Barde",
   "Celbarde"           = "El Barde",
   "Celbarde "          = "El Barde",
+  "El-barde"           = "El Barde",
   # ── Garbaharey ────────────────────────────────────────────────────────────
   "Garbaharey"         = "Garbaharey",
   "Garbaharey "        = "Garbaharey",
@@ -211,6 +217,7 @@ DISTRICT_CROSSWALK <- c(
 normalise_district <- function(x) {
   x_trimmed <- trimws(as.character(x))
   mapped <- dplyr::case_when(
+    tolower(x_trimmed) == "test" ~ NA_character_,
     x_trimmed %in% names(DISTRICT_CROSSWALK) ~ unname(DISTRICT_CROSSWALK[x_trimmed]),
     TRUE ~ x_trimmed
   )

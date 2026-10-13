@@ -4,6 +4,22 @@ library(leaflet)
 # Matches reference: horizontal ZD bar, badge rate table, coverage gap map,
 # gap table, ZD-RI vs polio chart, outreach by district, monthly trend charts
 
+
+##no data guard
+render_empty_plot <- function(msg) {
+  plotly::plot_ly() |>
+    plotly::layout(
+      annotations = list(list(
+        text = msg,
+        showarrow = FALSE, xref = "paper", yref = "paper",
+        x = 0.5, y = 0.5, font = list(size = 13, color = "#718096")
+      )),
+      xaxis = list(visible = FALSE), yaxis = list(visible = FALSE),
+      margin = list(t = 10, r = 10, b = 10, l = 10)
+    ) |>
+    plotly::config(displayModeBar = FALSE)
+}
+
 zerodose_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -35,7 +51,7 @@ zerodose_ui <- function(id) {
         div(class = "card-header",
             span(class = "card-title", "Coverage Gap Map"),
             span(class = "card-subtitle",
-                 "Red = camps with ZD children  ·  Green = outreach sessions"),
+                 "Red = camps with ZD children  .  Green = outreach sessions"),
             div(class = "map-controls",
                 tags$select(id = ns("gap_yr"),
                             tags$option(value = "all",  "All time"),
@@ -183,64 +199,69 @@ zerodose_server <- function(id, data, year_filter, insights = NULL) {
     
     # ── Gap map ───────────────────────────────────────────────────────────────
     output$gap_map <- renderLeaflet({
+      basemap_key <- Sys.getenv("BASEMAP_API_KEY")
+      tile_url <- paste0("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=", basemap_key)
+      
       leaflet(options = leafletOptions(scrollWheelZoom = FALSE)) |>
-        addProviderTiles("CartoDB.Positron") |>
+        addTiles(urlTemplate = tile_url, layerId = "base") |>
         setView(lng = 42.5, lat = 4.5, zoom = 7)
     })
     
     observe({
-      all_months <- as.character(levels(data$out_monthly$month_label))
-      updateSelectInput(session, "gap_mo",
-                        choices = c("All months" = "all", setNames(all_months, all_months)))
-    })
-    
-    observe({
       req(input$gap_yr)
-      proxy  <- leafletProxy(ns("gap_map"))
-      proxy |> clearGroup("zd_pts") |> clearGroup("out_pts")
+      
       gap_yr <- input$gap_yr
       gap_mo <- input$gap_mo %||% "all"
       
+      proxy <- leafletProxy(ns("gap_map"))
+      proxy |> clearGroup("zd_pts") |> clearGroup("out_pts")
+      
+      # --- RED DOTS (Camps with ZD) ---
       cp <- data$camp_gps
       if (gap_yr != "all") cp <- cp[cp$year == as.integer(gap_yr), ]
       cp <- cp[!is.na(cp$lat) & !is.na(cp$lon), ]
+      
       if (nrow(cp) > 0) {
         proxy |> addCircleMarkers(
-          data = cp, lng = ~lon, lat = ~lat,
+          data      = cp,
+          lng       = ~lon, lat = ~lat,
           radius    = ~pmax(3, pmin(10, 3 + log(zd_0to11 + zd_12to59 + 1) * 1.5)),
-          fillColor = "#dc2626", fillOpacity = 0.65,
-          color = "#991b1b", weight = 0.8, group = "zd_pts",
-          label = ~paste0(district, " | ZD: ", zd_0to11 + zd_12to59)
+          fillColor = "#dc2626", fillOpacity = 0.75,
+          color     = "#991b1b", weight = 1,
+          group     = "zd_pts",
+          label     = ~paste0(district, " | ZD: ", zd_0to11 + zd_12to59)
         )
       }
       
+      # --- GREEN DOTS (Outreach sessions) ---
       op <- data$out_gps
       if (gap_yr != "all") op <- op[op$year == as.integer(gap_yr), ]
       if (gap_mo != "all") op <- op[!is.na(op$month_label) & as.character(op$month_label) == gap_mo, ]
       op <- op[!is.na(op$lat) & !is.na(op$lon), ]
+      
       if (nrow(op) > 0) {
         proxy |> addCircleMarkers(
-          data = op, lng = ~lon, lat = ~lat,
-          radius = 6, fillColor = "#22c55e", fillOpacity = 0.85,
-          color = "white", weight = 1.5, group = "out_pts",
-          label = ~paste0("Outreach · ", district, " | Vaccinated: ", vaccinated)
+          data      = op,
+          lng       = ~lon, lat = ~lat,
+          radius    = 6,
+          fillColor = "#22c55e", fillOpacity = 0.85,
+          color     = "white", weight = 1.5,
+          group     = "out_pts",
+          label     = ~paste0("Outreach · ", district, " | Vaccinated: ", vaccinated)
         )
       }
+      
     })
     
-    output$gap_count_label <- renderUI({
-      gap_yr <- input$gap_yr %||% "all"
-      cp <- data$camp_gps
-      op <- data$out_gps
-      if (gap_yr != "all") {
-        cp <- cp[cp$year == as.integer(gap_yr), ]
-        op <- op[op$year == as.integer(gap_yr), ]
-      }
-      span(class = "muted",
-           paste0(nrow(cp), " ZD camps · ", nrow(op), " outreach sessions"))
-    })
+  output$gap_count_label <- renderUI({
+    gap_yr <- input$gap_yr %||% "all"
+    cp <- data$camp_gps
+    if (gap_yr != "all") cp <- cp[cp$year == as.integer(gap_yr), ]
+    span(class = "muted", paste0(nrow(cp), " ZD camps"))
+  })
     
-    # ── Gap table (HTML, matches reference style) ─────────────────────────────
+    
+    # ── Gap table (HTML) ─────────────────────────────
     output$gap_table_ui <- renderUI({
       d <- data$perf_table[[yr()]]
       if (is.null(d)) return(p("No data"))
@@ -282,102 +303,129 @@ zerodose_server <- function(id, data, year_filter, insights = NULL) {
       )
     })
     
-    # ── ZD-RI vs ZD-Polio horizontal bar ──────────────────────────────────────
-    output$zd_ri_pol <- plotly::renderPlotly({
-      d <- data$zd_ri_pol[[yr()]]
-      if (is.null(d) || nrow(d) == 0) return(plotly::plot_ly())
-      d <- d[order(d$ri + d$pol), ]
-      plotly::plot_ly(d,
-                      y = ~district, x = ~ri, type = "bar", orientation = "h",
-                      name = "Zero-dose RI (excl. polio)",
-                      marker = list(color = "rgba(217,119,6,0.75)")
-      ) |>
-        plotly::add_trace(x = ~pol, name = "Zero-dose polio",
-                          marker = list(color = "rgba(220,38,38,0.75)")) |>
-        plotly::layout(
-          barmode = "group",
-          yaxis   = list(title = "", automargin = TRUE),
-          xaxis   = list(title = "Children"),
-          legend  = list(orientation = "h", y = -0.2),
-          margin  = list(l = 10)
-        ) |>
-        plotly::config(displayModeBar = FALSE)
-    })
+# ── ZD-RI vs ZD-Polio horizontal bar ──────────────────────────────────────
+  
+  output$zd_ri_pol <- plotly::renderPlotly({
+    d <- data$zd_ri_pol[[yr()]]
+    # clean empty
+    if (is.null(d) || nrow(d) == 0) {
+      return(render_empty_plot(paste("No outreach zero‑dose data for", yr())))
+    }
+    # end dmpty
     
-    # ── Monthly outreach trend (dual axis — sessions + vaccinated) ────────────
-    output$out_monthly <- plotly::renderPlotly({
-      d <- data$out_monthly
-      if (is.null(d) || nrow(d) == 0) return(plotly::plot_ly())
-      month_order <- as.character(levels(d$month_label))
-      d$month_label <- as.character(d$month_label)
-      plotly::plot_ly(d) |>
-        plotly::add_trace(
-          x = ~month_label, y = ~sessions,
-          type = "scatter", mode = "lines+markers",
-          fill = "tozeroy", fillcolor = "rgba(13,148,136,0.1)",
-          line = list(color = "#0d9488", width = 2),
-          marker = list(size = 5),
-          name = "Sessions", yaxis = "y"
-        ) |>
-        plotly::add_trace(
-          x = ~month_label, y = ~vaccinated,
-          type = "scatter", mode = "lines+markers",
-          line = list(color = "#dc2626", width = 2),
-          marker = list(size = 5),
-          name = "Vaccinated", yaxis = "y2"
-        ) |>
-        plotly::layout(
-          xaxis  = list(title = "", tickangle = -35,
-                        categoryorder = "array",
-                        categoryarray = month_order),
-          yaxis  = list(title = "Sessions"),
-          yaxis2 = list(title = "Vaccinated", overlaying = "y",
-                        side = "right", showgrid = FALSE),
-          legend = list(orientation = "h", y = -0.25),
-          margin = list(b = 80, r = 60)
-        ) |>
-        plotly::config(displayModeBar = FALSE)
-    })
+    d <- d[order(d$ri + d$pol), ]
+    plotly::plot_ly(d,
+                    y = ~district, x = ~ri, type = "bar", orientation = "h",
+                    name   = "Zero-dose RI (excl. polio)",
+                    marker = list(color = "rgba(217,119,6,0.85)")
+    ) |>
+      plotly::add_trace(x = ~pol, name = "Zero-dose polio",
+                        marker = list(color = "rgba(220,38,38,0.85)")) |>
+      plotly::layout(
+        barmode = "group",
+        yaxis   = list(title = "", automargin = TRUE),
+        xaxis   = list(title = "Children"),
+        legend  = list(orientation = "h", y = -0.35, x = 0,
+                       yanchor = "top", xanchor = "left", font = list(size = 13)),
+        margin  = list(l = 10, b = 90, t = 30, r = 10)
+      ) |>
+      plotly::config(displayModeBar = FALSE)
+  })
+
+    
+  # ── Monthly outreach trend (dual axis — sessions + vaccinated) ────────────
+  
+  output$out_monthly <- plotly::renderPlotly({
+    d <- data$out_monthly
+    #year filter
+    if (yr() != "all") {
+      d <- d[d$year == as.integer(yr()), ]
+    }
+    
+    
+    # clean empty
+    if (is.null(d) || nrow(d) == 0) {
+      return(render_empty_plot(paste("No outreach data available for", yr())))
+    }
+    # end empty
+    
+    month_order <- unique(d$month_label)  # robust order even for sparse years
+    d$month_label <- as.character(d$month_label)
+    
+    plotly::plot_ly(d) |>
+      plotly::add_trace(
+        x = ~month_label, y = ~sessions,
+        type = "scatter", mode = "lines+markers",
+        fill = "tozeroy", fillcolor = "rgba(13,148,136,0.1)",
+        line = list(color = "#0d9488", width = 2),
+        marker = list(size = 5),
+        name = "Sessions", yaxis = "y"
+      ) |>
+      plotly::add_trace(
+        x = ~month_label, y = ~vaccinated,
+        type = "scatter", mode = "lines+markers",
+        line = list(color = "#dc2626", width = 2),
+        marker = list(size = 5),
+        name = "Vaccinated", yaxis = "y2"
+      ) |>
+      plotly::layout(
+        xaxis  = list(title = "", tickangle = -35,
+                      categoryorder = "array", categoryarray = month_order),
+        yaxis  = list(title = "Sessions"),
+        yaxis2 = list(title = "Vaccinated", overlaying = "y",
+                      side = "right", showgrid = FALSE),
+        legend = list(orientation = "h", y = -0.30, font = list(size = 13)),
+        margin = list(b = 90, r = 80)
+      ) |>
+      plotly::config(displayModeBar = FALSE)
+  })
     
     # ── District monthly vaccinated line chart ────────────────────────────────
-    output$dist_monthly <- plotly::renderPlotly({
-      d <- data$dist_monthly
-      if (is.null(d) || nrow(d) == 0) {
-        return(plotly::plot_ly() |>
-                 plotly::layout(annotations = list(list(
-                   text = "No district monthly data available",
-                   showarrow = FALSE, xref = "paper", yref = "paper",
-                   x = 0.5, y = 0.5, font = list(size = 13, color = "#718096")
-                 )), xaxis = list(visible = FALSE), yaxis = list(visible = FALSE)) |>
-                 plotly::config(displayModeBar = FALSE))
-      }
-      month_order <- as.character(levels(d$month_label))
-      d$month_label <- as.character(d$month_label)
-      dists <- unique(d$out_district)
-      cols  <- c("#0d9488","#2563eb","#d97706","#dc2626","#7c3aed","#059669","#ea580c")
-      p <- plotly::plot_ly()
-      for (i in seq_along(dists)) {
-        dd <- d[d$out_district == dists[i], ]
-        p <- plotly::add_trace(p,
-                               x    = dd$month_label,
-                               y    = dd$vaccinated,
-                               type = "scatter", mode = "lines+markers",
-                               name = dists[i],
-                               line = list(color = cols[((i-1) %% length(cols)) + 1], width = 1.5),
-                               marker = list(size = 3)
-        )
-      }
-      plotly::layout(p,
-                     xaxis  = list(title = "", tickangle = -35,
-                                   categoryorder = "array", categoryarray = month_order),
-                     yaxis  = list(title = "Children vaccinated"),
-                     legend = list(orientation = "h", y = -0.25),
-                     margin = list(b = 80)
-      ) |>
-        plotly::config(displayModeBar = FALSE)
-    })
+  output$dist_monthly <- plotly::renderPlotly({
+    d <- data$dist_monthly
+    if (yr() != "all") {
+      d <- d[d$year == as.integer(yr()), ]
+    }
+    
+    # empty handler
+    if (is.null(d) || nrow(d) == 0) {
+      return(render_empty_plot(paste("No district-level outreach data for", yr())))
+    }
+    
+    d$vaccinated <- tidyr::replace_na(d$vaccinated, 0)
+    month_order  <- unique(d$month_label)
+    d$month_label <- as.character(d$month_label)
+    
+    dists <- sort(unique(d$out_district[!is.na(d$out_district) & d$vaccinated > 0]))
+    cols  <- c("#0d9488","#2563eb","#d97706","#dc2626","#7c3aed","#059669","#ea580c")
+    
+    p <- plotly::plot_ly()
+    for (i in seq_along(dists)) {
+      dd <- d[d$out_district == dists[i], ]
+      p <- plotly::add_trace(p,
+                             x = dd$month_label,
+                             y = dd$vaccinated,
+                             type = "scatter", mode = "lines+markers",
+                             name = dists[i],
+                             line   = list(color = cols[((i-1) %% length(cols)) + 1], width = 1.5),
+                             marker = list(size = 3)
+      )
+    }
+    
+    plotly::layout(p,
+                   xaxis  = list(title = "", tickangle = -35,
+                                 categoryorder = "array", categoryarray = month_order),
+                   yaxis  = list(title = "Children vaccinated"),
+                   legend = list(orientation = "h", y = -0.30, font = list(size = 13)),
+                   margin = list(b = 90)
+    ) |>
+      plotly::config(displayModeBar = FALSE)
+    
   })
-}
+  
+  })
+}   
 
+ 
 # Null-coalescing helper
 `%||%` <- function(a, b) if (!is.null(a)) a else b

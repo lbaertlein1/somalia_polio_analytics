@@ -117,7 +117,7 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
           addPolygons(
             data        = data$districts_geojson,
             fillColor   = "#ffffff", fillOpacity = 0.9,
-            color       = "#94a3b8", weight = 0.6, opacity = 0.7,
+            color       = "#94a3b8", weight = 0.6, opacity = 0.7
           )
       }
       
@@ -149,12 +149,13 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
     # ── Reactive layers ───────────────────────────────────────────────────────
     observe({
       req(yr())
+      
       # Also depend on checkbox state so toggling redraws layers
       sc <- show_camps()
       sf <- show_flows()
+      
       proxy <- leafletProxy(ns("mov_map"))
-      proxy |> clearGroup("camps") |> clearGroup("flows") |>
-        clearGroup("indegree_circles")
+      proxy |> clearGroup("camps") |> clearGroup("flows") |> clearGroup("indegree_circles")
       
       ind <- data$indegree[[yr()]]
       fl  <- data$flows[[yr()]]
@@ -162,48 +163,91 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
       
       # Indegree circles + district labels
       if (!is.null(ind) && nrow(ind) > 0 && !is.null(cen) && nrow(cen) > 0) {
-        ind_join <- dplyr::left_join(ind, cen, by = "district") |>
-          dplyr::filter(!is.na(lat), !is.na(lon), !is.na(district))
-        if (nrow(ind_join) > 0) {
-          max_c <- max(ind_join$count, 1)
-          proxy |> addCircleMarkers(
-            data        = ind_join,
-            lng = ~lon, lat = ~lat,
-            radius      = ~pmax(7, pmin(35, 7 + sqrt(count / max_c) * 28)),
-            fillColor   = "#0d9488", fillOpacity = 0.18,
-            color       = "#0d9488", weight = 2, opacity = 0.85,
-            label       = ~paste0(district, " — Indegree: ", count),
-            group       = "indegree_circles"
+        
+        # Non-mutating copies; normalize names consistently
+        cen_norm <- cen
+        ind_norm <- ind
+        cen_norm$district <- normalise_district(cen_norm$district)
+        ind_norm$district <- normalise_district(ind_norm$district)
+        
+        # Join and collapse to ONE centroid per district; cast coords to numeric
+        ind_join <- dplyr::left_join(ind_norm, cen_norm, by = "district") |>
+          dplyr::filter(!is.na(lat), !is.na(lon), !is.na(district)) |>
+          dplyr::mutate(
+            lon = suppressWarnings(as.numeric(lon)),
+            lat = suppressWarnings(as.numeric(lat)),
+            count = suppressWarnings(as.numeric(count))
+          ) |>
+          dplyr::filter(!is.na(lon), !is.na(lat), !is.na(count)) |>
+          dplyr::group_by(district) |>
+          dplyr::summarise(
+            lon   = lon[1],
+            lat   = lat[1],
+            count = sum(count, na.rm = TRUE),
+            .groups = "drop"
           )
-          # District name labels
-          for (i in seq_len(nrow(ind_join))) {
-            r <- ind_join[i, ]
-            proxy |> addMarkers(
-              lng  = r$lon, lat  = r$lat,
-              icon = leaflet::makeIcon(iconUrl = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-                                       iconWidth = 1, iconHeight = 1),
-              label = r$district,
-              labelOptions = labelOptions(
-                noHide   = TRUE, direction = "top", textOnly = FALSE,
-                style    = list(
-                  "background"    = "white",
-                  "border"        = "1.5px solid #0d9488",
-                  "border-radius" = "4px",
-                  "padding"       = "2px 6px",
-                  "font-size"     = "10px",
-                  "font-weight"   = "600",
-                  "color"         = "#0f5050",
-                  "box-shadow"    = "0 1px 3px rgba(0,0,0,.15)",
-                  "white-space"   = "nowrap"
-                )
-              ),
-              group = "indegree_circles"
+        
+        # ---- Decide which districts to show circles on ----
+        # Option A: explicit whitelist (uncomment and set to match your mock-up)
+        # show_list <- c("Belet-hawa","Dolow","Elwak","Baardhere","Baidoa","Beledweyne","El Barde","Luuq")
+        # ind_show  <- ind_join[dplyr::row_number(ind_join$district) > 0, ] # placeholder
+        # ind_show  <- ind_join[ normalise_district(ind_join$district) %in% normalise_district(show_list), ]
+        
+        # Option B (default): show top-N by indegree count
+        N_TOP <- 10L
+        ind_show <- ind_join |>
+          dplyr::arrange(dplyr::desc(count)) |>
+          dplyr::slice_head(n = N_TOP)
+        
+        if (nrow(ind_show) > 0) {
+          max_c <- max(ind_show$count, 1)
+          
+          # Indegree circle
+          proxy |>
+            addCircleMarkers(
+              data      = ind_show,
+              lng       = ~lon, lat = ~lat,
+              radius    = ~pmax(10, pmin(40, 10 + sqrt(count / max_c) * 30)),
+              fillColor = "#0d9488", fillOpacity = 0.18,
+              color     = "#0d9488", weight = 3, opacity = 0.90,
+              group     = "indegree_circles",
+              label     = ~paste0(district, " — Indegree: ", count)
             )
+          
+          # District labels anchored at centroid
+          for (i in seq_len(nrow(ind_show))) {
+            r <- ind_show[i, ]
+            proxy |>
+              addMarkers(
+                lng = r$lon,
+                lat = r$lat,
+                icon = leaflet::makeIcon(
+                  iconUrl   = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+                  iconWidth = 1, iconHeight = 1
+                ),
+                label = r$district,
+                labelOptions = labelOptions(
+                  noHide = TRUE, direction = "top", textOnly = FALSE,
+                  style = list(
+                    "background"    = "white",
+                    "border"        = "1.5px solid #0d9488",
+                    "border-radius" = "4px",
+                    "padding"       = "2px 6px",
+                    "font-size"     = "10px",
+                    "font-weight"   = "600",
+                    "color"         = "#0f5050",
+                    "box-shadow"    = "0 1px 3px rgba(0,0,0,.15)",
+                    "white-space"   = "nowrap"
+                  )
+                ),
+                group = "indegree_circles"
+              )
           }
         }
       }
       
-      # Camp GPS dots
+      
+      # Camp dots
       if (sc) {
         gps <- data$camp_gps
         if (!is.null(gps) && nrow(gps) > 0) {
@@ -219,71 +263,110 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
         }
       }
       
-      # Flow arrows (cross-district only, count >= 3)
-      if (sf && !is.null(fl) && nrow(fl) > 0 &&
-          !is.null(cen) && nrow(cen) > 0) {
-        cross <- fl[!is.na(fl$prev_c) & !is.na(fl$next_c) &
-                      fl$prev_c != fl$next_c & fl$count >= 3, ]
+      #Cross-district flows (≥3 camps)
+      if (sf && !is.null(fl) && nrow(fl) > 0 && !is.null(cen) && nrow(cen) > 0) {
+        # Non-mutating copies; normalize names consistently
+        cen_norm <- cen
+        fl_norm  <- fl
+        fl_norm$prev_c <- normalise_district(as.character(fl_norm$prev_c))
+        fl_norm$next_c <- normalise_district(as.character(fl_norm$next_c))
+        fl_norm$count  <- suppressWarnings(as.numeric(fl_norm$count))
+        fl_norm$count[is.na(fl_norm$count)] <- 0
+        cen_norm$district <- normalise_district(cen_norm$district)
+        
+        cross <- fl_norm[
+          fl_norm$prev_c != fl_norm$next_c &
+            !is.na(fl_norm$prev_c) &
+            !is.na(fl_norm$next_c) &
+            fl_norm$count >= 3,
+        ]
+        
         if (nrow(cross) > 0) {
-          max_cnt <- max(cross$count, 1)
+          cen_map <- split(cen_norm, cen_norm$district)
+          
           for (i in seq_len(nrow(cross))) {
-            from <- cen[cen$district == cross$prev_c[i], ]
-            to   <- cen[cen$district == cross$next_c[i], ]
-            if (nrow(from) == 0 || nrow(to) == 0) next
-            wt   <- 1.5 + log(cross$count[i] + 1) * 0.9
-            mid  <- c((from$lat + to$lat) / 2 + (to$lon - from$lon) * 0.05,
-                      (from$lon + to$lon) / 2 - (to$lat - from$lat) * 0.05)
+            from_df <- cen_map[[ cross$prev_c[i] ]]
+            to_df   <- cen_map[[ cross$next_c[i] ]]
+            
+            # Skip if either side missing
+            if (is.null(from_df) || is.null(to_df)) next
+            
+            # Use first row explicitly; cast to numeric
+            from_lon <- suppressWarnings(as.numeric(from_df$lon[1]))
+            from_lat <- suppressWarnings(as.numeric(from_df$lat[1]))
+            to_lon   <- suppressWarnings(as.numeric(to_df$lon[1]))
+            to_lat   <- suppressWarnings(as.numeric(to_df$lat[1]))
+            if (is.na(from_lon) || is.na(from_lat) || is.na(to_lon) || is.na(to_lat)) next
+            
+            # Gentle curvature
+            mid_lat <- (from_lat + to_lat) / 2 + (to_lon - from_lon) * 0.05
+            mid_lon <- (from_lon + to_lon) / 2 - (to_lat - from_lat) * 0.05
+            
+            # Width scales with volume
+            wt <- 1.2 + log(cross$count[i] + 1) * 0.9
+            
+            # Black outline
             proxy |>
               addPolylines(
-                lng = c(from$lon, mid[2], to$lon),
-                lat = c(from$lat, mid[1], to$lat),
-                color = "#000000", weight = wt + 2, opacity = 0.28,
+                lng = c(from_lon, mid_lon, to_lon),
+                lat = c(from_lat, mid_lat, to_lat),
+                color  = "#000000",
+                weight = wt + 2,
+                opacity = 0.25,
+                smoothFactor = 1,
                 group = "flows"
-              ) |>
+              )
+            
+            # Orange arrow
+            proxy |>
               addPolylines(
-                lng = c(from$lon, mid[2], to$lon),
-                lat = c(from$lat, mid[1], to$lat),
-                color = "#d97706", weight = wt, opacity = 0.92,
-                label = paste0(cross$prev_c[i], " \u2192 ", cross$next_c[i],
-                               ": ", cross$count[i], " camps"),
+                lng = c(from_lon, mid_lon, to_lon),
+                lat = c(from_lat, mid_lat, to_lat),
+                color  = "#d97706",
+                weight = wt,
+                opacity = 0.92,
+                smoothFactor = 1,
+                label = paste0(cross$prev_c[i], " → ", cross$next_c[i], ": ", cross$count[i], " camps"),
                 group = "flows"
               )
           }
         }
       }
+      
     })
     
     # ── Basemap switcher ──────────────────────────────────────────────────────
     observeEvent(input$basemap, {
-      tile_url <- switch(input$basemap,
-                         "carto-light"   = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-                         "carto-dark"    = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-                         "osm"           = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                         "satellite"     = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                         "carto-voyager" = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-      )
-      if (!is.null(tile_url))
-        leafletProxy(ns("mov_map")) |>
+      basemap_key <- Sys.getenv("BASEMAP_API_KEY")
+  
+    tile_url <- switch(input$basemap,
+      "carto-light"   = paste0("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=", basemap_key),
+      "carto-dark"    = paste0("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=", basemap_key),
+      "osm"           = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "satellite"     = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "carto-voyager" = paste0("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=", basemap_key)
+    )
+  
+    if (!is.null(tile_url)) {
+      leafletProxy(ns("mov_map")) |>
         removeTiles(layerId = "base") |>
         addTiles(urlTemplate = tile_url, layerId = "base")
-    })
+    }
+  })
     
     # ── Year badge ────────────────────────────────────────────────────────────
     output$yr_badge <- renderUI({
-      span(class = "bdg b-tel",
-           if (yr() == "all") "All time" else yr())
+      span(class = "bdg b-tel", if (yr() == "all") "All time" else yr())
     })
     
-    # ── AI insights (rendered from shared insights rv) ──────────────────────────
+    # ── AI insights (rendered from shared insights rv) ────────────────────────
     render_insight(output, "key_finding", insights, "movement_key",
-                   fallback = "<strong>Movement patterns loading…</strong>",
-                   class = "insight")
+                   fallback = "<strong>Movement patterns loading…</strong>", class = "insight")
     
     render_insight(output, "cross_border", insights, "cross_border",
-                   fallback = "<strong>Cross-border analysis loading…</strong>",
-                   class = "insight")
+                   fallback = "<strong>Cross-border analysis loading…</strong>", class = "insight")
     
-    # ── Indegree table         # ── Indegree table (HTML, matches reference) ──────────────────────────────
+    # ── Indegree table ──────────────────────────────
     output$indegree_table_ui <- renderUI({
       ind <- data$indegree[[yr()]]
       if (is.null(ind) || nrow(ind) == 0) return(p("No data"))
@@ -302,28 +385,27 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
                 div(style = paste0("width:60px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden"),
                     div(style = paste0("width:", pct, "%;height:100%;background:#0d9488;border-radius:3px"))
                 ),
-                tags$span(style = "font-size:10px;color:var(--muted)",
-                          paste0(pct, "%"))
+                tags$span(style = "font-size:10px;color:var(--muted)", paste0(pct, "%"))
             )
           )
         )
       })
       
-      tags$table(class = "zd-tbl",
-                 tags$thead(tags$tr(
-                   tags$th("#"),
-                   tags$th("District"),
-                   tags$th(class = "tr", "Indegree"),
-                   tags$th("Centrality")
-                 )),
-                 do.call(tags$tbody, rows)
+      tags$table(
+        class = "zd-tbl",
+        tags$thead(tags$tr(
+          tags$th("#"),
+          tags$th("District"),
+          tags$th(class = "tr", "Indegree"),
+          tags$th("Centrality")
+        )),
+        do.call(tags$tbody, rows)
       )
     })
     
     # ── Season badge ──────────────────────────────────────────────────────────
     output$season_badge <- renderUI({
-      span(class = "bdg b-tel",
-           if (yr() == "all") "All time" else yr())
+      span(class = "bdg b-tel", if (yr() == "all") "All time" else yr())
     })
     
     # ── Season boxes ──────────────────────────────────────────────────────────
@@ -332,10 +414,10 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
       if (is.null(s)) return(NULL)
       
       seasons_meta <- list(
-        list(key = "Deyr",   icon = "\u2614", label = "Deyr",   period = "October \u2013 November", color = COL_RED),
-        list(key = "Guul",   icon = "\U0001F331", label = "Guu\u2019l", period = "April \u2013 June",     color = COL_GREEN),
-        list(key = "Jilaal", icon = "\u2744",  label = "Jilaal", period = "December \u2013 March",   color = COL_BLUE),
-        list(key = "Xaaga",  icon = "\u2600",  label = "Xaaga",  period = "July \u2013 September",   color = COL_ORANGE)
+        list(key = "Deyr",   icon = "\u2614",  label = "Deyr",   period = "October \u2013 November", color = COL_RED),
+        list(key = "Guul",   icon = "\U0001F331", label = "Guu\u2019l", period = "April \u2013 June",  color = COL_GREEN),
+        list(key = "Jilaal", icon = "\u2744",  label = "Jilaal", period = "December \u2013 March",  color = COL_BLUE),
+        list(key = "Xaaga",  icon = "\u2600",  label = "Xaaga",  period = "July \u2013 September",  color = COL_ORANGE)
       )
       
       boxes <- lapply(seasons_meta, function(m) {
@@ -344,52 +426,58 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
         pct  <- if (!is.null(vals) && !is.null(vals$pct))   vals$pct   else 0L
         div(class = "season-box",
             style = paste0("border-left: 3px solid ", m$color),
-            div(class = "season-label",
-                style = paste0("color:", m$color),
-                paste(m$icon, m$label)),
+            div(class = "season-label", style = paste0("color:", m$color), paste(m$icon, m$label)),
             div(class = "season-period", m$period),
-            div(class = "season-value",
-                format(cnt, big.mark = ",")),
+            div(class = "season-value", format(cnt, big.mark = ",")),
             div(class = "season-sub", paste0(pct, "% of exits"))
         )
       })
       div(class = "season-grid", tagList(boxes))
     })
     
-    # ── Migratory routes ──────────────────────────────────────────────────────
+    # ── Migratory routes table (3+ camps) ───────────────────────────────
     output$routes_list <- renderUI({
-      rt <- data$routes[[yr()]]
-      # routes is a list of lists: list(list(n="...", c=123), ...)
-      if (is.null(rt) || length(rt) == 0) {
+      # Use flows instead of ODK route_name because route_name is mostly empty
+      rt <- data$flows[[yr()]]
+      if (is.null(rt) || nrow(rt) == 0) {
         return(div(class = "muted", "No route data available."))
       }
-      # Handle both transposed format and direct list format
-      if (is.list(rt) && !is.null(rt[[1]]$n)) {
-        names_v  <- sapply(rt, `[[`, "n")
-        counts_v <- sapply(rt, `[[`, "c")
-      } else {
-        return(div(class = "muted", "No route data available."))
-      }
-      valid    <- !is.na(names_v) & names_v != ""
-      names_v  <- names_v[valid]
-      counts_v <- counts_v[valid]
-      if (length(names_v) == 0) return(div(class = "muted", "No route data available."))
-      max_c <- max(counts_v, 1)
       
-      items <- mapply(function(n, c, i) {
+      # Normalize and filter
+      rt <- rt |>
+        dplyr::mutate(
+          prev_c = normalise_district(prev_c),
+          next_c = normalise_district(next_c)
+        ) |>
+        dplyr::filter(count >= 3) |>
+        dplyr::mutate(route = paste(prev_c, "→", next_c))
+      
+      # If no surviving routes
+      if (nrow(rt) == 0) {
+        return(div(class = "muted", "No high-volume migratory routes."))
+      }
+      
+      # Sort by count most traveled first
+      rt <- rt |>
+        dplyr::arrange(dplyr::desc(count))
+      
+      max_c <- max(rt$count, 1)
+      
+      # Build UI rows
+      items <- mapply(function(route_label, c, i) {
         pct <- round(100 * c / max_c)
         div(class = "route-row",
             div(class = "route-rank", i),
-            div(class = "route-name", n),
+            div(class = "route-name", route_label),
             div(class = "route-bar",
                 div(class = "route-fill", style = paste0("width:", pct, "%"))
             ),
             div(class = "route-count", c)
         )
-      }, names_v, counts_v, seq_along(names_v), SIMPLIFY = FALSE)
+      }, rt$route, rt$count, seq_len(nrow(rt)), SIMPLIFY = FALSE)
       
-      do.call(div, c(list(class = "routes-list"), items))
+      div(class = "routes-list", items)
     })
     
-  })
-}
+  })  
+}     

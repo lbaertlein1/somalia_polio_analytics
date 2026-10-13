@@ -1,5 +1,7 @@
 # app.R
 # Note: global.R is sourced automatically by Shiny — do not source it here
+library(shiny)
+
 
 ui <- tagList(
   tags$head(
