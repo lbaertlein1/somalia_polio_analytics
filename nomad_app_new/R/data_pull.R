@@ -23,6 +23,16 @@ rename_flexible <- function(df, pattern, new_name) {
   else df
 }
 
+write_csv_safely <- function(data, path, ...) {
+  tryCatch({
+    utils::write.csv(data, path, ...)
+    TRUE
+  }, error = function(e) {
+    warning("Could not write ", path, ": ", conditionMessage(e), call. = FALSE)
+    FALSE
+  })
+}
+
 parse_survey_date <- function(x) {
   if (inherits(x, "Date")) return(as.Date(x))
   if (inherits(x, "POSIXt")) return(lubridate::as_date(x))
@@ -89,8 +99,10 @@ for (field in list_cols) {
   }, character(1))
 }
 if (!dir.exists("data")) dir.create("data")
-utils::write.csv(odk_camps_csv, "data/odk_camps_current.csv", row.names = FALSE, na = "")
-message("  Saved fresh ODK camp download to data/odk_camps_current.csv")
+if (write_csv_safely(odk_camps_csv, "data/odk_camps_current.csv",
+                     row.names = FALSE, na = "")) {
+  message("  Saved fresh ODK camp download to data/odk_camps_current.csv")
+}
 
 historical_camps_path <- file.path(
   "data", "ODK_Data_2024_2025_2026_cleanUp_18Aug26(Survey Data_Clean).csv"
@@ -397,6 +409,8 @@ camps <- camps_raw |>
     # Normalise recorded district names via crosswalk
     next_district    = normalise_district(next_district),
     prev_district    = normalise_district(prev_district),
+    test_district = !is.na(enum_district) &
+      tolower(trimws(as.character(enum_district))) == "test",
     enum_district = normalise_district(
       dplyr::na_if(trimws(as.character(enum_district)), "")
     )
@@ -444,13 +458,13 @@ camp_appearance_counts <- camps |>
   dplyr::filter(!is.na(camp_code), trimws(camp_code) != "") |>
   dplyr::count(camp_code, camp_name, district, name = "appearances") |>
   dplyr::arrange(dplyr::desc(appearances), camp_code)
-utils::write.csv(camp_appearance_counts, "camp_appearance_counts.csv", row.names = FALSE)
+write_csv_safely(camp_appearance_counts, "camp_appearance_counts.csv", row.names = FALSE)
 
 camp_appearance_counts_by_source <- camps |>
   dplyr::filter(!is.na(camp_code), trimws(camp_code) != "") |>
   dplyr::count(data_source, camp_code, camp_name, district, name = "appearances") |>
   dplyr::arrange(data_source, dplyr::desc(appearances), camp_code)
-utils::write.csv(camp_appearance_counts_by_source,
+write_csv_safely(camp_appearance_counts_by_source,
                  "camp_appearance_counts_by_source.csv", row.names = FALSE)
 message("  Wrote camp appearance summaries to the working directory")
 
@@ -695,8 +709,9 @@ perf_table <- purrr::map(years, function(yr) {
 district_coverage_gap <- dplyr::bind_rows(perf_table, .id = "year") |>
   dplyr::select(year, district, zd_identified = zd_id,
                 vaccinated, gap, coverage_pct = cov_pct)
-utils::write.csv(district_coverage_gap, "district_coverage_gap.csv", row.names = FALSE)
-message("  Saved District Coverage Gap table to district_coverage_gap.csv")
+if (write_csv_safely(district_coverage_gap, "district_coverage_gap.csv", row.names = FALSE)) {
+  message("  Saved District Coverage Gap table to district_coverage_gap.csv")
+}
 
 
 # ── ZD-RI vs ZD-Polio by district from outreach report ────────────────────────
@@ -816,9 +831,42 @@ dist_monthly <- outreach |>
   )
 
 camp_gps <- camps |>
-  dplyr::filter(!is.na(lat), !is.na(lon), lat != 0, lon != 0) |>
-  dplyr::select(id, lat, lon, district, year,
+  dplyr::filter(!test_district, !is.na(lat), !is.na(lon), lat != 0, lon != 0) |>
+  dplyr::select(id, lat, lon, district = enum_district, year,
                 zd_0to11, zd_12to59, pop_0to11, pop_12to59)
+
+if (!is.null(districts_sf) && nrow(camp_gps) > 0) {
+  camp_gps_sf <- sf::st_as_sf(camp_gps,
+                              coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+  inside_somalia <- lengths(sf::st_intersects(camp_gps_sf, districts_sf)) > 0
+
+  district_means <- sf::st_join(
+    camp_gps_sf[inside_somalia, ],
+    dplyr::select(districts_sf, district_name),
+    join = sf::st_within,
+    left = FALSE
+  ) |>
+    sf::st_drop_geometry() |>
+    dplyr::mutate(polygon_district = normalise_district(district_name)) |>
+    dplyr::filter(!is.na(district), district == polygon_district) |>
+    dplyr::distinct(id, .keep_all = TRUE) |>
+    dplyr::group_by(district) |>
+    dplyr::summarise(
+      mean_lat = mean(lat, na.rm = TRUE),
+      mean_lon = mean(lon, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  camp_gps <- camp_gps |>
+    dplyr::mutate(outside_somalia = !inside_somalia) |>
+    dplyr::left_join(district_means, by = "district") |>
+    dplyr::mutate(
+      coordinates_replaced = outside_somalia & !is.na(mean_lat) & !is.na(mean_lon),
+      lat = dplyr::if_else(coordinates_replaced, mean_lat, lat),
+      lon = dplyr::if_else(coordinates_replaced, mean_lon, lon)
+    ) |>
+    dplyr::select(-outside_somalia, -mean_lat, -mean_lon)
+}
 
 
 out_gps <- outreach |>
@@ -946,3 +994,5 @@ nomad_data <- list(
 
 message("✓ Built nomad_data in memory (", nrow(camps), " camp records, ",
         nrow(outreach), " outreach sessions)")
+saveRDS(nomad_data, "data/nomad_data.rds")
+message("  Saved data/nomad_data.rds")

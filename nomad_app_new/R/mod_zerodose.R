@@ -199,11 +199,13 @@ zerodose_server <- function(id, data, year_filter, insights = NULL) {
     
     # ── Gap map ───────────────────────────────────────────────────────────────
     output$gap_map <- renderLeaflet({
+      basemap_key <- Sys.getenv("BASEMAP_API_KEY")
+      tile_url <- paste0("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=", basemap_key)
+      
       leaflet(options = leafletOptions(scrollWheelZoom = FALSE)) |>
-        addProviderTiles("CartoDB.Positron") |>
+        addTiles(urlTemplate = tile_url, layerId = "base") |>
         setView(lng = 42.5, lat = 4.5, zoom = 7)
     })
-    
     
     observe({
       req(input$gap_yr)

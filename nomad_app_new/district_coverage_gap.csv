@@ -1,10 +1,10 @@
 "year","district","zd_identified","vaccinated","gap","coverage_pct"
 "all","Belet-hawa",1597,527,1070,33
-"all","Baardhere",939,242,697,25.8
+"all","Baardhere",939,249,690,26.5
 "all","Dolow",883,291,592,33
 "all","Elwak",1196,755,441,63.1
 "all","Badhadhe",758,516,242,68.1
-"all","Baidoa",57,545,0,956.1
+"all","Baidoa",57,556,0,975.4
 "all","Beledweyne",219,344,0,157.1
 "all","El Barde",372,755,0,203
 "all","Garbaharey",349,842,0,241.3
@@ -25,8 +25,8 @@
 "2025","Beledweyne",15,0,15,0
 "2025","Baidoa",8,0,8,0
 "2026","Badhadhe",690,516,174,74.8
-"2026","Baardhere",268,242,26,90.3
-"2026","Baidoa",49,545,0,1112.2
+"2026","Baardhere",268,249,19,92.9
+"2026","Baidoa",49,556,0,1134.7
 "2026","Beledweyne",204,344,0,168.6
 "2026","Belet-hawa",501,527,0,105.2
 "2026","Dolow",203,291,0,143.3

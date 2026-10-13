@@ -28,7 +28,18 @@ source("R/mod_zerodose.R")
 source("R/mod_access.R")
 source("R/mod_report.R")
 
-source("R/data_pull.R")
+#rds_path <- "data/nomad_data.rds"
+#pull_error <- tryCatch({
+#  source("R/data_pull.R")
+#  NULL
+#}, error = function(e) e)
+
+#if (!is.null(pull_error)) {
+#  if (!file.exists(rds_path)) stop(pull_error)
+#  warning("Fresh data pull failed; using cached nomad_data.rds: ",
+#          conditionMessage(pull_error), call. = FALSE)
+#  nomad_data <- readRDS(rds_path)
+#}
 
 
 date_labels <- list(

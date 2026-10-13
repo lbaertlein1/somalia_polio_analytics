@@ -337,19 +337,22 @@ movement_server <- function(id, data, year_filter, insights = NULL) {
     
     # ── Basemap switcher ──────────────────────────────────────────────────────
     observeEvent(input$basemap, {
-      tile_url <- switch(input$basemap,
-                         "carto-light"   = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-                         "carto-dark"    = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-                         "osm"           = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                         "satellite"     = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                         "carto-voyager" = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-      )
-      if (!is.null(tile_url)) {
-        leafletProxy(ns("mov_map")) |>
-          removeTiles(layerId = "base") |>
-          addTiles(urlTemplate = tile_url, layerId = "base")
-      }
-    })
+      basemap_key <- Sys.getenv("BASEMAP_API_KEY")
+  
+    tile_url <- switch(input$basemap,
+      "carto-light"   = paste0("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=", basemap_key),
+      "carto-dark"    = paste0("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=", basemap_key),
+      "osm"           = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "satellite"     = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "carto-voyager" = paste0("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=", basemap_key)
+    )
+  
+    if (!is.null(tile_url)) {
+      leafletProxy(ns("mov_map")) |>
+        removeTiles(layerId = "base") |>
+        addTiles(urlTemplate = tile_url, layerId = "base")
+    }
+  })
     
     # ── Year badge ────────────────────────────────────────────────────────────
     output$yr_badge <- renderUI({
