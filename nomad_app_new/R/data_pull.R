@@ -7,7 +7,17 @@
 # Called by global.R on every app startup
 # ─────────────────────────────────────────────────────────────────────────────
 
+# All paths below (.Renviron, data/, R/) are relative to the app folder
+if (!file.exists("R/utils.R") && file.exists("../R/utils.R")) setwd("..")
+if (!file.exists("R/utils.R")) {
+  stop("Run data_pull.R from the nomad_app_new folder (current directory: ",
+       getwd(), ").")
+}
+
 if (file.exists(".Renviron")) readRenviron(".Renviron")
+if (!grepl("^https?://", Sys.getenv("ODKC_URL"))) {
+  stop("ODKC_URL is missing or invalid; check .Renviron in ", getwd())
+}
 
 # Load libs if not already loaded (handles standalone sourcing)
 for (pkg in c("ruODK","dplyr","tidyr","lubridate","sf","httr","jsonlite","stringr","purrr","readxl")) {
@@ -15,7 +25,7 @@ for (pkg in c("ruODK","dplyr","tidyr","lubridate","sf","httr","jsonlite","string
   library(pkg, character.only = TRUE)
 }
 
-if (!exists("normalise_district", mode = "function")) source("R\\utils.R")
+if (!exists("normalise_district", mode = "function")) source("R/utils.R")
 
 rename_flexible <- function(df, pattern, new_name) {
   col <- grep(pattern, names(df), value = TRUE, ignore.case = TRUE)[1]
@@ -536,18 +546,157 @@ filter_year <- function(df, yr, date_col = "year") {
   else df |> dplyr::filter(.data[[date_col]] == as.integer(yr))
 }
 
+# ── Kobo vaccination totals and sex-count validation ─────────────────────────
+vaccination_path <- file.path("data", "kobo_vaccination_data.xlsx")
+if (!file.exists(vaccination_path)) {
+  stop("Kobo vaccination data file not found: ", vaccination_path)
+}
+
+kobo_vaccination_data <- readxl::read_excel(vaccination_path, guess_max = Inf)
+vaccination_columns <- c(
+  "today",
+  "District",
+  "Total number of children vaccinated during the outreach session?",
+  "Total number of Male children vaccinated during this outreach session?",
+  "Total number of Female children vaccinated during this outreach session?"
+)
+missing_vaccination_columns <- setdiff(vaccination_columns, names(kobo_vaccination_data))
+if (length(missing_vaccination_columns) > 0) {
+  stop("Kobo vaccination data is missing required columns: ",
+       paste(missing_vaccination_columns, collapse = ", "))
+}
+
+kobo_vaccination_records <- kobo_vaccination_data |>
+  dplyr::transmute(
+    source_row = dplyr::row_number(),
+    submission_id = if ("_id" %in% names(kobo_vaccination_data)) {
+      as.character(.data[["_id"]])
+    } else {
+      NA_character_
+    },
+    district = as.character(.data[["District"]]),
+    vaccination_date = parse_survey_date(.data[["today"]]),
+    year = lubridate::year(vaccination_date),
+    total_children_vaccinated = suppressWarnings(as.numeric(as.character(
+      .data[["Total number of children vaccinated during the outreach session?"]]
+    ))),
+    male_children_vaccinated = suppressWarnings(as.numeric(as.character(
+      .data[["Total number of Male children vaccinated during this outreach session?"]]
+    ))),
+    female_children_vaccinated = suppressWarnings(as.numeric(as.character(
+      .data[["Total number of Female children vaccinated during this outreach session?"]]
+    ))),
+    source = "kobo"
+  )
+
+# Kobo export ends before camp_cutoff, so hand over to ODK the day after the last Kobo session
+vaccination_cutoff <- max(kobo_vaccination_records$vaccination_date, na.rm = TRUE)
+
+vaccination_mismatches <- kobo_vaccination_records |>
+  dplyr::filter(
+    !is.na(total_children_vaccinated),
+    !is.na(male_children_vaccinated),
+    !is.na(female_children_vaccinated),
+    male_children_vaccinated + female_children_vaccinated != total_children_vaccinated
+  ) |>
+  dplyr::mutate(
+    sex_count_total = male_children_vaccinated + female_children_vaccinated,
+    difference = total_children_vaccinated - sex_count_total
+  )
+
+odk_vaccination_records <- outreach |>
+  dplyr::filter(
+    !grepl("^kobo_", as.character(id)),
+    !is.na(out_date),
+    out_date > vaccination_cutoff
+  ) |>
+  dplyr::transmute(
+    source_row = NA_integer_,
+    submission_id = as.character(id),
+    district = as.character(out_district),
+    vaccination_date = out_date,
+    year = lubridate::year(out_date),
+    total_children_vaccinated = suppressWarnings(as.numeric(zd_vaccinated)),
+    male_children_vaccinated = NA_real_,
+    female_children_vaccinated = NA_real_,
+    source = "odk"
+  )
+
+vaccination_records <- dplyr::bind_rows(
+  kobo_vaccination_records,
+  odk_vaccination_records
+)
+
+first_odk_vaccination <- suppressWarnings(min(odk_vaccination_records$vaccination_date, na.rm = TRUE))
+message("  Vaccination sources: Kobo through ", format(vaccination_cutoff, "%d %b %Y"),
+        " (", nrow(kobo_vaccination_records), " sessions); ODK after that (",
+        nrow(odk_vaccination_records), " sessions, first on ",
+        if (is.finite(first_odk_vaccination)) format(first_odk_vaccination, "%d %b %Y") else "none",
+        ")")
+if (is.finite(first_odk_vaccination) && first_odk_vaccination > vaccination_cutoff + 1) {
+  message("  Vaccination data gap: ", format(vaccination_cutoff + 1, "%d %b %Y"), " to ",
+          format(first_odk_vaccination - 1, "%d %b %Y"), " (",
+          as.integer(first_odk_vaccination - vaccination_cutoff - 1), " days with no sessions)")
+}
+
+vaccination_by_year <- vaccination_records |>
+  dplyr::filter(!is.na(year)) |>
+  dplyr::group_by(year) |>
+  dplyr::summarise(
+    sessions = dplyr::n(),
+    total_children_vaccinated = sum(total_children_vaccinated, na.rm = TRUE),
+    male_children_vaccinated = sum(male_children_vaccinated, na.rm = TRUE),
+    female_children_vaccinated = sum(female_children_vaccinated, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+vaccination_by_district_year <- vaccination_records |>
+  dplyr::filter(!is.na(year), !is.na(district), trimws(district) != "") |>
+  dplyr::mutate(district = normalise_district(trimws(district))) |>
+  dplyr::filter(!is.na(district), district != "") |>
+  dplyr::group_by(year, district) |>
+  dplyr::summarise(
+    sessions = dplyr::n(),
+    total_children_vaccinated = sum(total_children_vaccinated, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+vaccination_without_district <- vaccination_records |>
+  dplyr::filter(
+    !is.na(total_children_vaccinated), total_children_vaccinated != 0,
+    is.na(district) | trimws(district) == ""
+  )
+if (nrow(vaccination_without_district) > 0) {
+  warning(nrow(vaccination_without_district), " vaccination session(s) with ",
+          sum(vaccination_without_district$total_children_vaccinated, na.rm = TRUE),
+          " total vaccination(s) have no district and are excluded from district coverage.",
+          call. = FALSE)
+}
+
+if (write_csv_safely(vaccination_mismatches,
+                     "data/kobo_vaccination_mismatches.csv", row.names = FALSE)) {
+  message("  Saved Kobo vaccination count checks to data/kobo_vaccination_mismatches.csv")
+}
+if (nrow(vaccination_mismatches) > 0) {
+  warning(nrow(vaccination_mismatches),
+          " Kobo vaccination record(s) have male + female counts that do not equal the total; ",
+          "see data/kobo_vaccination_mismatches.csv", call. = FALSE)
+}
+
 # ── KPI aggregates ────────────────────────────────────────────────────────────
 kpi <- purrr::map(years, function(yr) {
   c_yr <- filter_year(camps, yr)
-  o_yr <- filter_year(outreach, yr)
+  vaccination_yr <- filter_year(vaccination_by_year, yr)
+  total_vaccinated <- sum(vaccination_yr$total_children_vaccinated, na.rm = TRUE)
   list(
     camps      = nrow(c_yr),
     pop        = sum(c_yr$pop_0to11 + c_yr$pop_12to59, na.rm = TRUE),
     zd_total   = sum(c_yr$zd_0to11 + c_yr$zd_12to59, na.rm = TRUE),
     zd_011     = sum(c_yr$zd_0to11,  na.rm = TRUE),
     zd_1259    = sum(c_yr$zd_12to59, na.rm = TRUE),
-    sessions   = nrow(o_yr),
-    vaccinated = sum(o_yr$zd_vaccinated, na.rm = TRUE)  # alias
+    sessions   = sum(vaccination_yr$sessions, na.rm = TRUE),
+    vaccinated = total_vaccinated,
+    total_children_vaccinated = total_vaccinated
   )
 }) |> purrr::set_names(years)
 
@@ -651,6 +800,16 @@ out_by_dist <- purrr::map(years, function(yr) {
     dplyr::filter(!is.na(district))
 }) |> purrr::set_names(years)
 
+# Combined historical Kobo and post-cutoff ODK vaccination counts by district/year.
+coverage_out_by_dist <- purrr::map(years, function(yr) {
+  filter_year(vaccination_by_district_year, yr) |>
+    dplyr::group_by(district) |>
+    dplyr::summarise(
+      sessions = sum(sessions, na.rm = TRUE),
+      zd_vaccinated = sum(total_children_vaccinated, na.rm = TRUE),
+      .groups = "drop"
+    )
+}) |> purrr::set_names(years)
 
 # ── Performance table (ZD identified vs vaccinated by outreach) ───────────────
 perf_table <- purrr::map(years, function(yr) {
@@ -667,7 +826,7 @@ perf_table <- purrr::map(years, function(yr) {
     )
   
   # ZD vaccinated outreach
-  out <- out_by_dist[[yr]] |>
+  out <- coverage_out_by_dist[[yr]] |>
     dplyr::mutate(
       district = normalise_district(trimws(as.character(district)))
     ) |>
@@ -963,6 +1122,11 @@ if (!is.null(districts_sf)) {
 # ── Bundle and save ───────────────────────────────────────────────────────────
 nomad_data <- list(
   kpi               = kpi,
+  kobo_vaccination_data = kobo_vaccination_records,
+  vaccination_records = vaccination_records,
+  vaccination_by_year = vaccination_by_year,
+  vaccination_by_district_year = vaccination_by_district_year,
+  vaccination_mismatches = vaccination_mismatches,
   zd_by_dist        = zd_by_dist,
   flows             = flows,
   indegree          = indegree,
@@ -986,6 +1150,7 @@ nomad_data <- list(
   states_geojson    = states_geojson,
   pulled_at         = Sys.time(),
   camp_source_cutoff = camp_cutoff,
+  vaccination_source_cutoff = vaccination_cutoff,
   latest_submission = max(
     suppressWarnings(lubridate::as_datetime(camps$system_submission_date)),
     na.rm = TRUE
