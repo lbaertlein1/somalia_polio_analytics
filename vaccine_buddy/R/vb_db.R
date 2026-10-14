@@ -232,7 +232,7 @@ vb_get_places <- function(run_id, district_name = NULL, health_area_name = NULL)
   d <- .q(paste(sql, 'ORDER BY district_name, health_area_name, place_no'), params)
   if (nrow(d) == 0) return(NULL)
   out <- sf::st_as_sf(d, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
-  out$outline <- do.call(c, lapply(d$geom, function(g) sf::st_geometry(geojsonsf::geojson_sf(g))))
+  out$outline <- sf::st_cast(do.call(c, lapply(d$geom, function(g) sf::st_geometry(geojsonsf::geojson_sf(g)))), 'MULTIPOLYGON')
   out$geom <- NULL
   out
 }

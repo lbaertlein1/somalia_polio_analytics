@@ -228,6 +228,7 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
       places$near_idp <- ifelse(d <= params$idp_near_m, idp$idp_name[nn], NA_character_)
     }
     places$district_name <- ha$district_name[1]
+    places$outline <- .clip_to_areas(places, ha, teams, epsg)
     places <- assign_teams(places, p, epsg, homes)
   }
 
@@ -238,13 +239,63 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
   list(places = places, coverage = coverage)
 }
 
+#' Splitting by distance (k-means) can leave a place in disconnected bits.
+#' Each extra bit is moved to the neighbouring place it shares an edge with
+#' (same health / team area), or becomes a place of its own if it touches
+#' none -- so every place is one connected shape.
+.make_contiguous <- function(m, r) {
+  next_key <- max(m$place_key)
+  for (k in unique(m$place_key)) {
+    idx <- which(m$place_key == k)
+    if (length(idx) < 2) next
+    piece_r <- terra::init(r, NA)
+    piece_r[m$cell[idx]] <- 1
+    comp <- terra::patches(piece_r, directions = 4)[m$cell[idx]][, 1]
+    if (length(unique(comp)) == 1) next
+    main <- as.integer(names(which.max(table(comp))))
+    for (cv in setdiff(unique(comp), main)) {
+      frag <- idx[comp == cv]
+      nb_cells <- as.vector(terra::adjacent(r, m$cell[frag], directions = 4))
+      nb <- match(nb_cells, m$cell)
+      nb <- nb[!is.na(nb) & m$place_key[nb] != k & m$group[nb] == m$group[frag[1]]]
+      if (length(nb)) m$place_key[frag] <- as.integer(names(which.max(table(m$place_key[nb]))))
+      else { next_key <- next_key + 1L; m$place_key[frag] <- next_key }
+    }
+  }
+  m
+}
+
+#' Place outlines trimmed to their health area (and team area, where one is
+#' mapped), so edges follow the real boundaries instead of grid squares.
+#' Returned as MULTIPOLYGON, EPSG:4326.
+.clip_to_areas <- function(places, ha, teams, epsg) {
+  ha_m <- sf::st_transform(ha, epsg)
+  te_m <- if (!is.null(teams) && nrow(teams) > 0) sf::st_transform(teams, epsg) else NULL
+  out <- sf::st_transform(places$outline, epsg)
+  res <- lapply(seq_along(out), function(i) {
+    area <- sf::st_union(sf::st_geometry(ha_m[ha_m$health_area == places$health_area[i], ]))
+    if (!is.na(places$team_area[i]) && !is.null(te_m)) {
+      tp <- te_m[te_m$team_area == places$team_area[i] & te_m$health_area == places$health_area[i], ]
+      if (nrow(tp)) area <- sf::st_intersection(area, sf::st_union(sf::st_geometry(tp)))
+    }
+    g <- tryCatch(suppressWarnings(sf::st_intersection(sf::st_make_valid(out[i]), sf::st_make_valid(area))), error = function(e) NULL)
+    g <- if (!is.null(g) && length(g)) tryCatch(sf::st_collection_extract(g, 'POLYGON'), error = function(e) g) else NULL
+    if (is.null(g) || !length(g) || all(sf::st_is_empty(g))) out[i] else sf::st_union(g)
+  })
+  g <- sf::st_cast(sf::st_transform(do.call(c, res), 4326), 'MULTIPOLYGON')
+  # Fill holes ("donuts" around a visited or empty square): one solid shape
+  # per place, easier to read and to walk. Child counts are unaffected.
+  sf::st_sfc(sfheaders::sf_remove_holes(g), crs = 4326)
+}
+
 missed_places <- function(cells, r, params, epsg) {
   m <- cells[cells$missed, ]
   if (nrow(m) == 0) return(NULL)
 
   missed_r <- terra::init(r, NA)
   missed_r[m$cell] <- 1
-  m$patch <- terra::patches(missed_r, directions = 8)[m$cell][, 1]
+  # cells join only across a shared edge (not corner to corner)
+  m$patch <- terra::patches(missed_r, directions = 4)[m$cell][, 1]
   m$group <- as.integer(factor(paste(m$patch, m$ha_id, m$team_area)))
 
   xy <- terra::xyFromCell(r, m$cell)   # metres (UTM)
@@ -264,6 +315,7 @@ missed_places <- function(cells, r, params, epsg) {
     m$sub[idx] <- withr::with_seed(1, stats::kmeans(pts, centers = k, nstart = 3)$cluster)
   }
   m$place_key <- as.integer(factor(paste(m$group, m$sub)))
+  m <- .make_contiguous(m, r)
 
   agg <- m |>
     dplyr::group_by(place_key) |>
