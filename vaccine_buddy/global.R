@@ -62,7 +62,7 @@ DEFAULT_PARAMS <- list(
   max_gap_min     = 10,    # join consecutive fixes into a track only if this close in time...
   max_link_m      = 300,   # ...and in distance
   cell_m          = 100,   # grid cell size (m); a cell is visited if a walking-speed GPS point falls inside it
-  min_u5_cell     = 0.5,   # WorldPop under-5 count for a cell to count as populated
+  min_u5_cell     = 1,     # WorldPop under-5 count for a cell to count as populated (below 1 = unpopulated)
   max_place_cells = 25,    # larger missed areas are split into places of about this many cells (~450 m across)...
   max_place_children = 250, # ...or about this many estimated children under 5, whichever gives more places
   min_place_u5    = 10,    # drop missed places with fewer estimated under-5s (Aug 2026: drops 9 of 57 places, 2% of missed children)
@@ -70,7 +70,9 @@ DEFAULT_PARAMS <- list(
   idp_near_m      = 100,   # flag places this close to an IDP site ("at" a site -- in Mogadishu IDP sites are a few hundred m apart)
   place_name_max_m = 300,  # describe a place from the nearest local place name (campaign monitoring) or IDP site within this distance...
   label_max_m     = 3000,  # ...else from a health facility / IDP site within this distance
-  exclude_teams   = 'FETP' # GPS from teams whose name contains this (FETP monitors) doesn't count as visits
+  exclude_teams   = 'FETP', # GPS from teams whose name contains this (FETP monitors) doesn't count as visits
+  no_home_teams   = 'Surge' # teams whose name contains this vaccinate (GPS counts as visits) but belong to no
+                            # health area, so missed places are never assigned to them
 )
 
 # --- Code -----------------------------------------------------------------------

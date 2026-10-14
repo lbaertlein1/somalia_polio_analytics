@@ -75,13 +75,16 @@ local_name_landmarks <- function(names_df) {
 #' allowing for spelling differences (MOGADISHO / Mogadishu, SHUUFAC /
 #' Shufac); only names that can't be matched fall back to where the team
 #' logged the most walking-speed GPS points. data.frame(team_name, health_area).
-team_homes <- function(p, ha_r, ha, epsg) {
+team_homes <- function(p, ha_r, ha, epsg, no_home = '') {
   none <- data.frame(team_name = character(0), health_area = character(0))
   p <- p[!p$moving_fast & !is.na(p$team_name), ]
   if (nrow(p) == 0) return(none)
   p$ha_id <- terra::extract(ha_r, .to_utm(p$lon, p$lat, epsg))[, 1]
   counts <- dplyr::count(p[!is.na(p$ha_id), ], team_name, ha_id)
   team_names <- base::unique(p$team_name)
+  # e.g. Surge teams: their GPS counts as visits, but they're nobody's team
+  if (nzchar(no_home)) team_names <- team_names[!grepl(no_home, team_names, ignore.case = TRUE)]
+  if (length(team_names) == 0) return(none)
   ha_keys <- .ha_key(ha$health_area)
   home <- vapply(team_names, function(tn) {
     k <- .team_key(tn)
@@ -200,7 +203,7 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
   # Which health areas had team GPS at all: one with (almost) no points
   # wasn't followed by Vaccine Buddy -- every cell would look "missed".
   # Those are reported, not analysed.
-  homes <- team_homes(p, ha_r, ha, epsg)
+  homes <- team_homes(p, ha_r, ha, epsg, params$no_home_teams %||% '')
   ha_data <- carrier_presence(p, ha_r, ha, params, epsg, homes)
   cells$has_data <- ha_data$has_data[cells$ha_id]
   cells$missed <- cells$populated & !cells$visited & cells$has_data
