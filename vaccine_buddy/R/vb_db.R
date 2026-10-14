@@ -17,6 +17,30 @@ vb_connect <- function() {
 
 # --- Logins (this app's own accounts; scripts/add_user.R adds them) -----------
 
+#' All logins (no password hashes).
+vb_list_users <- function() {
+  .q('SELECT username, display_name, role, created_at FROM users ORDER BY username')
+}
+
+#' Add a login, or update an existing one's name and role. password NULL
+#' keeps the current password (only allowed for existing users).
+vb_save_user <- function(username, display_name, role, password = NULL) {
+  stopifnot(role %in% c('admin', 'user'))
+  if (is.null(password)) {
+    n <- .x('UPDATE users SET display_name = $1, role = $2, updated_at = NOW() WHERE username = $3',
+            list(display_name, role, username))
+    if (n == 0) stop('a new user needs a password')
+  } else {
+    .x('INSERT INTO users (username, password, display_name, role) VALUES ($1, $2, $3, $4)
+        ON CONFLICT (username) DO UPDATE SET password = EXCLUDED.password, display_name = EXCLUDED.display_name,
+                                             role = EXCLUDED.role, updated_at = NOW()',
+       list(username, bcrypt::hashpw(password), display_name, role))
+  }
+  invisible(TRUE)
+}
+
+vb_delete_user <- function(username) .x('DELETE FROM users WHERE username = $1', list(username))
+
 #' Same check as the adjuster's db_validate_credentials(), against this
 #' app's users table. Returns the user's row (username, display_name,
 #' role) or NULL.
@@ -267,9 +291,13 @@ vb_open_dispatch <- function(token, count_open = TRUE) {
         RETURNING dispatch_id, run_id, supervisor_id, supervisor_name, phone', list(token))
   else .q('SELECT dispatch_id, run_id, supervisor_id, supervisor_name, phone FROM dispatches WHERE token = $1', list(token))
   if (nrow(d) != 1) return(NULL)
-  s <- .q('SELECT s.district_name, s.health_area_name, s.campaign_id, r.data_to, r.campaign_name
+  s <- .q('SELECT s.district_name, s.health_area_name, s.campaign_id, r.data_from, r.data_to, r.campaign_name
            FROM supervisors s, analysis_runs r WHERE s.supervisor_id = $1 AND r.run_id = $2',
           list(d$supervisor_id, d$run_id))
+  # The health area's own teams (comma-separated), for their GPS tracks
+  s$teams <- .q("SELECT teams FROM area_coverage WHERE run_id = $1 AND district_name = $2
+                 AND health_area_name = $3 AND team_area_name = ''",
+                list(d$run_id, s$district_name, s$health_area_name))$teams[1] %||% ''
   newer <- .q('SELECT token FROM dispatches WHERE supervisor_id = $1 AND run_id > $2 ORDER BY run_id DESC LIMIT 1',
               list(d$supervisor_id, d$run_id))
   c(as.list(d), as.list(s), list(newer_token = if (nrow(newer)) newer$token[1] else NULL))

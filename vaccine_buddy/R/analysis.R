@@ -59,40 +59,90 @@ local_name_landmarks <- function(names_df) {
   out[!is.na(out$name) & nzchar(out$name), ]
 }
 
+# Health-area and team names reduced to their distinctive part, for
+# matching: "Eldas Health Center" -> "eldas", "ELDAS_HC_T2" -> "eldas",
+# "Foorilow Coordination Site" -> "foorilow", "SHUUFAC_SITE_T1" -> "shuufac".
+.ha_key <- function(x) {
+  x <- gsub('[^a-z]+', ' ', tolower(x))   # "eldas_hc" -> "eldas hc", so the hc word drops below
+  x <- gsub('health cent(er|re)|coordination site|cordination site|cordiniation site|hospital|district|site|centre|center', ' ', x)
+  x <- gsub('\\b(hc|sc|mch|phu)\\b', ' ', x)
+  gsub('[^a-z]', '', x)
+}
+.team_key <- function(x) .ha_key(sub('_T[0-9].*$', '', toupper(trimws(x))))
+
+#' Each team's own health area. Vaccination team names carry their health
+#' area ("ELDAS_HC_T2" -> Eldas Health Center), so that's used first,
+#' allowing for spelling differences (MOGADISHO / Mogadishu, SHUUFAC /
+#' Shufac); only names that can't be matched fall back to where the team
+#' logged the most walking-speed GPS points. data.frame(team_name, health_area).
+team_homes <- function(p, ha_r, ha, epsg) {
+  none <- data.frame(team_name = character(0), health_area = character(0))
+  p <- p[!p$moving_fast & !is.na(p$team_name), ]
+  if (nrow(p) == 0) return(none)
+  p$ha_id <- terra::extract(ha_r, .to_utm(p$lon, p$lat, epsg))[, 1]
+  counts <- dplyr::count(p[!is.na(p$ha_id), ], team_name, ha_id)
+  team_names <- base::unique(p$team_name)
+  ha_keys <- .ha_key(ha$health_area)
+  home <- vapply(team_names, function(tn) {
+    k <- .team_key(tn)
+    if (nchar(k) >= 3 && any(nzchar(ha_keys))) {
+      d <- utils::adist(k, ha_keys)[1, ] / pmax(nchar(k), nchar(ha_keys))
+      best <- which(d == min(d))
+      if (min(d) <= 0.3) {
+        if (length(best) == 1) return(ha$health_area[best])
+        # several equally good (e.g. "... Site 1" / "... Site 2"): where it worked most
+        cb <- counts[counts$team_name == tn & counts$ha_id %in% best, ]
+        if (nrow(cb)) return(ha$health_area[cb$ha_id[which.max(cb$n)]])
+        return(ha$health_area[best[1]])
+      }
+    }
+    c1 <- counts[counts$team_name == tn, ]
+    if (nrow(c1)) ha$health_area[c1$ha_id[which.max(c1$n)]] else NA_character_
+  }, character(1))
+  out <- data.frame(team_name = team_names, health_area = unname(home))
+  out[!is.na(out$health_area), ]
+}
+
 #' Which team each missed place is for: its adjuster team area where one
-#' exists, otherwise the Vaccine Buddy team whose walking-speed GPS fixes
-#' came closest to the place (team_dist_m = that distance).
-assign_teams <- function(places, pings, epsg) {
+#' exists, otherwise the team *of that health area* (team_homes) whose
+#' walking-speed GPS points came closest to the place -- so a supervisor is
+#' only ever given their own teams. A health area with no teams of its own
+#' in the data gets no team (never another health area's). team_dist_m =
+#' that distance.
+assign_teams <- function(places, pings, epsg, homes) {
   places$assigned_team <- places$team_area
   places$team_source <- ifelse(is.na(places$team_area), NA_character_, 'team area')
   places$team_dist_m <- NA_real_
-  todo <- which(is.na(places$assigned_team))
   fixes <- pings[!pings$moving_fast & !is.na(pings$team_name), ]
-  if (length(todo) == 0 || nrow(fixes) == 0) return(places)
+  if (!any(is.na(places$assigned_team)) || nrow(fixes) == 0) return(places)
   fx <- sf::st_transform(sf::st_as_sf(fixes[, c('lon', 'lat', 'team_name')], coords = c('lon', 'lat'), crs = 4326), epsg)
-  outl <- sf::st_transform(places$outline[todo], epsg)
-  nn <- sf::st_nearest_feature(outl, fx)
-  places$assigned_team[todo] <- fx$team_name[nn]
-  places$team_source[todo] <- 'nearest carrier'
-  places$team_dist_m[todo] <- round(as.numeric(sf::st_distance(outl, fx[nn, ], by_element = TRUE)))
+  for (h in unique(places$health_area[is.na(places$assigned_team)])) {
+    todo <- which(is.na(places$assigned_team) & places$health_area == h)
+    cand <- fx[fx$team_name %in% homes$team_name[homes$health_area == h], ]
+    if (nrow(cand) == 0) next
+    outl <- sf::st_transform(places$outline[todo], epsg)
+    nn <- sf::st_nearest_feature(outl, cand)
+    places$assigned_team[todo] <- cand$team_name[nn]
+    places$team_source[todo] <- 'nearest carrier'
+    places$team_dist_m[todo] <- round(as.numeric(sf::st_distance(outl, cand[nn, ], by_element = TRUE)))
+  }
   places
 }
 
-#' Usable fixes, carriers and team names per health area (one row per
-#' health area, in ha_id order).
-carrier_presence <- function(p, ha_r, ha, params, epsg) {
+#' Usable fixes, carriers and teams per health area (one row per health
+#' area, in ha_id order). `teams` = the teams whose own health area this is
+#' (team_homes()).
+carrier_presence <- function(p, ha_r, ha, params, epsg, homes) {
   out <- data.frame(health_area = ha$health_area, n_fixes = 0L, n_devices = 0L, teams = '')
   p <- p[!p$moving_fast, ]
   if (nrow(p) > 0) {
     p$ha_id <- terra::extract(ha_r, .to_utm(p$lon, p$lat, epsg))[, 1]
-    # teams listed only where they logged 50+ fixes, not just passed through
     s <- p[!is.na(p$ha_id), ] |>
-      dplyr::count(ha_id, device_id, team_name) |>
       dplyr::group_by(ha_id) |>
-      dplyr::summarise(n_fixes = sum(n), n_devices = dplyr::n_distinct(device_id),
-                       teams = paste(sort(unique(stats::na.omit(team_name[n >= 50]))), collapse = ', '), .groups = 'drop')
-    out$n_fixes[s$ha_id] <- s$n_fixes; out$n_devices[s$ha_id] <- s$n_devices; out$teams[s$ha_id] <- s$teams
+      dplyr::summarise(n_fixes = dplyr::n(), n_devices = dplyr::n_distinct(device_id), .groups = 'drop')
+    out$n_fixes[s$ha_id] <- s$n_fixes; out$n_devices[s$ha_id] <- s$n_devices
   }
+  out$teams <- vapply(out$health_area, function(h) paste(sort(homes$team_name[homes$health_area == h]), collapse = ', '), '')
   out$has_data <- out$n_fixes >= params$min_ha_fixes
   out
 }
@@ -150,7 +200,8 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
   # Which health areas had team GPS at all: one with (almost) no points
   # wasn't followed by Vaccine Buddy -- every cell would look "missed".
   # Those are reported, not analysed.
-  ha_data <- carrier_presence(p, ha_r, ha, params, epsg)
+  homes <- team_homes(p, ha_r, ha, epsg)
+  ha_data <- carrier_presence(p, ha_r, ha, params, epsg, homes)
   cells$has_data <- ha_data$has_data[cells$ha_id]
   cells$missed <- cells$populated & !cells$visited & cells$has_data
 
@@ -174,7 +225,7 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
       places$near_idp <- ifelse(d <= params$idp_near_m, idp$idp_name[nn], NA_character_)
     }
     places$district_name <- ha$district_name[1]
-    places <- assign_teams(places, p, epsg)
+    places <- assign_teams(places, p, epsg, homes)
   }
 
   coverage <- area_coverage(cells, places) |>

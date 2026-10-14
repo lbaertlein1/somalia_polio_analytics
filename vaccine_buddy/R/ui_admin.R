@@ -27,8 +27,6 @@ DT_OPTS <- list(paging = FALSE, scrollY = '40vh', scrollX = TRUE, dom = 't')
          team_label(pl$assigned_team))
 }
 
-TRACK_POINT <- '#2563eb'
-TRACK_LINE  <- '#93c5fd'
 
 admin_ui <- function() {
   # One tab = sidebar (first column, grey in styles.css) + main panel
@@ -87,6 +85,8 @@ admin_ui <- function() {
           div(id = 'header-right',
               div(class = 'hdr-sel', span('Campaign'), selectInput('campaign', NULL, choices = NULL, width = '200px')),
               div(class = 'hdr-sel', span('District'), selectInput('district', NULL, choices = NULL, width = '160px')),
+              shinyjs::hidden(tags$button(id = 'hdr_users', class = 'hdr-tab', `data-tab` = 'users',
+                                          style = 'align-self: center; border-radius: 4px; padding: 5px 12px;', icon('users'), ' Users')),
               uiOutput('who', inline = TRUE))),
 
       tabsetPanel(
@@ -119,7 +119,8 @@ admin_ui <- function() {
               radioButtons('trk_day', NULL, choices = c('Off' = 'off'), selected = 'off', inline = TRUE)),
           leafletOutput('an_map', height = '60vh'),
           div(style = 'height: 12px;'),
-          div(class = 'rightbar-title', 'Missed places (click one to see it on the map)'),
+          div(class = 'rightbar-title', style = 'display: flex; justify-content: space-between; align-items: center;',
+              span('Missed places (click one to see it on the map)'), uiOutput('ex_btn', inline = TRUE)),
           DTOutput('an_places')
         )),
 
@@ -153,6 +154,29 @@ admin_ui <- function() {
             uiOutput('send_preview')
           ),
           DTOutput('send_table')
+        )),
+
+        # Admins only (the header button is shown, and every action checked
+        # on the server, only for role = admin)
+        tabPanel('Users', value = 'users', tab_layout(
+          sidebar = tagList(
+            actionButton('u_add', 'Add user', class = 'btn btn-primary', width = '100%', icon = icon('user-plus')),
+            p(class = 'hint', style = 'margin-top: 6px;', 'Or click someone in the table to edit or remove them.'),
+            tags$hr(style = 'margin: 10px 0;'),
+            uiOutput('u_form_title'),
+            div(class = 'mini-label', 'Username (used to sign in)'),
+            textInput('u_username', NULL, width = '100%'),
+            div(class = 'mini-label', 'Name'),
+            textInput('u_display', NULL, width = '100%'),
+            uiOutput('u_pw_label'),
+            passwordInput('u_password', NULL, width = '100%'),
+            div(class = 'mini-label', 'Role'),
+            radioButtons('u_role', NULL, choices = c('Regular' = 'user', 'Admin \u2013 can add and remove users' = 'admin'), selected = 'user'),
+            actionButton('u_save', 'Save', class = 'btn btn-success', width = '100%', icon = icon('floppy-disk')),
+            div(style = 'height: 8px;'),
+            shinyjs::hidden(actionButton('u_delete', 'Remove this user', class = 'btn btn-danger', width = '100%', icon = icon('trash')))
+          ),
+          DTOutput('users_table')
         ))
       )
     ))
@@ -269,6 +293,7 @@ admin_server <- function(input, output, session, auth) {
 
   # --- 1. Find missed places ------------------------------------------------------------
   analysis <- reactiveVal(NULL)
+  excluded <- reactiveVal(integer(0))   # indexes into an$result$places left out (not saved / sent)
   observeEvent(list(campaign_id(), district()), { analysis(NULL); shinyjs::disable('save_run') })
 
   observeEvent(input$run, {
@@ -290,6 +315,7 @@ admin_server <- function(input, output, session, auth) {
         names_df <- tryCatch(vb_load_place_names(sf::st_bbox(a$health_areas)), error = function(e) NULL)
         res <- run_analysis(a, cl$pings, p, u5_rast, place_names = names_df)
         if (!is.null(res$places)) res$places <- res$places[order(res$places$health_area, res$places$place_no), ]
+        excluded(integer(0))
         analysis(list(params = p, clean = cl, result = res, date_from = input$dates[1], date_to = input$dates[2],
                       campaign_id = campaign_id(), district = district(), saved_run_id = NULL))
         shinyjs::enable('save_run')
@@ -312,13 +338,16 @@ admin_server <- function(input, output, session, auth) {
     if (is.null(an)) return(p(class = 'summary', style = 'color: #64748b;',
                               'Choose the days on the left, then click ', tags$b('Find missed places'), '.'))
     pl <- an$result$places
+    n_ex <- length(excluded())
+    if (!is.null(pl) && n_ex) pl <- pl[-excluded(), ]
     ha <- an$result$coverage[an$result$coverage$team_area == '', ]
     no_data <- sort(ha$health_area[!ha$has_data])
     n <- if (is.null(pl)) 0 else nrow(pl)
     p(class = 'summary',
       if (n == 0) tagList(tags$b('No missed places found'), sprintf(' in %s.', an$district))
       else tagList(tags$b(sprintf('%d missed %s', n, if (n == 1) 'place' else 'places')),
-                   sprintf(' in %s, with about %s children under 5.', an$district, .fmt_n(sum(pl$u5_pop)))),
+                   sprintf(' in %s, with about %s children under 5.', an$district, .fmt_n(sum(pl$u5_pop))),
+                   if (n_ex) sprintf(' (%d excluded)', n_ex)),
       if (length(no_data)) span(class = 'muted', sprintf('No team GPS data for %d health %s, so %s skipped: %s.',
                                 length(no_data), if (length(no_data) == 1) 'area' else 'areas',
                                 if (length(no_data) == 1) 'it was' else 'they were', paste(no_data, collapse = ', '))))
@@ -354,6 +383,8 @@ admin_server <- function(input, output, session, auth) {
     pl <- if (is.null(an)) NULL else an$result$places
     if (is.null(pl) || nrow(pl) == 0) return()
     ids <- paste0('p', seq_len(nrow(pl)))
+    ex <- seq_len(nrow(pl)) %in% excluded()
+    fill <- ifelse(ex, '#94a3b8', '#dc2626')
     # Dot shows the place number (as in the list); hover for the details
     badge <- as.character(pl$place_no)
     details <- lapply(sprintf('<b>#%d</b> &middot; %s<br>%s<br>Team that passed closest: %s<br>~%s children under 5',
@@ -361,9 +392,10 @@ admin_server <- function(input, output, session, auth) {
                               htmltools::htmlEscape(.team_closest(pl)), .fmt_n(pl$u5_pop)), htmltools::HTML)
     proxy |>
       addPolygons(data = sf::st_sf(id = ids, geometry = pl$outline), layerId = ids, group = 'places',
-                  color = '#7f1d1d', weight = 1.5, fillColor = '#dc2626', fillOpacity = 0.35, label = details) |>
+                  color = ifelse(ex, '#64748b', '#7f1d1d'), weight = 1.5, dashArray = ifelse(ex, '4 4', ''),
+                  fillColor = fill, fillOpacity = ifelse(ex, 0.15, 0.35), label = details) |>
       addCircleMarkers(data = pl, lng = ~lon, lat = ~lat, layerId = ids, group = 'places', radius = 12,
-                       color = '#fff', weight = 2, fillColor = '#dc2626', fillOpacity = 1, label = details) |>
+                       color = '#fff', weight = 2, fillColor = fill, fillOpacity = 1, label = details) |>
       addLabelOnlyMarkers(data = pl, lng = ~lon, lat = ~lat, group = 'places', label = badge,
                           labelOptions = labelOptions(noHide = TRUE, direction = 'center', textOnly = TRUE,
                                                       style = list(color = '#fff', `font-weight` = '700', `font-size` = '10px', `pointer-events` = 'none')))
@@ -385,19 +417,7 @@ admin_server <- function(input, output, session, auth) {
       pg <- pg[pg$team_name %in% teams, ]
     }
     if (nrow(pg) == 0) return()
-    pg <- pg[order(pg$device_id, pg$ts), ]
-    # A new line wherever the device changes or there's a long gap/jump
-    brk <- c(TRUE, pg$device_id[-1] != pg$device_id[-nrow(pg)]) | is.na(pg$gap_min) |
-      pg$gap_min > an$params$max_gap_min | pg$step_m > an$params$max_link_m
-    pg$seg <- cumsum(brk)
-    segs <- pg[pg$seg %in% pg$seg[duplicated(pg$seg)], c('seg', 'lon', 'lat')]
-    if (nrow(segs) > 0)
-      proxy |> addPolylines(data = sfheaders::sf_linestring(segs, x = 'lon', y = 'lat', linestring_id = 'seg'),
-                            group = 'tracks', color = TRACK_LINE, weight = 1.5, opacity = 0.7)
-    pts <- if (nrow(pg) > 40000) pg[round(seq(1, nrow(pg), length.out = 40000)), ] else pg
-    proxy |> addCircleMarkers(data = pts, lng = ~lon, lat = ~lat, group = 'tracks', radius = 1.8, stroke = FALSE,
-                              fillColor = TRACK_POINT, fillOpacity = 0.7,
-                              popup = ~sprintf('%s<br>%s', team_label(team_name), format(ts, '%a %d %b %H:%M')))
+    add_tracks(proxy, pg, an$params)
   })
 
   # Chosen health area, or '' for all
@@ -467,18 +487,51 @@ admin_server <- function(input, output, session, auth) {
     tbl <- data.frame(`#` = pl$place_no, `Health area` = pl$health_area, Where = pl$label,
                       `Team that passed closest` = .team_closest(pl),
                       Children = ifelse(pl$u5_pop < 10, round(pl$u5_pop), signif(pl$u5_pop, 2)),   # shown as ~1,100
+                      ` ` = ifelse(shown_idx() %in% excluded(), 'Excluded', ''),
                       check.names = FALSE)
     datatable(tbl, rownames = FALSE, selection = 'single', options = DT_OPTS) |>
-      formatCurrency('Children', currency = '~', digits = 0)
+      formatCurrency('Children', currency = '~', digits = 0) |>
+      formatStyle(' ', target = 'row', color = styleEqual('Excluded', '#94a3b8'),
+                  textDecoration = styleEqual('Excluded', 'line-through'))
+  })
+
+  # Exclude / include the selected place (e.g. a market or a compound with
+  # no children). Excluded places aren't saved, so they're never sent.
+  sel_place <- reactive({
+    r <- input$an_places_rows_selected
+    if (length(r) == 1) shown_idx()[r] else NULL
+  })
+  output$ex_btn <- renderUI({
+    i <- sel_place()
+    if (is.null(i)) return(span(style = 'font-size: 11px; font-weight: 400; color: #64748b;', 'Select a place to exclude it'))
+    if (i %in% excluded()) actionButton('ex_toggle', 'Include it again', class = 'btn btn-default btn-xs', icon = icon('rotate-left'))
+    else actionButton('ex_toggle', 'Exclude this place', class = 'btn btn-default btn-xs', icon = icon('ban'))
+  })
+  observeEvent(input$ex_toggle, {
+    i <- sel_place(); req(i)
+    excluded(if (i %in% excluded()) setdiff(excluded(), i) else c(excluded(), i))
+    # changed after saving -> the next save is a new list
+    an <- analysis(); if (!is.null(an$saved_run_id)) { an$saved_run_id <- NULL; analysis(an) }
+    session$onFlushed(function() DT::selectRows(DT::dataTableProxy('an_places'), match(i, isolate(shown_idx()))), once = TRUE)
   })
 
   observeEvent(input$save_run, {
     an <- analysis()
     req(an)
     if (!is.null(an$saved_run_id)) { updateTabsetPanel(session, 'main_tabs', selected = 'send'); return() }
+    result <- an$result
+    if (!is.null(result$places) && length(excluded())) {
+      kept <- result$places[-excluded(), ]
+      kept <- kept[order(kept$health_area, -kept$u5_pop), ]
+      kept$place_no <- stats::ave(seq_len(nrow(kept)), kept$health_area, FUN = seq_along)
+      result$places <- if (nrow(kept)) kept else NULL
+      cnt <- table(kept$health_area)
+      tot <- result$coverage$team_area == ''
+      result$coverage$n_places[tot] <- as.integer(ifelse(is.na(cnt[result$coverage$health_area[tot]]), 0, cnt[result$coverage$health_area[tot]]))
+    }
     run_id <- tryCatch(
       vb_save_run(an$campaign_id, campaign_name(), an$district, an$date_from, an$date_to, an$params, an$clean$report,
-                  an$clean$pings, an$result, user()),
+                  an$clean$pings, result, user()),
       error = function(e) { showNotification(paste('Could not save:', conditionMessage(e)), type = 'error', duration = NULL); NULL })
     req(run_id)
     an$saved_run_id <- run_id
@@ -663,5 +716,92 @@ admin_server <- function(input, output, session, auth) {
             tags$pre(class = 'msg-preview', d$message[i]),
             # &preview=1: your look at their page isn't counted as them opening it
             tags$a(href = paste0(supervisor_link(d$token[i]), '&preview=1'), target = '_blank', icon('up-right-from-square'), ' Open their page'))
+  })
+
+  # --- Users (admins only) ------------------------------------------------------------
+  is_admin <- reactive(identical(auth$role, 'admin'))
+  observe(if (is_admin()) shinyjs::show('hdr_users') else shinyjs::hide('hdr_users'))
+
+  users_changed <- reactiveVal(0)
+  users <- reactive({ users_changed(); req(is_admin()); vb_list_users() })
+
+  output$users_table <- renderDT({
+    u <- users()
+    tbl <- data.frame(Username = u$username, Name = u$display_name,
+                      Role = ifelse(u$role == 'admin', 'Admin', 'Regular'),
+                      Added = format(lubridate::with_tz(u$created_at, ODK_TZ), '%d %b %Y'))
+    datatable(tbl, rownames = FALSE, selection = 'single', options = DT_OPTS)
+  })
+
+  # The form is either adding a new user or editing the one clicked in the
+  # table (username locked, so editing can't rename or create an account).
+  u_mode <- reactiveVal('add')
+  output$u_form_title <- renderUI(div(class = 'rightbar-title',
+    if (u_mode() == 'add') 'Add a new user' else sprintf('Edit %s', input$u_username)))
+  output$u_pw_label <- renderUI(div(class = 'mini-label',
+    if (u_mode() == 'add') 'Password (at least 8 characters)' else 'New password (leave blank to keep the current one)'))
+  observe({
+    shinyjs::toggleState('u_username', u_mode() == 'add')
+    shinyjs::toggle('u_delete', condition = u_mode() == 'edit')
+  })
+
+  # Click a user -> load them into the form for editing
+  observeEvent(input$users_table_rows_selected, {
+    u <- users(); i <- input$users_table_rows_selected
+    req(length(i) == 1)
+    u_mode('edit')
+    updateTextInput(session, 'u_username', value = u$username[i])
+    updateTextInput(session, 'u_display', value = u$display_name[i])
+    updateTextInput(session, 'u_password', value = '')
+    updateRadioButtons(session, 'u_role', selected = u$role[i])
+  })
+
+  clear_user_form <- function() {
+    u_mode('add')
+    for (id in c('u_username', 'u_display', 'u_password')) updateTextInput(session, id, value = '')
+    updateRadioButtons(session, 'u_role', selected = 'user')
+    DT::selectRows(DT::dataTableProxy('users_table'), NULL)
+  }
+  observeEvent(input$u_add, clear_user_form())
+
+  observeEvent(input$u_save, {
+    req(is_admin())
+    uname <- tolower(trimws(input$u_username %||% '')); disp <- trimws(input$u_display %||% '')
+    pw <- input$u_password %||% ''; role <- input$u_role
+    u <- users(); existing <- uname %in% u$username
+    problem <- if (!grepl('^[a-z0-9._-]{2,}$', uname)) 'Username: at least 2 characters, letters/numbers/. _ - only, no spaces.'
+      else if (u_mode() == 'add' && existing) sprintf('There is already a user called %s \u2013 click them in the table to edit.', uname)
+      else if (!nzchar(disp)) 'Please enter a name.'
+      else if (!existing && nchar(pw) < 8) 'New users need a password of at least 8 characters.'
+      else if (nzchar(pw) && nchar(pw) < 8) 'Passwords need at least 8 characters.'
+      else if (existing && role != 'admin' && u$role[u$username == uname] == 'admin' && sum(u$role == 'admin') == 1) 'This is the only admin \u2013 make someone else admin first.'
+      else NULL
+    if (!is.null(problem)) return(showNotification(problem, type = 'error'))
+    ok <- tryCatch({ vb_save_user(uname, disp, role, if (nzchar(pw)) pw else NULL); TRUE },
+                   error = function(e) { showNotification(paste('Could not save:', conditionMessage(e)), type = 'error'); FALSE })
+    if (ok) {
+      showNotification(sprintf('%s %s.', uname, if (existing) 'updated' else 'added'), type = 'message')
+      users_changed(users_changed() + 1); clear_user_form()
+    }
+  })
+
+  observeEvent(input$u_delete, {
+    req(is_admin())
+    u <- users(); i <- input$users_table_rows_selected
+    if (length(i) != 1) return(showNotification('Click the user to remove in the table first.', type = 'warning'))
+    target <- u$username[i]
+    if (identical(target, user())) return(showNotification('You can\'t remove yourself.', type = 'warning'))
+    if (u$role[i] == 'admin' && sum(u$role == 'admin') == 1) return(showNotification('You can\'t remove the only admin.', type = 'warning'))
+    showModal(modalDialog(title = 'Remove user?', sprintf('Remove %s (%s)? They will no longer be able to sign in.', target, u$display_name[i]),
+                          footer = tagList(modalButton('Cancel'), actionButton('u_delete_ok', 'Remove', class = 'btn btn-danger'))))
+  })
+  observeEvent(input$u_delete_ok, {
+    req(is_admin())
+    u <- users(); i <- input$users_table_rows_selected
+    removeModal()
+    req(length(i) == 1, !identical(u$username[i], user()))
+    vb_delete_user(u$username[i])
+    showNotification(sprintf('%s removed.', u$username[i]), type = 'message')
+    users_changed(users_changed() + 1); clear_user_form()
   })
 }

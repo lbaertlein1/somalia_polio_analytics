@@ -86,6 +86,7 @@ supervisor_ui <- function() {
     div(class = 'sup-body',
         div(style = 'display:flex; gap:12px; align-items:center;',
             uiOutput('sup_team_ui', style = 'flex:1'),
+            checkboxInput('sup_tracks', 'Team GPS tracks', value = FALSE),
             checkboxInput('sup_show_closed', 'Show done', value = FALSE)),
         uiOutput('sup_list')),
     uiOutput('sup_pickbar')
@@ -118,7 +119,7 @@ supervisor_server <- function(input, output, session, token) {
     if (is.null(p)) return(p)
     if (length(pick_q)) p <- p[p$place_no %in% pick_q, ]
     if (!is.null(team_q)) p <- p[p$assigned_team %in% team_q, ]
-    if (!team_view && nzchar(input$sup_team %||% '')) p <- p[p$assigned_team %in% input$sup_team, ]
+    if (!team_view && !(input$sup_team %||% 'all') %in% c('all', '')) p <- p[p$assigned_team %in% input$sup_team, ]
     p
   }
   shown <- reactive({
@@ -131,7 +132,7 @@ supervisor_server <- function(input, output, session, token) {
 
   output$sup_team_ui <- renderUI({
     if (team_view || length(teams) < 2) return(NULL)
-    selectInput('sup_team', NULL, choices = c('All teams' = '', setNames(teams, team_label(teams))), width = '100%')
+    selectInput('sup_team', NULL, choices = c('All teams' = 'all', setNames(teams, team_label(teams))), selected = 'all', width = '100%')
   })
 
   output$sup_head <- renderUI({
@@ -161,6 +162,8 @@ supervisor_server <- function(input, output, session, token) {
   # --- Map: static layers once, places via proxy so the view isn't reset ----
   output$sup_map <- renderLeaflet({
     m <- leaflet(options = leafletOptions(zoomControl = TRUE)) |>
+      addMapPane('tracks', zIndex = 405) |>
+      addMapPane('places', zIndex = 420) |>
       addProviderTiles(providers$OpenStreetMap, group = 'Map') |>
       addProviderTiles(providers$Esri.WorldImagery, group = 'Satellite') |>
       addLayersControl(baseGroups = c('Map', 'Satellite'), options = layersControlOptions(collapsed = TRUE)) |>
@@ -171,12 +174,6 @@ supervisor_server <- function(input, output, session, token) {
                             labelOptions = labelOptions(noHide = TRUE, direction = 'center', textOnly = TRUE, className = 'team-label'))
     if (!is.null(layers$health_area) && nrow(layers$health_area) > 0)
       m <- m |> addPolygons(data = layers$health_area, color = '#0f172a', weight = 3, fill = FALSE)
-    # IDP sites can number in the hundreds per health area: small dots,
-    # name on tap. Facilities are few and always labelled.
-    if (!is.null(layers$idp) && nrow(layers$idp) > 0)
-      m <- m |> addCircleMarkers(data = layers$idp, radius = 4, stroke = FALSE, fillColor = '#7c3aed', fillOpacity = 0.8,
-                                 popup = ~sprintf('<b>%s</b> IDP site%s', htmltools::htmlEscape(idp_name),
-                                                  ifelse(is.na(idp_population), '', sprintf('<br>%s people', format(idp_population, big.mark = ',')))))
     m <- add_facilities(m, layers$facilities)
     # Zoom: forwarded team links to their places, otherwise the health area
     focus <- in_view(all0)
@@ -184,8 +181,14 @@ supervisor_server <- function(input, output, session, token) {
           else if (!is.null(layers$health_area) && nrow(layers$health_area) > 0) sf::st_bbox(layers$health_area)
           else NULL
     if (!is.null(bb)) m <- m |> fitBounds(bb[['xmin']], bb[['ymin']], bb[['xmax']], bb[['ymax']])
-    m |> addLegend('bottomright', colors = c('#dc2626', '#16a34a', '#7c3aed'),
-                   labels = c('Missed place', 'Done', 'IDP site'), opacity = 1)
+    dot <- function(col) sprintf('<span style="display:inline-block;width:11px;height:11px;border-radius:50%%;background:%s;border:1.5px solid #fff;box-shadow:0 0 0 1px #94a3b8;vertical-align:-1px;"></span>', col)
+    legend <- paste0(
+      '<div style="background:#fff;padding:6px 9px;border-radius:6px;font-size:11px;line-height:1.7;box-shadow:0 1px 4px rgba(0,0,0,.25);">',
+      dot(STATUS_COLORS[['open']]), ' Missed place<br>',
+      dot(STATUS_COLORS[['done']]), ' Done<br>',
+      '<span style="display:inline-block;width:14px;border-top:2px solid ', TRACK_LINE, ';vertical-align:3px;"></span> Team GPS track<br>',
+      '<img src="', FACILITY_ICON$iconUrl, '" width="11" height="11" style="vertical-align:-1px;"> Health facility</div>')
+    m |> addControl(htmltools::HTML(legend), position = 'bottomright')
   })
 
   observe({
@@ -194,16 +197,40 @@ supervisor_server <- function(input, output, session, token) {
     if (is.null(p) || nrow(p) == 0) return()
     outl <- sf::st_sf(place_id = p$place_id, status = p$status, geometry = p$outline)
     proxy |> addPolygons(data = outl, group = 'places', color = '#334155', weight = 1.5,
-                         fillColor = status_col(outl$status), fillOpacity = 0.35)
+                         fillColor = status_col(outl$status), fillOpacity = 0.35, options = pathOptions(pane = 'places'))
     # Numbered badge: a coloured circle (tap -> popup with Navigate) with
     # the place number drawn on top; the number passes taps through.
     proxy |>
       addCircleMarkers(data = p, group = 'places', lng = ~lon, lat = ~lat, radius = 11, color = '#fff', weight = 2,
-                       fillColor = status_col(p$status), fillOpacity = 1,
+                       fillColor = status_col(p$status), fillOpacity = 1, options = pathOptions(pane = 'places'),
                        popup = ~sprintf('<b>#%d</b> %s<br>~%s children under 5<br>%s<br><a href="%s" target="_blank"><b>Navigate ▶</b></a>',
                                         place_no, htmltools::htmlEscape(label), .fmt_n(u5_pop), team_label(assigned_team), gmaps_nav(lat, lon))) |>
       addLabelOnlyMarkers(data = p, group = 'places', lng = ~lon, lat = ~lat, label = ~as.character(place_no),
                           labelOptions = labelOptions(noHide = TRUE, direction = 'center', textOnly = TRUE, className = 'num-label'))
+  })
+
+  # --- Team GPS tracks (off by default: saves mobile data) ---------------------
+  # Only this health area's own teams -- or just the team / ticked places'
+  # teams in a link forwarded to a team. Loaded once, when first switched on.
+  ha_teams <- base::union(trimws(strsplit(info$teams %||% '', ',')[[1]]), teams)
+  ha_teams <- ha_teams[nzchar(ha_teams)]
+  track_pings <- reactive({
+    req(isTRUE(input$sup_tracks), !is.null(layers$health_area), length(ha_teams) > 0)
+    rows <- vb_load_entries(info$data_from, info$data_to, sf::st_bbox(layers$health_area))
+    rows <- rows[rows$team_name %in% ha_teams, ]
+    if (nrow(rows) == 0) return(NULL)
+    clean_pings(rows, DEFAULT_PARAMS)$pings
+  })
+  observe({
+    proxy <- leafletProxy('sup_map') |> clearGroup('tracks')
+    req(isTRUE(input$sup_tracks))
+    pg <- tryCatch(track_pings(), error = function(e) NULL)
+    if (is.null(pg)) return()
+    show <- if (!is.null(team_q)) team_q
+            else if (length(pick_q)) base::unique(all0$assigned_team[all0$place_no %in% pick_q])
+            else if (!(input$sup_team %||% 'all') %in% c('all', '')) input$sup_team
+            else ha_teams
+    add_tracks(proxy, pg[pg$team_name %in% show, ], DEFAULT_PARAMS, pane = 'tracks', max_points = 8000)
   })
 
   observeEvent(input$place_focus, {
