@@ -1,0 +1,9 @@
+# Vaccine Buddy data updates, on the database VM, run from the git clone at
+# /opt/somalia_polio_analytics (vaccine_buddy/.env created there by hand --
+# it is not in git). Install with `sudo crontab -e` and paste both lines.
+#
+# Every minute: run an update only if someone clicked "Check for new data"
+# in the app (exits within a second otherwise).
+* * * * * cd /opt/somalia_polio_analytics/vaccine_buddy && /usr/bin/Rscript scripts/sync_odk.R --if-requested >> /var/log/vaccine_buddy_sync.log 2>&1
+# Hourly at 5 past: regular update.
+5 * * * * cd /opt/somalia_polio_analytics/vaccine_buddy && /usr/bin/Rscript scripts/sync_odk.R >> /var/log/vaccine_buddy_sync.log 2>&1
