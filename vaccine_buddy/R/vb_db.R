@@ -93,17 +93,20 @@ vb_save_params <- function(params, user) {
 
 # --- Work in progress, saved automatically (work_sessions) ----------------------
 
-.pack   <- function(x) blob::blob(list(if (is.null(x)) NULL else memCompress(serialize(x, NULL), 'gzip')))
+.pack   <- function(x) blob::new_blob(list(memCompress(serialize(x, NULL), 'gzip')))
 .unpack <- function(r) if (is.null(r) || length(r) == 0) NULL else unserialize(memDecompress(r, 'gzip'))
 
 #' Save a user's work on one campaign + district. `base` (the search) and
-#' `edits` are R objects; one left NULL keeps what's stored.
+#' `edits` are R objects; only those given are written, the other is kept.
 vb_save_work <- function(username, campaign_id, district_name, base = NULL, edits = NULL) {
-  .x('INSERT INTO work_sessions (username, campaign_id, district_name, base, edits) VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (username, campaign_id, district_name) DO UPDATE SET
-        base = COALESCE(EXCLUDED.base, work_sessions.base), edits = COALESCE(EXCLUDED.edits, work_sessions.edits),
-        updated_at = NOW()',
-     list(username, as.integer(campaign_id), district_name, .pack(base), .pack(edits)))
+  parts <- Filter(Negate(is.null), list(base = base, edits = edits))
+  if (length(parts) == 0) return(invisible(0))
+  cols <- names(parts)
+  .x(sprintf('INSERT INTO work_sessions (username, campaign_id, district_name, %s) VALUES ($1, $2, $3, %s)
+              ON CONFLICT (username, campaign_id, district_name) DO UPDATE SET %s, updated_at = NOW()',
+             paste(cols, collapse = ', '), paste0('$', 3 + seq_along(cols), collapse = ', '),
+             paste(sprintf('%s = EXCLUDED.%s', cols, cols), collapse = ', ')),
+     c(list(username, as.integer(campaign_id), district_name), unname(lapply(parts, .pack))))
 }
 
 #' list(base, edits, updated_at), or NULL if nothing is saved.
@@ -208,60 +211,58 @@ vb_last_request_stale <- function() {
 }
 
 # --- Supervisors -------------------------------------------------------------
+# One supervisor (name + phone) per health area of a campaign's district.
+# Each health area keeps one row: edits change it in place, and clearing
+# it switches it off (is_active), so messages already sent still point at
+# a real row.
 
-vb_get_supervisors <- function(campaign_id, district_name, active_only = TRUE) {
-  .q(paste("SELECT supervisor_id, district_name, health_area_name, supervisor_name, phone, is_active, notes,
-                   updated_by, updated_at
-            FROM supervisors WHERE campaign_id = $1 AND district_name = $2", if (active_only) 'AND is_active', "
-            ORDER BY health_area_name, supervisor_name"), list(as.integer(campaign_id), district_name))
+#' The district's supervisors, one per health area: supervisor_id,
+#' health_area_name, supervisor_name, phone.
+vb_get_supervisors <- function(campaign_id, district_name) {
+  .q("SELECT DISTINCT ON (health_area_name) supervisor_id, district_name, health_area_name, supervisor_name, phone
+      FROM supervisors WHERE campaign_id = $1 AND district_name = $2 AND is_active
+      ORDER BY health_area_name, updated_at DESC", list(as.integer(campaign_id), district_name))
 }
 
-#' Save one district's edited contact table: rows with a supervisor_id are
-#' updated, rows without one inserted, and that district's existing rows
-#' missing from `df` are deactivated (kept for the send log).
-vb_save_supervisors <- function(campaign_id, district_name, df, user) {
+#' Set the supervisor of each health area in `df` (health_area_name,
+#' supervisor_name, phone); an empty name and phone removes it.
+vb_set_supervisors <- function(campaign_id, district_name, df, user) {
   cid <- as.integer(campaign_id)
-  df$district_name <- district_name
   pool::poolWithTransaction(vb_pool, function(con) {
-    keep <- stats::na.omit(as.integer(df$supervisor_id))
-    DBI::dbExecute(con, sprintf('UPDATE supervisors SET is_active = FALSE, updated_by = $1, updated_at = NOW()
-                                 WHERE campaign_id = $2 AND district_name = $3 AND is_active %s',
-                                if (length(keep)) sprintf('AND supervisor_id NOT IN (%s)', paste(keep, collapse = ',')) else ''),
-                   list(user, cid, district_name))
     for (i in seq_len(nrow(df))) {
-      r <- df[i, ]
-      vals <- list(r$district_name, r$health_area_name, r$supervisor_name, normalize_phone(r$phone),
-                   isTRUE(as.logical(r$is_active %||% TRUE)), r$notes %||% NA_character_, user)
-      if (!is.na(as.integer(r$supervisor_id %||% NA))) {
-        DBI::dbExecute(con, 'UPDATE supervisors SET district_name = $1, health_area_name = $2, supervisor_name = $3,
-                               phone = $4, is_active = $5, notes = $6, updated_by = $7, updated_at = NOW()
-                             WHERE supervisor_id = $8 AND campaign_id = $9',
-                       c(vals, list(as.integer(r$supervisor_id), cid)))
-      } else {
-        DBI::dbExecute(con, 'INSERT INTO supervisors (district_name, health_area_name, supervisor_name, phone,
-                                                      is_active, notes, updated_by, campaign_id)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                             ON CONFLICT (campaign_id, district_name, health_area_name, phone) DO UPDATE SET
-                               supervisor_name = EXCLUDED.supervisor_name, is_active = EXCLUDED.is_active,
-                               notes = EXCLUDED.notes, updated_by = EXCLUDED.updated_by, updated_at = NOW()',
-                       c(vals, list(cid)))
+      h <- df$health_area_name[i]; name <- trimws(df$supervisor_name[i]); phone <- normalize_phone(trimws(df$phone[i]))
+      on <- nzchar(name) || nzchar(phone)
+      # the health area's row: one that already has this phone (so a phone
+      # never clashes with an older row of the health area), else its
+      # active one, else its latest
+      id <- DBI::dbGetQuery(con, 'SELECT supervisor_id FROM supervisors WHERE campaign_id = $1 AND district_name = $2
+                                  AND health_area_name = $3 ORDER BY (phone = $4) DESC, is_active DESC, updated_at DESC LIMIT 1',
+                            list(cid, district_name, h, phone))$supervisor_id
+      if (length(id)) {
+        DBI::dbExecute(con, 'UPDATE supervisors SET supervisor_name = $1, phone = $2, is_active = $3, updated_by = $4,
+                               updated_at = NOW() WHERE supervisor_id = $5', list(name, phone, on, user, id))
+        # any older rows of the health area (from before one per health area) off
+        DBI::dbExecute(con, 'UPDATE supervisors SET is_active = FALSE WHERE campaign_id = $1 AND district_name = $2
+                             AND health_area_name = $3 AND supervisor_id <> $4 AND is_active', list(cid, district_name, h, id))
+      } else if (on) {
+        DBI::dbExecute(con, 'INSERT INTO supervisors (campaign_id, district_name, health_area_name, supervisor_name, phone, updated_by)
+                             VALUES ($1, $2, $3, $4, $5, $6)', list(cid, district_name, h, name, phone, user))
       }
     }
   })
 }
 
-#' Campaigns with active supervisors for a district: campaign_id, n.
+#' Campaigns with supervisors for a district: campaign_id, n.
 vb_supervisor_campaigns <- function(district_name) {
-  .q('SELECT campaign_id, COUNT(*)::int AS n FROM supervisors WHERE district_name = $1 AND is_active GROUP BY campaign_id',
-     list(district_name))
+  .q('SELECT campaign_id, COUNT(DISTINCT health_area_name)::int AS n FROM supervisors
+      WHERE district_name = $1 AND is_active GROUP BY campaign_id', list(district_name))
 }
 
+#' Copy a district's supervisors from an earlier campaign (one per health area).
 vb_copy_supervisors <- function(from_campaign_id, to_campaign_id, district_name, user) {
-  .x('INSERT INTO supervisors (campaign_id, district_name, health_area_name, supervisor_name, phone, notes, updated_by)
-      SELECT $2, district_name, health_area_name, supervisor_name, phone, notes, $3
-      FROM supervisors WHERE campaign_id = $1 AND district_name = $4 AND is_active
-      ON CONFLICT (campaign_id, district_name, health_area_name, phone) DO NOTHING',
-     list(as.integer(from_campaign_id), as.integer(to_campaign_id), user, district_name))
+  d <- vb_get_supervisors(from_campaign_id, district_name)
+  vb_set_supervisors(to_campaign_id, district_name, d[, c('health_area_name', 'supervisor_name', 'phone')], user)
+  nrow(d)
 }
 
 # --- Analysis runs -----------------------------------------------------------
@@ -338,6 +339,45 @@ vb_set_place_status <- function(place_id, status, via, note = NA_character_) {
   })
 }
 
+# --- Google My Maps links (one map per health area of a saved list) ----------
+
+#' health_area_name, url (none if the table is missing)
+vb_get_mymaps <- function(run_id) {
+  tryCatch(.q('SELECT health_area_name, url FROM mymaps_links WHERE run_id = $1', list(as.integer(run_id))),
+           error = function(e) data.frame(health_area_name = character(0), url = character(0)))
+}
+
+#' url '' removes the link.
+vb_set_mymaps <- function(run_id, health_area_name, url, user) {
+  if (!nzchar(url)) return(.x('DELETE FROM mymaps_links WHERE run_id = $1 AND health_area_name = $2',
+                              list(as.integer(run_id), health_area_name)))
+  .x('INSERT INTO mymaps_links (run_id, health_area_name, url, updated_by) VALUES ($1, $2, $3, $4)
+      ON CONFLICT (run_id, health_area_name) DO UPDATE SET url = EXCLUDED.url, updated_by = EXCLUDED.updated_by, updated_at = NOW()',
+     list(as.integer(run_id), health_area_name, url, user))
+}
+
+# --- Maps to download (PDF, one per health area of a saved list) -------------
+
+#' health_area_name, page_size, basemap of the maps made (none if the table is missing)
+vb_pdf_areas <- function(run_id) {
+  tryCatch(.q('SELECT health_area_name, page_size, basemap FROM area_pdfs WHERE run_id = $1', list(as.integer(run_id))),
+           error = function(e) data.frame(health_area_name = character(0), page_size = character(0), basemap = character(0)))
+}
+
+vb_save_pdf <- function(run_id, health_area_name, file, page_size, basemap, user) {
+  raw <- readBin(file, 'raw', file.size(file))
+  .x('INSERT INTO area_pdfs (run_id, health_area_name, page_size, basemap, pdf, created_by) VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (run_id, health_area_name) DO UPDATE SET page_size = EXCLUDED.page_size, basemap = EXCLUDED.basemap,
+        pdf = EXCLUDED.pdf, created_by = EXCLUDED.created_by, created_at = NOW()',
+     list(as.integer(run_id), health_area_name, page_size, basemap, blob::new_blob(list(raw)), user))
+}
+
+#' The PDF's bytes, or NULL.
+vb_get_pdf <- function(run_id, health_area_name) {
+  d <- .q('SELECT pdf FROM area_pdfs WHERE run_id = $1 AND health_area_name = $2', list(as.integer(run_id), health_area_name))
+  if (nrow(d) == 0) NULL else d$pdf[[1]]
+}
+
 # --- Dispatches ---------------------------------------------------------------
 
 #' Create (or refresh) the dispatch for each supervisor of a run. One
@@ -375,16 +415,10 @@ vb_mark_sent <- function(dispatch_id) {
   .x('UPDATE dispatches SET send_clicked_at = NOW() WHERE dispatch_id = $1', list(as.integer(dispatch_id)))
 }
 
-#' Everything the supervisor page needs from its token, logging the open.
-vb_open_dispatch <- function(token, count_open = TRUE) {
-  # count_open = FALSE: an admin previewing the page from the Send table
-  # (&preview=1) -- shown the same page, but not logged as an open
-  d <- if (count_open)
-    .q('UPDATE dispatches SET n_opens = n_opens + 1, last_opened_at = NOW(),
-                              first_opened_at = COALESCE(first_opened_at, NOW())
-        WHERE token = $1
-        RETURNING dispatch_id, run_id, supervisor_id, supervisor_name, phone', list(token))
-  else .q('SELECT dispatch_id, run_id, supervisor_id, supervisor_name, phone FROM dispatches WHERE token = $1', list(token))
+#' Everything the supervisor page needs from its token. (Opens are no
+#' longer counted; the n_opens / *_opened_at columns are left unused.)
+vb_open_dispatch <- function(token) {
+  d <- .q('SELECT dispatch_id, run_id, supervisor_id, supervisor_name, phone FROM dispatches WHERE token = $1', list(token))
   if (nrow(d) != 1) return(NULL)
   s <- .q('SELECT s.district_name, s.health_area_name, s.campaign_id, r.data_from, r.data_to, r.campaign_name,
                   r.params::text AS params_json

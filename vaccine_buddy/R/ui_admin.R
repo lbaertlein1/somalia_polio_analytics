@@ -59,7 +59,7 @@ PARAM_UI <- c(
 
 admin_ui <- function() {
   # One tab = sidebar (first column, grey in styles.css) + main panel
-  tab_layout <- function(sidebar, ...) fluidRow(column(3, sidebar), column(9, div(style = 'padding: 12px 16px;', ...)))
+  tab_layout <- function(sidebar, ...) fluidRow(column(3, div(style = 'padding: 12px 14px;', sidebar)), column(9, div(style = 'padding: 12px 16px;', ...)))
   step <- function(icon_name, title, ...) div(class = 'step', div(class = 'step-h', span(class = 'step-n', icon(icon_name)), title), ...)
   # A section folded away until clicked
   more <- function(title, ...) tags$details(class = 'more', tags$summary(title), div(style = 'margin-top: 6px;', ...))
@@ -91,6 +91,10 @@ admin_ui <- function() {
         .data-box { padding: 8px; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; margin-bottom: 8px; }
         .callout { padding: 8px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 4px; margin-bottom: 8px; font-size: 12px; }
         .unsaved { font-size: 12px; color: #b45309; margin-bottom: 6px; }
+        .mm-cell { display: flex; align-items: center; gap: 4px; }
+        .mm-cell .mm-link { width: 190px; height: 24px; padding: 2px 6px; font-size: 11px; }
+        .msg-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; position: sticky; top: 10px; }
+        .export-panel { max-width: 640px; }
         details.more { margin: 8px 0; font-size: 12px; }
         details.more summary { cursor: pointer; color: #0f766e; font-weight: 600; }
         .set-default { font-size: 10px; color: #b45309; margin-top: -10px; margin-bottom: 6px; }
@@ -107,6 +111,13 @@ admin_ui <- function() {
           $('.hdr-tab').removeClass('hdr-tab-active');
           $('.hdr-tab[data-tab=\"' + val + '\"]').addClass('hdr-tab-active');
           setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 150);
+        });
+        // A file made by the server (a health area's My Maps file), saved by the browser
+        Shiny.addCustomMessageHandler('save_text', function(m) {
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(new Blob([m.text], {type: m.type}));
+          a.download = m.name; document.body.appendChild(a); a.click();
+          setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
         });
         // Missed places back on top of the Find map's other shapes
         Shiny.addCustomMessageHandler('places_front', function(m) {
@@ -265,17 +276,9 @@ admin_ui <- function() {
 
         tabPanel('Check supervisors', value = 'supervisors', tab_layout(
           sidebar = tagList(
-            step('user-check', 'Check the supervisors',
-                 p(class = 'hint', 'Every health area needs at least one supervisor with a WhatsApp number. Type a name and ',
-                   'phone in the table. To remove a supervisor, clear their name and phone.'),
+            step('user-check', 'One supervisor per health area',
+                 p(class = 'hint', 'Type each supervisor\'s name and WhatsApp number in the table. Changes save by themselves.'),
                  uiOutput('sup_copy_ui'),
-                 div(class = 'mini-label', 'Add another supervisor to'),
-                 div(style = 'display: flex; gap: 6px;',
-                     div(style = 'flex: 1;', selectInput('sup_add_ha', NULL, choices = NULL, width = '100%')),
-                     actionButton('sup_add', NULL, icon = icon('user-plus'), class = 'btn btn-default', title = 'Add a row for another supervisor')),
-                 uiOutput('sup_dirty')),
-            step('arrow-right', 'Continue',
-                 p(class = 'hint', 'Gets the WhatsApp messages ready.'),
                  actionButton('sup_continue', 'Continue to Send', class = 'btn btn-success', width = '100%', icon = icon('arrow-right'))),
             more('Fill in with Excel instead',
                  p(class = 'hint', 'Download this district\'s health areas, add each supervisor\'s name and phone, then upload it.'),
@@ -292,13 +295,39 @@ admin_ui <- function() {
             step('list', 'Missed places list',
                  uiOutput('send_run_info'),
                  more('Send an earlier list', selectInput('send_run', NULL, choices = NULL, width = '100%'))),
-            step('paper-plane', 'Send each one',
-                 p(class = 'hint', tags$b('Send'), ' opens WhatsApp with the message ready – press send there. ',
-                   'Each supervisor gets a private link to their own map and list.')),
-            uiOutput('send_preview')
+            step('paper-plane', 'How to send',
+                 radioButtons('send_how', NULL, selected = 'app',
+                              choices = c('WhatsApp with the app link' = 'app', 'WhatsApp with a Google My Maps link' = 'mymaps',
+                                          'Export files (shapefile, printed maps)' = 'export'))),
+            conditionalPanel("input.send_how != 'export'",
+              step('envelope', 'What the message includes',
+                   radioButtons('msg_list', NULL, selected = 'all',
+                                choices = c('All missed places, with directions' = 'all',
+                                            'The top 5 missed places, with directions' = 'top5', 'No list of places' = 'none')),
+                   checkboxInput('msg_app', 'The link to the supervisor app (to send each team its places)', value = TRUE),
+                   checkboxInput('msg_pdf', 'A map to download (PDF)', value = FALSE),
+                   conditionalPanel("input.msg_pdf", uiOutput('pdf_status'))))
           ),
-          uiOutput('send_progress'),
-          DTOutput('send_table')
+          # WhatsApp (either link): one table, one row per health area, and the
+          # selected row's message on the right
+          conditionalPanel("input.send_how != 'export'", fluidRow(
+            column(8,
+                   uiOutput('send_progress'),
+                   DTOutput('send_table')),
+            column(4, div(class = 'msg-panel', uiOutput('send_preview'))))),
+          conditionalPanel("input.send_how == 'export'", div(class = 'export-panel',
+            div(class = 'rightbar-title', 'Shapefile'),
+            p(class = 'hint', 'The whole district: missed area polygons and their navigation points, with health area, ',
+              'place number, description, team and children.'),
+            downloadButton('exp_shp', 'Download shapefile (zip)', class = 'btn btn-default'),
+            tags$hr(),
+            div(class = 'rightbar-title', 'Printed maps'),
+            p(class = 'hint', 'One map per health area (PDF, landscape), with its missed places numbered and listed. ',
+              'The first time takes about half a minute per health area.'),
+            div(style = 'display: flex; gap: 10px; align-items: flex-end;',
+                div(div(class = 'mini-label', 'Page size'), selectInput('exp_size', NULL, c('A3', 'A2', 'A1', 'A0'), selected = 'A1', width = '110px')),
+                div(div(class = 'mini-label', 'Background'), selectInput('exp_base', NULL, c('Street map' = 'osm', 'Satellite' = 'satellite'), width = '150px')),
+                div(style = 'margin-bottom: 15px;', downloadButton('exp_pdf', 'Download printed maps (zip)', class = 'btn btn-default')))))
         )),
 
         # Admins only (the header button is shown, and every action checked
@@ -717,18 +746,25 @@ admin_server <- function(input, output, session, auth) {
     f <- ceiling(sqrt(terra::ncell(x) / 1e6))
     if (f > 1) x <- terra::aggregate(x, fact = f, fun = 'mean', na.rm = TRUE)
     x <- terra::mask(x, v, touches = TRUE)   # nothing outside the district
-    x[x < 0.5] <- NA   # no children: transparent
+    x[x < 1] <- NA   # under 1 child (not counted as populated): transparent
     x
   })
   observe({
     proxy <- leafletProxy('an_map') |> clearGroup('u5') |> removeControl('u5_legend')
     req(isTRUE(input$u5_show))
     x <- u5_image()
-    pal <- colorBin('YlOrRd', domain = NULL, bins = c(0.5, 2, 5, 10, 20, 50, Inf), na.color = 'transparent')
+    # Whole-number bands from 1, the last one ending at the district's
+    # highest square
+    top <- ceiling(terra::global(x, 'max', na.rm = TRUE)[1, 1])
+    req(is.finite(top))
+    bins <- c(1, 2, 5, 10, 20, 50, 100, 200, 500)
+    bins <- c(bins[bins < top], top)
+    if (length(bins) < 2) bins <- c(1, 2)
+    pal <- colorBin('YlOrRd', domain = c(1, max(bins)), bins = bins, na.color = 'transparent')
     proxy |>
       addRasterImage(x, colors = pal, opacity = 0.6, group = 'u5', method = 'ngb', options = gridOptions(pane = 'u5')) |>
-      addLegend('bottomleft', pal = pal, values = c(0.5, 100), title = 'Children under 5<br>per 100 m square',
-                layerId = 'u5_legend', opacity = 0.6)
+      addLegend('bottomleft', pal = pal, values = bins, title = 'Children under 5<br>per 100 m square',
+                labFormat = labelFormat(digits = 0, between = ' – '), layerId = 'u5_legend', opacity = 0.6)
   })
 
   # --- Step 2: paint missed squares on or off -------------------------------
@@ -914,186 +950,65 @@ admin_server <- function(input, output, session, auth) {
     base::sort(base::unique(h))
   })
 
-  sup_saved <- reactiveVal(NULL)   # as stored
-  sup_data  <- reactiveVal(NULL)   # what the table starts from: stored, or loaded from a file
-  sup_reload <- function() {
-    d <- tryCatch(vb_get_supervisors(campaign_id(), district()), error = function(e) NULL)
-    sup_saved(d); sup_data(d)
-  }
-  observeEvent(list(campaign_id(), district()), sup_reload())
-
-  # Earlier campaigns with supervisors for this district, newest first
-  sup_sources <- reactive({
-    sup_saved()
-    s <- tryCatch(vb_supervisor_campaigns(district()), error = function(e) NULL)
-    if (is.null(s)) return(data.frame(campaign_id = integer(0), n = integer(0), campaign_name = character(0)))
-    s <- s[s$campaign_id != campaign_id() & s$campaign_id %in% campaigns$campaign_id, ]
-    s$campaign_name <- campaigns$campaign_name[match(s$campaign_id, campaigns$campaign_id)]
-    s[order(match(s$campaign_id, campaigns$campaign_id)), ]
+  # Just a name and phone for each health area: a table with one row per
+  # health area, loaded from the database and saved a moment after each
+  # edit (the rows that changed). Health areas left without them simply get
+  # no message.
+  sup_load <- reactiveVal(0)   # bumped after copying or uploading: reload the table
+  sup_stored <- reactive({
+    sup_load()
+    h <- ha_names()
+    s <- tryCatch(vb_get_supervisors(campaign_id(), district()), error = function(e) NULL)
+    i <- match(h, s$health_area_name)
+    data.frame(health_area_name = h, supervisor_name = ifelse(is.na(i), '', s$supervisor_name[i]),
+               phone = ifelse(is.na(i), '', s$phone[i]))
   })
 
-  output$sup_copy_ui <- renderUI({
-    src <- sup_sources(); cur <- sup_saved()
-    if (nrow(src) == 0) return(NULL)
-    if (is.null(cur) || nrow(cur) == 0)
-      return(div(class = 'callout',
-                 sprintf('No supervisors saved for %s in this campaign yet.', district()),
-                 actionButton('sup_copy_first', sprintf('Copy %d from %s', src$n[1], src$campaign_name[1]),
-                              class = 'btn btn-default btn-sm', width = '100%', icon = icon('copy'), style = 'margin-top: 6px;')))
-    tags$details(class = 'more', tags$summary('Copy from an earlier campaign'),
-                 selectInput('sup_copy_from', NULL, choices = setNames(src$campaign_id, sprintf('%s (%d)', src$campaign_name, src$n)), width = '100%'),
-                 actionButton('sup_copy', 'Copy', class = 'btn btn-default btn-sm', width = '100%'))
-  })
-
-  copy_from <- function(from) {
-    n <- tryCatch(vb_copy_supervisors(from, campaign_id(), district(), user()), error = function(e) NA)
-    sup_reload()
-    showNotification(sprintf('Copied %s supervisors. Check the health area names still match.', n))
-  }
-  observeEvent(input$sup_copy_first, copy_from(sup_sources()$campaign_id[1]))
-  observeEvent(input$sup_copy, { req(input$sup_copy_from); copy_from(input$sup_copy_from) })
-
-  # Template: one row per health area of this district (plus any saved
-  # supervisors), name and phone to fill in.
-  output$sup_template <- downloadHandler(
-    filename = function() sprintf('supervisors_%s_%s.xlsx', gsub('[^A-Za-z0-9]+', '_', district()), Sys.Date()),
-    content = function(file) {
-      cur <- sup_data()
-      saved <- if (!is.null(cur) && nrow(cur)) data.frame(health_area = cur$health_area_name, supervisor_name = cur$supervisor_name,
-                                                          phone = cur$phone) else NULL
-      todo <- setdiff(ha_names(), saved$health_area)
-      blank <- data.frame(health_area = todo, supervisor_name = rep('', length(todo)), phone = rep('', length(todo)))
-      tmpl <- rbind(saved, blank)
-      writexl::write_xlsx(list(Supervisors = tmpl[order(tmpl$health_area), ]), file)
-    })
-
-  observeEvent(input$sup_upload, {
-    f <- input$sup_upload
-    new <- tryCatch(
-      if (grepl('[.]csv$', f$name, ignore.case = TRUE)) utils::read.csv(f$datapath, stringsAsFactors = FALSE, colClasses = 'character')
-      else as.data.frame(readxl::read_excel(f$datapath, col_types = 'text')),
-      error = function(e) NULL)
-    if (!is.null(new)) names(new) <- tolower(trimws(names(new)))
-    need <- c('health_area', 'supervisor_name', 'phone')
-    if (is.null(new) || !all(need %in% names(new)))
-      return(showNotification('Please use the downloaded template (columns health_area, supervisor_name, phone).', type = 'error'))
-    new <- new[!is.na(new$phone) & nzchar(trimws(new$phone)), ]
-    sup_data(data.frame(health_area_name = trimws(new$health_area), supervisor_name = trimws(dplyr::coalesce(new$supervisor_name, '')),
-                        phone = trimws(new$phone), stringsAsFactors = FALSE))
-    showNotification(sprintf('%d supervisors loaded from the file. They are saved automatically – check the table.', nrow(new)))
-  })
-
-  # Every health area has a row: saved supervisors, and a blank row for
-  # each health area still without one
   output$sup_table <- renderRHandsontable({
-    d <- sup_data(); h <- ha_names()
-    d <- if (is.null(d) || nrow(d) == 0) data.frame(health_area_name = character(0), supervisor_name = character(0), phone = character(0))
-         else d[, c('health_area_name', 'supervisor_name', 'phone')]
-    todo <- setdiff(h, d$health_area_name)
-    d <- rbind(d, data.frame(health_area_name = todo, supervisor_name = rep('', length(todo)), phone = rep('', length(todo))))
-    if (nrow(d) == 0) d <- data.frame(health_area_name = '', supervisor_name = '', phone = '')
-    d <- d[order(d$health_area_name), ]
-    # Health areas are fixed (they come from the map, or the team names);
-    # another supervisor is added with "Add another supervisor to"
-    rhandsontable(d, rowHeaders = NULL, stretchH = 'all', height = 500, colHeaders = c('Health area', 'Supervisor', 'Phone'),
-                  contextMenu = FALSE) |>
+    rhandsontable(sup_stored(), rowHeaders = NULL, stretchH = 'all', height = 500, contextMenu = FALSE,
+                  colHeaders = c('Health area', 'Supervisor', 'Phone')) |>
       hot_col('Health area', readOnly = TRUE)
   })
 
-  observe(updateSelectInput(session, 'sup_add_ha', choices = ha_names()))
-
-  # A blank row for another supervisor of the chosen health area, keeping
-  # what's been typed in the table so far
-  observeEvent(input$sup_add, {
-    req(input$sup_add_ha)
-    cur <- if (!is.null(input$sup_table)) hot_to_r(input$sup_table) else sup_data()
-    cur <- if (is.null(cur) || nrow(cur) == 0) data.frame(health_area_name = character(0), supervisor_name = character(0), phone = character(0))
-           else cur[, c('health_area_name', 'supervisor_name', 'phone')]
-    cur[] <- lapply(cur, function(x) trimws(dplyr::coalesce(as.character(x), '')))
-    cur <- cur[nzchar(cur$health_area_name), ]
-    sup_data(rbind(cur, data.frame(health_area_name = input$sup_add_ha, supervisor_name = '', phone = '')))
-  })
-
-  # The table as edited, rows with a name or phone only
-  sup_edited <- reactive({
+  # The table as it is now (this district's rows only -- just after a
+  # district change it can briefly still hold the previous one)
+  sup_now <- reactive({
     req(input$sup_table)
     d <- hot_to_r(input$sup_table)
     d[] <- lapply(d, function(x) trimws(dplyr::coalesce(as.character(x), '')))
-    d[nzchar(paste0(d$supervisor_name, d$phone)), ]
+    d[d$health_area_name %in% ha_names(), ]
   })
 
-  .sup_key <- function(d) if (is.null(d) || nrow(d) == 0) character(0)
-                          else base::sort(paste(trimws(d$health_area_name), trimws(d$supervisor_name), normalize_phone(d$phone), sep = '|'))
-  sup_dirty <- reactive({
-    d <- tryCatch(sup_edited(), error = function(e) NULL)
-    !is.null(d) && !identical(.sup_key(d), .sup_key(sup_saved()))
-  })
-  output$sup_dirty <- renderUI(div(class = 'hint', style = 'margin-top: 6px;',
-    if (sup_dirty()) tagList(icon('rotate', class = 'fa-spin'), ' Saving...') else tagList(icon('check'), ' Changes are saved automatically.')))
-
-  # What must be fixed before sending: rows with a health area not in this
-  # district or a bad phone, and health areas with no supervisor
-  sup_problems <- reactive({
-    d <- sup_edited()
-    nrow(d[!d$health_area_name %in% ha_names() | nchar(normalize_phone(d$phone)) < 11 | !nzchar(d$supervisor_name), ]) +
-      length(setdiff(ha_names(), d$health_area_name))
-  })
+  # Save the rows that differ from the last save (or load)
+  sup_last <- NULL
+  observeEvent(sup_stored(), sup_last <<- sup_stored())
+  save_supervisors <- function(d) {
+    old <- sup_last[match(d$health_area_name, sup_last$health_area_name), ]
+    changed <- d[d$supervisor_name != old$supervisor_name | d$phone != old$phone, ]
+    if (nrow(changed) == 0) return(TRUE)
+    tryCatch({
+      vb_set_supervisors(campaign_id(), district(), changed, user())
+      sup_last[match(changed$health_area_name, sup_last$health_area_name), ] <<- changed
+      TRUE
+    }, error = function(e) { showNotification(paste('Could not save:', conditionMessage(e)), type = 'error'); FALSE })
+  }
+  sup_paused <- debounce(sup_now, 1500)
+  observeEvent(sup_paused(), save_supervisors(sup_paused()))
 
   output$sup_checks <- renderUI({
-    h <- ha_names()
-    line <- function(color, ...) div(style = sprintf('font-size: 12px; color: %s; margin-bottom: 4px;', color), ...)
-    if (length(h) == 0 && isTRUE(no_map()))
-      return(line('#b45309', icon('circle-info'), sprintf(
-        ' No health areas are drawn for %s, so they come from the team names in the GPS data. Find missed places first (step 1) to list them here.',
+    line <- function(color, icon_name, text) div(style = sprintf('font-size: 12px; color: %s; margin-bottom: 10px;', color), icon(icon_name), ' ', text)
+    if (length(ha_names()) == 0 && isTRUE(no_map()))
+      return(line('#b45309', 'circle-info', sprintf(
+        'No health areas are drawn for %s, so they come from the team names in the GPS data. Find missed places first (step 1) to list them here.',
         district())))
-    d <- sup_edited()
-    unknown <- d[!d$health_area_name %in% h, ]
-    bad_phone <- d[nchar(normalize_phone(d$phone)) < 11, ]
-    no_name <- d[!nzchar(d$supervisor_name), ]
-    missing <- setdiff(h, d$health_area_name)
-    div(style = 'margin-bottom: 10px;',
-        if (nrow(unknown)) line('#dc2626', icon('triangle-exclamation'), sprintf(
-          ' Not health areas of this district: %s. Fix the file and upload it again, or clear those names and phones.',
-          paste(unique(unknown$health_area_name), collapse = ', '))),
-        if (nrow(bad_phone)) line('#dc2626', icon('triangle-exclamation'), sprintf(' Check these phone numbers: %s', paste(bad_phone$phone, collapse = ', '))),
-        if (nrow(no_name)) line('#dc2626', icon('triangle-exclamation'), sprintf(' Add the name for: %s', paste(no_name$phone, collapse = ', '))),
-        if (length(missing)) line('#dc2626', icon('triangle-exclamation'), sprintf(' These health areas need a supervisor: %s', paste(missing, collapse = ', ')))
-        else if (length(h)) line('#15803d', icon('check'), ' Every health area has a supervisor.'))
+    d <- sup_now()
+    missing <- d$health_area_name[!nzchar(d$supervisor_name) | nchar(normalize_phone(d$phone)) < 11]
+    if (length(missing)) line('#b45309', 'circle-info', paste('No name and phone yet, so nothing will be sent for:', paste(missing, collapse = ', ')))
+    else line('#15803d', 'check', 'Every health area has a supervisor.')
   })
 
-  # Saved supervisors keep their id (and so their sending history) when
-  # their health area and phone -- or else health area and name -- still match.
-  with_ids <- function(d) {
-    cur <- sup_saved()
-    d$supervisor_id <- NA_integer_
-    if (is.null(cur) || nrow(cur) == 0 || nrow(d) == 0) return(d)
-    k <- function(h, x) paste(h, x, sep = '|')
-    i <- match(k(d$health_area_name, normalize_phone(d$phone)), k(cur$health_area_name, normalize_phone(cur$phone)))
-    j <- match(k(d$health_area_name, tolower(d$supervisor_name)), k(cur$health_area_name, tolower(trimws(cur$supervisor_name))))
-    i[is.na(i)] <- j[is.na(i)]
-    i[duplicated(i) & !is.na(i)] <- NA   # one row per saved supervisor
-    d$supervisor_id <- cur$supervisor_id[i]
-    d
-  }
-
-  # Saved as stored only (sup_saved), not redrawing the table under the
-  # user's cursor; `reload` also redraws it (copying, uploading)
-  save_supervisors <- function(reload = FALSE) {
-    d <- with_ids(sup_edited())
-    ok <- tryCatch({ vb_save_supervisors(campaign_id(), district(), d, user()); TRUE },
-                   error = function(e) { showNotification(paste('Could not save:', conditionMessage(e)), type = 'error', duration = NULL); FALSE })
-    if (ok) { if (reload) sup_reload() else sup_saved(tryCatch(vb_get_supervisors(campaign_id(), district()), error = function(e) sup_saved())) }
-    ok
-  }
-  # Saved automatically a moment after each edit in the table. Only edits
-  # trigger it -- not switching district, when the table briefly still
-  # holds the previous district's rows.
-  sup_typed <- debounce(reactive(input$sup_table), 1500)
-  observeEvent(sup_typed(), if (isTRUE(sup_dirty())) save_supervisors())
-
   observeEvent(input$sup_continue, {
-    if (sup_problems() > 0) return(showNotification('Fix what is marked in red first – every health area needs a supervisor.', type = 'warning'))
-    if (sup_dirty() && !save_supervisors()) return()
+    if (!is.null(input$sup_table) && !save_supervisors(sup_now())) return()
     r <- runs()
     if (is.null(r) || nrow(r) == 0)
       return(showNotification('No missed places saved for this district yet – find and save them first (step 1).', type = 'warning'))
@@ -1101,6 +1016,54 @@ admin_server <- function(input, output, session, auth) {
     n <- prepare_messages(r$run_id[1])
     if (!is.null(n)) showNotification(sprintf('%d %s ready to send.', n, if (n == 1) 'message' else 'messages'), type = 'message')
     updateTabsetPanel(session, 'main_tabs', selected = 'send')
+  })
+
+  # While nothing is filled in: copy from the latest earlier campaign that
+  # has supervisors for this district
+  sup_source <- reactive({
+    s <- tryCatch(vb_supervisor_campaigns(district()), error = function(e) NULL)
+    s <- s[s$campaign_id != campaign_id() & s$campaign_id %in% campaigns$campaign_id, ]
+    if (is.null(s) || nrow(s) == 0) return(NULL)
+    s <- s[order(match(s$campaign_id, campaigns$campaign_id)), ][1, ]
+    s$campaign_name <- campaigns$campaign_name[match(s$campaign_id, campaigns$campaign_id)]
+    s
+  })
+  output$sup_copy_ui <- renderUI({
+    src <- sup_source()
+    if (is.null(src) || any(nzchar(sup_stored()$supervisor_name))) return(NULL)
+    div(class = 'callout', sprintf('No supervisors saved for %s in this campaign yet.', district()),
+        actionButton('sup_copy', sprintf('Copy %d from %s', src$n, src$campaign_name),
+                     class = 'btn btn-default btn-sm', width = '100%', icon = icon('copy'), style = 'margin-top: 6px;'))
+  })
+  observeEvent(input$sup_copy, {
+    n <- tryCatch(vb_copy_supervisors(sup_source()$campaign_id, campaign_id(), district(), user()), error = function(e) NA)
+    sup_load(sup_load() + 1)
+    showNotification(sprintf('Copied %s supervisors. Check the health area names still match.', n))
+  })
+
+  # Or with Excel: download the table, fill it in, upload it
+  output$sup_template <- downloadHandler(
+    filename = function() sprintf('supervisors_%s_%s.xlsx', gsub('[^A-Za-z0-9]+', '_', district()), Sys.Date()),
+    content = function(file) {
+      d <- sup_stored()
+      writexl::write_xlsx(list(Supervisors = data.frame(health_area = d$health_area_name, supervisor_name = d$supervisor_name, phone = d$phone)), file)
+    })
+  observeEvent(input$sup_upload, {
+    f <- input$sup_upload
+    new <- tryCatch(
+      if (grepl('[.]csv$', f$name, ignore.case = TRUE)) utils::read.csv(f$datapath, stringsAsFactors = FALSE, colClasses = 'character')
+      else as.data.frame(readxl::read_excel(f$datapath, col_types = 'text')),
+      error = function(e) NULL)
+    if (!is.null(new)) names(new) <- tolower(trimws(names(new)))
+    if (is.null(new) || !all(c('health_area', 'supervisor_name', 'phone') %in% names(new)))
+      return(showNotification('Please use the downloaded template (columns health_area, supervisor_name, phone).', type = 'error'))
+    new <- data.frame(health_area_name = trimws(new$health_area), supervisor_name = trimws(dplyr::coalesce(new$supervisor_name, '')),
+                      phone = trimws(dplyr::coalesce(new$phone, '')))
+    new <- new[new$health_area_name %in% ha_names() & !duplicated(new$health_area_name, fromLast = TRUE), ]
+    tryCatch(vb_set_supervisors(campaign_id(), district(), new, user()),
+             error = function(e) showNotification(paste('Could not save:', conditionMessage(e)), type = 'error'))
+    sup_load(sup_load() + 1)
+    showNotification(sprintf('%d health areas loaded from the file.', nrow(new)), type = 'message')
   })
 
   # --- 3. Send ------------------------------------------------------------------------------
@@ -1140,16 +1103,26 @@ admin_server <- function(input, output, session, auth) {
       places <- vb_get_places(rid)
       cov <- vb_get_coverage(rid)
       existing <- vb_get_dispatches(rid)
+      # Sending with a Google My Maps link: each health area's map, once pasted in
+      links <- if (identical(isolate(input$send_how), 'mymaps')) vb_get_mymaps(rid) else NULL
+      # What the operator chose to include
+      opt <- isolate(msg_opts())
+      pdfs <- if (opt$pdf) vb_pdf_areas(rid)$health_area_name else character(0)
+      map_link <- function(h) { u <- links$url[match(h, links$health_area_name)]; if (length(u) && !is.na(u)) u else NULL }
       with_data <- cov$health_area_name[cov$team_area_name == '' & cov$has_data %in% TRUE]
       # complete rows only (the table saves itself as people type)
       sups <- sups[sups$health_area_name %in% with_data & nzchar(trimws(sups$supervisor_name)) & nchar(normalize_phone(sups$phone)) >= 11, ]
+      sups <- sups[!duplicated(sups$health_area_name), ]   # one supervisor per health area
       msgs <- lapply(seq_len(nrow(sups)), function(i) {
         s <- sups[i, ]
         tok <- existing$token[existing$supervisor_id == s$supervisor_id][1]
         if (is.na(tok)) tok <- new_token()
         pa <- if (is.null(places)) NULL else places[places$health_area_name == s$health_area_name, ]
         data.frame(supervisor_id = s$supervisor_id, supervisor_name = s$supervisor_name, phone = s$phone, token = tok,
-                   message = supervisor_message(s$supervisor_name, district(), s$health_area_name, run$data_to, pa, supervisor_link(tok)))
+                   message = supervisor_message(s$supervisor_name, district(), s$health_area_name, run$data_to, pa,
+                                                link = if (opt$app) supervisor_link(tok), map_link = map_link(s$health_area_name),
+                                                pdf_link = if (s$health_area_name %in% pdfs) paste0(supervisor_link(tok), '&pdf=1'),
+                                                with_list = opt$list != 'none', max_list = if (opt$list == 'top5') 5 else Inf))
       })
       if (length(msgs)) vb_upsert_dispatches(rid, dplyr::bind_rows(msgs), user())
       send_refresh(send_refresh() + 1)
@@ -1159,72 +1132,179 @@ admin_server <- function(input, output, session, auth) {
 
   # Messages are kept ready whenever the Send tab is open (supervisors may
   # have changed since)
-  observeEvent(list(input$main_tabs, input$send_run), {
+  # What goes in the messages (the sidebar's "What the message includes")
+  msg_opts <- reactive(list(list = input$msg_list %||% 'all', app = isTRUE(input$msg_app), pdf = isTRUE(input$msg_pdf)))
+
+  observeEvent(list(input$main_tabs, input$send_run, input$send_how, msg_opts()), {
     req(input$main_tabs == 'send', isTruthy(input$send_run))
+    if (msg_opts()$pdf) make_pdfs(as.integer(input$send_run))
     prepare_messages(as.integer(input$send_run))
   })
 
-  # Dispatches, plus the health areas that got no message and why
-  send_rows <- reactive({
-    send_refresh()
-    rid <- run_id()
-    d <- vb_get_dispatches(rid)
-    cov <- vb_get_coverage(rid)
-    cov <- cov[cov$team_area_name == '' & !cov$health_area_name %in% d$health_area_name, ]
-    sups <- sup_saved()
-    why <- ifelse(!cov$has_data %in% TRUE, 'No team GPS data',
-                  ifelse(!cov$health_area_name %in% sups$health_area_name, 'No supervisor', 'Not ready yet'))
-    list(d = d, skipped = data.frame(health_area_name = cov$health_area_name, n_places = cov$n_places, why = why)[order(why, cov$health_area_name), ])
+  # A list that already has My Maps links opens on sending with them
+  observeEvent(input$send_run, {
+    req(isTruthy(input$send_run))
+    updateRadioButtons(session, 'send_how', selected = if (nrow(vb_get_mymaps(as.integer(input$send_run)))) 'mymaps' else 'app')
   })
 
-  # Refresh Sent / Opened / Done every 10 s while this tab is open
-  observe({
-    req(input$main_tabs == 'send')
-    invalidateLater(10000)
-    send_refresh(isolate(send_refresh()) + 1)
+  # One row per health area of the list: its supervisor's message (if any)
+  # and, sending with My Maps, its map link
+  mm_changed <- reactiveVal(0)
+  send_rows <- reactive({
+    send_refresh(); mm_changed()
+    rid <- run_id()
+    cov <- vb_get_coverage(rid)
+    cov <- cov[cov$team_area_name == '', ]
+    list(ha = cov[order(cov$health_area_name), c('health_area_name', 'has_data', 'n_places')],
+         d = vb_get_dispatches(rid), links = vb_get_mymaps(rid), how = input$send_how, sups = tryCatch(vb_get_supervisors(campaign_id(), district()), error = function(e) NULL),
+         opt = msg_opts(), pdfs = vb_pdf_areas(rid))
   })
+  # The row's dispatch (one supervisor per health area)
+  row_dispatch <- function(x) match(x$ha$health_area_name, x$d$health_area_name)
+
+  # --- Sending with a Google My Maps link ---------------------------------------
+  # My Maps has no API, so for each health area the operator imports the
+  # app's KML file into a new My Maps map and pastes its share link back,
+  # all from the health area's row: 1 file, 2 My Maps, 3 title, 4 link.
+  run_places <- reactive(vb_get_places(run_id()))
+  run_row <- reactive({ r <- runs(); r[r$run_id %in% run_id(), ] })
+  # Health areas of the list with missed places, and their map titles
+  mm_areas <- reactive({ pl <- run_places(); if (is.null(pl)) character(0) else base::sort(base::unique(pl$health_area_name)) })
+  mm_title <- function(h) {
+    r <- run_row()
+    sprintf('Missed places – %s, %s (%s to %s)', h, district(), format(as.Date(r$data_from), '%d %b'), format(as.Date(r$data_to), '%d %b %Y'))
+  }
+  mm_kml <- function(h) {
+    pl <- run_places(); drawn <- areas_d()$health_areas
+    places_kml(pl[pl$health_area_name == h, ], mm_title(h), ha_poly = if (!is.null(drawn)) drawn[drawn$health_area == h, ])
+  }
+  # A row's file: made on request and handed to the browser to save
+  observeEvent(input$mm_file, {
+    h <- isolate(send_rows())$ha$health_area_name[as.integer(input$mm_file$i)]; req(h %in% mm_areas())
+    session$sendCustomMessage('save_text', list(name = paste0(.file_part(mm_title(h)), '.kml'), text = mm_kml(h),
+                                                type = 'application/vnd.google-earth.kml+xml'))
+  })
+  observeEvent(input$mm_link, {
+    h <- isolate(send_rows())$ha$health_area_name[as.integer(input$mm_link$i)]; req(h %in% mm_areas())
+    url <- trimws(input$mm_link$url %||% '')
+    if (nzchar(url) && !grepl('^https?://', url)) url <- paste0('https://', url)
+    if (nzchar(url) && !grepl('google\\.[a-z.]+/maps/d/|mymaps\\.google|maps\\.app\\.goo\\.gl|goo\\.gl/maps', url))
+      return(showNotification('That doesn\'t look like a Google My Maps share link (it should contain google.com/maps/d/).', type = 'warning'))
+    ok <- tryCatch({ vb_set_mymaps(run_id(), h, url, user()); TRUE },
+                   error = function(e) { showNotification(paste('Could not save the link:', conditionMessage(e)), type = 'error'); FALSE })
+    if (ok) { prepare_messages(run_id()); mm_changed(mm_changed() + 1) }
+  })
+
+  # A health area's printed map of the list (exports.R)
+  area_pdf <- function(h, file, size, basemap) {
+    pl <- run_places(); drawn <- areas_d()$health_areas; r <- run_row()
+    places_pdf(pl[pl$health_area_name == h, ], file,
+               title = sprintf('Missed places – %s, %s', h, district()),
+               subtitle = sprintf('From vaccination team GPS, %s to %s', format(as.Date(r$data_from), '%d %b'), format(as.Date(r$data_to), '%d %b %Y')),
+               ha_poly = if (!is.null(drawn)) drawn[drawn$health_area == h, ], size = size, basemap = basemap)
+  }
+
+  # --- A map to download (PDF) in each message ---------------------------------------
+  # Made as soon as it's included (A3 street map: read on a phone, or
+  # printed), once per list -- only health areas without one yet -- then
+  # stored and downloaded by supervisors from their ?t=<token>&pdf=1 link.
+  make_pdfs <- function(rid) {
+    todo <- setdiff(mm_areas(), vb_pdf_areas(rid)$health_area_name)
+    if (length(todo) == 0) return(invisible())
+    d <- tempfile('pdf'); dir.create(d); on.exit(unlink(d, recursive = TRUE))
+    withProgress(message = 'Making the PDF maps', value = 0, tryCatch({
+      for (k in seq_along(todo)) {
+        setProgress((k - 0.5) / length(todo), detail = todo[k])
+        f <- file.path(d, sprintf('%d.pdf', k))
+        area_pdf(todo[k], f, 'A3', 'osm')
+        vb_save_pdf(rid, todo[k], f, 'A3', 'osm', user())
+      }
+    }, error = function(e) showNotification(paste('Could not make the maps:', conditionMessage(e)), type = 'error', duration = NULL)))
+  }
+  output$pdf_status <- renderUI({
+    x <- send_rows(); has <- mm_areas()
+    p(class = 'hint', sprintf('%d of %d health area maps ready.', sum(has %in% x$pdfs$health_area_name), length(has)))
+  })
+
+  # --- Export files: shapefile, printed maps -----------------------------------------
+  output$exp_shp <- downloadHandler(
+    filename = function() sprintf('missed_places_%s_%s.zip', .file_part(district()), format(as.Date(run_row()$data_to), '%Y%m%d')),
+    content = function(file) {
+      pl <- run_places(); req(pl)
+      places_shapefile_zip(pl, file)
+    })
+  output$exp_pdf <- downloadHandler(
+    filename = function() sprintf('missed_places_maps_%s_%s_%s.zip', .file_part(district()), input$exp_size,
+                                  format(as.Date(run_row()$data_to), '%Y%m%d')),
+    content = function(file) {
+      req(run_places())
+      has <- mm_areas()
+      d <- tempfile('pdf'); dir.create(d); on.exit(unlink(d, recursive = TRUE))
+      withProgress(message = 'Making the printed maps', value = 0, {
+        for (k in seq_along(has)) {
+          setProgress(k / length(has), detail = has[k])
+          area_pdf(has[k], file.path(d, paste0(.file_part(has[k]), '.pdf')), input$exp_size, input$exp_base)
+        }
+      })
+      zip::zip(file, list.files(d, full.names = TRUE), mode = 'cherry-pick')
+    })
 
   output$send_progress <- renderUI({
-    d <- send_rows()$d
-    if (nrow(d) == 0) return(p(class = 'summary', style = 'color: #64748b;', 'No messages to send yet.'))
-    per_ha <- d[!duplicated(d$health_area_name), ]
-    p(class = 'summary',
-      tags$b(sprintf('%d of %d sent', sum(!is.na(d$send_clicked_at)), nrow(d))),
-      sprintf(' · %d opened · %d of %d missed places done', sum(d$n_opens > 0), sum(per_ha$closed), sum(per_ha$n)),
-      span(class = 'muted', 'Updates by itself as supervisors open their links and mark places done.'))
+    x <- send_rows(); j <- row_dispatch(x)
+    n <- sum(!is.na(j))
+    if (n == 0) return(p(class = 'summary', style = 'color: #64748b;', 'No messages to send yet.'))
+    p(class = 'summary', tags$b(sprintf('%d of %d sent', sum(!is.na(x$d$send_clicked_at[j[!is.na(j)]])), n)),
+      if (identical(x$how, 'mymaps')) span(class = 'muted', sprintf(
+        '%d of %d My Maps links added. In My Maps: Create a new map, Import the file, paste the title, then Share with Anyone with the link.',
+        sum(mm_areas() %in% x$links$health_area_name), length(mm_areas()))))
   })
 
   send_tbl <- function(x) {
-    d <- x$d; s <- x$skipped
-    fmt_t <- function(t) ifelse(is.na(t), '', format(lubridate::with_tz(t, ODK_TZ), '%d %b %H:%M'))
-    skip <- data.frame(
-      Send = ifelse(s$why == 'No supervisor',
-                    '<a href="#" style="color: #b45309;" onclick="$(\'.hdr-tab[data-tab=supervisors]\').click(); return false;">No supervisor – add</a>',
-                    sprintf('<span style="color: #94a3b8;">%s</span>', s$why)),
-      `Health area` = s$health_area_name, Supervisor = rep('', nrow(s)), Phone = rep('', nrow(s)), `Missed places` = s$n_places,
-      Sent = rep('', nrow(s)), Opened = rep('', nrow(s)), Done = rep('', nrow(s)),
-      check.names = FALSE)
-    if (nrow(d) == 0) return(skip)
-    sent <- data.frame(
-      Send = sprintf('<a class="btn btn-success btn-sm" target="_blank" href="%s" onclick="Shiny.setInputValue(\'sent_click\', {id: %d, nonce: Math.random()}, {priority: \'event\'})">%s</a>',
-                     wa_link(d$phone, d$message), d$dispatch_id, ifelse(is.na(d$send_clicked_at), 'Send', 'Send again')),
-      `Health area` = d$health_area_name, Supervisor = d$supervisor_name, Phone = d$phone,
-      `Missed places` = d$n,
-      Sent = fmt_t(d$send_clicked_at),
-      Opened = ifelse(d$n_opens > 0, fmt_t(d$last_opened_at), ''),
-      Done = ifelse(d$n > 0, sprintf('%d of %d', d$closed, d$n), '–'),
-      check.names = FALSE)
-    rbind(sent, skip)
+    j <- row_dispatch(x); d <- x$d[j, ]; h <- x$ha$health_area_name; i <- seq_along(h)
+    has_msg <- !is.na(j)
+    mm <- identical(x$how, 'mymaps')
+    url <- x$links$url[match(h, x$links$health_area_name)]
+    with_places <- h %in% isolate(mm_areas())
+    why <- ifelse(!x$ha$has_data %in% TRUE, '<span style="color: #94a3b8;">No team GPS data</span>',
+           ifelse(!h %in% x$sups$health_area_name[nzchar(x$sups$supervisor_name) & nchar(normalize_phone(x$sups$phone)) >= 11],
+                  '<a href="#" style="color: #b45309;" onclick="$(\'.hdr-tab[data-tab=supervisors]\').click(); return false;">No supervisor or phone – add</a>',
+                  '<span style="color: #94a3b8;">Not ready yet</span>'))
+    # A message with no link and no list says nothing useful
+    empty <- !mm && !x$opt$app && !x$opt$pdf && x$opt$list == 'none'
+    send <- ifelse(!has_msg, why,
+            ifelse(empty, '<span style="color: #b45309;">Choose what the message includes</span>',
+            ifelse(mm & with_places & is.na(url), '<span style="color: #b45309;">Add the map link first</span>',
+            ifelse(x$opt$pdf & with_places & !h %in% x$pdfs$health_area_name, '<span style="color: #b45309;">Make the PDF maps first</span>',
+                   sprintf('<a class="btn btn-success btn-sm" target="_blank" href="%s" onclick="Shiny.setInputValue(\'sent_click\', {id: %d, nonce: Math.random()}, {priority: \'event\'})">%s</a>',
+                           wa_link(d$phone, d$message), d$dispatch_id, ifelse(is.na(d$send_clicked_at), 'Send', 'Send again'))))))
+    out <- data.frame(`Health area` = h, Supervisor = ifelse(has_msg, d$supervisor_name, ''), Phone = ifelse(has_msg, d$phone, ''),
+                      `Missed places` = x$ha$n_places, check.names = FALSE)
+    if (mm) {
+      js_str <- function(s) as.character(jsonlite::toJSON(s, auto_unbox = TRUE))
+      act <- function(input, k) sprintf("event.stopPropagation(); Shiny.setInputValue('%s', {i: %d, nonce: Math.random()}, {priority: 'event'})", input, k)
+      out$`1. File` <- ifelse(with_places, sprintf('<button class="btn btn-default btn-xs" onclick="%s"><i class="fa fa-download"></i></button>', act('mm_file', i)), '')
+      # (My Maps has no address that creates a map directly: its home page's "Create a new map" button does)
+      out$`2. My Maps` <- ifelse(with_places, '<a class="btn btn-default btn-xs" href="https://www.google.com/maps/d/" target="_blank" onclick="event.stopPropagation();">Open</a>', '')
+      out$`3. Title` <- ifelse(with_places, sprintf('<button class="btn btn-default btn-xs" title="%s" onclick="event.stopPropagation(); navigator.clipboard.writeText(%s); this.innerText = \'Copied\';">Copy</button>',
+                                                    htmltools::htmlEscape(vapply(h, mm_title, ''), attribute = TRUE), htmltools::htmlEscape(vapply(vapply(h, mm_title, ''), js_str, ''), attribute = TRUE)), '')
+      out$`4. Share link` <- ifelse(with_places, sprintf(
+        '<div class="mm-cell">%s<input type="url" class="form-control mm-link" value="%s" placeholder="Paste the share link" onclick="event.stopPropagation();" onchange="Shiny.setInputValue(\'mm_link\', {i: %d, url: this.value, nonce: Math.random()}, {priority: \'event\'})"></div>',
+        ifelse(is.na(url), '', '<i class="fa fa-circle-check" style="color: #16a34a;"></i>'), htmltools::htmlEscape(ifelse(is.na(url), '', url), attribute = TRUE), i), '')
+    }
+    out$Send <- send
+    out$Sent <- ifelse(has_msg & !is.na(d$send_clicked_at), format(lubridate::with_tz(d$send_clicked_at, ODK_TZ), '%d %b %H:%M'), '')
+    out
   }
 
-  # Rendered once per list; the 10 s refreshes only swap the data, so the
-  # selected row and scroll position stay
+  # A new table per list and method; later changes (a link pasted, a message
+  # sent) only swap its data, so the selected row and scroll position stay
   output$send_table <- renderDT({
-    run_id()
+    run_id(); input$send_how
     tbl <- send_tbl(isolate(send_rows()))
-    datatable(tbl, rownames = FALSE, escape = setdiff(names(tbl), 'Send'), selection = 'single',
-              # full window height (below the header bar)
-              options = modifyList(DT_OPTS, list(scrollY = 'calc(100vh - 190px)', columnDefs = list(list(orderable = FALSE, targets = 0)))))
+    html <- c('1. File', '2. My Maps', '3. Title', '4. Share link', 'Send')
+    datatable(tbl, rownames = FALSE, escape = setdiff(names(tbl), html), selection = 'single',
+              options = modifyList(DT_OPTS, list(scrollY = 'calc(100vh - 210px)',
+                                                 columnDefs = list(list(orderable = FALSE, targets = which(names(tbl) %in% html) - 1)))))
   })
   observeEvent(send_rows(), {
     DT::replaceData(DT::dataTableProxy('send_table'), send_tbl(send_rows()), rownames = FALSE,
@@ -1236,18 +1316,16 @@ admin_server <- function(input, output, session, auth) {
     send_refresh(send_refresh() + 1)
   })
 
-  # The selected row's message, else the first one's
+  # On the right: the selected row's message, else the first one with a message
   output$send_preview <- renderUI({
-    d <- send_rows()$d; i <- input$send_table_rows_selected %||% 1
-    if (nrow(d) == 0) return(NULL)
-    if (i > nrow(d)) return(p(class = 'hint', 'No message for this health area.'))
-    tagList(div(class = 'mini-label', sprintf('Message to %s', d$supervisor_name[i])),
-            tags$pre(class = 'msg-preview', d$message[i]),
-            # &preview=1: your look at their page isn't counted as them opening it
-            tags$a(href = paste0(supervisor_link(d$token[i]), '&preview=1'), target = '_blank', icon('up-right-from-square'), ' Open their page'),
-            p(class = 'hint', style = 'margin-top: 6px;', 'Click another row to see its message.'))
+    x <- send_rows(); j <- row_dispatch(x)
+    r <- input$send_table_rows_selected %||% which(!is.na(j))[1]
+    if (length(r) == 0 || is.na(r)) return(p(class = 'hint', 'No messages yet.'))
+    if (is.na(j[r])) return(tagList(div(class = 'rightbar-title', x$ha$health_area_name[r]), p(class = 'hint', 'No message for this health area.')))
+    d <- x$d[j[r], ]
+    tagList(div(class = 'rightbar-title', sprintf('Message to %s', d$supervisor_name)),
+            tags$pre(class = 'msg-preview', d$message))
   })
-
   # --- Admin: users and analysis settings (admins only) ----------------------------------
   is_admin <- reactive(identical(auth$role, 'admin'))
   observe(if (is_admin()) shinyjs::show('hdr_admin') else shinyjs::hide('hdr_admin'))

@@ -73,6 +73,7 @@ DEFAULT_PARAMS <- list(
   max_place_cells = 25,    # larger missed areas are split into places of about this many cells (~450 m across)...
   max_place_children = 250, # ...or about this many estimated children under 5, whichever gives more places
   min_place_u5    = 10,    # drop missed places with fewer estimated under-5s (Aug 2026: drops 9 of 57 places, 2% of missed children)
+  min_place_m2    = 10000, # drop missed places smaller than one grid square (m2) once trimmed to their area -- slivers along borders
   min_ha_fixes    = 200,   # health areas with fewer usable fixes had no carriers: reported, not analysed
   no_map_reach_m  = 1000,  # districts with no drawn health areas: look for missed places this far from team tracks
   idp_near_m      = 100,   # flag places this close to an IDP site ("at" a site -- in Mogadishu IDP sites are a few hundred m apart)

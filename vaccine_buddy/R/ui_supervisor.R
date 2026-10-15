@@ -4,8 +4,9 @@
 # Phone-first, in the health area adjuster's look (slate header, teal
 # accent, Bootstrap 3): map on top (their health area, numbered missed
 # places, facilities, IDP sites, "you are here"), then the places grouped
-# by team, most children first. Each place has Navigate (Google Maps),
-# Done, Can't reach and No children; status is saved so the admin side can follow up.
+# by team, most children first (child numbers are never shown here). Each place has Navigate (Google Maps),
+# Done, Inaccessible and No children -- marked by the vaccination team only
+# (team links); the supervisor follows. Status is saved so the admin side can follow up.
 #
 # Teams: a place's team is its adjuster team area where one is mapped,
 # otherwise the vaccination team that passed closest
@@ -94,8 +95,8 @@ supervisor_ui <- function() {
 }
 
 supervisor_server <- function(input, output, session, token) {
-  preview <- identical(parseQueryString(isolate(session$clientData$url_search))$preview, '1')
-  info <- tryCatch(vb_open_dispatch(token, count_open = !preview), error = function(e) { message('[sup] ', conditionMessage(e)); NULL })
+
+  info <- tryCatch(vb_open_dispatch(token), error = function(e) { message('[sup] ', conditionMessage(e)); NULL })
   if (is.null(info)) {
     output$sup_head <- renderUI(div(class = 'sup-head', tags$h1('Link not valid'),
                                     div(class = 'sub', 'Ask your district focal point for a new link.')))
@@ -146,7 +147,6 @@ supervisor_server <- function(input, output, session, token) {
   output$sup_head <- renderUI({
     p <- in_view(places())
     open <- if (is.null(p)) 0 else sum(p$status == 'open')
-    kids <- if (is.null(p)) 0 else sum(p$u5_pop[p$status == 'open'])
     title <- if (!is.null(team_q)) sprintf('%s – %s', team_label(team_q), info$health_area_name)
              else if (length(pick_q)) sprintf('Your places – %s', info$health_area_name)
              else sprintf('%s – %s', info$health_area_name, info$district_name)
@@ -158,12 +158,13 @@ supervisor_server <- function(input, output, session, token) {
           div(class = 'sub', sprintf('Missed places · vaccination team GPS up to %s', format(as.Date(info$data_to), '%d %b %Y'))),
           div(class = 'sup-stats',
               div(tags$b(open), if (open == 1) ' place left' else ' places left'),
-              div(tags$b(.fmt_n(kids)), ' children under 5 (est.)'),
               if (!is.null(p)) div(tags$b(sum(p$status != 'open')), ' done'))),
       div(class = 'howto',
-          'Red areas have houses the vaccination teams did not pass. Tap ', tags$b('Navigate'), ' for directions and ',
-          tags$b('Done'), ' once the children there are vaccinated.',
-          if (!team_view) tagList(' Use ', tags$b('Send to team'), ' to give each team its places on WhatsApp, or tick places to send them to any team.'))
+          'Red areas have houses the vaccination teams did not pass. Tap ', tags$b('Navigate'), ' for directions.',
+          if (team_view) tagList(' Tap ', tags$b('Done'), ' once the children there are vaccinated, or ', tags$b('Inaccessible'),
+                                 ' or ', tags$b('No children'), '.')
+          else tagList(' Use ', tags$b('Send to team'), ' to give each team its places on WhatsApp, or tick places to send them to any team. ',
+                       'The teams mark each place done, and you can follow their progress here.'))
     )
   })
 
@@ -210,8 +211,8 @@ supervisor_server <- function(input, output, session, token) {
     proxy |>
       addCircleMarkers(data = p, group = 'places', lng = ~lon, lat = ~lat, radius = 11, color = '#fff', weight = 2,
                        fillColor = status_col(p$status), fillOpacity = 1, options = pathOptions(pane = 'places'),
-                       popup = ~sprintf('<b>#%d</b> %s<br>~%s children under 5<br>%s<br><a href="%s" target="_blank"><b>Navigate ▶</b></a>',
-                                        place_no, htmltools::htmlEscape(label), .fmt_n(u5_pop), team_label(assigned_team), gmaps_nav(lat, lon))) |>
+                       popup = ~sprintf('<b>#%d</b> %s<br>%s<br><a href="%s" target="_blank"><b>Navigate ▶</b></a>',
+                                        place_no, htmltools::htmlEscape(label), team_label(assigned_team), gmaps_nav(lat, lon))) |>
       addLabelOnlyMarkers(data = p, group = 'places', lng = ~lon, lat = ~lat, label = ~as.character(place_no),
                           labelOptions = labelOptions(noHide = TRUE, direction = 'center', textOnly = TRUE, className = 'num-label'))
   })
@@ -248,7 +249,7 @@ supervisor_server <- function(input, output, session, token) {
 
   observeEvent(input$place_action, {
     a <- input$place_action
-    req(a$status %in% names(STATUS_COLORS))
+    req(team_view, a$status %in% names(STATUS_COLORS))   # teams only, never the supervisor's own link
     ok <- tryCatch({ vb_set_place_status(a$id, a$status, via = paste0(if (team_view) 'team:' else 'supervisor:', info$dispatch_id)); TRUE },
                    error = function(e) FALSE)
     if (!ok) return(showNotification('Could not save – check your connection and try again.', type = 'error'))
@@ -283,6 +284,12 @@ supervisor_server <- function(input, output, session, token) {
   place_card <- function(r, is_picked) {
     open <- r$status == 'open'
     idp_note <- !is.na(r$near_idp) && !grepl(r$near_idp, r$label, fixed = TRUE)
+    # Details under the name, joined with " · " (no child numbers: they're for the admin side only)
+    meta <- Filter(Negate(is.null), list(
+      if (!open) tags$b(c(done = 'Done', unreachable = 'Inaccessible', no_children = 'No children')[[r$status]]),
+      if (idp_note) tags$span(style = 'color:#7c3aed; font-weight:600;', sprintf('at %s IDP site', r$near_idp)),
+      if (identical(r$team_source, 'nearest carrier') && !is.na(r$team_dist_m))
+        sprintf('%s passed %s m away', team_label(r$assigned_team), format(r$team_dist_m, big.mark = ','))))
     div(class = paste('place', r$status, if (is_picked) 'picked'),
         div(class = 'top',
             if (open && !team_view)
@@ -290,18 +297,15 @@ supervisor_server <- function(input, output, session, token) {
                          onchange = sprintf('placePick(this, %d)', r$place_id)),
             div(style = 'flex:1',
                 div(class = 't', onclick = sprintf('placeFocus(%d)', r$place_id), sprintf('#%d  %s', r$place_no, r$label)),
-                div(class = 'm', sprintf('~%s children under 5', .fmt_n(r$u5_pop)),
-                    if (!open) tags$b(sprintf(' · %s', c(done = 'Done', unreachable = "Can't reach", no_children = 'No children')[[r$status]])),
-                    if (idp_note) tags$span(style = 'color:#7c3aed; font-weight:600;', sprintf(' · at %s IDP site', r$near_idp)),
-                    if (identical(r$team_source, 'nearest carrier') && !is.na(r$team_dist_m))
-                      sprintf(' · %s passed %s m away', team_label(r$assigned_team), format(r$team_dist_m, big.mark = ','))))),
+                div(class = 'm', lapply(seq_along(meta), function(i) tagList(if (i > 1) ' · ', meta[[i]]))))),
         div(class = 'btns',
             tags$a(class = 'b b-nav', href = gmaps_nav(r$lat, r$lon), target = '_blank', icon('location-arrow'), ' Navigate'),
-            if (open) tagList(
+            # Only the vaccination team (a team link) marks places; the supervisor follows
+            if (team_view && open) tagList(
               tags$button(class = 'b b-done', onclick = sprintf("placeAction(%d,'done')", r$place_id), icon('check'), ' Done'),
-              tags$button(class = 'b b-skip', onclick = sprintf("placeAction(%d,'unreachable')", r$place_id), "Can't reach"),
+              tags$button(class = 'b b-skip', onclick = sprintf("placeAction(%d,'unreachable')", r$place_id), 'Inaccessible'),
               tags$button(class = 'b b-skip', onclick = sprintf("placeAction(%d,'no_children')", r$place_id), 'No children'))
-            else tags$button(class = 'b b-skip', onclick = sprintf("placeAction(%d,'open')", r$place_id), 'Undo')))
+            else if (team_view) tags$button(class = 'b b-skip', onclick = sprintf("placeAction(%d,'open')", r$place_id), 'Undo')))
   }
 
   output$sup_list <- renderUI({
@@ -315,7 +319,7 @@ supervisor_server <- function(input, output, session, token) {
     cards <- function(d) lapply(seq_len(nrow(d)), function(i) place_card(d[i, ], d$place_id[i] %in% sel))
 
     if (team_view || length(teams) == 0) return(tagList(
-      div(class = 'group-h', tags$h2(sprintf('%d %s, most children first', nrow(p), if (nrow(p) == 1) 'place' else 'places'))),
+      div(class = 'group-h', tags$h2(sprintf('%d %s', nrow(p), if (nrow(p) == 1) 'place' else 'places'))),
       cards(p)))
 
     # Teams with the most children to reach first
@@ -340,4 +344,48 @@ supervisor_server <- function(input, output, session, token) {
         cards(tp))
     })
   })
+}
+
+# --- The supervisor's map to download (?t=<token>&pdf=1) ------------------------
+# A link in the WhatsApp message: a small page that downloads the health
+# area's PDF map at once (made and stored when the operator included it).
+pdf_ui <- function() {
+  fluidPage(
+    title = 'Missed places map',
+    tags$head(
+      tags$meta(name = 'viewport', content = 'width=device-width, initial-scale=1'),
+      tags$style(HTML("
+        body { background: #f0f4f8; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        .pdf-box { max-width: 420px; margin: 40px auto; background: #fff; border-radius: 8px; padding: 20px; text-align: center;
+                   border: 1px solid #e2e8f0; }
+        .pdf-box h1 { font-size: 18px; margin: 0 0 6px; }
+        .pdf-box p { color: #475569; font-size: 13px; }
+        .pdf-box .btn { background: #0d9488; color: #fff; font-size: 16px; padding: 10px 18px; margin-top: 8px; }
+      ")),
+      # download as soon as the button is there
+      tags$script(HTML("
+        $(document).on('shiny:value', function(e) {
+          if (e.name === 'pdf_page') setTimeout(function() { var a = document.getElementById('pdf_dl'); if (a && a.href) a.click(); }, 400);
+        });
+      "))
+    ),
+    uiOutput('pdf_page')
+  )
+}
+
+pdf_server <- function(input, output, session, token) {
+  info <- tryCatch(vb_open_dispatch(token), error = function(e) { message('[pdf] ', conditionMessage(e)); NULL })
+  pdf <- if (is.null(info)) NULL else tryCatch(vb_get_pdf(info$run_id, info$health_area_name), error = function(e) NULL)
+  output$pdf_page <- renderUI({
+    if (is.null(info)) return(div(class = 'pdf-box', tags$h1('Link not valid'), p('Ask your district focal point for a new link.')))
+    if (is.null(pdf)) return(div(class = 'pdf-box', tags$h1(info$health_area_name), p('The map is not ready. Ask your district focal point.')))
+    div(class = 'pdf-box',
+        tags$h1(sprintf('Missed places – %s', info$health_area_name)),
+        p(sprintf('Map from vaccination team GPS up to %s. It downloads by itself; if not, tap the button.', format(as.Date(info$data_to), '%d %b %Y'))),
+        downloadButton('pdf_dl', 'Download the map (PDF)', class = 'btn'))
+  })
+  output$pdf_dl <- downloadHandler(
+    filename = function() sprintf('Missed_places_%s.pdf', gsub('[^A-Za-z0-9]+', '_', info$health_area_name)),
+    content = function(file) writeBin(pdf, file),
+    contentType = 'application/pdf')
 }

@@ -40,21 +40,27 @@ team_label <- function(x) ifelse(is.na(x), 'No team', trimws(gsub('[[:space:]]+'
 # WorldPop counts are estimates: show 2 significant figures ("~1,100").
 .fmt_n <- function(x) formatC(ifelse(x < 10, round(x), signif(x, 2)), big.mark = ',', format = 'd')
 
-#' places: that health area's missed places (data.frame / sf). No coverage
-#' figures are ever shown -- only the missed places and the approximate
-#' number of children in each.
-supervisor_message <- function(supervisor_name, district, health_area, data_to, places, link, top_n = 5) {
+#' places: that health area's missed places (data.frame / sf). Supervisors
+#' and teams never see coverage figures or child numbers -- only the missed
+#' places, most children first (the numbers are for the admin side only).
+#' The operator chooses what goes in: the links come first -- the health
+#' area's Google My Maps map (map_link, sending with My Maps), its map to
+#' download (pdf_link), the supervisor app (link; NULL leaves it out) --
+#' then, with_list, the missed places with a directions link, most
+#' children first: all of them, or the first max_list (e.g. the top 5).
+supervisor_message <- function(supervisor_name, district, health_area, data_to, places, link = NULL, max_list = Inf,
+                               map_link = NULL, pdf_link = NULL, with_list = TRUE) {
   head <- c(
     sprintf('Missed places \u2013 %s, %s', health_area, district),
     sprintf('From vaccination team GPS up to %s', format(as.Date(data_to), '%d %b')),
     ''
   )
   if (is.null(places) || nrow(places) == 0) {
-    return(paste(c(head, sprintf('Hello %s, no missed places were found in your area. Thank you!', supervisor_name),
-                   '', sprintf('Map: %s', link)), collapse = '\n'))
+    return(paste(c(head, sprintf('Hello %s, no missed places were found in your area. Thank you!', supervisor_name)),
+                 collapse = '\n'))
   }
   p <- as.data.frame(sf::st_drop_geometry(places))
-  top <- utils::head(p[order(-p$u5_pop), ], top_n)
+  top <- utils::head(p[order(-p$u5_pop), ], max_list)   # most children first
   # Whose place it is: the mapped team area, else the team that passed closest
   team_line <- ifelse(is.na(top$assigned_team), '',
                       ifelse(top$team_source %in% 'team area', sprintf('\nTeam area: %s', team_label(top$assigned_team)),
@@ -62,14 +68,14 @@ supervisor_message <- function(supervisor_name, district, health_area, data_to, 
 
   paste(c(
     head,
-    sprintf('Hello %s, vaccination teams did not pass %s in your area (about %s children under 5).',
-            supervisor_name, .places_n(nrow(p)), .fmt_n(sum(p$u5_pop))),
-    '',
-    sprintf('*Top %d places* (tap to navigate)', nrow(top)),
-    sprintf('%d. %s \u2013 ~%s children%s\n%s', top$place_no, top$label, .fmt_n(top$u5_pop), team_line, gmaps_nav(top$lat, top$lon)),
-    '',
-    '*Full list and map* (send each team its places, mark places done):',
-    link
+    sprintf('Hello %s, vaccination teams did not pass %s in your area.', supervisor_name, .places_n(nrow(p))),
+    if (!is.null(map_link)) c('', '*Map of all missed places* (opens in Google Maps):', map_link),
+    if (!is.null(pdf_link)) c('', '*Map to download and print (PDF):*', pdf_link),
+    if (!is.null(link)) c('', if (is.null(map_link) && is.null(pdf_link)) '*Map and list* (send each team its places, follow their progress):'
+                              else '*Send each team its places, follow their progress:*', link),
+    if (with_list) c('', '*Missed places* (tap a link for directions)',
+                     sprintf('%d. %s%s\n%s', top$place_no, top$label, team_line, gmaps_nav(top$lat, top$lon)),
+                     if (nrow(p) > nrow(top)) sprintf('...and %d more', nrow(p) - nrow(top)))
   ), collapse = '\n')
 }
 
@@ -83,7 +89,7 @@ team_message <- function(team, health_area, places, link) {
     else sprintf('Missed places – %s, %s', team_label(team), health_area),
     'Please go back to each place and vaccinate every child under 5. Tap a link for directions:',
     '',
-    sprintf('%d. %s – ~%s children\n%s', p$place_no, p$label, .fmt_n(p$u5_pop), gmaps_nav(p$lat, p$lon)),
+    sprintf('%d. %s\n%s', p$place_no, p$label, gmaps_nav(p$lat, p$lon)),
     '',
     'Map of all places (mark each one done when finished):',
     link

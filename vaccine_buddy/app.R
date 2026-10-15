@@ -3,13 +3,16 @@ source('global.R')
 # A request carrying ?t=<token> is a supervisor (or a team leader they
 # forwarded to) opening their link: no login, just their own page.
 # Anything else is the admin app behind the adjuster's login screen.
+#   ?t=<token>&pdf=1 is the same supervisor's map to download (PDF).
 ui <- function(req) {
-  token <- parseQueryString(req$QUERY_STRING %||% '')$t
-  if (!is.null(token) && nzchar(token)) supervisor_ui() else admin_ui()
+  q <- parseQueryString(req$QUERY_STRING %||% '')
+  if (!is.null(q$t) && nzchar(q$t)) { if (identical(q$pdf, '1')) pdf_ui() else supervisor_ui() } else admin_ui()
 }
 
 server <- function(input, output, session) {
-  token <- parseQueryString(isolate(session$clientData$url_search))$t
+  q <- parseQueryString(isolate(session$clientData$url_search))
+  token <- q$t
+  if (!is.null(token) && nzchar(token) && identical(q$pdf, '1')) return(pdf_server(input, output, session, token))
   if (!is.null(token) && nzchar(token)) return(supervisor_server(input, output, session, token))
 
   auth <- authServer('auth')

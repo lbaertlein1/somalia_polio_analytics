@@ -357,7 +357,15 @@ split_places <- function(ctx, missed, painted = numeric(0), params) {
     places$district_name <- ctx$district_name
     places$outline <- .place_outlines(places, mp$cells, ctx$grid, ctx$ha, ctx$teams, ctx$epsg)
     places$place_key <- NULL
-    places <- assign_teams(places, ctx$pings, ctx$epsg, ctx$homes)
+    # Slivers left by trimming to the health / team area borders aren't
+    # places anyone can go back to: drop them, and number the rest again
+    keep <- as.numeric(sf::st_area(sf::st_transform(places$outline, ctx$epsg))) >= (params$min_place_m2 %||% 10000)
+    places <- if (any(keep)) places[keep, ] else NULL
+    if (!is.null(places)) {
+      places <- places[order(places$health_area, -places$u5_pop), ]
+      places$place_no <- stats::ave(seq_len(nrow(places)), places$health_area, FUN = seq_along)
+      places <- assign_teams(places, ctx$pings, ctx$epsg, ctx$homes)
+    }
   }
   list(places = places, coverage = .coverage(ctx, places))
 }
@@ -430,36 +438,84 @@ missed_layer <- function(ctx, missed) {
 }
 
 #' Place outlines that follow the real health area (and team area) borders
-#' instead of grid squares. A grid square on a border belongs to the area
-#' its centre is in, so on its own each place would stop short of the
-#' border, leaving gaps between neighbouring places. So each place is its
-#' own squares plus the missed squares next to it that belong to another
-#' area, trimmed to its own area: the two sides then meet on the border.
+#' instead of grid squares, and never overlap. A grid square on a border
+#' belongs to the area covering most of it, so on its own each place would
+#' stop short of the border, leaving gaps between neighbouring places. So
+#' each place is
+#'   1. its own squares, trimmed to its own area, plus
+#'   2. the parts of missed squares next to it that belong to another area
+#'      and lie in its own area -- except where any place's own squares are
+#'      (drawn areas can overlap a little), and except what an earlier place
+#'      already has;
+#' then its holes are filled (one solid shape, easier to read and walk;
+#' child counts are unaffected) -- but never over another place.
 #' `m`: every missed cell (cell, place_key, health_area, team_area).
 #' Returned as MULTIPOLYGON, EPSG:4326.
 .place_outlines <- function(places, m, r, ha, teams, epsg) {
   ha_m <- sf::st_transform(ha, epsg)
   te_m <- if (!is.null(teams) && nrow(teams) > 0) sf::st_transform(teams, epsg) else NULL
   squares <- function(cells) .cell_squares(r, cells, epsg)
-  grp <-paste(m$health_area, m$team_area)
-  res <- lapply(seq_len(nrow(places)), function(i) {
-    own <- m$place_key == places$place_key[i]
-    nb <- as.vector(terra::adjacent(r, m$cell[own], directions = 8))
-    extra <- m$cell %in% nb & grp != grp[own][1]
-    shape <- squares(m$cell[own | extra])
-    area <- sf::st_union(sf::st_geometry(ha_m[ha_m$health_area == places$health_area[i], ]))
+  # polygons only, as one shape (empty if none)
+  empty <- sf::st_sfc(sf::st_polygon(), crs = epsg)
+  polys <- function(g) {
+    if (is.null(g)) return(empty)
+    g <- g[!sf::st_is_empty(g)]
+    if (length(g) == 0) return(empty)
+    g <- sf::st_make_valid(g)
+    type <- as.character(sf::st_geometry_type(g))
+    g <- if (any(type == 'GEOMETRYCOLLECTION')) suppressWarnings(sf::st_collection_extract(g, 'POLYGON'))
+         else g[type %in% c('POLYGON', 'MULTIPOLYGON')]
+    if (length(g) == 0) empty else sf::st_union(g)
+  }
+  safely <- function(expr, otherwise) tryCatch(suppressWarnings(expr), error = function(e) otherwise)
+  area_of <- function(i) {
+    a <- sf::st_union(sf::st_geometry(ha_m[ha_m$health_area == places$health_area[i], ]))
     if (!is.na(places$team_area[i]) && !is.null(te_m)) {
       tp <- te_m[te_m$team_area == places$team_area[i] & te_m$health_area == places$health_area[i], ]
-      if (nrow(tp)) area <- sf::st_intersection(area, sf::st_union(sf::st_geometry(tp)))
+      if (nrow(tp)) a <- sf::st_intersection(a, sf::st_union(sf::st_geometry(tp)))
     }
-    g <- tryCatch(suppressWarnings(sf::st_intersection(shape, sf::st_make_valid(area))), error = function(e) NULL)
-    g <- if (!is.null(g) && length(g)) tryCatch(sf::st_collection_extract(g, 'POLYGON'), error = function(e) g) else NULL
-    if (is.null(g) || !length(g) || all(sf::st_is_empty(g))) squares(m$cell[own]) else sf::st_union(g)
+    sf::st_make_valid(a)
+  }
+  n <- nrow(places)
+  grp <- paste(m$health_area, m$team_area)
+  own <- lapply(seq_len(n), function(i) m$place_key == places$place_key[i])
+  areas <- lapply(seq_len(n), area_of)
+
+  # 1. own squares, trimmed to the place's area (untrimmed if that fails)
+  core <- lapply(seq_len(n), function(i) {
+    sq <- squares(m$cell[own[[i]]])
+    g <- safely(polys(sf::st_intersection(sq, areas[[i]])), sq)
+    if (all(sf::st_is_empty(g))) sq else g
   })
-  g <- sf::st_cast(sf::st_transform(do.call(c, res), 4326), 'MULTIPOLYGON')
-  # Fill holes ("donuts" around a visited or empty square): one solid shape
-  # per place, easier to read and to walk. Child counts are unaffected.
-  sf::st_sfc(sfheaders::sf_remove_holes(g), crs = 4326)
+  all_core <- sf::st_union(do.call(c, core))
+
+  # 2. border squares of other areas, in this place's area, nobody's core,
+  #    and not already taken by an earlier place
+  shapes <- vector('list', n)
+  taken <- empty
+  for (i in seq_len(n)) {
+    nb <- as.vector(terra::adjacent(r, m$cell[own[[i]]], directions = 8))
+    extra <- m$cell %in% nb & grp != grp[own[[i]]][1]
+    g <- core[[i]]
+    if (any(extra)) {
+      e <- safely(polys(sf::st_difference(polys(sf::st_intersection(squares(m$cell[extra]), areas[[i]])), all_core)), NULL)
+      if (!is.null(e) && !all(sf::st_is_empty(e))) e <- safely(polys(sf::st_difference(e, taken)), e)
+      if (!is.null(e) && !all(sf::st_is_empty(e))) { g <- polys(c(g, e)); taken <- polys(c(taken, e)) }
+    }
+    shapes[[i]] <- g
+  }
+
+  # 3. fill holes, then take back out any other place a hole held
+  all_shapes <- do.call(c, shapes)
+  filled <- sf::st_make_valid(sf::st_sfc(sfheaders::sf_remove_holes(sf::st_cast(all_shapes, 'MULTIPOLYGON')), crs = epsg))
+  hits <- sf::st_intersects(filled, all_shapes)
+  out <- lapply(seq_len(n), function(i) {
+    others <- setdiff(hits[[i]], i)
+    g <- if (length(others) == 0) polys(filled[i])
+         else safely(polys(sf::st_difference(filled[i], sf::st_union(all_shapes[others]))), all_shapes[i])
+    if (all(sf::st_is_empty(g))) all_shapes[i] else g
+  })
+  sf::st_cast(sf::st_make_valid(sf::st_transform(do.call(c, out), 4326)), 'MULTIPOLYGON')
 }
 
 #' Missed cells grouped and split into places. Places with any cell in

@@ -199,10 +199,20 @@ statements <- list(
     is_active         BOOLEAN     NOT NULL DEFAULT TRUE,
     notes             TEXT,
     updated_by        TEXT,
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (campaign_id, district_name, health_area_name, phone)
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )",
   "CREATE INDEX IF NOT EXISTS idx_sup_campaign ON supervisors(campaign_id)",
+  # A phone is unique per health area among *active* supervisors only:
+  # removed ones are kept (inactive) for the send log, and must not stop
+  # the same number being entered again. Replaces the table's original
+  # UNIQUE constraint, which counted inactive rows too.
+  "DO $$ DECLARE c text; BEGIN
+     FOR c IN SELECT conname FROM pg_constraint WHERE conrelid = 'supervisors'::regclass AND contype = 'u' LOOP
+       EXECUTE format('ALTER TABLE supervisors DROP CONSTRAINT %I', c);
+     END LOOP;
+   END $$",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_sup_active_phone ON supervisors(campaign_id, district_name, health_area_name, phone)
+     WHERE is_active",
 
   # One saved analysis: which Vaccine Buddy data window, with which
   # cleaning/classification parameters.
@@ -292,6 +302,32 @@ statements <- list(
     last_opened_at    TIMESTAMPTZ,
     n_opens           INTEGER NOT NULL DEFAULT 0,
     UNIQUE (run_id, supervisor_id)
+  )",
+
+  # The Google My Maps map made (by hand, from the app's KML file) for each
+  # health area of a saved list; its share link is what's sent when
+  # sending "with a Google My Maps link".
+  "CREATE TABLE IF NOT EXISTS mymaps_links (
+    run_id            INTEGER NOT NULL REFERENCES analysis_runs(run_id) ON DELETE CASCADE,
+    health_area_name  TEXT    NOT NULL,
+    url               TEXT    NOT NULL,
+    updated_by        TEXT,
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (run_id, health_area_name)
+  )",
+
+  # Each health area's map to download (PDF), made once per saved list when
+  # the operator includes it in the messages; supervisors download it from
+  # their link (?t=<token>&pdf=1).
+  "CREATE TABLE IF NOT EXISTS area_pdfs (
+    run_id            INTEGER NOT NULL REFERENCES analysis_runs(run_id) ON DELETE CASCADE,
+    health_area_name  TEXT    NOT NULL,
+    page_size         TEXT,
+    basemap           TEXT,
+    pdf               BYTEA   NOT NULL,
+    created_by        TEXT,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (run_id, health_area_name)
   )",
 
   "CREATE TABLE IF NOT EXISTS place_status_log (
