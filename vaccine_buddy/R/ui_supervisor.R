@@ -5,7 +5,7 @@
 # accent, Bootstrap 3): map on top (their health area, numbered missed
 # places, facilities, IDP sites, "you are here"), then the places grouped
 # by team, most children first. Each place has Navigate (Google Maps),
-# Done and Can't reach; status is saved so the admin side can follow up.
+# Done, Can't reach and No children; status is saved so the admin side can follow up.
 #
 # Teams: a place's team is its adjuster team area where one is mapped,
 # otherwise the vaccination team that passed closest
@@ -16,7 +16,7 @@
 # places done too.
 # =============================================================================
 
-STATUS_COLORS <- c(open = '#dc2626', done = '#16a34a', unreachable = '#64748b')
+STATUS_COLORS <- c(open = '#dc2626', done = '#16a34a', unreachable = '#64748b', no_children = '#a8a29e')
 # unname(): leaflet ignores a named colour vector
 status_col <- function(status) unname(STATUS_COLORS[status])
 
@@ -43,7 +43,7 @@ supervisor_ui <- function() {
         .place { background: #fff; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
                  border: 1px solid #e2e8f0; border-left: 6px solid #dc2626; }
         .place.done { border-left-color: #16a34a; opacity: .65; }
-        .place.unreachable { border-left-color: #64748b; opacity: .65; }
+        .place.unreachable, .place.no_children { border-left-color: #64748b; opacity: .65; }
         .place.picked { box-shadow: 0 0 0 2px #0d9488; }
         .place .top { display: flex; gap: 10px; align-items: flex-start; }
         .place .pick { width: 22px; height: 22px; margin-top: 1px; flex: none; accent-color: #0d9488; }
@@ -291,6 +291,7 @@ supervisor_server <- function(input, output, session, token) {
             div(style = 'flex:1',
                 div(class = 't', onclick = sprintf('placeFocus(%d)', r$place_id), sprintf('#%d  %s', r$place_no, r$label)),
                 div(class = 'm', sprintf('~%s children under 5', .fmt_n(r$u5_pop)),
+                    if (!open) tags$b(sprintf(' · %s', c(done = 'Done', unreachable = "Can't reach", no_children = 'No children')[[r$status]])),
                     if (idp_note) tags$span(style = 'color:#7c3aed; font-weight:600;', sprintf(' · at %s IDP site', r$near_idp)),
                     if (identical(r$team_source, 'nearest carrier') && !is.na(r$team_dist_m))
                       sprintf(' · %s passed %s m away', team_label(r$assigned_team), format(r$team_dist_m, big.mark = ','))))),
@@ -298,7 +299,8 @@ supervisor_server <- function(input, output, session, token) {
             tags$a(class = 'b b-nav', href = gmaps_nav(r$lat, r$lon), target = '_blank', icon('location-arrow'), ' Navigate'),
             if (open) tagList(
               tags$button(class = 'b b-done', onclick = sprintf("placeAction(%d,'done')", r$place_id), icon('check'), ' Done'),
-              tags$button(class = 'b b-skip', onclick = sprintf("placeAction(%d,'unreachable')", r$place_id), "Can't reach"))
+              tags$button(class = 'b b-skip', onclick = sprintf("placeAction(%d,'unreachable')", r$place_id), "Can't reach"),
+              tags$button(class = 'b b-skip', onclick = sprintf("placeAction(%d,'no_children')", r$place_id), 'No children'))
             else tags$button(class = 'b b-skip', onclick = sprintf("placeAction(%d,'open')", r$place_id), 'Undo')))
   }
 

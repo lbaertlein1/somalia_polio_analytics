@@ -356,7 +356,7 @@ vb_upsert_dispatches <- function(run_id, msgs, user) {
 }
 
 #' Dispatches of a run with their health area's place counts: n (places),
-#' closed (done or unreachable), u5 (estimated under-5s in those places).
+#' closed (done, unreachable or no children), u5 (estimated under-5s in those places).
 #' Supervisors removed since are left out, unless they were already sent one.
 vb_get_dispatches <- function(run_id) {
   .q("SELECT d.*, s.district_name, s.health_area_name,

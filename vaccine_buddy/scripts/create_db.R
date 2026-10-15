@@ -264,11 +264,15 @@ statements <- list(
     label             TEXT,
     near_idp          TEXT,
     geom              JSONB,
-    status            TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done', 'unreachable')),
+    status            TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done', 'unreachable', 'no_children')),
     status_at         TIMESTAMPTZ,
     status_note       TEXT
   )",
   "CREATE INDEX IF NOT EXISTS idx_places_area ON missed_places(run_id, district_name, health_area_name)",
+  # 'no_children' (no children live there) added after the table was made
+  "ALTER TABLE missed_places DROP CONSTRAINT IF EXISTS missed_places_status_check",
+  "ALTER TABLE missed_places ADD CONSTRAINT missed_places_status_check
+     CHECK (status IN ('open', 'done', 'unreachable', 'no_children'))",
 
   # One link per (run, supervisor). The token in the link is the only
   # credential the supervisor page needs. name/phone/message are copied
