@@ -19,7 +19,9 @@ app_files <- c(
   'app.R', 'global.R',
   file.path('R', list.files(file.path(app_dir, 'R'))),
   file.path('www', list.files(file.path(app_dir, 'www'), recursive = TRUE)),
-  'data/som_u5_population_2026_100m.tif'
+  'data/som_u5_population_2026_100m.tif',
+  # district boundaries, for districts with no health areas drawn
+  file.path('data/boundary_sets', list.files(file.path(app_dir, 'data/boundary_sets'), pattern = '^districts_shp[.]Rds$', recursive = TRUE))
 )
 missing <- app_files[!file.exists(file.path(app_dir, app_files))]
 if (length(missing) || !file.exists(file.path(app_dir, '.env')))

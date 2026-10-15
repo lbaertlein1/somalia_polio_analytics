@@ -8,6 +8,9 @@
 #              falls inside the cell
 #   missed     populated and not visited (only in health areas that had
 #              team GPS data at all)
+# In three steps (the admin's Find tab): 1. run_analysis() finds the missed
+# cells; 2. they are checked and painted on or off by hand; 3.
+# split_places() turns the final cells into missed places, as follows.
 # Missed cells that touch (8 directions) and share a team area form one
 # missed place; places too big to walk (max_place_cells) or with more
 # children than one team can take on (max_place_children) are split with
@@ -70,34 +73,141 @@ local_name_landmarks <- function(names_df) {
 }
 .team_key <- function(x) .ha_key(sub('_T[0-9].*$', '', toupper(trimws(x))))
 
-#' Each team's own health area. Vaccination team names carry their health
-#' area ("ELDAS_HC_T2" -> Eldas Health Center), so that's used first,
+# A team's health area as its name gives it: "ELDAS_HC_T2" -> "ELDAS HC"
+team_ha_name <- function(x) team_label(sub('_T[0-9].*$', '', toupper(trimws(x))))
+
+#' Districts with no health areas drawn in the adjuster: health areas taken
+#' from the vaccination team names instead (team_ha_name()), each covering
+#' the ground nearest its own teams' walking-speed GPS points, up to
+#' no_map_reach_m from any of those tracks and inside the district. Only
+#' health areas whose teams worked mostly in this district, with at least
+#' min_ha_fixes points there, are kept. The shapes are working boundaries
+#' for the analysis only -- never shown on a map.
+#' sf(district_name, health_area) in EPSG:4326, or NULL.
+infer_health_areas <- function(district, pings, params) {
+  p <- pings[!pings$moving_fast & !is.na(pings$team_name), ]
+  p <- p[!p$team_name %in% unlist(params$no_area_teams), ]
+  # A team's health area as its name gives it, or as an admin set it
+  fixed <- unlist(params$team_areas)
+  p$ha_name <- team_ha_name(p$team_name)
+  set <- p$team_name %in% names(fixed)
+  p$ha_name[set] <- fixed[p$team_name[set]]
+  p$key <- .ha_key(p$ha_name)
+  p <- p[nchar(p$key) >= 3, ]
+  if (nrow(p) == 0) return(NULL)
+  # Spellings of one name (TABELAHA_HC_T7 / TABEELAH_HC_T2) are one health
+  # area: a key joins a more-used one this close (stricter than team_homes())
+  kn <- names(sort(table(p$key), decreasing = TRUE))
+  to <- stats::setNames(kn, kn)
+  for (i in seq_along(kn)[-1]) {
+    big <- kn[seq_len(i - 1)]; big <- big[to[big] == big]
+    d <- utils::adist(kn[i], big)[1, ] / pmax(nchar(kn[i]), nchar(big))
+    if (min(d) <= 0.25) to[kn[i]] <- big[which.min(d)]
+  }
+  p$key <- unname(to[p$key])
+
+  ctr <- sf::st_coordinates(sf::st_centroid(sf::st_as_sfc(sf::st_bbox(district))))
+  epsg <- .utm_epsg(ctr[1], ctr[2])
+  area <- sf::st_union(sf::st_geometry(sf::st_transform(district, epsg)))
+
+  # GPS points per health area (team name) and grid cell
+  cs <- params$cell_m
+  xy <- .to_utm(p$lon, p$lat, epsg)
+  p$cx <- floor(xy[, 1] / cs); p$cy <- floor(xy[, 2] / cs)
+  cells <- dplyr::count(p, key, cx, cy)
+  centre <- function(d) sf::st_as_sf(data.frame(x = (d$cx + 0.5) * cs, y = (d$cy + 0.5) * cs), coords = c('x', 'y'), crs = epsg)
+  cells$inside <- lengths(sf::st_intersects(centre(cells), area)) > 0
+  share <- dplyr::summarise(dplyr::group_by(cells, key), n_in = sum(n[inside]), n = sum(n), .groups = 'drop')
+  keys <- share$key[share$n_in >= params$min_ha_fixes & share$n_in >= share$n / 2]
+  cells <- cells[cells$key %in% keys & cells$inside, ]
+  if (nrow(cells) == 0) return(NULL)
+
+  # Each cell goes to the health area whose teams logged most there, the
+  # ground between to the nearest such cell (Voronoi), within reach of a track
+  own <- dplyr::distinct(dplyr::arrange(cells, dplyr::desc(n)), cx, cy, .keep_all = TRUE)
+  pts <- centre(own); pts$key <- own$key
+  coarse <- unique(round(cbind((own$cx + 0.5) * cs, (own$cy + 0.5) * cs) / 250) * 250)   # fewer points to buffer
+  reach <- sf::st_intersection(sf::st_buffer(sf::st_sfc(sf::st_multipoint(coarse), crs = epsg), params$no_map_reach_m, nQuadSegs = 4), area)
+  if (length(unique(pts$key)) == 1 || nrow(pts) < 3) {
+    ha <- sf::st_sf(key = names(which.max(tapply(own$n, own$key, sum))), geometry = reach)
+  } else {
+    vor <- sf::st_collection_extract(sf::st_voronoi(sf::st_union(pts), envelope = sf::st_as_sfc(sf::st_bbox(reach))), 'POLYGON')
+    vor <- sf::st_sf(geometry = vor)
+    hit <- sf::st_intersects(vor, pts)
+    vor$key <- pts$key[vapply(hit, function(i) if (length(i)) i[1] else NA_integer_, integer(1))]
+    ha <- dplyr::summarise(dplyr::group_by(vor[!is.na(vor$key), ], key), .groups = 'drop')
+    ha <- suppressWarnings(sf::st_intersection(ha, reach))
+    ha <- ha[!sf::st_is_empty(ha), ]
+    ha <- dplyr::summarise(dplyr::group_by(suppressWarnings(sf::st_collection_extract(ha, 'POLYGON')), key), .groups = 'drop')
+  }
+
+  # Named the way most of its teams' points spell it
+  nm <-dplyr::distinct(dplyr::arrange(dplyr::count(p[p$key %in% keys, ], key, ha_name), dplyr::desc(n)), key, .keep_all = TRUE)
+  ha$health_area <- make.unique(nm$ha_name[match(ha$key, nm$key)], sep = ' ')
+  ha$district_name <- district$district_name[1]
+  sf::st_make_valid(sf::st_transform(ha[, c('district_name', 'health_area')], 4326))
+}
+
+#' The health areas (indexes into `ha_names`) a team's name points to,
 #' allowing for spelling differences (MOGADISHO / Mogadishu, SHUUFAC /
-#' Shufac); only names that can't be matched fall back to where the team
-#' logged the most walking-speed GPS points. data.frame(team_name, health_area).
-team_homes <- function(p, ha_r, ha, epsg, no_home = '') {
+#' Shufac): the equally best matches, or none.
+.name_match <- function(team, ha_names) {
+  k <- .team_key(team); ha_keys <- .ha_key(ha_names)
+  if (nchar(k) < 3 || !any(nzchar(ha_keys))) return(integer(0))
+  d <- utils::adist(k, ha_keys)[1, ] / pmax(nchar(k), nchar(ha_keys))
+  if (min(d) <= 0.3) which(d == min(d)) else integer(0)
+}
+
+#' Each team's role in a campaign: the admin's choice (vb_get_team_roles(),
+#' Admin page), else from its name -- FETP monitors ignored, Surge teams in
+#' no health area, the rest in the health area their name gives.
+#' data.frame(team_name, role = 'area' | 'no_area' | 'ignore', health_area
+#' (NA = from its name), set_by_admin).
+team_roles <- function(team_names, overrides = NULL) {
+  tn <- base::sort(base::unique(stats::na.omit(team_names)))
+  role <- ifelse(grepl(IGNORE_TEAMS_DEFAULT, tn, ignore.case = TRUE), 'ignore',
+                 ifelse(grepl(NO_AREA_TEAMS_DEFAULT, tn, ignore.case = TRUE), 'no_area', 'area'))
+  out <- data.frame(team_name = tn, role = role, health_area = NA_character_, set_by_admin = FALSE)
+  if (!is.null(overrides) && nrow(overrides) > 0) {
+    i <- match(tn, overrides$team_name); hit <- !is.na(i)
+    out$role[hit] <- overrides$role[i[hit]]
+    out$health_area[hit] <- overrides$health_area_name[i[hit]]
+    out$set_by_admin[hit] <- TRUE
+  }
+  out
+}
+
+#' team_roles() into the analysis parameters (saved with each run).
+apply_team_roles <- function(params, roles) {
+  params$ignore_teams  <- roles$team_name[roles$role == 'ignore']
+  params$no_area_teams <- roles$team_name[roles$role == 'no_area']
+  a <- roles[roles$role == 'area' & !is.na(roles$health_area), ]
+  params$team_areas <- as.list(stats::setNames(a$health_area, a$team_name))
+  params
+}
+
+#' Each team's own health area: the one an admin set for it, else the one
+#' its name gives ("ELDAS_HC_T2" -> Eldas Health Center); only names that
+#' can't be matched fall back to where the team logged the most
+#' walking-speed GPS points. Teams in `no_area` (e.g. Surge) belong to none.
+#' `fixed`: list(team name = health area). data.frame(team_name, health_area).
+team_homes <- function(p, ha_r, ha, epsg, no_area = character(0), fixed = list()) {
   none <- data.frame(team_name = character(0), health_area = character(0))
   p <- p[!p$moving_fast & !is.na(p$team_name), ]
   if (nrow(p) == 0) return(none)
   p$ha_id <- terra::extract(ha_r, .to_utm(p$lon, p$lat, epsg))[, 1]
   counts <- dplyr::count(p[!is.na(p$ha_id), ], team_name, ha_id)
-  team_names <- base::unique(p$team_name)
-  # e.g. Surge teams: their GPS counts as visits, but they're nobody's team
-  if (nzchar(no_home)) team_names <- team_names[!grepl(no_home, team_names, ignore.case = TRUE)]
+  team_names <- base::setdiff(base::unique(p$team_name), unlist(no_area))
   if (length(team_names) == 0) return(none)
-  ha_keys <- .ha_key(ha$health_area)
   home <- vapply(team_names, function(tn) {
-    k <- .team_key(tn)
-    if (nchar(k) >= 3 && any(nzchar(ha_keys))) {
-      d <- utils::adist(k, ha_keys)[1, ] / pmax(nchar(k), nchar(ha_keys))
-      best <- which(d == min(d))
-      if (min(d) <= 0.3) {
-        if (length(best) == 1) return(ha$health_area[best])
-        # several equally good (e.g. "... Site 1" / "... Site 2"): where it worked most
-        cb <- counts[counts$team_name == tn & counts$ha_id %in% best, ]
-        if (nrow(cb)) return(ha$health_area[cb$ha_id[which.max(cb$n)]])
-        return(ha$health_area[best[1]])
-      }
+    fx <- fixed[[tn]]
+    if (!is.null(fx) && fx %in% ha$health_area) return(fx)
+    best <- .name_match(tn, ha$health_area)
+    if (length(best) == 1) return(ha$health_area[best])
+    if (length(best) > 1) {
+      # several equally good (e.g. "... Site 1" / "... Site 2"): where it worked most
+      cb <- counts[counts$team_name == tn & counts$ha_id %in% best, ]
+      return(if (nrow(cb)) ha$health_area[cb$ha_id[which.max(cb$n)]] else ha$health_area[best[1]])
     }
     c1 <- counts[counts$team_name == tn, ]
     if (nrow(c1)) ha$health_area[c1$ha_id[which.max(c1$n)]] else NA_character_
@@ -169,7 +279,15 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
   src <- terra::crop(u5, terra::ext(terra::vect(ha)) + 0.01, snap = 'out')
   r <- terra::project(src, grid, method = 'sum')
 
-  ha_r <- terra::rasterize(terra::vect(sf::st_transform(ha, epsg)), r, field = 'ha_id')
+  # Each cell to the health area covering most of it -- not simply the one
+  # its centre falls in, or a thin sliver of a health area left along
+  # another's edge (boundary smoothing) claims a line of cells, and missed
+  # places, that are really the neighbour's. A cell mostly outside every
+  # health area belongs to none.
+  ha_v <- terra::vect(sf::st_transform(ha, epsg))
+  cover <- terra::rast(lapply(seq_len(nrow(ha)), function(i) terra::rasterize(ha_v[i], r, cover = TRUE, background = 0)))
+  ha_r <- terra::which.max(cover)
+  ha_r[terra::app(cover, sum) < 0.5] <- NA
   team_r <- if (!is.null(teams) && nrow(teams) > 0) {
     teams$team_id <- seq_len(nrow(teams))
     terra::rasterize(terra::vect(sf::st_transform(teams, epsg)), r, field = 'team_id')
@@ -203,40 +321,86 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
   # Which health areas had team GPS at all: one with (almost) no points
   # wasn't followed by Vaccine Buddy -- every cell would look "missed".
   # Those are reported, not analysed.
-  homes <- team_homes(p, ha_r, ha, epsg, params$no_home_teams %||% '')
+  homes <- team_homes(p, ha_r, ha, epsg, params$no_area_teams %||% character(0), params$team_areas %||% list())
   ha_data <- carrier_presence(p, ha_r, ha, params, epsg, homes)
   cells$has_data <- ha_data$has_data[cells$ha_id]
   cells$missed <- cells$populated & !cells$visited & cells$has_data
 
-  places <- missed_places(cells, r, params, epsg)
+  # Everything split_places() needs later, once the missed cells have been
+  # checked (and painted on or off by hand)
+  ctx <- list(grid = r, epsg = epsg, cells = cells[, c('cell', 'u5_pop', 'ha_id', 'health_area', 'team_area', 'populated', 'visited')],
+              ha = ha, teams = teams, ha_data = ha_data, pings = p, homes = homes, idp = idp, facilities = facilities,
+              local_names = local_names, district_name = ha$district_name[1])
+  list(missed = cells$cell[cells$missed], coverage = .coverage(ctx, NULL), ctx = ctx)
+}
+
+#' Coverage per health area / team area (kept for the record -- never shown),
+#' with the number of places once split.
+.coverage <- function(ctx, places) {
+  out <- area_coverage(ctx$cells, places) |>
+    dplyr::left_join(ctx$ha_data[, c('health_area', 'n_fixes', 'n_devices', 'teams', 'has_data')], by = 'health_area')
+  out$district_name <- ctx$district_name
+  out
+}
+
+#' Step 3: the district's final missed cells (`missed`, cell numbers of
+#' ctx$grid) split into discrete missed places, each described and given
+#' its team. Areas with any cell painted in by hand (`painted`) are kept
+#' however few children they have. list(places (sf or NULL), coverage).
+split_places <- function(ctx, missed, painted = numeric(0), params) {
+  cells <- ctx$cells
+  cells$missed <- cells$cell %in% missed
+  mp <- missed_places(cells, ctx$grid, params, ctx$epsg, keep = painted)
+  places <- mp$places
   if (!is.null(places)) {
-    # Describe each place from, in order: a nearby OpenStreetMap or
-    # campaign-monitoring name; else a nearby IDP site (in some districts
-    # they're everywhere, so only when nothing else is close); else the
-    # nearest facility / IDP site further away.
-    idp_lm <- if (!is.null(idp) && nrow(idp) > 0) sf::st_sf(name = paste(idp$idp_name, 'IDP site'), geometry = sf::st_geometry(idp))
-    places$label <- describe_position(places, local_names, params$place_name_max_m)
-    todo <- is.na(places$label)
-    if (any(todo)) places$label[todo] <- describe_position(places[todo, ], idp_lm, params$place_name_max_m)
-    todo <- is.na(places$label)
-    if (any(todo)) places$label[todo] <- describe_position(places[todo, ], .landmarks(facilities, idp), params$label_max_m)
-    places$label <- ifelse(is.na(places$label), paste('in', dplyr::coalesce(places$team_area, places$health_area)), places$label)
-    places$near_idp <- NA_character_
-    if (!is.null(idp) && nrow(idp) > 0) {
-      nn <- sf::st_nearest_feature(places, idp)
-      d <- as.numeric(sf::st_distance(places, idp[nn, ], by_element = TRUE))
-      places$near_idp <- ifelse(d <= params$idp_near_m, idp$idp_name[nn], NA_character_)
-    }
-    places$district_name <- ha$district_name[1]
-    places$outline <- .clip_to_areas(places, ha, teams, epsg)
-    places <- assign_teams(places, p, epsg, homes)
+    places <- .describe_places(places, ctx$local_names, ctx$idp, ctx$facilities, params)
+    places$district_name <- ctx$district_name
+    places$outline <- .place_outlines(places, mp$cells, ctx$grid, ctx$ha, ctx$teams, ctx$epsg)
+    places$place_key <- NULL
+    places <- assign_teams(places, ctx$pings, ctx$epsg, ctx$homes)
   }
+  list(places = places, coverage = .coverage(ctx, places))
+}
 
-  coverage <- area_coverage(cells, places) |>
-    dplyr::left_join(ha_data[, c('health_area', 'n_fixes', 'n_devices', 'teams', 'has_data')], by = 'health_area')
-  coverage$district_name <- ha$district_name[1]
+#' The missed cells as one layer (squares joined), EPSG:4326 -- for the map
+#' before they are split into places.
+missed_layer <- function(ctx, missed) {
+  if (length(missed) == 0) return(NULL)
+  r <- terra::init(ctx$grid, NA)
+  r[missed] <- 1
+  sf::st_transform(sf::st_as_sf(terra::as.polygons(r, dissolve = TRUE)), 4326)
+}
 
-  list(places = places, coverage = coverage)
+#' Describe each place from, in order: a nearby OpenStreetMap or
+#' campaign-monitoring name; else a nearby IDP site (in some districts
+#' they're everywhere, so only when nothing else is close); else the
+#' nearest facility / IDP site further away. Also flags places at an IDP
+#' site (near_idp).
+.describe_places <- function(places, local_names, idp, facilities, params) {
+  idp_lm <- if (!is.null(idp) && nrow(idp) > 0) sf::st_sf(name = paste(idp$idp_name, 'IDP site'), geometry = sf::st_geometry(idp))
+  places$label <- describe_position(places, local_names, params$place_name_max_m)
+  todo <- is.na(places$label)
+  if (any(todo)) places$label[todo] <- describe_position(places[todo, ], idp_lm, params$place_name_max_m)
+  todo <- is.na(places$label)
+  if (any(todo)) places$label[todo] <- describe_position(places[todo, ], .landmarks(facilities, idp), params$label_max_m)
+  places$label <- ifelse(is.na(places$label), paste('in', dplyr::coalesce(places$team_area, places$health_area)), places$label)
+  places$near_idp <- NA_character_
+  if (!is.null(idp) && nrow(idp) > 0) {
+    nn <- sf::st_nearest_feature(places, idp)
+    d <- as.numeric(sf::st_distance(places, idp[nn, ], by_element = TRUE))
+    places$near_idp <- ifelse(d <= params$idp_near_m, idp$idp_name[nn], NA_character_)
+  }
+  places
+}
+
+#' Grid cells as one shape (squares joined), in the grid's UTM zone.
+.cell_squares <- function(r, cells, epsg) {
+  half <- terra::res(r)[1] / 2
+  xy <- terra::xyFromCell(r, cells)
+  sf::st_union(sf::st_sfc(lapply(seq_len(nrow(xy)), function(i) {
+    x <- xy[i, 1]; y <- xy[i, 2]
+    sf::st_polygon(list(cbind(c(x - half, x + half, x + half, x - half, x - half), c(y - half, y - half, y + half, y + half, y - half))))
+  }), crs = epsg))
 }
 
 #' Splitting by distance (k-means) can leave a place in disconnected bits.
@@ -265,22 +429,32 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
   m
 }
 
-#' Place outlines trimmed to their health area (and team area, where one is
-#' mapped), so edges follow the real boundaries instead of grid squares.
+#' Place outlines that follow the real health area (and team area) borders
+#' instead of grid squares. A grid square on a border belongs to the area
+#' its centre is in, so on its own each place would stop short of the
+#' border, leaving gaps between neighbouring places. So each place is its
+#' own squares plus the missed squares next to it that belong to another
+#' area, trimmed to its own area: the two sides then meet on the border.
+#' `m`: every missed cell (cell, place_key, health_area, team_area).
 #' Returned as MULTIPOLYGON, EPSG:4326.
-.clip_to_areas <- function(places, ha, teams, epsg) {
+.place_outlines <- function(places, m, r, ha, teams, epsg) {
   ha_m <- sf::st_transform(ha, epsg)
   te_m <- if (!is.null(teams) && nrow(teams) > 0) sf::st_transform(teams, epsg) else NULL
-  out <- sf::st_transform(places$outline, epsg)
-  res <- lapply(seq_along(out), function(i) {
+  squares <- function(cells) .cell_squares(r, cells, epsg)
+  grp <-paste(m$health_area, m$team_area)
+  res <- lapply(seq_len(nrow(places)), function(i) {
+    own <- m$place_key == places$place_key[i]
+    nb <- as.vector(terra::adjacent(r, m$cell[own], directions = 8))
+    extra <- m$cell %in% nb & grp != grp[own][1]
+    shape <- squares(m$cell[own | extra])
     area <- sf::st_union(sf::st_geometry(ha_m[ha_m$health_area == places$health_area[i], ]))
     if (!is.na(places$team_area[i]) && !is.null(te_m)) {
       tp <- te_m[te_m$team_area == places$team_area[i] & te_m$health_area == places$health_area[i], ]
       if (nrow(tp)) area <- sf::st_intersection(area, sf::st_union(sf::st_geometry(tp)))
     }
-    g <- tryCatch(suppressWarnings(sf::st_intersection(sf::st_make_valid(out[i]), sf::st_make_valid(area))), error = function(e) NULL)
+    g <- tryCatch(suppressWarnings(sf::st_intersection(shape, sf::st_make_valid(area))), error = function(e) NULL)
     g <- if (!is.null(g) && length(g)) tryCatch(sf::st_collection_extract(g, 'POLYGON'), error = function(e) g) else NULL
-    if (is.null(g) || !length(g) || all(sf::st_is_empty(g))) out[i] else sf::st_union(g)
+    if (is.null(g) || !length(g) || all(sf::st_is_empty(g))) squares(m$cell[own]) else sf::st_union(g)
   })
   g <- sf::st_cast(sf::st_transform(do.call(c, res), 4326), 'MULTIPOLYGON')
   # Fill holes ("donuts" around a visited or empty square): one solid shape
@@ -288,9 +462,11 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
   sf::st_sfc(sfheaders::sf_remove_holes(g), crs = 4326)
 }
 
-missed_places <- function(cells, r, params, epsg) {
+#' Missed cells grouped and split into places. Places with any cell in
+#' `keep` (painted in by hand) are kept below min_place_u5.
+missed_places <- function(cells, r, params, epsg, keep = numeric(0)) {
   m <- cells[cells$missed, ]
-  if (nrow(m) == 0) return(NULL)
+  if (nrow(m) == 0) return(list(places = NULL, cells = NULL))
 
   missed_r <- terra::init(r, NA)
   missed_r[m$cell] <- 1
@@ -329,10 +505,12 @@ missed_places <- function(cells, r, params, epsg) {
       x           = x[target],
       y           = y[target],
       u5_pop      = sum(u5_pop),
+      by_hand     = any(cell %in% keep),
       .groups = 'drop') |>
     dplyr::select(-target) |>
-    dplyr::filter(u5_pop >= params$min_place_u5)
-  if (nrow(agg) == 0) return(NULL)
+    dplyr::filter(u5_pop >= params$min_place_u5 | by_hand) |>
+    dplyr::select(-by_hand)
+  if (nrow(agg) == 0) return(list(places = NULL, cells = NULL))
 
   key_r <- terra::init(r, NA)
   key_r[m$cell] <- m$place_key
@@ -348,8 +526,8 @@ missed_places <- function(cells, r, params, epsg) {
     dplyr::group_by(health_area) |>
     dplyr::mutate(place_no = dplyr::row_number()) |>
     dplyr::ungroup()
-  out$place_key <- NULL
-  out
+  # place_key kept until the outlines are drawn (.place_outlines())
+  list(places = out, cells = m[, c('cell', 'place_key', 'health_area', 'team_area')])
 }
 
 area_coverage <- function(cells, places) {
@@ -376,9 +554,9 @@ area_coverage <- function(cells, places) {
   out
 }
 
-#' One or more districts. Returns places (sf, point geometry + `outline`
-#' polygon column) and coverage (data.frame, kept for the record -- never
-#' shown).
+#' Step 1, for one or more districts: the missed cells. Returns, per
+#' district (named lists): missed (cell numbers), coverage, and ctx (the
+#' grid and all split_places() needs).
 run_analysis <- function(areas, pings, params, u5, progress = function(i, n, d) NULL, place_names = NULL) {
   local_names <- local_name_landmarks(place_names)
   districts <- sort(unique(areas$health_areas$district_name))
@@ -390,9 +568,5 @@ run_analysis <- function(areas, pings, params, u5, progress = function(i, n, d) 
     res[[d]] <- classify_district(pick(areas$health_areas), pick(areas$team_areas), pings,
                                   pick(areas$facilities), pick(areas$idp), u5, params, local_names)
   }
-  places <- Filter(Negate(is.null), lapply(res, `[[`, 'places'))
-  list(
-    places   = if (length(places)) dplyr::bind_rows(places) else NULL,
-    coverage = dplyr::bind_rows(lapply(res, `[[`, 'coverage'))
-  )
+  list(missed = lapply(res, `[[`, 'missed'), coverage = lapply(res, `[[`, 'coverage'), ctx = lapply(res, `[[`, 'ctx'))
 }

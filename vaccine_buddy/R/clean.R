@@ -6,13 +6,12 @@
 # when stored (one row per device + entry id; see R/odk.R).
 #
 # Steps (each logged in the returned report with rows removed):
-#   1. optionally drop teams matching exclude_teams (e.g. FETP monitors)
-#   2. keep working hours only -- carriers log all night wherever they are
-#      stored, which would otherwise mark that neighbourhood as visited
-#   3. drop rows with no GPS fix or a fix outside Somalia
-#   4. drop fixes with reported accuracy worse than max_accuracy_m
-#   5. drop exact duplicates (same device, time and position)
-#   6. drop GPS spikes: a fix reached AND left faster than spike_kmh
+#   1. drop teams marked to ignore (params$ignore_teams, e.g. FETP monitors;
+#      team_roles() in analysis.R)
+#   2. drop rows with no GPS fix or a fix outside Somalia
+#   3. drop fixes with reported accuracy worse than max_accuracy_m
+#   4. drop exact duplicates (same device, time and position)
+#   5. drop GPS spikes: a fix reached AND left faster than spike_kmh
 # Then flags each remaining fix's speed from the previous one, so analysis
 # can ignore driving (walk_max_kmh).
 #
@@ -45,14 +44,11 @@ clean_pings <- function(d, params) {
   }
   report[1, ] <- list('Log rows on the selected dates (re-uploads already removed)', 0L, nrow(d))
 
-  if (nzchar(params$exclude_teams %||% '')) {
-    n <- nrow(d); d <- d[!grepl(params$exclude_teams, d$team_name %||% '', ignore.case = TRUE), ]
-    d <- log_step(d, sprintf('Teams matching "%s" (not vaccination teams)', params$exclude_teams), n)
+  ignore <- unlist(params$ignore_teams)
+  if (length(ignore)) {
+    n <- nrow(d); d <- d[!d$team_name %in% ignore, ]
+    d <- log_step(d, 'Teams marked to ignore (not vaccination teams)', n)
   }
-
-  h <- lubridate::hour(d$ts) + lubridate::minute(d$ts) / 60
-  n <- nrow(d); d <- d[h >= params$work_start_h & h < params$work_end_h, ]
-  d <- log_step(d, sprintf('Outside working hours (%02d:00-%02d:00)', params$work_start_h, params$work_end_h), n)
 
   b <- SOMALIA_BBOX
   n <- nrow(d); d <- d[!is.na(d$lon) & !is.na(d$lat) & d$lon >= b['xmin'] & d$lon <= b['xmax'] & d$lat >= b['ymin'] & d$lat <= b['ymax'], ]

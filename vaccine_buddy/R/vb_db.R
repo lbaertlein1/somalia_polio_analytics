@@ -56,6 +56,92 @@ vb_validate_credentials <- function(uname, pword) {
 .q <- function(sql, params = NULL) DBI::dbGetQuery(vb_pool, sql, params = params)
 .x <- function(sql, params = NULL) DBI::dbExecute(vb_pool, sql, params = params)
 
+#' Where a user last was: campaign, district and days chosen (NAs if never,
+#' or the columns are missing).
+vb_get_last_view <- function(username) {
+  d <- tryCatch(.q('SELECT last_campaign_id, last_district, last_date_from, last_date_to FROM users WHERE username = $1', list(username)),
+                error = function(e) NULL)
+  if (is.null(d) || nrow(d) == 0) return(list(campaign_id = NA_integer_, district_name = NA_character_, date_from = as.Date(NA), date_to = as.Date(NA)))
+  list(campaign_id = d$last_campaign_id[1], district_name = d$last_district[1],
+       date_from = as.Date(d$last_date_from[1]), date_to = as.Date(d$last_date_to[1]))
+}
+vb_set_last_view <- function(username, campaign_id, district_name, date_from, date_to) {
+  tryCatch(.x('UPDATE users SET last_campaign_id = $1, last_district = $2, last_date_from = $3, last_date_to = $4 WHERE username = $5',
+              list(as.integer(campaign_id), district_name, as.character(date_from), as.character(date_to), username)),
+           error = function(e) NULL)
+}
+
+# --- Analysis settings (Admin page) --------------------------------------------
+
+#' DEFAULT_PARAMS with the admins' changes (app_settings 'analysis_params':
+#' only the settings in PARAM_UI that differ from the defaults are stored).
+vb_get_params <- function() {
+  v <- tryCatch(.q("SELECT value::text AS v FROM app_settings WHERE key = 'analysis_params'")$v, error = function(e) character(0))
+  saved <- if (length(v)) tryCatch(jsonlite::fromJSON(v[1]), error = function(e) list()) else list()
+  saved <- saved[intersect(names(saved), names(PARAM_UI))]
+  utils::modifyList(DEFAULT_PARAMS, saved)
+}
+
+vb_save_params <- function(params, user) {
+  keys <- intersect(names(params), names(PARAM_UI))
+  changed <- params[keys][!mapply(identical, params[keys], DEFAULT_PARAMS[keys])]
+  json <- if (length(changed)) as.character(jsonlite::toJSON(changed, auto_unbox = TRUE)) else '{}'
+  .x("INSERT INTO app_settings (key, value, updated_by) VALUES ('analysis_params', $1::jsonb, $2)
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = NOW()",
+     list(json, user))
+}
+
+# --- Work in progress, saved automatically (work_sessions) ----------------------
+
+.pack   <- function(x) blob::blob(list(if (is.null(x)) NULL else memCompress(serialize(x, NULL), 'gzip')))
+.unpack <- function(r) if (is.null(r) || length(r) == 0) NULL else unserialize(memDecompress(r, 'gzip'))
+
+#' Save a user's work on one campaign + district. `base` (the search) and
+#' `edits` are R objects; one left NULL keeps what's stored.
+vb_save_work <- function(username, campaign_id, district_name, base = NULL, edits = NULL) {
+  .x('INSERT INTO work_sessions (username, campaign_id, district_name, base, edits) VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (username, campaign_id, district_name) DO UPDATE SET
+        base = COALESCE(EXCLUDED.base, work_sessions.base), edits = COALESCE(EXCLUDED.edits, work_sessions.edits),
+        updated_at = NOW()',
+     list(username, as.integer(campaign_id), district_name, .pack(base), .pack(edits)))
+}
+
+#' list(base, edits, updated_at), or NULL if nothing is saved.
+vb_load_work <- function(username, campaign_id, district_name) {
+  d <- .q('SELECT base, edits, updated_at FROM work_sessions WHERE username = $1 AND campaign_id = $2 AND district_name = $3',
+          list(username, as.integer(campaign_id), district_name))
+  if (nrow(d) == 0) return(NULL)
+  list(base = .unpack(d$base[[1]]), edits = .unpack(d$edits[[1]]), updated_at = d$updated_at[1])
+}
+
+# --- Team roles per campaign (Admin page; team_roles() in analysis.R) ----------
+
+#' The admins' choices for a campaign's teams: team_name, role ('area' |
+#' 'no_area' | 'ignore'), health_area_name (role 'area'). Teams not listed
+#' follow their name.
+vb_get_team_roles <- function(campaign_id) {
+  .q('SELECT team_name, role, health_area_name FROM team_roles WHERE campaign_id = $1', list(as.integer(campaign_id)))
+}
+
+#' role NULL: back to following its name.
+vb_set_team_role <- function(campaign_id, team_name, role, health_area_name = NA_character_, user) {
+  if (is.null(role)) return(.x('DELETE FROM team_roles WHERE campaign_id = $1 AND team_name = $2', list(as.integer(campaign_id), team_name)))
+  .x('INSERT INTO team_roles (campaign_id, team_name, role, health_area_name, updated_by) VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (campaign_id, team_name) DO UPDATE SET role = EXCLUDED.role, health_area_name = EXCLUDED.health_area_name,
+        updated_by = EXCLUDED.updated_by, updated_at = NOW()',
+     list(as.integer(campaign_id), team_name, role, health_area_name, user))
+}
+
+#' Every team that logged GPS between two dates, with its fixes counted per
+#' ~1 km square (lon/lat to 2 decimals): team_name, lon, lat, n.
+vb_team_squares <- function(date_from, date_to) {
+  .q('SELECT s.team_name, round(e.lon::numeric, 2)::float8 AS lon, round(e.lat::numeric, 2)::float8 AS lat, COUNT(*)::int AS n
+      FROM vb_entries e JOIN vb_submissions s USING (submission_id)
+      WHERE e.ts >= $1 AND e.ts < $2 AND e.lon IS NOT NULL AND e.lat IS NOT NULL AND s.team_name IS NOT NULL
+      GROUP BY 1, 2, 3',
+     list(as.POSIXct(as.Date(date_from), tz = ODK_TZ), as.POSIXct(as.Date(date_to) + 1, tz = ODK_TZ)))
+}
+
 # --- Vaccine Buddy data (stored by odk_sync(), R/odk.R) -------------------------
 
 #' Stored GPS fixes with their team, for the dates (in ODK_TZ) analysed,
@@ -164,6 +250,12 @@ vb_save_supervisors <- function(campaign_id, district_name, df, user) {
   })
 }
 
+#' Campaigns with active supervisors for a district: campaign_id, n.
+vb_supervisor_campaigns <- function(district_name) {
+  .q('SELECT campaign_id, COUNT(*)::int AS n FROM supervisors WHERE district_name = $1 AND is_active GROUP BY campaign_id',
+     list(district_name))
+}
+
 vb_copy_supervisors <- function(from_campaign_id, to_campaign_id, district_name, user) {
   .x('INSERT INTO supervisors (campaign_id, district_name, health_area_name, supervisor_name, phone, notes, updated_by)
       SELECT $2, district_name, health_area_name, supervisor_name, phone, notes, $3
@@ -248,14 +340,16 @@ vb_set_place_status <- function(place_id, status, via, note = NA_character_) {
 
 # --- Dispatches ---------------------------------------------------------------
 
-#' Create (or return the existing) dispatch for each supervisor of a run.
-#' `msgs` has supervisor_id, supervisor_name, phone, token, message.
+#' Create (or refresh) the dispatch for each supervisor of a run. One
+#' already sent is left as it was sent. `msgs` has supervisor_id,
+#' supervisor_name, phone, token, message.
 vb_upsert_dispatches <- function(run_id, msgs, user) {
   for (i in seq_len(nrow(msgs))) {
     .x('INSERT INTO dispatches (run_id, supervisor_id, token, supervisor_name, phone, message, created_by)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (run_id, supervisor_id) DO UPDATE SET
-          supervisor_name = EXCLUDED.supervisor_name, phone = EXCLUDED.phone, message = EXCLUDED.message',
+          supervisor_name = EXCLUDED.supervisor_name, phone = EXCLUDED.phone, message = EXCLUDED.message
+        WHERE dispatches.send_clicked_at IS NULL',
        list(as.integer(run_id), as.integer(msgs$supervisor_id[i]), msgs$token[i], msgs$supervisor_name[i],
             msgs$phone[i], msgs$message[i], user))
   }
@@ -263,6 +357,7 @@ vb_upsert_dispatches <- function(run_id, msgs, user) {
 
 #' Dispatches of a run with their health area's place counts: n (places),
 #' closed (done or unreachable), u5 (estimated under-5s in those places).
+#' Supervisors removed since are left out, unless they were already sent one.
 vb_get_dispatches <- function(run_id) {
   .q("SELECT d.*, s.district_name, s.health_area_name,
              COALESCE(p.n, 0) AS n, COALESCE(p.closed, 0) AS closed, COALESCE(p.u5, 0) AS u5
@@ -272,8 +367,8 @@ vb_get_dispatches <- function(run_id) {
                         SUM((status <> 'open')::int)::int AS closed, SUM(u5_pop) AS u5
                  FROM missed_places WHERE run_id = $1 GROUP BY 1, 2) p
         ON p.district_name = s.district_name AND p.health_area_name = s.health_area_name
-      WHERE d.run_id = $1
-      ORDER BY s.district_name, s.health_area_name", list(as.integer(run_id)))
+      WHERE d.run_id = $1 AND (s.is_active OR d.send_clicked_at IS NOT NULL)
+      ORDER BY s.district_name, s.health_area_name, d.supervisor_name", list(as.integer(run_id)))
 }
 
 vb_mark_sent <- function(dispatch_id) {
@@ -291,7 +386,8 @@ vb_open_dispatch <- function(token, count_open = TRUE) {
         RETURNING dispatch_id, run_id, supervisor_id, supervisor_name, phone', list(token))
   else .q('SELECT dispatch_id, run_id, supervisor_id, supervisor_name, phone FROM dispatches WHERE token = $1', list(token))
   if (nrow(d) != 1) return(NULL)
-  s <- .q('SELECT s.district_name, s.health_area_name, s.campaign_id, r.data_from, r.data_to, r.campaign_name
+  s <- .q('SELECT s.district_name, s.health_area_name, s.campaign_id, r.data_from, r.data_to, r.campaign_name,
+                  r.params::text AS params_json
            FROM supervisors s, analysis_runs r WHERE s.supervisor_id = $1 AND r.run_id = $2',
           list(d$supervisor_id, d$run_id))
   # The health area's own teams (comma-separated), for their GPS tracks

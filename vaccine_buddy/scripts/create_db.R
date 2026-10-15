@@ -68,6 +68,49 @@ statements <- list(
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )",
+  # Where each user last was -- campaign, district, days chosen -- opened
+  # again at sign-in
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_district TEXT",
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_campaign_id INTEGER",
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_date_from DATE",
+  "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_date_to DATE",
+
+  # App-wide settings changed on the Admin page; key 'analysis_params' holds
+  # the analysis settings that differ from DEFAULT_PARAMS in global.R.
+  "CREATE TABLE IF NOT EXISTS app_settings (
+    key         TEXT PRIMARY KEY,
+    value       JSONB       NOT NULL,
+    updated_by  TEXT,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )",
+
+  # Each user's work in progress on the Find tab, per campaign and district,
+  # saved automatically so they pick up where they left off: `base` is the
+  # search (written once per search), `edits` what they've changed since
+  # (places excluded, painted or adjusted; the tab they were on). Both are
+  # gzip-compressed R objects (vb_save_work() in R/vb_db.R).
+  "CREATE TABLE IF NOT EXISTS work_sessions (
+    username       TEXT    NOT NULL,
+    campaign_id    INTEGER NOT NULL,
+    district_name  TEXT    NOT NULL,
+    base           BYTEA,
+    edits          BYTEA,
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (username, campaign_id, district_name)
+  )",
+
+  # Each team's role in a campaign, as set by an admin: in a health area
+  # (health_area_name), in none (e.g. Surge teams) or ignored (e.g. FETP
+  # monitors). Teams not listed follow their name (team_roles() in analysis.R).
+  "CREATE TABLE IF NOT EXISTS team_roles (
+    campaign_id       INTEGER NOT NULL,
+    team_name         TEXT    NOT NULL,
+    role              TEXT    NOT NULL CHECK (role IN ('area', 'no_area', 'ignore')),
+    health_area_name  TEXT,
+    updated_by        TEXT,
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (campaign_id, team_name)
+  )",
 
   # Vaccine Buddy data from ODK Central, kept up to date by odk_sync()
   # (R/odk.R; hourly via scripts/sync_odk.R, or "Check for new data" in the

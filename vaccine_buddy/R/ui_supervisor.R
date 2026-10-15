@@ -106,6 +106,14 @@ supervisor_server <- function(input, output, session, token) {
                      error = function(e) list())
   places <- reactiveVal(vb_get_places(info$run_id, info$district_name, info$health_area_name))
   all0 <- isolate(places())
+  # The settings the list was made with
+  run_params <- utils::modifyList(DEFAULT_PARAMS, tryCatch(as.list(jsonlite::fromJSON(info$params_json)), error = function(e) list()))
+  # The health area's extent -- or, where no health areas are drawn (they
+  # came from the team names), around its missed places
+  has_ha <- !is.null(layers$health_area) && nrow(layers$health_area) > 0
+  area_bb <- if (has_ha) sf::st_bbox(layers$health_area)
+             else if (!is.null(all0) && nrow(all0) > 0) sf::st_bbox(sf::st_union(all0$outline)) + c(-0.005, -0.005, 0.005, 0.005)
+             else NULL
 
   # Links forwarded to a team narrow the page: &team=<assigned team> or
   # &p=<place numbers> (places the supervisor ticked for that team).
@@ -172,14 +180,13 @@ supervisor_server <- function(input, output, session, token) {
       m <- m |> addPolygons(data = layers$team_areas, color = '#2563eb', weight = 2, dashArray = '6 4', fill = FALSE) |>
         addLabelOnlyMarkers(data = suppressWarnings(sf::st_point_on_surface(layers$team_areas)), label = ~team_area,
                             labelOptions = labelOptions(noHide = TRUE, direction = 'center', textOnly = TRUE, className = 'team-label'))
-    if (!is.null(layers$health_area) && nrow(layers$health_area) > 0)
+    if (has_ha)
       m <- m |> addPolygons(data = layers$health_area, color = '#0f172a', weight = 3, fill = FALSE)
     m <- add_facilities(m, layers$facilities)
     # Zoom: forwarded team links to their places, otherwise the health area
     focus <- in_view(all0)
     bb <- if (team_view && !is.null(focus) && nrow(focus) > 0) sf::st_bbox(sf::st_buffer(sf::st_union(focus$outline), 0.001))
-          else if (!is.null(layers$health_area) && nrow(layers$health_area) > 0) sf::st_bbox(layers$health_area)
-          else NULL
+          else area_bb
     if (!is.null(bb)) m <- m |> fitBounds(bb[['xmin']], bb[['ymin']], bb[['xmax']], bb[['ymax']])
     dot <- function(col) sprintf('<span style="display:inline-block;width:11px;height:11px;border-radius:50%%;background:%s;border:1.5px solid #fff;box-shadow:0 0 0 1px #94a3b8;vertical-align:-1px;"></span>', col)
     legend <- paste0(
@@ -215,11 +222,11 @@ supervisor_server <- function(input, output, session, token) {
   ha_teams <- base::union(trimws(strsplit(info$teams %||% '', ',')[[1]]), teams)
   ha_teams <- ha_teams[nzchar(ha_teams)]
   track_pings <- reactive({
-    req(isTRUE(input$sup_tracks), !is.null(layers$health_area), length(ha_teams) > 0)
-    rows <- vb_load_entries(info$data_from, info$data_to, sf::st_bbox(layers$health_area))
+    req(isTRUE(input$sup_tracks), !is.null(area_bb), length(ha_teams) > 0)
+    rows <- vb_load_entries(info$data_from, info$data_to, area_bb)
     rows <- rows[rows$team_name %in% ha_teams, ]
     if (nrow(rows) == 0) return(NULL)
-    clean_pings(rows, DEFAULT_PARAMS)$pings
+    clean_pings(rows, run_params)$pings
   })
   observe({
     proxy <- leafletProxy('sup_map') |> clearGroup('tracks')
@@ -230,7 +237,7 @@ supervisor_server <- function(input, output, session, token) {
             else if (length(pick_q)) base::unique(all0$assigned_team[all0$place_no %in% pick_q])
             else if (!(input$sup_team %||% 'all') %in% c('all', '')) input$sup_team
             else ha_teams
-    add_tracks(proxy, pg[pg$team_name %in% show, ], DEFAULT_PARAMS, pane = 'tracks', max_points = 8000)
+    add_tracks(proxy, pg[pg$team_name %in% show, ], run_params, pane = 'tracks', max_points = 8000)
   })
 
   observeEvent(input$place_focus, {

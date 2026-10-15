@@ -54,6 +54,7 @@ adj_get_campaigns <- function() {
 #'   team_areas    district_name, health_area, team_area
 #'   facilities    district_name, facility_name, facility_type, ...
 #'   idp           district_name, idp_name, idp_population
+#'   districts     district_name (district boundaries)
 adj_load_campaign <- function(campaign_id) {
   cid <- as.integer(campaign_id)
 
@@ -114,6 +115,16 @@ adj_load_campaign <- function(campaign_id) {
   .bind <- function(parts) { parts <- Filter(Negate(is.null), parts); if (length(parts) == 0) NULL else dplyr::bind_rows(parts) }
   ha <- .bind(ha)
 
+  # District boundaries of the campaign's districts: those published, plus
+  # those added to the campaign in the adjuster with no health areas drawn
+  # yet -- or, for a campaign not set up in the adjuster at all, every
+  # district. Districts without health areas use the team names instead.
+  cd <- tryCatch(DBI::dbGetQuery(adj_pool, 'SELECT district_name FROM campaign_districts WHERE campaign_id = $1',
+                                 list(cid))$district_name, error = function(e) character(0))
+  districts <- tryCatch(adj_district_shapes(cid), error = function(e) { message('[districts] ', conditionMessage(e)); NULL })
+  want <- base::union(mv$district_name, cd)
+  if (!is.null(districts) && length(want)) districts <- districts[districts$district_name %in% want, ]
+
   # Versions published without an IDP snapshot (has_idp = FALSE): fetch
   # live from the same admin-configured source the adjuster uses.
   for (i in which(vapply(idp, is.null, logical(1)))) {
@@ -126,9 +137,31 @@ adj_load_campaign <- function(campaign_id) {
     health_areas = ha,
     team_areas   = .bind(teams),
     facilities   = .bind(fac),
-    idp          = .bind(idp)
+    idp          = .bind(idp),
+    districts    = districts
   )
 }
+
+#' The campaign's district boundary set (campaigns.boundary_set, else the
+#' adjuster's current set), as sf(district_name) in EPSG:4326, or NULL.
+adj_district_shapes <- function(campaign_id) {
+  set <- tryCatch(DBI::dbGetQuery(adj_pool, 'SELECT boundary_set FROM campaigns WHERE campaign_id = $1',
+                                  list(as.integer(campaign_id)))$boundary_set, error = function(e) NA_character_)
+  if (length(set) == 0 || is.na(set[1]) || !nzchar(set[1]))
+    set <- tryCatch(DBI::dbGetQuery(adj_pool, 'SELECT set_label FROM boundary_sets WHERE is_current')$set_label,
+                    error = function(e) character(0))
+  # A set not copied into BOUNDARY_DIR: the newest one that is
+  have <- base::sort(list.dirs(BOUNDARY_DIR, full.names = FALSE, recursive = FALSE), decreasing = TRUE)
+  have <- have[file.exists(file.path(BOUNDARY_DIR, have, 'districts_shp.Rds'))]
+  if (length(set) == 0 || !set[1] %in% have) set <- have
+  if (length(set) == 0) { message('[districts] no boundary sets in ', BOUNDARY_DIR); return(NULL) }
+  .read_districts(set[1])
+}
+
+.read_districts <- memoise::memoise(function(set_label) {
+  d <- readRDS(file.path(BOUNDARY_DIR, set_label, 'districts_shp.Rds'))
+  sf::st_make_valid(sf::st_transform(d[, 'district_name'], 4326))
+})
 
 #' IDP sites from the adjuster's configured ArcGIS layer
 #' (data_source_settings.idp_settlements_url, campaign override first),

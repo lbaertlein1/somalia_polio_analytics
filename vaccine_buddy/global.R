@@ -13,7 +13,11 @@
 #    area's missed places, each with a Google Maps "navigate" button.
 #
 # Two faces, one app (routed in app.R on the ?t= query parameter):
-#   - admin (login, this app's own accounts): run analysis, manage contacts, send
+#   - admin (login, this app's own accounts): run analysis, check contacts, send
+#
+# A district with no health areas drawn in the adjuster still works: its
+# health areas are taken from the vaccination team names in the GPS data
+# (infer_health_areas() in analysis.R), with no boundaries shown on maps.
 #   - supervisor (?t=<token>, no login): their own missed places
 # =============================================================================
 
@@ -46,16 +50,19 @@ if (file.exists('.env')) dotenv::load_dot_env('.env')
 ODK_TZ         <- Sys.getenv('ODK_TZ', 'Africa/Mogadishu')
 WORLDPOP_FILE  <- Sys.getenv('WORLDPOP_FILE', 'data/som_u5_population_2026_100m.tif')
 APP_PUBLIC_URL <- Sys.getenv('APP_PUBLIC_URL', '')   # e.g. https://<account>.shinyapps.io/vaccine_buddy/
+# District boundaries, one folder per adjuster boundary set (copied from
+# health_area_adjuster/modular_health_area_app/data/boundary_sets/<set>/
+# districts_shp.Rds) -- for districts with no health areas drawn
+BOUNDARY_DIR   <- Sys.getenv('BOUNDARY_DIR', 'data/boundary_sets')
 
 # Excluded from analysis everywhere -- the adjuster's non-health-area
 # categories (see its global.R extra_dfa_names).
 NON_AREA_NAMES <- c('Inaccessible', 'Unpopulated')
 
-# Defaults for the analysis controls (all adjustable in the admin sidebar,
-# and stored with every saved run).
+# Analysis parameters, stored with every saved run. Only the few in
+# PARAM_UI (ui_admin.R) can be changed, by admins on the Admin page
+# (app_settings, vb_get_params()); the rest are fixed here.
 DEFAULT_PARAMS <- list(
-  work_start_h    = 6,     # keep fixes from this hour...
-  work_end_h      = 19,    # ...to this hour (carriers log all night wherever they're stored)
   max_accuracy_m  = 50,    # drop GPS fixes with worse reported accuracy
   spike_kmh       = 150,   # a fix reached AND left faster than this is a GPS spike
   walk_max_kmh    = 12,    # movement faster than this is driving, not a house visit
@@ -67,13 +74,19 @@ DEFAULT_PARAMS <- list(
   max_place_children = 250, # ...or about this many estimated children under 5, whichever gives more places
   min_place_u5    = 10,    # drop missed places with fewer estimated under-5s (Aug 2026: drops 9 of 57 places, 2% of missed children)
   min_ha_fixes    = 200,   # health areas with fewer usable fixes had no carriers: reported, not analysed
+  no_map_reach_m  = 1000,  # districts with no drawn health areas: look for missed places this far from team tracks
   idp_near_m      = 100,   # flag places this close to an IDP site ("at" a site -- in Mogadishu IDP sites are a few hundred m apart)
   place_name_max_m = 300,  # describe a place from the nearest local place name (campaign monitoring) or IDP site within this distance...
-  label_max_m     = 3000,  # ...else from a health facility / IDP site within this distance
-  exclude_teams   = 'FETP', # GPS from teams whose name contains this (FETP monitors) doesn't count as visits
-  no_home_teams   = 'Surge' # teams whose name contains this vaccinate (GPS counts as visits) but belong to no
-                            # health area, so missed places are never assigned to them
+  label_max_m     = 3000   # ...else from a health facility / IDP site within this distance
 )
+
+# Each team's role, until an admin sets it for the campaign on the Admin
+# page (team_roles() in analysis.R): teams whose name contains this are
+# ignored (FETP monitors: their GPS doesn't count as visits)...
+IGNORE_TEAMS_DEFAULT  <- 'FETP'
+# ...or vaccinate (GPS counts as visits) but belong to no health area, so
+# missed places are never assigned to them
+NO_AREA_TEAMS_DEFAULT <- 'Surge'
 
 # --- Code -----------------------------------------------------------------------
 for (f in list.files('R', pattern = '\\.R$', full.names = TRUE)) source(f, local = TRUE)
