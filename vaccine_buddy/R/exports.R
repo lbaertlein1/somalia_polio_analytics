@@ -26,11 +26,17 @@
 # a polygon's outer ring
 .kml_outer <- function(poly) { m <- sf::st_coordinates(poly); .kml_ring(m[m[, 'L1'] == 1, 1:2, drop = FALSE]) }
 
+# '#rrggbb' as a KML colour (aabbggrr)
+.kml_col <- function(hex) paste0('ff', substr(hex, 6, 7), substr(hex, 4, 5), substr(hex, 2, 3))
+
 #' One health area's missed places as KML: each place's area (one placemark
 #' per polygon part -- My Maps doesn't import multi-geometries) and its
 #' numbered navigation point with a directions link; the health area
-#' boundary, if drawn, as a line. Returns the KML text.
-places_kml <- function(places, title, ha_poly = NULL) {
+#' boundary, if drawn, as a line; and the teams' GPS tracks (`tracks`:
+#' track_lines() with `mine`) as lines in the app's colours -- lines only,
+#' simplified and at most 1,500 (My Maps takes 2,000 features a layer).
+#' Returns the KML text.
+places_kml <- function(places, title, ha_poly = NULL, tracks = NULL) {
   p <- places[order(places$place_no), ]
   team <- ifelse(is.na(p$assigned_team), '', paste0('<br>Team: ', .xml(team_label(p$assigned_team))))
   areas <- unlist(lapply(seq_len(nrow(p)), function(i) {
@@ -49,13 +55,25 @@ places_kml <- function(places, title, ha_poly = NULL) {
       '<Placemark><name>Health area boundary</name><styleUrl>#border</styleUrl><LineString><coordinates>%s</coordinates></LineString></Placemark>',
       .kml_outer(rings[j])), '')
   }
+  trk <- if (!is.null(tracks) && nrow(tracks) > 0) {
+    tr <- sf::st_simplify(tracks, dTolerance = 5)
+    tr <- tr[!sf::st_is_empty(tr), ]
+    if (nrow(tr) > 1500) tr <- tr[order(-as.numeric(sf::st_length(tr)))[1:1500], ]
+    tr <- tr[order(tr$mine), ]   # the health area's teams last, on top
+    vapply(seq_len(nrow(tr)), function(j) sprintf(
+      '<Placemark><name>%s</name><styleUrl>#%s</styleUrl><LineString><coordinates>%s</coordinates></LineString></Placemark>',
+      if (tr$mine[j]) "Team GPS track (this health area's teams)" else 'Team GPS track (other teams)',
+      if (tr$mine[j]) 'track_mine' else 'track', .kml_ring(sf::st_coordinates(tr[j, ])[, 1:2, drop = FALSE])), '')
+  }
   paste0(
     '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>',
     '<name>', .xml(title), '</name>',
     '<Style id="area"><LineStyle><color>ff1d1d7f</color><width>2</width></LineStyle><PolyStyle><color>662626dc</color></PolyStyle></Style>',
     '<Style id="point"><IconStyle><color>ff2626dc</color></IconStyle></Style>',
     '<Style id="border"><LineStyle><color>ff2a170f</color><width>3</width></LineStyle></Style>',
-    paste(c(border, areas, points), collapse = '\n'),
+    sprintf('<Style id="track"><LineStyle><color>%s</color><width>2</width></LineStyle></Style>', .kml_col(TRACK_POINT)),
+    sprintf('<Style id="track_mine"><LineStyle><color>%s</color><width>2</width></LineStyle></Style>', .kml_col(TRACK_MINE_POINT)),
+    paste(c(trk, border, areas, points), collapse = '\n'),
     '</Document></kml>\n')
 }
 
@@ -152,8 +170,8 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
     tp <- sf::st_transform(sf::st_as_sf(track_points, coords = c('lon', 'lat'), crs = 4326), 3857)
     tp <- tp[sf::st_intersects(tp, sf::st_as_sfc(bb), sparse = FALSE)[, 1], ]
     if (nrow(tp) > 40000) tp <- tp[round(seq(1, nrow(tp), length.out = 40000)), ]
-    map <- map + ggplot2::geom_sf(data = tp[!tp$mine, ], shape = 16, size = 1.1 * s, colour = TRACK_POINT, alpha = 0.9) +
-      ggplot2::geom_sf(data = tp[tp$mine, ], shape = 16, size = 1.1 * s, colour = TRACK_MINE_POINT, alpha = 0.9)
+    dot <- function(d, fill) ggplot2::geom_sf(data = d, shape = 21, size = 1.4 * s, fill = fill, colour = TRACK_EDGE, stroke = 0.25 * s)
+    map <- map + dot(tp[!tp$mine, ], TRACK_POINT) + dot(tp[tp$mine, ], TRACK_MINE_POINT)
   }
   if (!is.null(ha)) map <- map + ggplot2::geom_sf(data = ha, fill = NA, colour = if (basemap == 'satellite') 'white' else '#0f172a', linewidth = 1.6 * s)
   map <- map + ggplot2::geom_sf(data = outl, fill = '#dc2626', alpha = 0.3, colour = '#ff1a1a', linewidth = 1.3 * s)
@@ -224,7 +242,8 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
   for (i in seq_along(items)) {
     y <- -i; key <- items[[i]][[2]]
     track <- function(line, pt) list(ggplot2::annotate('segment', x = 0.05, xend = 0.55, y = y, yend = y, colour = line, linewidth = 1.2 * s),
-                                    ggplot2::annotate('point', x = c(0.12, 0.3, 0.48), y = y, colour = pt, size = 2.5 * s))
+                                    ggplot2::annotate('point', x = c(0.12, 0.3, 0.48), y = y, shape = 21, fill = pt, colour = TRACK_EDGE,
+                                                      size = 3 * s, stroke = 0.4 * s))
     leg <- leg + switch(key,
       pin = list(ggplot2::annotate('point', x = 0.3, y = y, shape = 21, size = 12 * s, fill = '#dc2626', colour = 'white', stroke = 1.2 * s),
                  ggplot2::annotate('text', x = 0.3, y = y, label = '1', colour = 'white', fontface = 'bold', size = 5.5 * s)),

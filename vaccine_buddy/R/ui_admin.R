@@ -1175,7 +1175,9 @@ admin_server <- function(input, output, session, auth) {
   }
   mm_kml <- function(h) {
     pl <- run_places(); drawn <- areas_d()$health_areas
-    places_kml(pl[pl$health_area_name == h, ], mm_title(h), ha_poly = if (!is.null(drawn)) drawn[drawn$health_area == h, ])
+    pa <- pl[pl$health_area_name == h, ]
+    ha_poly <- if (!is.null(drawn)) drawn[drawn$health_area == h, ]
+    places_kml(pa, mm_title(h), ha_poly = ha_poly, tracks = area_tracks(h, pa, ha_poly)$lines)
   }
   # A row's file: made on request and handed to the browser to save
   observeEvent(input$mm_file, {
@@ -1194,30 +1196,32 @@ admin_server <- function(input, output, session, auth) {
     if (ok) { prepare_messages(run_id()); mm_changed(mm_changed() + 1) }
   })
 
+  # Every team's GPS over the list's days around health area `h` (its
+  # places `pa`, its drawn shape `ha_poly`), with a margin wider than a
+  # printed map's, cleaned with the list's settings (saved lists don't keep
+  # the GPS itself): list(lines = track_lines(), points), `mine` marking the
+  # health area's own teams. NULL if none.
+  area_tracks <- function(h, pa, ha_poly) tryCatch({
+    run <- vb_get_run(run_id()); cov <- vb_get_coverage(run_id())
+    teams <- trimws(strsplit(cov$teams[cov$team_area_name == '' & cov$health_area_name == h][1] %||% '', ',')[[1]])
+    teams <- base::union(teams, stats::na.omit(pa$assigned_team))   # as on the supervisor's page
+    bb <- sf::st_bbox(if (!is.null(ha_poly) && nrow(ha_poly)) ha_poly else pa)
+    pad <- 0.15 * max(bb[['xmax']] - bb[['xmin']], bb[['ymax']] - bb[['ymin']]) + 0.005
+    rows <- vb_load_entries(run$data_from, run$data_to, bb + c(-pad, -pad, pad, pad))
+    if (nrow(rows) == 0) return(NULL)
+    p <- utils::modifyList(DEFAULT_PARAMS, as.list(jsonlite::fromJSON(run$params)))
+    pg <- clean_pings(rows, p)$pings
+    pg$mine <- pg$team_name %in% teams
+    ln <- lapply(c(FALSE, TRUE), function(m) { l <- track_lines(pg[pg$mine == m, ], p); if (!is.null(l)) l$mine <- m; l })
+    list(lines = do.call(rbind, Filter(Negate(is.null), ln)), points = pg)
+  }, error = function(e) { message('[maps] tracks: ', conditionMessage(e)); NULL })
+
   # A health area's printed map of the list (exports.R)
   area_pdf <- function(h, file, size, basemap, tracks = FALSE) {
     pl <- run_places(); a <- areas_d(); drawn <- a$health_areas; r <- run_row()
     pa <- pl[pl$health_area_name == h, ]
     ha_poly <- if (!is.null(drawn)) drawn[drawn$health_area == h, ]
-    # Every team's GPS over the list's days, anywhere on the map (the map
-    # crops it), cleaned with the list's settings (saved lists don't keep the
-    # GPS itself); `mine` marks the health area's own teams
-    trk <- if (tracks) tryCatch({
-      run <- vb_get_run(run_id()); cov <- vb_get_coverage(run_id())
-      teams <- trimws(strsplit(cov$teams[cov$team_area_name == '' & cov$health_area_name == h][1] %||% '', ',')[[1]])
-      teams <- base::union(teams, stats::na.omit(pa$assigned_team))   # as on the supervisor's page
-      bb <- sf::st_bbox(if (!is.null(ha_poly) && nrow(ha_poly)) ha_poly else pa)
-      pad <- 0.15 * max(bb[['xmax']] - bb[['xmin']], bb[['ymax']] - bb[['ymin']]) + 0.005   # more than the map's margin
-      rows <- vb_load_entries(run$data_from, run$data_to, bb + c(-pad, -pad, pad, pad))
-      if (nrow(rows) == 0) NULL
-      else {
-        p <- utils::modifyList(DEFAULT_PARAMS, as.list(jsonlite::fromJSON(run$params)))
-        pg <- clean_pings(rows, p)$pings
-        pg$mine <- pg$team_name %in% teams
-        ln <- lapply(c(FALSE, TRUE), function(m) { l <- track_lines(pg[pg$mine == m, ], p); if (!is.null(l)) l$mine <- m; l })
-        list(lines = do.call(rbind, Filter(Negate(is.null), ln)), points = pg)
-      }
-    }, error = function(e) { message('[pdf] tracks: ', conditionMessage(e)); NULL })
+    trk <- if (tracks) area_tracks(h, pa, ha_poly)
     # Landmarks around its places: local place names, IDP sites, health facilities
     names_df <- tryCatch(vb_load_place_names(sf::st_bbox(pa)), error = function(e) NULL)
     lm <- .landmarks(a$facilities, a$idp)

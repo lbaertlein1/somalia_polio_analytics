@@ -19,12 +19,16 @@ add_facilities <- function(map, facilities, label_class = 'lm-label', group = NU
                         leaflet::labelOptions(noHide = TRUE, direction = 'right', textOnly = TRUE, className = label_class, offset = c(8, 0)))
 }
 
-# Vaccination team GPS tracks: small blue points with light route lines
-TRACK_POINT <- '#2563eb'
-TRACK_LINE  <- '#93c5fd'
-# ...and orange for the teams in focus (the chosen health area's, or your own)
-TRACK_MINE_POINT <- '#ea580c'
-TRACK_MINE_LINE  <- '#fdba74'
+# Vaccination team GPS tracks, the same on every map (app, supervisor and
+# team pages, printed maps, My Maps): colours neither satellite imagery nor
+# street maps use -- cyan for other teams, magenta for the teams in focus
+# (the chosen health area's, or your own) -- points with a dark outline so
+# they read on light and dark backgrounds, thin lines a shade darker.
+TRACK_POINT <- '#22d3ee'
+TRACK_LINE  <- '#0891b2'
+TRACK_MINE_POINT <- '#e91ee0'
+TRACK_MINE_LINE  <- '#c026d3'
+TRACK_EDGE <- '#1e293b'
 
 #' clean_pings() points as track lines (sf LINESTRING, lon/lat), or NULL. A
 #' new line starts wherever the device changes or there's a long gap / jump.
@@ -47,9 +51,10 @@ add_tracks <- function(map, pg, params, group = 'tracks', pane = NULL, max_point
   lines <- track_lines(pg, params)
   opts <- if (is.null(pane)) leaflet::pathOptions() else leaflet::pathOptions(pane = pane)
   if (!is.null(lines))
-    map <- leaflet::addPolylines(map, data = lines, group = group, color = line_color, weight = 1.5, opacity = 0.7, options = opts)
+    map <- leaflet::addPolylines(map, data = lines, group = group, color = line_color, weight = 1.5, opacity = 0.8, options = opts)
   pts <- if (nrow(pg) > max_points) pg[round(seq(1, nrow(pg), length.out = max_points)), ] else pg
-  leaflet::addCircleMarkers(map, data = pts, lng = ~lon, lat = ~lat, group = group, radius = 1.8, stroke = FALSE,
-                            fillColor = point_color, fillOpacity = 0.7, options = opts,
+  leaflet::addCircleMarkers(map, data = pts, lng = ~lon, lat = ~lat, group = group, radius = 2.5,
+                            color = TRACK_EDGE, weight = 0.8, opacity = 0.9,
+                            fillColor = point_color, fillOpacity = 0.95, options = opts,
                             popup = ~sprintf('%s<br>%s', team_label(team_name), format(ts, '%a %d %b %H:%M')))
 }
