@@ -231,6 +231,8 @@ vb_set_supervisors <- function(campaign_id, district_name, df, user) {
   cid <- as.integer(campaign_id)
   pool::poolWithTransaction(vb_pool, function(con) {
     for (i in seq_len(nrow(df))) {
+      # the phone in international form, as the WhatsApp link needs it (the
+      # Supervisors table then shows it that way)
       h <- df$health_area_name[i]; name <- trimws(df$supervisor_name[i]); phone <- normalize_phone(trimws(df$phone[i]))
       on <- nzchar(name) || nzchar(phone)
       # the health area's row: one that already has this phone (so a phone

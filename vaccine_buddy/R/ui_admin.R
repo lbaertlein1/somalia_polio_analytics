@@ -312,7 +312,7 @@ admin_ui <- function() {
                  div(style = 'display: flex; gap: 6px;',
                      div(style = 'flex: 1;', selectInput('exp_size', NULL, c('A4', 'A3', 'A2', 'A1', 'A0'), selected = 'A1', width = '100%')),
                      div(style = 'flex: 1;', selectInput('exp_base', NULL, c('Satellite' = 'satellite', 'Street map' = 'osm'), width = '100%'))),
-                 checkboxInput('exp_tracks', 'Include team GPS tracks (for review, not for supervisors)', value = FALSE),
+                 checkboxInput('exp_tracks', 'Include team GPS tracks', value = FALSE),
                  downloadButton('exp_pdf', 'Printed maps (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;'))
           ),
           # One table, one row per health area, and the selected row's message on the right
@@ -976,6 +976,9 @@ admin_server <- function(input, output, session, auth) {
     tryCatch({
       vb_set_supervisors(campaign_id(), district(), changed, user())
       sup_last[match(changed$health_area_name, sup_last$health_area_name), ] <<- changed
+      # A phone stored differently from how it was typed (international form,
+      # e.g. 0612... -> 252612...): show it as stored
+      if (any(normalize_phone(changed$phone) != changed$phone)) sup_load(sup_load() + 1)
       TRUE
     }, error = function(e) { showNotification(paste('Could not save:', conditionMessage(e)), type = 'error'); FALSE })
   }
@@ -1197,7 +1200,7 @@ admin_server <- function(input, output, session, auth) {
       rows <- vb_load_entries(run$data_from, run$data_to, sf::st_bbox(if (!is.null(ha_poly) && nrow(ha_poly)) ha_poly else pa))
       rows <- rows[rows$team_name %in% teams, ]
       if (nrow(rows) == 0) NULL
-      else { p <- utils::modifyList(DEFAULT_PARAMS, as.list(jsonlite::fromJSON(run$params))); track_lines(clean_pings(rows, p)$pings, p) }
+      else { p <- utils::modifyList(DEFAULT_PARAMS, as.list(jsonlite::fromJSON(run$params))); pg <- clean_pings(rows, p)$pings; list(lines = track_lines(pg, p), points = pg) }
     }, error = function(e) { message('[pdf] tracks: ', conditionMessage(e)); NULL })
     # Landmarks around its places: local place names, IDP sites, health facilities
     names_df <- tryCatch(vb_load_place_names(sf::st_bbox(pa)), error = function(e) NULL)
@@ -1207,7 +1210,7 @@ admin_server <- function(input, output, session, auth) {
     places_pdf(pa, file,
                title = sprintf('Missed places – %s, %s', h, district()),
                subtitle = sprintf('From vaccination team GPS, %s to %s', format(as.Date(r$data_from), '%d %b'), format(as.Date(r$data_to), '%d %b %Y')),
-               ha_poly = ha_poly, size = size, basemap = basemap, landmarks = lm, tracks = trk,
+               ha_poly = ha_poly, size = size, basemap = basemap, landmarks = lm, tracks = trk$lines, track_points = trk$points,
                # as on the app's map: SIA coordination sites and facilities a health area is named after
                facilities = if (!is.null(a$facilities) && nrow(a$facilities) > 0)
                  a$facilities[a$facilities$polio_sia_coordination_site %in% 'Yes' | trimws(a$facilities$facility_name) %in% trimws(drawn$health_area), ])

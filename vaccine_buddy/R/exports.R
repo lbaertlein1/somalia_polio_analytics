@@ -99,13 +99,14 @@ PAGE_MM <- list(A4 = c(297, 210), A3 = c(420, 297), A2 = c(594, 420), A1 = c(841
 
 #' One health area's printed map (PDF, landscape `size`): the missed areas
 #' and numbered points over a street map or satellite background, the
-#' health area boundary if drawn, each place's closest landmark (from
+#' health area boundary if drawn, the landmark each place's description names (from
 #' `landmarks`: sf with `name` -- local place names, IDP sites, health
 #' facilities), health facilities (`facilities`: sf with facility_name) as
-#' red crosses, optionally the teams' GPS tracks (`tracks`: track_lines()),
+#' red crosses, optionally the teams' GPS tracks (`tracks`: track_lines(); `track_points`:
+#' clean_pings() points),
 #' and the list of places beside it. The numbered places are drawn last, on top.
 places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1', basemap = c('osm', 'satellite'), landmarks = NULL,
-                       tracks = NULL, facilities = NULL) {
+                       tracks = NULL, track_points = NULL, facilities = NULL) {
   basemap <- match.arg(basemap)
   page <- PAGE_MM[[size]]
   p <- places[order(places$place_no), ]
@@ -140,8 +141,14 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
   }
   if (!is.null(tracks) && nrow(tracks) > 0)
     map <- map + ggplot2::geom_sf(data = sf::st_transform(tracks, 3857), colour = '#3b82f6', linewidth = 0.35 * s, alpha = 0.8)
+  # the GPS points themselves, as on the app's maps
+  if (!is.null(track_points) && nrow(track_points) > 0) {
+    tp <- if (nrow(track_points) > 40000) track_points[round(seq(1, nrow(track_points), length.out = 40000)), ] else track_points
+    tp <- sf::st_transform(sf::st_as_sf(tp, coords = c('lon', 'lat'), crs = 4326), 3857)
+    map <- map + ggplot2::geom_sf(data = tp, shape = 16, size = 1.1 * s, colour = TRACK_POINT, alpha = 0.9)
+  }
   if (!is.null(ha)) map <- map + ggplot2::geom_sf(data = ha, fill = NA, colour = if (basemap == 'satellite') 'white' else '#0f172a', linewidth = 1.6 * s)
-  map <- map + ggplot2::geom_sf(data = outl, fill = '#dc2626', alpha = 0.35, colour = '#7f1d1d', linewidth = 0.6 * s)
+  map <- map + ggplot2::geom_sf(data = outl, fill = '#dc2626', alpha = 0.3, colour = '#ff1a1a', linewidth = 1.3 * s)
   in_map <- function(x) {
     if (is.null(x) || nrow(x) == 0) return(NULL)
     x <- sf::st_transform(x, 3857); xy <- sf::st_coordinates(x)
@@ -156,9 +163,18 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
       ggplot2::geom_sf(data = fac, shape = 3, size = 8 * s, colour = '#dc2626', stroke = 1.8 * s) +
       ggplot2::geom_sf_label(data = fac, ggplot2::aes(label = facility_name), size = 5.5 * s, colour = '#b91c1c', fontface = 'bold',
                              fill = 'white', alpha = 0.85, label.size = 0, nudge_y = nudge)
-  # One landmark per place: its closest (places sharing one show it once)
-  if (!is.null(landmarks) && nrow(landmarks) > 0 &&
-      !is.null(lm <- in_map(landmarks[base::unique(sf::st_nearest_feature(sf::st_geometry(p), landmarks)), ])))
+  # The landmark each place's description names ("160 m SW of Madarasa",
+  # "at Hodan IDP site"): the landmark of that name nearest the place. Places
+  # described another way ("in Eldas HC") show none; places naming the same
+  # landmark show it once.
+  named <- sub('^(at |[0-9,]+ m (N|NE|E|SE|S|SW|W|NW) of )', '', p$label)
+  named[named == p$label] <- NA   # (no landmark in the description)
+  pick <- if (is.null(landmarks) || nrow(landmarks) == 0) integer(0) else unlist(lapply(seq_len(nrow(p)), function(i) {
+    cand <- which(landmarks$name == named[i])
+    if (length(cand) == 0) return(integer(0))
+    cand[sf::st_nearest_feature(sf::st_geometry(p)[i], landmarks[cand, ])]
+  }))
+  if (length(pick) && !is.null(lm <- in_map(landmarks[base::unique(pick), ])))
     map <- map +
       ggplot2::geom_sf(data = lm, shape = 23, size = 7 * s, fill = '#facc15', colour = '#0f172a', stroke = 0.8 * s) +
       ggplot2::geom_sf_label(data = lm, ggplot2::aes(label = name), size = 5.5 * s, fill = 'white', alpha = 0.85,
@@ -183,8 +199,12 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
                                      vapply(paste, '', collapse = '\n   '), hjust = 0, vjust = 1, size = 7 * s)
 
   plot <- patchwork::wrap_plots(map, lst, widths = c(0.7, 0.3 * length(cols))) +
-    patchwork::plot_annotation(title = title, subtitle = subtitle, theme = ggplot2::theme(
-      plot.title = ggplot2::element_text(size = 34 * s, face = 'bold'), plot.subtitle = ggplot2::element_text(size = 20 * s, colour = '#475569'),
+    # the subtitle's second line is the key
+    patchwork::plot_annotation(title = title, subtitle = paste0(subtitle, '\nRed circles: missed places, numbered as in the list  ·  ',
+                               "Yellow diamonds: the landmark each place's description refers to  ·  Red crosses: health facilities"),
+                               theme = ggplot2::theme(
+      plot.subtitle = ggplot2::element_text(size = 20 * s, colour = '#475569', lineheight = 1.3),
+      plot.title = ggplot2::element_text(size = 34 * s, face = 'bold'),
       plot.margin = ggplot2::margin(15 * s, 15 * s, 15 * s, 15 * s, 'mm')))
   # (a .png file name gives a quick low-resolution preview instead)
   if (grepl('[.]png$', file)) ggplot2::ggsave(file, plot, width = page[1], height = page[2], units = 'mm', dpi = 40)
