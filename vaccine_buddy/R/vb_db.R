@@ -363,16 +363,16 @@ vb_set_mymaps <- function(run_id, health_area_name, url, user) {
 
 #' health_area_name, page_size, basemap of the maps made (none if the table is missing)
 vb_pdf_areas <- function(run_id) {
-  tryCatch(.q('SELECT health_area_name, page_size, basemap FROM area_pdfs WHERE run_id = $1', list(as.integer(run_id))),
-           error = function(e) data.frame(health_area_name = character(0), page_size = character(0), basemap = character(0)))
+  tryCatch(.q('SELECT health_area_name, page_size, basemap, tracks FROM area_pdfs WHERE run_id = $1', list(as.integer(run_id))),
+           error = function(e) data.frame(health_area_name = character(0), page_size = character(0), basemap = character(0), tracks = logical(0)))
 }
 
-vb_save_pdf <- function(run_id, health_area_name, file, page_size, basemap, user) {
+vb_save_pdf <- function(run_id, health_area_name, file, page_size, basemap, tracks, user) {
   raw <- readBin(file, 'raw', file.size(file))
-  .x('INSERT INTO area_pdfs (run_id, health_area_name, page_size, basemap, pdf, created_by) VALUES ($1, $2, $3, $4, $5, $6)
+  .x('INSERT INTO area_pdfs (run_id, health_area_name, page_size, basemap, tracks, pdf, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (run_id, health_area_name) DO UPDATE SET page_size = EXCLUDED.page_size, basemap = EXCLUDED.basemap,
-        pdf = EXCLUDED.pdf, created_by = EXCLUDED.created_by, created_at = NOW()',
-     list(as.integer(run_id), health_area_name, page_size, basemap, blob::new_blob(list(raw)), user))
+        tracks = EXCLUDED.tracks, pdf = EXCLUDED.pdf, created_by = EXCLUDED.created_by, created_at = NOW()',
+     list(as.integer(run_id), health_area_name, page_size, basemap, isTRUE(tracks), blob::new_blob(list(raw)), user))
 }
 
 #' The PDF's bytes, or NULL.

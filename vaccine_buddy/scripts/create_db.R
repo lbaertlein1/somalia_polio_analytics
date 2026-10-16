@@ -329,11 +329,14 @@ statements <- list(
     health_area_name  TEXT    NOT NULL,
     page_size         TEXT,
     basemap           TEXT,
+    tracks            BOOLEAN NOT NULL DEFAULT FALSE,
     pdf               BYTEA   NOT NULL,
     created_by        TEXT,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (run_id, health_area_name)
   )",
+
+  "ALTER TABLE area_pdfs ADD COLUMN IF NOT EXISTS tracks BOOLEAN NOT NULL DEFAULT FALSE",
 
   "CREATE TABLE IF NOT EXISTS place_status_log (
     id           SERIAL PRIMARY KEY,

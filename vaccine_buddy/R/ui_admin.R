@@ -300,20 +300,20 @@ admin_ui <- function() {
                  checkboxInput('msg_app', 'Link to the supervisor app (to send each team its places)', value = TRUE),
                  checkboxInput('msg_mymaps', 'Link to a Google My Maps map', value = FALSE),
                  checkboxInput('msg_pdf', 'Link to download the map (PDF)', value = FALSE),
-                 conditionalPanel("input.msg_pdf", uiOutput('pdf_status')),
-                 checkboxInput('msg_attach', 'Map to attach yourself (PDF)', value = FALSE),
-                 conditionalPanel("input.msg_attach",
-                   downloadButton('pdf_zip', 'Download the maps (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;'))),
+                 checkboxInput('msg_attach', 'Map to attach manually (PDF)', value = FALSE),
+                 # The same maps for both: one set of map options
+                 conditionalPanel("input.msg_pdf || input.msg_attach",
+                   div(style = 'display: flex; gap: 6px;',
+                       div(style = 'flex: 1;', selectInput('map_size', NULL, c('A4', 'A3', 'A2', 'A1', 'A0'), selected = 'A3', width = '100%')),
+                       div(style = 'flex: 1;', selectInput('map_base', NULL, c('Satellite' = 'satellite', 'Street map' = 'osm'), width = '100%'))),
+                   checkboxInput('map_tracks', 'Include team GPS tracks', value = FALSE),
+                   uiOutput('pdf_status'),
+                   conditionalPanel("input.msg_attach",
+                     downloadButton('pdf_zip', 'Download the maps (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;')))),
             # Less used: at the bottom, folded away
             tags$hr(style = 'margin: 18px 0 8px;'),
-            more('Export files (shapefile, printed maps)',
-                 downloadButton('exp_shp', 'Shapefile of the district (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;'),
-                 div(class = 'mini-label', style = 'margin-top: 10px;', 'Printed maps, one per health area'),
-                 div(style = 'display: flex; gap: 6px;',
-                     div(style = 'flex: 1;', selectInput('exp_size', NULL, c('A4', 'A3', 'A2', 'A1', 'A0'), selected = 'A1', width = '100%')),
-                     div(style = 'flex: 1;', selectInput('exp_base', NULL, c('Satellite' = 'satellite', 'Street map' = 'osm'), width = '100%'))),
-                 checkboxInput('exp_tracks', 'Include team GPS tracks', value = FALSE),
-                 downloadButton('exp_pdf', 'Printed maps (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;'))
+            more('Export files (shapefile)',
+                 downloadButton('exp_shp', 'Shapefile of the district (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;'))
           ),
           # One table, one row per health area, and the selected row's message on the right
           fluidRow(
@@ -1097,7 +1097,7 @@ admin_server <- function(input, output, session, auth) {
       links <- if (isolate(msg_opts())$mymaps) vb_get_mymaps(rid) else NULL
       # What the operator chose to include
       opt <- isolate(msg_opts())
-      pdfs <- if (opt$pdf) vb_pdf_areas(rid)$health_area_name else character(0)
+      pdfs <- if (opt$pdf) pdf_ready(vb_pdf_areas(rid), opt$map) else character(0)
       map_link <- function(h) { u <- links$url[match(h, links$health_area_name)]; if (length(u) && !is.na(u)) u else NULL }
       with_data <- cov$health_area_name[cov$team_area_name == '' & cov$has_data %in% TRUE]
       # complete rows only (the table saves itself as people type)
@@ -1125,7 +1125,8 @@ admin_server <- function(input, output, session, auth) {
   # have changed since)
   # What goes in the messages (the sidebar's "What the message includes")
   msg_opts <- reactive(list(list = input$msg_list %||% 'all', app = isTRUE(input$msg_app), mymaps = isTRUE(input$msg_mymaps),
-                            pdf = isTRUE(input$msg_pdf), attach = isTRUE(input$msg_attach)))
+                            pdf = isTRUE(input$msg_pdf), attach = isTRUE(input$msg_attach),
+                            map = list(size = input$map_size %||% 'A3', base = input$map_base %||% 'satellite', tracks = isTRUE(input$map_tracks))))
 
   observeEvent(list(input$main_tabs, input$send_run, msg_opts()), {
     req(input$main_tabs == 'send', isTruthy(input$send_run))
@@ -1216,21 +1217,24 @@ admin_server <- function(input, output, session, auth) {
                  a$facilities[a$facilities$polio_sia_coordination_site %in% 'Yes' | trimws(a$facilities$facility_name) %in% trimws(drawn$health_area), ])
   }
 
-  # --- A map to download (PDF) in each message ---------------------------------------
-  # Made as soon as it's included (A3, satellite: read on a phone, or
-  # printed), once per list -- only health areas without one yet -- then
-  # stored and downloaded by supervisors from their ?t=<token>&pdf=1 link.
+  # --- The map (PDF) linked in, or attached to, each message ---------------------------
+  # Made with the chosen map options as soon as it's included, once per list
+  # -- only health areas without one in those options yet -- then stored and
+  # downloaded by supervisors from their ?t=<token>&pdf=1 link.
+  # Health areas whose stored map has the options `o`
+  pdf_ready <- function(pdfs, o)
+    pdfs$health_area_name[pdfs$page_size %in% o$size & pdfs$basemap %in% o$base & pdfs$tracks %in% o$tracks]
   make_pdfs <- function(rid) {
-    made <- vb_pdf_areas(rid)
-    todo <- setdiff(mm_areas(), made$health_area_name[made$basemap %in% 'satellite'])
+    o <- isolate(msg_opts())$map
+    todo <- setdiff(mm_areas(), pdf_ready(vb_pdf_areas(rid), o))
     if (length(todo) == 0) return(invisible())
     d <- tempfile('pdf'); dir.create(d); on.exit(unlink(d, recursive = TRUE))
     withProgress(message = 'Making the PDF maps', value = 0, tryCatch({
       for (k in seq_along(todo)) {
         setProgress((k - 0.5) / length(todo), detail = todo[k])
         f <- file.path(d, sprintf('%d.pdf', k))
-        area_pdf(todo[k], f, 'A3', 'satellite')
-        vb_save_pdf(rid, todo[k], f, 'A3', 'satellite', user())
+        area_pdf(todo[k], f, o$size, o$base, tracks = o$tracks)
+        vb_save_pdf(rid, todo[k], f, o$size, o$base, o$tracks, user())
       }
     }, error = function(e) showNotification(paste('Could not make the maps:', conditionMessage(e)), type = 'error', duration = NULL)))
   }
@@ -1248,30 +1252,15 @@ admin_server <- function(input, output, session, auth) {
     })
   output$pdf_status <- renderUI({
     x <- send_rows(); has <- mm_areas()
-    p(class = 'hint', sprintf('%d of %d health area maps ready.', sum(has %in% x$pdfs$health_area_name), length(has)))
+    p(class = 'hint', sprintf('%d of %d health area maps ready.', sum(has %in% pdf_ready(x$pdfs, x$opt$map)), length(has)))
   })
 
-  # --- Export files: shapefile, printed maps -----------------------------------------
+  # --- Export files: shapefile -----------------------------------------
   output$exp_shp <- downloadHandler(
     filename = function() sprintf('missed_places_%s_%s.zip', .file_part(district()), format(as.Date(run_row()$data_to), '%Y%m%d')),
     content = function(file) {
       pl <- run_places(); req(pl)
       places_shapefile_zip(pl, file)
-    })
-  output$exp_pdf <- downloadHandler(
-    filename = function() sprintf('missed_places_maps_%s_%s_%s.zip', .file_part(district()), input$exp_size,
-                                  format(as.Date(run_row()$data_to), '%Y%m%d')),
-    content = function(file) {
-      req(run_places())
-      has <- mm_areas()
-      d <- tempfile('pdf'); dir.create(d); on.exit(unlink(d, recursive = TRUE))
-      withProgress(message = 'Making the printed maps', value = 0, {
-        for (k in seq_along(has)) {
-          setProgress(k / length(has), detail = has[k])
-          area_pdf(has[k], file.path(d, paste0(.file_part(has[k]), '.pdf')), input$exp_size, input$exp_base, tracks = isTRUE(input$exp_tracks))
-        }
-      })
-      zip::zip(file, list.files(d, full.names = TRUE), mode = 'cherry-pick')
     })
 
   output$send_progress <- renderUI({
@@ -1299,7 +1288,7 @@ admin_server <- function(input, output, session, auth) {
     send <- ifelse(!has_msg, why,
             ifelse(empty, '<span style="color: #b45309;">Choose what the message includes</span>',
             ifelse(mm & with_places & is.na(url), '<span style="color: #b45309;">Add the map link first</span>',
-            ifelse(x$opt$pdf & with_places & !h %in% x$pdfs$health_area_name, '<span style="color: #b45309;">Make the PDF maps first</span>',
+            ifelse(x$opt$pdf & with_places & !h %in% pdf_ready(x$pdfs, x$opt$map), '<span style="color: #b45309;">Make the PDF maps first</span>',
                    sprintf('<a class="btn btn-success btn-sm" target="_blank" href="%s" onclick="Shiny.setInputValue(\'sent_click\', {id: %d, nonce: Math.random()}, {priority: \'event\'})">%s</a>',
                            wa_link(d$phone, d$message), d$dispatch_id, ifelse(is.na(d$send_clicked_at), 'Send', 'Send again'))))))
     out <- data.frame(`Health area` = h, Supervisor = ifelse(has_msg, d$supervisor_name, ''), Phone = ifelse(has_msg, d$phone, ''),
