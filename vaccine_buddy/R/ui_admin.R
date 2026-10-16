@@ -1199,15 +1199,24 @@ admin_server <- function(input, output, session, auth) {
     pl <- run_places(); a <- areas_d(); drawn <- a$health_areas; r <- run_row()
     pa <- pl[pl$health_area_name == h, ]
     ha_poly <- if (!is.null(drawn)) drawn[drawn$health_area == h, ]
-    # The health area's own teams' GPS over the list's days, cleaned with the
-    # list's settings (saved lists don't keep the GPS itself)
+    # Every team's GPS over the list's days, anywhere on the map (the map
+    # crops it), cleaned with the list's settings (saved lists don't keep the
+    # GPS itself); `mine` marks the health area's own teams
     trk <- if (tracks) tryCatch({
       run <- vb_get_run(run_id()); cov <- vb_get_coverage(run_id())
       teams <- trimws(strsplit(cov$teams[cov$team_area_name == '' & cov$health_area_name == h][1] %||% '', ',')[[1]])
-      rows <- vb_load_entries(run$data_from, run$data_to, sf::st_bbox(if (!is.null(ha_poly) && nrow(ha_poly)) ha_poly else pa))
-      rows <- rows[rows$team_name %in% teams, ]
+      teams <- base::union(teams, stats::na.omit(pa$assigned_team))   # as on the supervisor's page
+      bb <- sf::st_bbox(if (!is.null(ha_poly) && nrow(ha_poly)) ha_poly else pa)
+      pad <- 0.15 * max(bb[['xmax']] - bb[['xmin']], bb[['ymax']] - bb[['ymin']]) + 0.005   # more than the map's margin
+      rows <- vb_load_entries(run$data_from, run$data_to, bb + c(-pad, -pad, pad, pad))
       if (nrow(rows) == 0) NULL
-      else { p <- utils::modifyList(DEFAULT_PARAMS, as.list(jsonlite::fromJSON(run$params))); pg <- clean_pings(rows, p)$pings; list(lines = track_lines(pg, p), points = pg) }
+      else {
+        p <- utils::modifyList(DEFAULT_PARAMS, as.list(jsonlite::fromJSON(run$params)))
+        pg <- clean_pings(rows, p)$pings
+        pg$mine <- pg$team_name %in% teams
+        ln <- lapply(c(FALSE, TRUE), function(m) { l <- track_lines(pg[pg$mine == m, ], p); if (!is.null(l)) l$mine <- m; l })
+        list(lines = do.call(rbind, Filter(Negate(is.null), ln)), points = pg)
+      }
     }, error = function(e) { message('[pdf] tracks: ', conditionMessage(e)); NULL })
     # Landmarks around its places: local place names, IDP sites, health facilities
     names_df <- tryCatch(vb_load_place_names(sf::st_bbox(pa)), error = function(e) NULL)

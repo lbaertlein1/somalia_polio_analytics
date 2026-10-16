@@ -102,7 +102,8 @@ PAGE_MM <- list(A4 = c(297, 210), A3 = c(420, 297), A2 = c(594, 420), A1 = c(841
 #' health area boundary if drawn, the landmark each place's description names (from
 #' `landmarks`: sf with `name` -- local place names, IDP sites, health
 #' facilities), health facilities (`facilities`: sf with facility_name) as
-#' red crosses, optionally the teams' GPS tracks (`tracks`: track_lines(); `track_points`:
+#' red crosses, optionally the teams' GPS tracks (`tracks`: track_lines() with
+#' `mine`, the health area's own teams, orange -- others blue; `track_points`:
 #' clean_pings() points),
 #' and the list of places beside it. The numbered places are drawn last, on top.
 places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1', basemap = c('osm', 'satellite'), landmarks = NULL,
@@ -139,13 +140,20 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
     e <- as.vector(terra::ext(tiles))
     map <- map + ggplot2::annotation_raster(pic, xmin = e[['xmin']], xmax = e[['xmax']], ymin = e[['ymin']], ymax = e[['ymax']])
   }
-  if (!is.null(tracks) && nrow(tracks) > 0)
-    map <- map + ggplot2::geom_sf(data = sf::st_transform(tracks, 3857), colour = '#3b82f6', linewidth = 0.35 * s, alpha = 0.8)
-  # the GPS points themselves, as on the app's maps
+  # Other teams in blue, the health area's own teams in orange on top
+  if (!is.null(tracks) && nrow(tracks) > 0) {
+    tl <- sf::st_transform(tracks, 3857)
+    map <- map + ggplot2::geom_sf(data = tl[!tl$mine, ], colour = TRACK_LINE, linewidth = 0.35 * s, alpha = 0.8) +
+      ggplot2::geom_sf(data = tl[tl$mine, ], colour = TRACK_MINE_LINE, linewidth = 0.35 * s, alpha = 0.8)
+  }
+  # the GPS points themselves, as on the app's maps (only those on the map)
+  tp <- NULL
   if (!is.null(track_points) && nrow(track_points) > 0) {
-    tp <- if (nrow(track_points) > 40000) track_points[round(seq(1, nrow(track_points), length.out = 40000)), ] else track_points
-    tp <- sf::st_transform(sf::st_as_sf(tp, coords = c('lon', 'lat'), crs = 4326), 3857)
-    map <- map + ggplot2::geom_sf(data = tp, shape = 16, size = 1.1 * s, colour = TRACK_POINT, alpha = 0.9)
+    tp <- sf::st_transform(sf::st_as_sf(track_points, coords = c('lon', 'lat'), crs = 4326), 3857)
+    tp <- tp[sf::st_intersects(tp, sf::st_as_sfc(bb), sparse = FALSE)[, 1], ]
+    if (nrow(tp) > 40000) tp <- tp[round(seq(1, nrow(tp), length.out = 40000)), ]
+    map <- map + ggplot2::geom_sf(data = tp[!tp$mine, ], shape = 16, size = 1.1 * s, colour = TRACK_POINT, alpha = 0.9) +
+      ggplot2::geom_sf(data = tp[tp$mine, ], shape = 16, size = 1.1 * s, colour = TRACK_MINE_POINT, alpha = 0.9)
   }
   if (!is.null(ha)) map <- map + ggplot2::geom_sf(data = ha, fill = NA, colour = if (basemap == 'satellite') 'white' else '#0f172a', linewidth = 1.6 * s)
   map <- map + ggplot2::geom_sf(data = outl, fill = '#dc2626', alpha = 0.3, colour = '#ff1a1a', linewidth = 1.3 * s)
@@ -157,7 +165,8 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
   }
   nudge <- 0.012 * (bb[['ymax']] - bb[['ymin']])
   # Health facilities: a red cross and the name
-  if (!is.null(fac <- in_map(facilities)))
+  fac <- in_map(facilities)
+  if (!is.null(fac))
     map <- map +
       ggplot2::geom_sf(data = fac, shape = 3, size = 8 * s, colour = 'white', stroke = 3.2 * s) +
       ggplot2::geom_sf(data = fac, shape = 3, size = 8 * s, colour = '#dc2626', stroke = 1.8 * s) +
@@ -174,7 +183,8 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
     if (length(cand) == 0) return(integer(0))
     cand[sf::st_nearest_feature(sf::st_geometry(p)[i], landmarks[cand, ])]
   }))
-  if (length(pick) && !is.null(lm <- in_map(landmarks[base::unique(pick), ])))
+  lm <- if (length(pick)) in_map(landmarks[base::unique(pick), ])
+  if (!is.null(lm))
     map <- map +
       ggplot2::geom_sf(data = lm, shape = 23, size = 7 * s, fill = '#facc15', colour = '#0f172a', stroke = 0.8 * s) +
       ggplot2::geom_sf_label(data = lm, ggplot2::aes(label = name), size = 5.5 * s, fill = 'white', alpha = 0.85,
@@ -198,10 +208,41 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
     lst <- lst + ggplot2::annotate('text', x = k - 1, y = -seq_along(cols[[k]]), label = strwrap(cols[[k]], 70, simplify = FALSE) |>
                                      vapply(paste, '', collapse = '\n   '), hjust = 0, vjust = 1, size = 7 * s)
 
-  plot <- patchwork::wrap_plots(map, lst, widths = c(0.7, 0.3 * length(cols))) +
-    # the subtitle's second line is the key
-    patchwork::plot_annotation(title = title, subtitle = paste0(subtitle, '\nRed circles: missed places, numbered as in the list  ·  ',
-                               "Yellow diamonds: the landmark each place's description refers to  ·  Red crosses: health facilities"),
+  # The legend under the list: what's on this map
+  has_tp <- function(m) !is.null(tp) && any(tp$mine == m)
+  items <- list(
+    list('Missed place, numbered as in the list', 'pin'),
+    list('Missed area', 'area'),
+    if (!is.null(ha)) list('Health area boundary', 'border'),
+    if (!is.null(fac)) list('Health facility', 'cross'),
+    if (!is.null(lm)) list("Landmark a place's description refers to", 'landmark'),
+    if (has_tp(TRUE)) list("Team GPS track (this health area's teams)", 'mine'),
+    if (has_tp(FALSE)) list('Team GPS track (other teams)', 'other'))
+  items <- Filter(Negate(is.null), items)
+  leg <- ggplot2::ggplot() + ggplot2::xlim(0, 6) + ggplot2::ylim(-length(items) - 0.5, 1) + ggplot2::theme_void() +
+    ggplot2::annotate('text', x = 0, y = 1, label = 'Legend', hjust = 0, vjust = 1, fontface = 'bold', size = 11 * s)
+  for (i in seq_along(items)) {
+    y <- -i; key <- items[[i]][[2]]
+    track <- function(line, pt) list(ggplot2::annotate('segment', x = 0.05, xend = 0.55, y = y, yend = y, colour = line, linewidth = 1.2 * s),
+                                    ggplot2::annotate('point', x = c(0.12, 0.3, 0.48), y = y, colour = pt, size = 2.5 * s))
+    leg <- leg + switch(key,
+      pin = list(ggplot2::annotate('point', x = 0.3, y = y, shape = 21, size = 12 * s, fill = '#dc2626', colour = 'white', stroke = 1.2 * s),
+                 ggplot2::annotate('text', x = 0.3, y = y, label = '1', colour = 'white', fontface = 'bold', size = 5.5 * s)),
+      area = ggplot2::annotate('rect', xmin = 0.08, xmax = 0.52, ymin = y - 0.3, ymax = y + 0.3, fill = '#dc2626', alpha = 0.3,
+                               colour = '#ff1a1a', linewidth = 1.3 * s),
+      border = list(if (basemap == 'satellite') ggplot2::annotate('rect', xmin = 0.02, xmax = 0.58, ymin = y - 0.35, ymax = y + 0.35, fill = '#475569'),
+                    ggplot2::annotate('segment', x = 0.08, xend = 0.52, y = y, yend = y, linewidth = 1.6 * s,
+                                      colour = if (basemap == 'satellite') 'white' else '#0f172a')),
+      cross = list(ggplot2::annotate('point', x = 0.3, y = y, shape = 3, size = 8 * s, colour = '#dc2626', stroke = 1.8 * s)),
+      landmark = ggplot2::annotate('point', x = 0.3, y = y, shape = 23, size = 7 * s, fill = '#facc15', colour = '#0f172a', stroke = 0.8 * s),
+      mine = track(TRACK_MINE_LINE, TRACK_MINE_POINT),
+      other = track(TRACK_LINE, TRACK_POINT)) +
+      ggplot2::annotate('text', x = 0.75, y = y, label = items[[i]][[1]], hjust = 0, size = 7 * s)
+  }
+  side <- patchwork::wrap_plots(lst, leg, ncol = 1, heights = c(per_col + 2, length(items) + 2))
+
+  plot <- patchwork::wrap_plots(map, side, widths = c(0.7, 0.3 * length(cols))) +
+    patchwork::plot_annotation(title = title, subtitle = subtitle,
                                theme = ggplot2::theme(
       plot.subtitle = ggplot2::element_text(size = 20 * s, colour = '#475569', lineheight = 1.3),
       plot.title = ggplot2::element_text(size = 34 * s, face = 'bold'),
