@@ -1175,9 +1175,7 @@ admin_server <- function(input, output, session, auth) {
   }
   mm_kml <- function(h) {
     pl <- run_places(); drawn <- areas_d()$health_areas
-    pa <- pl[pl$health_area_name == h, ]
-    ha_poly <- if (!is.null(drawn)) drawn[drawn$health_area == h, ]
-    places_kml(pa, mm_title(h), ha_poly = ha_poly, tracks = area_tracks(h, pa, ha_poly)$lines)
+    places_kml(pl[pl$health_area_name == h, ], mm_title(h), ha_poly = if (!is.null(drawn)) drawn[drawn$health_area == h, ])
   }
   # A row's file: made on request and handed to the browser to save
   observeEvent(input$mm_file, {

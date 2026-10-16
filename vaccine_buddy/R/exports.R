@@ -26,17 +26,12 @@
 # a polygon's outer ring
 .kml_outer <- function(poly) { m <- sf::st_coordinates(poly); .kml_ring(m[m[, 'L1'] == 1, 1:2, drop = FALSE]) }
 
-# '#rrggbb' as a KML colour (aabbggrr)
-.kml_col <- function(hex) paste0('ff', substr(hex, 6, 7), substr(hex, 4, 5), substr(hex, 2, 3))
-
 #' One health area's missed places as KML: each place's area (one placemark
 #' per polygon part -- My Maps doesn't import multi-geometries) and its
 #' numbered navigation point with a directions link; the health area
-#' boundary, if drawn, as a line; and the teams' GPS tracks (`tracks`:
-#' track_lines() with `mine`) as lines in the app's colours -- lines only,
-#' simplified and at most 1,500 (My Maps takes 2,000 features a layer).
-#' Returns the KML text.
-places_kml <- function(places, title, ha_poly = NULL, tracks = NULL) {
+#' boundary, if drawn, as a line. No GPS tracks: they'd make the map slow
+#' to load on a phone. Returns the KML text.
+places_kml <- function(places, title, ha_poly = NULL) {
   p <- places[order(places$place_no), ]
   team <- ifelse(is.na(p$assigned_team), '', paste0('<br>Team: ', .xml(team_label(p$assigned_team))))
   areas <- unlist(lapply(seq_len(nrow(p)), function(i) {
@@ -55,25 +50,13 @@ places_kml <- function(places, title, ha_poly = NULL, tracks = NULL) {
       '<Placemark><name>Health area boundary</name><styleUrl>#border</styleUrl><LineString><coordinates>%s</coordinates></LineString></Placemark>',
       .kml_outer(rings[j])), '')
   }
-  trk <- if (!is.null(tracks) && nrow(tracks) > 0) {
-    tr <- sf::st_simplify(tracks, dTolerance = 5)
-    tr <- tr[!sf::st_is_empty(tr), ]
-    if (nrow(tr) > 1500) tr <- tr[order(-as.numeric(sf::st_length(tr)))[1:1500], ]
-    tr <- tr[order(tr$mine), ]   # the health area's teams last, on top
-    vapply(seq_len(nrow(tr)), function(j) sprintf(
-      '<Placemark><name>%s</name><styleUrl>#%s</styleUrl><LineString><coordinates>%s</coordinates></LineString></Placemark>',
-      if (tr$mine[j]) "Team GPS track (this health area's teams)" else 'Team GPS track (other teams)',
-      if (tr$mine[j]) 'track_mine' else 'track', .kml_ring(sf::st_coordinates(tr[j, ])[, 1:2, drop = FALSE])), '')
-  }
   paste0(
     '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>',
     '<name>', .xml(title), '</name>',
     '<Style id="area"><LineStyle><color>ff1d1d7f</color><width>2</width></LineStyle><PolyStyle><color>662626dc</color></PolyStyle></Style>',
     '<Style id="point"><IconStyle><color>ff2626dc</color></IconStyle></Style>',
     '<Style id="border"><LineStyle><color>ff2a170f</color><width>3</width></LineStyle></Style>',
-    sprintf('<Style id="track"><LineStyle><color>%s</color><width>2</width></LineStyle></Style>', .kml_col(TRACK_POINT)),
-    sprintf('<Style id="track_mine"><LineStyle><color>%s</color><width>2</width></LineStyle></Style>', .kml_col(TRACK_MINE_POINT)),
-    paste(c(trk, border, areas, points), collapse = '\n'),
+    paste(c(border, areas, points), collapse = '\n'),
     '</Document></kml>\n')
 }
 
@@ -121,7 +104,7 @@ PAGE_MM <- list(A4 = c(297, 210), A3 = c(420, 297), A2 = c(594, 420), A1 = c(841
 #' `landmarks`: sf with `name` -- local place names, IDP sites, health
 #' facilities), health facilities (`facilities`: sf with facility_name) as
 #' red crosses, optionally the teams' GPS tracks (`tracks`: track_lines() with
-#' `mine`, the health area's own teams, orange -- others blue; `track_points`:
+#' `mine`, the health area's own teams, magenta -- others cyan; `track_points`:
 #' clean_pings() points),
 #' and the list of places beside it. The numbered places are drawn last, on top.
 places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1', basemap = c('osm', 'satellite'), landmarks = NULL,
