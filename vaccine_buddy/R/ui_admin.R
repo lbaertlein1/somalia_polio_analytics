@@ -307,6 +307,7 @@ admin_ui <- function() {
                        div(style = 'flex: 1;', selectInput('map_size', NULL, c('A4', 'A3', 'A2', 'A1', 'A0'), selected = 'A3', width = '100%')),
                        div(style = 'flex: 1;', selectInput('map_base', NULL, c('Satellite' = 'satellite', 'Street map' = 'osm'), width = '100%'))),
                    checkboxInput('map_tracks', 'Include team GPS tracks', value = FALSE),
+                   actionButton('make_maps', 'Generate maps', icon = icon('map'), class = 'btn btn-primary btn-sm', style = 'width: 100%;'),
                    uiOutput('pdf_status'),
                    conditionalPanel("input.msg_attach",
                      downloadButton('pdf_zip', 'Download the maps (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;')))),
@@ -1130,7 +1131,12 @@ admin_server <- function(input, output, session, auth) {
 
   observeEvent(list(input$main_tabs, input$send_run, msg_opts()), {
     req(input$main_tabs == 'send', isTruthy(input$send_run))
-    if (msg_opts()$pdf) make_pdfs(as.integer(input$send_run))
+    prepare_messages(as.integer(input$send_run))
+  })
+  # Maps are made only on asking, once the map options are set
+  observeEvent(input$make_maps, {
+    req(isTruthy(input$send_run))
+    make_pdfs(as.integer(input$send_run))
     prepare_messages(as.integer(input$send_run))
   })
 
@@ -1218,8 +1224,8 @@ admin_server <- function(input, output, session, auth) {
   }
 
   # --- The map (PDF) linked in, or attached to, each message ---------------------------
-  # Made with the chosen map options as soon as it's included, once per list
-  # -- only health areas without one in those options yet -- then stored and
+  # Made with the chosen map options on "Generate maps", once per list --
+  # only health areas without one in those options yet -- then stored and
   # downloaded by supervisors from their ?t=<token>&pdf=1 link.
   # Health areas whose stored map has the options `o`
   pdf_ready <- function(pdfs, o)
@@ -1242,9 +1248,11 @@ admin_server <- function(input, output, session, auth) {
   output$pdf_zip <- downloadHandler(
     filename = function() sprintf('maps_%s_%s.zip', .file_part(district()), format(as.Date(run_row()$data_to), '%Y%m%d')),
     content = function(file) {
-      rid <- run_id(); make_pdfs(rid)
+      rid <- run_id()
+      ready <- intersect(mm_areas(), pdf_ready(vb_pdf_areas(rid), msg_opts()$map))
+      validate(need(length(ready) > 0, 'Generate the maps first.'))
       d <- tempfile('pdf'); dir.create(d); on.exit(unlink(d, recursive = TRUE))
-      for (h in mm_areas()) {
+      for (h in ready) {
         raw <- vb_get_pdf(rid, h)
         if (!is.null(raw)) writeBin(raw, file.path(d, sprintf('Missed_places_%s.pdf', .file_part(h))))
       }
@@ -1288,7 +1296,7 @@ admin_server <- function(input, output, session, auth) {
     send <- ifelse(!has_msg, why,
             ifelse(empty, '<span style="color: #b45309;">Choose what the message includes</span>',
             ifelse(mm & with_places & is.na(url), '<span style="color: #b45309;">Add the map link first</span>',
-            ifelse(x$opt$pdf & with_places & !h %in% pdf_ready(x$pdfs, x$opt$map), '<span style="color: #b45309;">Make the PDF maps first</span>',
+            ifelse(x$opt$pdf & with_places & !h %in% pdf_ready(x$pdfs, x$opt$map), '<span style="color: #b45309;">Generate the maps first</span>',
                    sprintf('<a class="btn btn-success btn-sm" target="_blank" href="%s" onclick="Shiny.setInputValue(\'sent_click\', {id: %d, nonce: Math.random()}, {priority: \'event\'})">%s</a>',
                            wa_link(d$phone, d$message), d$dispatch_id, ifelse(is.na(d$send_clicked_at), 'Send', 'Send again'))))))
     out <- data.frame(`Health area` = h, Supervisor = ifelse(has_msg, d$supervisor_name, ''), Phone = ifelse(has_msg, d$phone, ''),
