@@ -73,12 +73,39 @@ places_shapefile_zip <- function(places, file) {
   zip::zip(file, list.files(d, full.names = TRUE), mode = 'cherry-pick')
 }
 
-PAGE_MM <- list(A3 = c(420, 297), A2 = c(594, 420), A1 = c(841, 594), A0 = c(1189, 841))   # landscape
+#' Background tiles for a printed map. 'satellite' is Esri imagery with
+#' Esri's transparent road and place-name layers laid over it (like
+#' Google's satellite view with labels); 'osm' is the OpenStreetMap street
+#' map. NULL if the tiles can't be fetched.
+.map_tiles <- function(area, zoom, basemap) {
+  cache <- file.path(tempdir(), 'tiles')
+  get <- function(provider) tryCatch(maptiles::get_tiles(area, crop = TRUE, zoom = zoom, cachedir = cache, provider = provider),
+                                     error = function(e) { message('[pdf] tiles: ', conditionMessage(e)); NULL })
+  if (basemap == 'osm') return(get('OpenStreetMap'))
+  img <- get('Esri.WorldImagery')
+  if (is.null(img)) return(NULL)
+  for (svc in c('World_Transportation', 'World_Boundaries_and_Places')) {
+    ov <- get(maptiles::create_provider(name = paste0('esri_', svc), citation = 'Esri',
+      url = sprintf('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/%s/MapServer/tile/{z}/{y}/{x}', svc)))
+    if (is.null(ov) || terra::nlyr(ov) < 4) next   # (no transparency: can't be laid over)
+    ov <- terra::resample(ov, img, method = 'near')
+    a <- terra::ifel(is.na(ov[[4]]), 0, ov[[4]] / 255)
+    img <- img[[1:3]] * (1 - a) + terra::ifel(is.na(ov[[1:3]]), 0, ov[[1:3]]) * a
+  }
+  img
+}
+
+PAGE_MM <- list(A4 = c(297, 210), A3 = c(420, 297), A2 = c(594, 420), A1 = c(841, 594), A0 = c(1189, 841))   # landscape
 
 #' One health area's printed map (PDF, landscape `size`): the missed areas
 #' and numbered points over a street map or satellite background, the
-#' health area boundary if drawn, and the list of places beside it.
-places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1', basemap = c('osm', 'satellite')) {
+#' health area boundary if drawn, each place's closest landmark (from
+#' `landmarks`: sf with `name` -- local place names, IDP sites, health
+#' facilities), health facilities (`facilities`: sf with facility_name) as
+#' red crosses, optionally the teams' GPS tracks (`tracks`: track_lines()),
+#' and the list of places beside it. The numbered places are drawn last, on top.
+places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1', basemap = c('osm', 'satellite'), landmarks = NULL,
+                       tracks = NULL, facilities = NULL) {
   basemap <- match.arg(basemap)
   page <- PAGE_MM[[size]]
   p <- places[order(places$place_no), ]
@@ -96,16 +123,38 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
   bb <- bb + c(-pad, -pad, pad, pad)
   px <- page[1] * 0.7 / 25.4 * 100
   zoom <- min(16, max(10, round(log2(156543.03 * px / (bb[['xmax']] - bb[['xmin']])))))
-  tiles <- tryCatch(maptiles::get_tiles(sf::st_as_sfc(bb), crop = TRUE, zoom = zoom, cachedir = file.path(tempdir(), 'tiles'),
-                                        provider = if (basemap == 'osm') 'OpenStreetMap' else 'Esri.WorldImagery'),
-                    error = function(e) { message('[pdf] tiles: ', conditionMessage(e)); NULL })
+  tiles <- .map_tiles(sf::st_as_sfc(bb), zoom, basemap)
 
   s <- page[1] / 841   # text scales with the page (sizes below are for A1)
   map <- ggplot2::ggplot()
   if (!is.null(tiles)) map <- map + tidyterra::geom_spatraster_rgb(data = tiles, maxcell = Inf)
-  if (!is.null(ha)) map <- map + ggplot2::geom_sf(data = ha, fill = NA, colour = '#0f172a', linewidth = 1.6 * s)
+  if (!is.null(tracks) && nrow(tracks) > 0)
+    map <- map + ggplot2::geom_sf(data = sf::st_transform(tracks, 3857), colour = '#3b82f6', linewidth = 0.35 * s, alpha = 0.8)
+  if (!is.null(ha)) map <- map + ggplot2::geom_sf(data = ha, fill = NA, colour = if (basemap == 'satellite') 'white' else '#0f172a', linewidth = 1.6 * s)
+  map <- map + ggplot2::geom_sf(data = outl, fill = '#dc2626', alpha = 0.35, colour = '#7f1d1d', linewidth = 0.6 * s)
+  in_map <- function(x) {
+    if (is.null(x) || nrow(x) == 0) return(NULL)
+    x <- sf::st_transform(x, 3857); xy <- sf::st_coordinates(x)
+    x <- x[xy[, 1] > bb[['xmin']] & xy[, 1] < bb[['xmax']] & xy[, 2] > bb[['ymin']] & xy[, 2] < bb[['ymax']], ]
+    if (nrow(x) == 0) NULL else x
+  }
+  nudge <- 0.012 * (bb[['ymax']] - bb[['ymin']])
+  # Health facilities: a red cross and the name
+  if (!is.null(fac <- in_map(facilities)))
+    map <- map +
+      ggplot2::geom_sf(data = fac, shape = 3, size = 8 * s, colour = 'white', stroke = 3.2 * s) +
+      ggplot2::geom_sf(data = fac, shape = 3, size = 8 * s, colour = '#dc2626', stroke = 1.8 * s) +
+      ggplot2::geom_sf_label(data = fac, ggplot2::aes(label = facility_name), size = 5.5 * s, colour = '#b91c1c', fontface = 'bold',
+                             fill = 'white', alpha = 0.85, label.size = 0, nudge_y = nudge)
+  # One landmark per place: its closest (places sharing one show it once)
+  if (!is.null(landmarks) && nrow(landmarks) > 0 &&
+      !is.null(lm <- in_map(landmarks[base::unique(sf::st_nearest_feature(sf::st_geometry(p), landmarks)), ])))
+    map <- map +
+      ggplot2::geom_sf(data = lm, shape = 23, size = 7 * s, fill = '#facc15', colour = '#0f172a', stroke = 0.8 * s) +
+      ggplot2::geom_sf_label(data = lm, ggplot2::aes(label = name), size = 5.5 * s, fill = 'white', alpha = 0.85,
+                             label.size = 0, nudge_y = nudge)
+  # The numbered places on top of everything
   map <- map +
-    ggplot2::geom_sf(data = outl, fill = '#dc2626', alpha = 0.35, colour = '#7f1d1d', linewidth = 0.6 * s) +
     ggplot2::geom_sf(data = pts, shape = 21, size = 16 * s, fill = '#dc2626', colour = 'white', stroke = 1.2 * s) +
     ggplot2::geom_sf_text(data = pts, ggplot2::aes(label = no), colour = 'white', fontface = 'bold', size = 7 * s) +
     ggplot2::coord_sf(crs = 3857, xlim = bb[c('xmin', 'xmax')], ylim = bb[c('ymin', 'ymax')], expand = FALSE, datum = NA) +

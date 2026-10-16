@@ -23,19 +23,26 @@ add_facilities <- function(map, facilities, label_class = 'lm-label', group = NU
 TRACK_POINT <- '#2563eb'
 TRACK_LINE  <- '#93c5fd'
 
-#' Add clean_pings() points as tracks to a leaflet map or proxy. A new line
-#' starts wherever the device changes or there's a long gap / jump.
-add_tracks <- function(map, pg, params, group = 'tracks', pane = NULL, max_points = 40000) {
-  if (is.null(pg) || nrow(pg) == 0) return(map)
+#' clean_pings() points as track lines (sf LINESTRING, lon/lat), or NULL. A
+#' new line starts wherever the device changes or there's a long gap / jump.
+track_lines <- function(pg, params) {
+  if (is.null(pg) || nrow(pg) < 2) return(NULL)
   pg <- pg[order(pg$device_id, pg$ts), ]
   brk <- c(TRUE, pg$device_id[-1] != pg$device_id[-nrow(pg)]) | is.na(pg$gap_min) |
     pg$gap_min > params$max_gap_min | pg$step_m > params$max_link_m
   pg$seg <- cumsum(brk)
   segs <- pg[pg$seg %in% pg$seg[duplicated(pg$seg)], c('seg', 'lon', 'lat')]
+  if (nrow(segs) == 0) return(NULL)
+  sf::st_set_crs(sfheaders::sf_linestring(segs, x = 'lon', y = 'lat', linestring_id = 'seg'), 4326)
+}
+
+#' Add clean_pings() points as tracks (lines and points) to a leaflet map or proxy.
+add_tracks <- function(map, pg, params, group = 'tracks', pane = NULL, max_points = 40000) {
+  if (is.null(pg) || nrow(pg) == 0) return(map)
+  lines <- track_lines(pg, params)
   opts <- if (is.null(pane)) leaflet::pathOptions() else leaflet::pathOptions(pane = pane)
-  if (nrow(segs) > 0)
-    map <- leaflet::addPolylines(map, data = sfheaders::sf_linestring(segs, x = 'lon', y = 'lat', linestring_id = 'seg'),
-                                 group = group, color = TRACK_LINE, weight = 1.5, opacity = 0.7, options = opts)
+  if (!is.null(lines))
+    map <- leaflet::addPolylines(map, data = lines, group = group, color = TRACK_LINE, weight = 1.5, opacity = 0.7, options = opts)
   pts <- if (nrow(pg) > max_points) pg[round(seq(1, nrow(pg), length.out = max_points)), ] else pg
   leaflet::addCircleMarkers(map, data = pts, lng = ~lon, lat = ~lat, group = group, radius = 1.8, stroke = FALSE,
                             fillColor = TRACK_POINT, fillOpacity = 0.7, options = opts,

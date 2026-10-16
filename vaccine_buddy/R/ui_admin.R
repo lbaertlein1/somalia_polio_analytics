@@ -305,8 +305,9 @@ admin_ui <- function() {
                                 choices = c('All missed places, with directions' = 'all',
                                             'The top 5 missed places, with directions' = 'top5', 'No list of places' = 'none')),
                    checkboxInput('msg_app', 'The link to the supervisor app (to send each team its places)', value = TRUE),
-                   checkboxInput('msg_pdf', 'A map to download (PDF)', value = FALSE),
-                   conditionalPanel("input.msg_pdf", uiOutput('pdf_status'))))
+                   checkboxInput('msg_pdf', 'A link to download the map (PDF)', value = FALSE),
+                   conditionalPanel("input.msg_pdf", uiOutput('pdf_status')),
+                   downloadButton('pdf_zip', 'Download the maps (PDF) to attach yourself', class = 'btn btn-default btn-sm', style = 'width: 100%;')))
           ),
           # WhatsApp (either link): one table, one row per health area, and the
           # selected row's message on the right
@@ -325,9 +326,10 @@ admin_ui <- function() {
             p(class = 'hint', 'One map per health area (PDF, landscape), with its missed places numbered and listed. ',
               'The first time takes about half a minute per health area.'),
             div(style = 'display: flex; gap: 10px; align-items: flex-end;',
-                div(div(class = 'mini-label', 'Page size'), selectInput('exp_size', NULL, c('A3', 'A2', 'A1', 'A0'), selected = 'A1', width = '110px')),
-                div(div(class = 'mini-label', 'Background'), selectInput('exp_base', NULL, c('Street map' = 'osm', 'Satellite' = 'satellite'), width = '150px')),
-                div(style = 'margin-bottom: 15px;', downloadButton('exp_pdf', 'Download printed maps (zip)', class = 'btn btn-default')))))
+                div(div(class = 'mini-label', 'Page size'), selectInput('exp_size', NULL, c('A4', 'A3', 'A2', 'A1', 'A0'), selected = 'A1', width = '110px')),
+                div(div(class = 'mini-label', 'Background'), selectInput('exp_base', NULL, c('Satellite' = 'satellite', 'Street map' = 'osm'), width = '150px')),
+                div(style = 'margin-bottom: 15px;', downloadButton('exp_pdf', 'Download printed maps (zip)', class = 'btn btn-default'))),
+            checkboxInput('exp_tracks', 'Include team GPS tracks (for review, not for supervisors)', value = FALSE)))
         )),
 
         # Admins only (the header button is shown, and every action checked
@@ -1196,31 +1198,64 @@ admin_server <- function(input, output, session, auth) {
   })
 
   # A health area's printed map of the list (exports.R)
-  area_pdf <- function(h, file, size, basemap) {
-    pl <- run_places(); drawn <- areas_d()$health_areas; r <- run_row()
-    places_pdf(pl[pl$health_area_name == h, ], file,
+  area_pdf <- function(h, file, size, basemap, tracks = FALSE) {
+    pl <- run_places(); a <- areas_d(); drawn <- a$health_areas; r <- run_row()
+    pa <- pl[pl$health_area_name == h, ]
+    ha_poly <- if (!is.null(drawn)) drawn[drawn$health_area == h, ]
+    # The health area's own teams' GPS over the list's days, cleaned with the
+    # list's settings (saved lists don't keep the GPS itself)
+    trk <- if (tracks) tryCatch({
+      run <- vb_get_run(run_id()); cov <- vb_get_coverage(run_id())
+      teams <- trimws(strsplit(cov$teams[cov$team_area_name == '' & cov$health_area_name == h][1] %||% '', ',')[[1]])
+      rows <- vb_load_entries(run$data_from, run$data_to, sf::st_bbox(if (!is.null(ha_poly) && nrow(ha_poly)) ha_poly else pa))
+      rows <- rows[rows$team_name %in% teams, ]
+      if (nrow(rows) == 0) NULL
+      else { p <- utils::modifyList(DEFAULT_PARAMS, as.list(jsonlite::fromJSON(run$params))); track_lines(clean_pings(rows, p)$pings, p) }
+    }, error = function(e) { message('[pdf] tracks: ', conditionMessage(e)); NULL })
+    # Landmarks around its places: local place names, IDP sites, health facilities
+    names_df <- tryCatch(vb_load_place_names(sf::st_bbox(pa)), error = function(e) NULL)
+    lm <- .landmarks(a$facilities, a$idp)
+    local <- local_name_landmarks(names_df)
+    lm <- if (is.null(local)) lm else if (is.null(lm)) local else rbind(local, lm)
+    places_pdf(pa, file,
                title = sprintf('Missed places – %s, %s', h, district()),
                subtitle = sprintf('From vaccination team GPS, %s to %s', format(as.Date(r$data_from), '%d %b'), format(as.Date(r$data_to), '%d %b %Y')),
-               ha_poly = if (!is.null(drawn)) drawn[drawn$health_area == h, ], size = size, basemap = basemap)
+               ha_poly = ha_poly, size = size, basemap = basemap, landmarks = lm, tracks = trk,
+               # as on the app's map: SIA coordination sites and facilities a health area is named after
+               facilities = if (!is.null(a$facilities) && nrow(a$facilities) > 0)
+                 a$facilities[a$facilities$polio_sia_coordination_site %in% 'Yes' | trimws(a$facilities$facility_name) %in% trimws(drawn$health_area), ])
   }
 
   # --- A map to download (PDF) in each message ---------------------------------------
-  # Made as soon as it's included (A3 street map: read on a phone, or
+  # Made as soon as it's included (A3, satellite: read on a phone, or
   # printed), once per list -- only health areas without one yet -- then
   # stored and downloaded by supervisors from their ?t=<token>&pdf=1 link.
   make_pdfs <- function(rid) {
-    todo <- setdiff(mm_areas(), vb_pdf_areas(rid)$health_area_name)
+    made <- vb_pdf_areas(rid)
+    todo <- setdiff(mm_areas(), made$health_area_name[made$basemap %in% 'satellite'])
     if (length(todo) == 0) return(invisible())
     d <- tempfile('pdf'); dir.create(d); on.exit(unlink(d, recursive = TRUE))
     withProgress(message = 'Making the PDF maps', value = 0, tryCatch({
       for (k in seq_along(todo)) {
         setProgress((k - 0.5) / length(todo), detail = todo[k])
         f <- file.path(d, sprintf('%d.pdf', k))
-        area_pdf(todo[k], f, 'A3', 'osm')
-        vb_save_pdf(rid, todo[k], f, 'A3', 'osm', user())
+        area_pdf(todo[k], f, 'A3', 'satellite')
+        vb_save_pdf(rid, todo[k], f, 'A3', 'satellite', user())
       }
     }, error = function(e) showNotification(paste('Could not make the maps:', conditionMessage(e)), type = 'error', duration = NULL)))
   }
+  # The same maps as a zip, one per health area, to attach by hand while sending
+  output$pdf_zip <- downloadHandler(
+    filename = function() sprintf('maps_%s_%s.zip', .file_part(district()), format(as.Date(run_row()$data_to), '%Y%m%d')),
+    content = function(file) {
+      rid <- run_id(); make_pdfs(rid)
+      d <- tempfile('pdf'); dir.create(d); on.exit(unlink(d, recursive = TRUE))
+      for (h in mm_areas()) {
+        raw <- vb_get_pdf(rid, h)
+        if (!is.null(raw)) writeBin(raw, file.path(d, sprintf('Missed_places_%s.pdf', .file_part(h))))
+      }
+      zip::zip(file, list.files(d, full.names = TRUE), mode = 'cherry-pick')
+    })
   output$pdf_status <- renderUI({
     x <- send_rows(); has <- mm_areas()
     p(class = 'hint', sprintf('%d of %d health area maps ready.', sum(has %in% x$pdfs$health_area_name), length(has)))
@@ -1243,7 +1278,7 @@ admin_server <- function(input, output, session, auth) {
       withProgress(message = 'Making the printed maps', value = 0, {
         for (k in seq_along(has)) {
           setProgress(k / length(has), detail = has[k])
-          area_pdf(has[k], file.path(d, paste0(.file_part(has[k]), '.pdf')), input$exp_size, input$exp_base)
+          area_pdf(has[k], file.path(d, paste0(.file_part(has[k]), '.pdf')), input$exp_size, input$exp_base, tracks = isTRUE(input$exp_tracks))
         }
       })
       zip::zip(file, list.files(d, full.names = TRUE), mode = 'cherry-pick')
