@@ -168,6 +168,7 @@ team_roles <- function(team_names, overrides = NULL) {
   role <- ifelse(grepl(IGNORE_TEAMS_DEFAULT, tn, ignore.case = TRUE), 'ignore',
                  ifelse(grepl(NO_AREA_TEAMS_DEFAULT, tn, ignore.case = TRUE), 'no_area', 'area'))
   out <- data.frame(team_name = tn, role = role, health_area = NA_character_, set_by_admin = FALSE)
+  if (!is.null(overrides)) overrides <- overrides[overrides$role %in% c('area', 'no_area', 'ignore'), , drop = FALSE]   # ('auto': follows its name)
   if (!is.null(overrides) && nrow(overrides) > 0) {
     i <- match(tn, overrides$team_name); hit <- !is.na(i)
     out$role[hit] <- overrides$role[i[hit]]
@@ -288,10 +289,23 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
   cover <- terra::rast(lapply(seq_len(nrow(ha)), function(i) terra::rasterize(ha_v[i], r, cover = TRUE, background = 0)))
   ha_r <- terra::which.max(cover)
   ha_r[terra::app(cover, sum) < 0.5] <- NA
-  team_r <- if (!is.null(teams) && nrow(teams) > 0) {
-    teams$team_id <- seq_len(nrow(teams))
-    terra::rasterize(terra::vect(sf::st_transform(teams, epsg)), r, field = 'team_id')
-  } else terra::init(r, NA)
+  # The same for team areas: each cell to the team area (of its own health
+  # area) covering most of it, if team areas cover most of it at all. One
+  # team area at a time, keeping only the best so far (there can be many).
+  team_r <- terra::init(r, NA)
+  if (!is.null(teams) && nrow(teams) > 0) {
+    te_v <- terra::vect(sf::st_transform(teams, epsg))
+    best <- terra::init(r, 0); total <- terra::init(r, 0)
+    for (i in seq_len(nrow(teams))) {
+      own_ha <- which(ha$health_area == teams$health_area[i])
+      cv <- terra::rasterize(te_v[i], r, cover = TRUE, background = 0)
+      in_own <- terra::classify(ha_r, cbind(own_ha, 1), others = 0)   # 1 within its own health area
+      cv <- cv * in_own
+      team_r <- terra::ifel(cv > best, i, team_r)
+      best <- max(best, cv); total <- total + cv
+    }
+    team_r[total < 0.5] <- NA
+  }
 
   bb <- sf::st_bbox(ha) + c(-0.01, -0.01, 0.01, 0.01)
   p <- pings[pings$lon >= bb['xmin'] & pings$lon <= bb['xmax'] & pings$lat >= bb['ymin'] & pings$lat <= bb['ymax'], ]
@@ -311,10 +325,6 @@ classify_district <- function(ha, teams, pings, facilities, idp, u5, params, loc
   cells$u5_pop[is.na(cells$u5_pop)] <- 0
   cells$health_area <- ha$health_area[cells$ha_id]
   cells$team_area <- if (!is.null(teams) && nrow(teams) > 0) teams$team_area[cells$team_id] else NA_character_
-  # A team polygon slightly overlapping the next health area (smoothing)
-  # doesn't move a cell into the other health area's team.
-  if (!is.null(teams) && nrow(teams) > 0)
-    cells$team_area[!is.na(cells$team_id) & teams$health_area[cells$team_id] != cells$health_area] <- NA
   cells$populated <- cells$u5_pop >= params$min_u5_cell
   cells$visited <- cells$visited %in% 1
 

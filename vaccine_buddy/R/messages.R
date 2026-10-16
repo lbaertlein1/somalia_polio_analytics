@@ -48,8 +48,10 @@ team_label <- function(x) ifelse(is.na(x), 'No team', trimws(gsub('[[:space:]]+'
 #' download (pdf_link), the supervisor app (link; NULL leaves it out) --
 #' then, with_list, the missed places with a directions link, most
 #' children first: all of them, or the first max_list (e.g. the top 5).
+#' `attached`: the operator attaches the map (PDF) by hand -- the message
+#' says so after the greeting.
 supervisor_message <- function(supervisor_name, district, health_area, data_to, places, link = NULL, max_list = Inf,
-                               map_link = NULL, pdf_link = NULL, with_list = TRUE) {
+                               map_link = NULL, pdf_link = NULL, with_list = TRUE, attached = FALSE) {
   head <- c(
     sprintf('Missed places \u2013 %s, %s', health_area, district),
     sprintf('From vaccination team GPS up to %s', format(as.Date(data_to), '%d %b')),
@@ -68,11 +70,12 @@ supervisor_message <- function(supervisor_name, district, health_area, data_to, 
 
   paste(c(
     head,
-    sprintf('Hello %s, vaccination teams did not pass %s in your area.', supervisor_name, .places_n(nrow(p))),
-    if (!is.null(map_link)) c('', '*Map of all missed places* (opens in Google Maps):', map_link),
+    sprintf('Hello %s, based on Vaccine Buddy data, there %s %s in your area that vaccination teams did not visit.',
+            supervisor_name, if (nrow(p) == 1) 'is' else 'are', .places_n(nrow(p))),
+    if (attached) 'The map of these missed places is attached (PDF).',
+    if (!is.null(map_link)) c('', '*Map of all missed places:*', map_link),
     if (!is.null(pdf_link)) c('', '*Map to download and print (PDF):*', pdf_link),
-    if (!is.null(link)) c('', if (is.null(map_link) && is.null(pdf_link)) '*Map and list* (send each team its places, follow their progress):'
-                              else '*Send each team its places, follow their progress:*', link),
+    if (!is.null(link)) c('', '*Assign the places to your teams:*', link),
     if (with_list) c('', '*Missed places* (tap a link for directions)',
                      sprintf('%d. %s%s\n%s', top$place_no, top$label, team_line, gmaps_nav(top$lat, top$lon)),
                      if (nrow(p) > nrow(top)) sprintf('...and %d more', nrow(p) - nrow(top)))

@@ -119,20 +119,21 @@ vb_load_work <- function(username, campaign_id, district_name) {
 
 # --- Team roles per campaign (Admin page; team_roles() in analysis.R) ----------
 
-#' The admins' choices for a campaign's teams: team_name, role ('area' |
-#' 'no_area' | 'ignore'), health_area_name (role 'area'). Teams not listed
-#' follow their name.
+#' The admins' choices for a campaign's teams: team_name, role ('auto' --
+#' follows its name -- | 'area' | 'no_area' | 'ignore'), health_area_name
+#' (role 'area'), district_name (set by hand, else NA). Teams not listed
+#' follow their name, in the district where they logged most GPS.
 vb_get_team_roles <- function(campaign_id) {
-  .q('SELECT team_name, role, health_area_name FROM team_roles WHERE campaign_id = $1', list(as.integer(campaign_id)))
+  .q('SELECT team_name, role, health_area_name, district_name FROM team_roles WHERE campaign_id = $1', list(as.integer(campaign_id)))
 }
 
-#' role NULL: back to following its name.
-vb_set_team_role <- function(campaign_id, team_name, role, health_area_name = NA_character_, user) {
+#' role NULL: back to following its name, in its usual district.
+vb_set_team_role <- function(campaign_id, team_name, role, health_area_name = NA_character_, district_name = NA_character_, user) {
   if (is.null(role)) return(.x('DELETE FROM team_roles WHERE campaign_id = $1 AND team_name = $2', list(as.integer(campaign_id), team_name)))
-  .x('INSERT INTO team_roles (campaign_id, team_name, role, health_area_name, updated_by) VALUES ($1, $2, $3, $4, $5)
+  .x('INSERT INTO team_roles (campaign_id, team_name, role, health_area_name, district_name, updated_by) VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (campaign_id, team_name) DO UPDATE SET role = EXCLUDED.role, health_area_name = EXCLUDED.health_area_name,
-        updated_by = EXCLUDED.updated_by, updated_at = NOW()',
-     list(as.integer(campaign_id), team_name, role, health_area_name, user))
+        district_name = EXCLUDED.district_name, updated_by = EXCLUDED.updated_by, updated_at = NOW()',
+     list(as.integer(campaign_id), team_name, role, health_area_name, district_name, user))
 }
 
 #' Every team that logged GPS between two dates, with its fixes counted per

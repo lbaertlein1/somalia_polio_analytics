@@ -111,6 +111,11 @@ statements <- list(
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (campaign_id, team_name)
   )",
+  # The district set by hand (else the one where the team logged most GPS),
+  # and role 'auto': follows its name, but keeps that district
+  "ALTER TABLE team_roles ADD COLUMN IF NOT EXISTS district_name TEXT",
+  "ALTER TABLE team_roles DROP CONSTRAINT IF EXISTS team_roles_role_check",
+  "ALTER TABLE team_roles ADD CONSTRAINT team_roles_role_check CHECK (role IN ('auto', 'area', 'no_area', 'ignore'))",
 
   # Vaccine Buddy data from ODK Central, kept up to date by odk_sync()
   # (R/odk.R; hourly via scripts/sync_odk.R, or "Check for new data" in the

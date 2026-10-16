@@ -94,7 +94,6 @@ admin_ui <- function() {
         .mm-cell { display: flex; align-items: center; gap: 4px; }
         .mm-cell .mm-link { width: 190px; height: 24px; padding: 2px 6px; font-size: 11px; }
         .msg-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; position: sticky; top: 10px; }
-        .export-panel { max-width: 640px; }
         details.more { margin: 8px 0; font-size: 12px; }
         details.more summary { cursor: pointer; color: #0f766e; font-weight: 600; }
         .set-default { font-size: 10px; color: #b45309; margin-top: -10px; margin-bottom: 6px; }
@@ -295,41 +294,33 @@ admin_ui <- function() {
             step('list', 'Missed places list',
                  uiOutput('send_run_info'),
                  more('Send an earlier list', selectInput('send_run', NULL, choices = NULL, width = '100%'))),
-            step('paper-plane', 'How to send',
-                 radioButtons('send_how', NULL, selected = 'app',
-                              choices = c('WhatsApp with the app link' = 'app', 'WhatsApp with a Google My Maps link' = 'mymaps',
-                                          'Export files (shapefile, printed maps)' = 'export'))),
-            conditionalPanel("input.send_how != 'export'",
-              step('envelope', 'What the message includes',
-                   radioButtons('msg_list', NULL, selected = 'all',
-                                choices = c('All missed places, with directions' = 'all',
-                                            'The top 5 missed places, with directions' = 'top5', 'No list of places' = 'none')),
-                   checkboxInput('msg_app', 'The link to the supervisor app (to send each team its places)', value = TRUE),
-                   checkboxInput('msg_pdf', 'A link to download the map (PDF)', value = FALSE),
-                   conditionalPanel("input.msg_pdf", uiOutput('pdf_status')),
-                   downloadButton('pdf_zip', 'Download the maps (PDF) to attach yourself', class = 'btn btn-default btn-sm', style = 'width: 100%;')))
+            step('envelope', 'Each WhatsApp message includes',
+                 div(class = 'mini-label', 'Missed places, with directions'),
+                 radioButtons('msg_list', NULL, inline = TRUE, selected = 'all', choices = c('All' = 'all', 'Top 5' = 'top5', 'None' = 'none')),
+                 checkboxInput('msg_app', 'Link to the supervisor app (to send each team its places)', value = TRUE),
+                 checkboxInput('msg_mymaps', 'Link to a Google My Maps map', value = FALSE),
+                 checkboxInput('msg_pdf', 'Link to download the map (PDF)', value = FALSE),
+                 conditionalPanel("input.msg_pdf", uiOutput('pdf_status')),
+                 checkboxInput('msg_attach', 'Map to attach yourself (PDF)', value = FALSE),
+                 conditionalPanel("input.msg_attach",
+                   downloadButton('pdf_zip', 'Download the maps (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;'))),
+            # Less used: at the bottom, folded away
+            tags$hr(style = 'margin: 18px 0 8px;'),
+            more('Export files (shapefile, printed maps)',
+                 downloadButton('exp_shp', 'Shapefile of the district (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;'),
+                 div(class = 'mini-label', style = 'margin-top: 10px;', 'Printed maps, one per health area'),
+                 div(style = 'display: flex; gap: 6px;',
+                     div(style = 'flex: 1;', selectInput('exp_size', NULL, c('A4', 'A3', 'A2', 'A1', 'A0'), selected = 'A1', width = '100%')),
+                     div(style = 'flex: 1;', selectInput('exp_base', NULL, c('Satellite' = 'satellite', 'Street map' = 'osm'), width = '100%'))),
+                 checkboxInput('exp_tracks', 'Include team GPS tracks (for review, not for supervisors)', value = FALSE),
+                 downloadButton('exp_pdf', 'Printed maps (zip)', class = 'btn btn-default btn-sm', style = 'width: 100%;'))
           ),
-          # WhatsApp (either link): one table, one row per health area, and the
-          # selected row's message on the right
-          conditionalPanel("input.send_how != 'export'", fluidRow(
+          # One table, one row per health area, and the selected row's message on the right
+          fluidRow(
             column(8,
                    uiOutput('send_progress'),
                    DTOutput('send_table')),
-            column(4, div(class = 'msg-panel', uiOutput('send_preview'))))),
-          conditionalPanel("input.send_how == 'export'", div(class = 'export-panel',
-            div(class = 'rightbar-title', 'Shapefile'),
-            p(class = 'hint', 'The whole district: missed area polygons and their navigation points, with health area, ',
-              'place number, description, team and children.'),
-            downloadButton('exp_shp', 'Download shapefile (zip)', class = 'btn btn-default'),
-            tags$hr(),
-            div(class = 'rightbar-title', 'Printed maps'),
-            p(class = 'hint', 'One map per health area (PDF, landscape), with its missed places numbered and listed. ',
-              'The first time takes about half a minute per health area.'),
-            div(style = 'display: flex; gap: 10px; align-items: flex-end;',
-                div(div(class = 'mini-label', 'Page size'), selectInput('exp_size', NULL, c('A4', 'A3', 'A2', 'A1', 'A0'), selected = 'A1', width = '110px')),
-                div(div(class = 'mini-label', 'Background'), selectInput('exp_base', NULL, c('Satellite' = 'satellite', 'Street map' = 'osm'), width = '150px')),
-                div(style = 'margin-bottom: 15px;', downloadButton('exp_pdf', 'Download printed maps (zip)', class = 'btn btn-default'))),
-            checkboxInput('exp_tracks', 'Include team GPS tracks (for review, not for supervisors)', value = FALSE)))
+            column(4, div(class = 'msg-panel', uiOutput('send_preview'))))
         )),
 
         # Admins only (the header button is shown, and every action checked
@@ -338,30 +329,16 @@ admin_ui <- function() {
           tabsetPanel(
             id = 'admin_tabs', type = 'pills',
 
-            tabPanel('Teams', value = 'teams', fluidRow(
-              column(8,
-                     uiOutput('teams_hint'),
-                     DTOutput('teams_table')),
-              column(4, uiOutput('tm_form')))),
+            tabPanel('Teams', value = 'teams',
+              uiOutput('teams_hint'),
+              rHandsontableOutput('teams_hot')),
 
-            tabPanel('Users', value = 'users', fluidRow(
-              column(8, DTOutput('users_table')),
-              column(4,
-                     actionButton('u_add', 'Add user', class = 'btn btn-primary', width = '100%', icon = icon('user-plus')),
-                     p(class = 'hint', style = 'margin-top: 6px;', 'Or click someone in the table to edit or remove them.'),
-                     tags$hr(style = 'margin: 10px 0;'),
-                     uiOutput('u_form_title'),
-                     div(class = 'mini-label', 'Username (used to sign in)'),
-                     textInput('u_username', NULL, width = '100%'),
-                     div(class = 'mini-label', 'Name'),
-                     textInput('u_display', NULL, width = '100%'),
-                     uiOutput('u_pw_label'),
-                     passwordInput('u_password', NULL, width = '100%'),
-                     div(class = 'mini-label', 'Role'),
-                     radioButtons('u_role', NULL, choices = c('Regular' = 'user', 'Admin – can add users and change settings' = 'admin'), selected = 'user'),
-                     actionButton('u_save', 'Save', class = 'btn btn-success', width = '100%', icon = icon('floppy-disk')),
-                     div(style = 'height: 8px;'),
-                     shinyjs::hidden(actionButton('u_delete', 'Remove this user', class = 'btn btn-danger', width = '100%', icon = icon('trash')))))),
+            tabPanel('Users', value = 'users', div(style = 'max-width: 900px;',
+              p(class = 'hint', 'Edit in the table, then click ', tags$b('Save changes'), '. To add someone, fill in a blank row ',
+                '(with a password of at least 8 characters). Leave ', tags$b('New password'), ' blank to keep the current one. ',
+                'Tick ', tags$b('Remove'), ' to remove someone. Admins can add users and change settings.'),
+              rHandsontableOutput('users_hot'),
+              actionButton('u_save', 'Save changes', class = 'btn btn-success', icon = icon('floppy-disk'), style = 'margin-top: 10px;'))),
 
             tabPanel('Settings', value = 'settings', div(style = 'max-width: 520px;',
               p(class = 'hint', 'Used every time anyone finds missed places, in every district. Saved lists keep the settings they were made with.'),
@@ -678,7 +655,8 @@ admin_server <- function(input, output, session, auth) {
     if (!is.null(f) && nrow(f) > 0)
       f <- f[f$polio_sia_coordination_site %in% 'Yes' | trimws(f$facility_name) %in% trimws(a$health_areas$health_area), ]
     m <- add_facilities(m, f, label_class = NULL)
-    m |> addLegend('bottomright', colors = c('#dc2626', TRACK_POINT), labels = c('Missed', 'Team GPS track'), opacity = 1)
+    # (the GPS tracks add their own legend entries when shown)
+    m |> addLegend('bottomright', colors = '#dc2626', labels = 'Missed', opacity = 1)
   })
 
   # Before splitting: the missed squares, as one layer
@@ -719,20 +697,27 @@ admin_server <- function(input, output, session, auth) {
                                                       style = list(color = '#fff', `font-weight` = '700', `font-size` = '10px', `pointer-events` = 'none')))
   })
 
-  # Team GPS tracks over all the analysed days. With a health area chosen,
-  # only the teams that worked there (their whole track, inside and outside it).
+  # Team GPS tracks over all the analysed days, in blue. With a health area
+  # chosen, its own teams in orange (their whole track, inside and outside
+  # it), on top of every other team's.
   observe({
     an <- analysis()
-    proxy <- leafletProxy('an_map') |> clearGroup('tracks')
+    proxy <- leafletProxy('an_map') |> clearGroup('tracks') |> removeControl('trk_legend')
     req(an, isTRUE(input$trk_show))
     pg <- an$clean$pings
+    if (nrow(pg) == 0) return()
     if (nzchar(ha_sel())) {
       cov <- an$result$coverage
       teams <- trimws(strsplit(cov$teams[cov$team_area == '' & cov$health_area == ha_sel()][1] %||% '', ',')[[1]])
-      pg <- pg[pg$team_name %in% teams, ]
+      own <- pg$team_name %in% teams
+      proxy <- add_tracks(proxy, pg[!own, ], an$params)
+      proxy <- add_tracks(proxy, pg[own, ], an$params, line_color = TRACK_MINE_LINE, point_color = TRACK_MINE_POINT)
+      proxy |> addLegend('bottomright', layerId = 'trk_legend', opacity = 1, colors = c(TRACK_POINT, TRACK_MINE_POINT),
+                         labels = c('Team GPS track (other health area teams)', 'Team GPS track (selected health area teams)'))
+    } else {
+      proxy <- add_tracks(proxy, pg, an$params)
+      proxy |> addLegend('bottomright', layerId = 'trk_legend', opacity = 1, colors = TRACK_POINT, labels = 'Team GPS track')
     }
-    if (nrow(pg) == 0) return()
-    add_tracks(proxy, pg, an$params)
     places_to_front()
   })
 
@@ -762,7 +747,7 @@ admin_server <- function(input, output, session, auth) {
     bins <- c(1, 2, 5, 10, 20, 50, 100, 200, 500)
     bins <- c(bins[bins < top], top)
     if (length(bins) < 2) bins <- c(1, 2)
-    pal <- colorBin('YlOrRd', domain = c(1, max(bins)), bins = bins, na.color = 'transparent')
+    pal <- colorBin('viridis', domain = c(1, max(bins)), bins = bins, na.color = 'transparent', reverse = TRUE)   # purple (most) to yellow: apart from the red places
     proxy |>
       addRasterImage(x, colors = pal, opacity = 0.6, group = 'u5', method = 'ngb', options = gridOptions(pane = 'u5')) |>
       addLegend('bottomleft', pal = pal, values = bins, title = 'Children under 5<br>per 100 m square',
@@ -1106,7 +1091,7 @@ admin_server <- function(input, output, session, auth) {
       cov <- vb_get_coverage(rid)
       existing <- vb_get_dispatches(rid)
       # Sending with a Google My Maps link: each health area's map, once pasted in
-      links <- if (identical(isolate(input$send_how), 'mymaps')) vb_get_mymaps(rid) else NULL
+      links <- if (isolate(msg_opts())$mymaps) vb_get_mymaps(rid) else NULL
       # What the operator chose to include
       opt <- isolate(msg_opts())
       pdfs <- if (opt$pdf) vb_pdf_areas(rid)$health_area_name else character(0)
@@ -1124,7 +1109,8 @@ admin_server <- function(input, output, session, auth) {
                    message = supervisor_message(s$supervisor_name, district(), s$health_area_name, run$data_to, pa,
                                                 link = if (opt$app) supervisor_link(tok), map_link = map_link(s$health_area_name),
                                                 pdf_link = if (s$health_area_name %in% pdfs) paste0(supervisor_link(tok), '&pdf=1'),
-                                                with_list = opt$list != 'none', max_list = if (opt$list == 'top5') 5 else Inf))
+                                                with_list = opt$list != 'none', max_list = if (opt$list == 'top5') 5 else Inf,
+                                                attached = opt$attach))
       })
       if (length(msgs)) vb_upsert_dispatches(rid, dplyr::bind_rows(msgs), user())
       send_refresh(send_refresh() + 1)
@@ -1135,9 +1121,10 @@ admin_server <- function(input, output, session, auth) {
   # Messages are kept ready whenever the Send tab is open (supervisors may
   # have changed since)
   # What goes in the messages (the sidebar's "What the message includes")
-  msg_opts <- reactive(list(list = input$msg_list %||% 'all', app = isTRUE(input$msg_app), pdf = isTRUE(input$msg_pdf)))
+  msg_opts <- reactive(list(list = input$msg_list %||% 'all', app = isTRUE(input$msg_app), mymaps = isTRUE(input$msg_mymaps),
+                            pdf = isTRUE(input$msg_pdf), attach = isTRUE(input$msg_attach)))
 
-  observeEvent(list(input$main_tabs, input$send_run, input$send_how, msg_opts()), {
+  observeEvent(list(input$main_tabs, input$send_run, msg_opts()), {
     req(input$main_tabs == 'send', isTruthy(input$send_run))
     if (msg_opts()$pdf) make_pdfs(as.integer(input$send_run))
     prepare_messages(as.integer(input$send_run))
@@ -1146,7 +1133,7 @@ admin_server <- function(input, output, session, auth) {
   # A list that already has My Maps links opens on sending with them
   observeEvent(input$send_run, {
     req(isTruthy(input$send_run))
-    updateRadioButtons(session, 'send_how', selected = if (nrow(vb_get_mymaps(as.integer(input$send_run)))) 'mymaps' else 'app')
+    updateCheckboxInput(session, 'msg_mymaps', value = nrow(vb_get_mymaps(as.integer(input$send_run))) > 0)
   })
 
   # One row per health area of the list: its supervisor's message (if any)
@@ -1158,7 +1145,7 @@ admin_server <- function(input, output, session, auth) {
     cov <- vb_get_coverage(rid)
     cov <- cov[cov$team_area_name == '', ]
     list(ha = cov[order(cov$health_area_name), c('health_area_name', 'has_data', 'n_places')],
-         d = vb_get_dispatches(rid), links = vb_get_mymaps(rid), how = input$send_how, sups = tryCatch(vb_get_supervisors(campaign_id(), district()), error = function(e) NULL),
+         d = vb_get_dispatches(rid), links = vb_get_mymaps(rid), sups = tryCatch(vb_get_supervisors(campaign_id(), district()), error = function(e) NULL),
          opt = msg_opts(), pdfs = vb_pdf_areas(rid))
   })
   # The row's dispatch (one supervisor per health area)
@@ -1289,7 +1276,7 @@ admin_server <- function(input, output, session, auth) {
     n <- sum(!is.na(j))
     if (n == 0) return(p(class = 'summary', style = 'color: #64748b;', 'No messages to send yet.'))
     p(class = 'summary', tags$b(sprintf('%d of %d sent', sum(!is.na(x$d$send_clicked_at[j[!is.na(j)]])), n)),
-      if (identical(x$how, 'mymaps')) span(class = 'muted', sprintf(
+      if (x$opt$mymaps) span(class = 'muted', sprintf(
         '%d of %d My Maps links added. In My Maps: Create a new map, Import the file, paste the title, then Share with Anyone with the link.',
         sum(mm_areas() %in% x$links$health_area_name), length(mm_areas()))))
   })
@@ -1297,7 +1284,7 @@ admin_server <- function(input, output, session, auth) {
   send_tbl <- function(x) {
     j <- row_dispatch(x); d <- x$d[j, ]; h <- x$ha$health_area_name; i <- seq_along(h)
     has_msg <- !is.na(j)
-    mm <- identical(x$how, 'mymaps')
+    mm <- x$opt$mymaps
     url <- x$links$url[match(h, x$links$health_area_name)]
     with_places <- h %in% isolate(mm_areas())
     why <- ifelse(!x$ha$has_data %in% TRUE, '<span style="color: #94a3b8;">No team GPS data</span>',
@@ -1305,7 +1292,7 @@ admin_server <- function(input, output, session, auth) {
                   '<a href="#" style="color: #b45309;" onclick="$(\'.hdr-tab[data-tab=supervisors]\').click(); return false;">No supervisor or phone – add</a>',
                   '<span style="color: #94a3b8;">Not ready yet</span>'))
     # A message with no link and no list says nothing useful
-    empty <- !mm && !x$opt$app && !x$opt$pdf && x$opt$list == 'none'
+    empty <- !mm && !x$opt$app && !x$opt$pdf && !x$opt$attach && x$opt$list == 'none'
     send <- ifelse(!has_msg, why,
             ifelse(empty, '<span style="color: #b45309;">Choose what the message includes</span>',
             ifelse(mm & with_places & is.na(url), '<span style="color: #b45309;">Add the map link first</span>',
@@ -1334,7 +1321,7 @@ admin_server <- function(input, output, session, auth) {
   # A new table per list and method; later changes (a link pasted, a message
   # sent) only swap its data, so the selected row and scroll position stay
   output$send_table <- renderDT({
-    run_id(); input$send_how
+    run_id(); msg_opts()$mymaps
     tbl <- send_tbl(isolate(send_rows()))
     html <- c('1. File', '2. My Maps', '3. Title', '4. Share link', 'Send')
     datatable(tbl, rownames = FALSE, escape = setdiff(names(tbl), html), selection = 'single',
@@ -1398,8 +1385,10 @@ admin_server <- function(input, output, session, auth) {
   })
 
   # Teams of the campaign (selected top right), from the Vaccine Buddy GPS:
-  # the district each worked in most and its role (team_roles()), which an
-  # admin can change. Loaded only when an admin opens this page.
+  # one row per team, in the district where it logged most GPS (or the one
+  # an admin set), belonging to the health area its name gives unless an
+  # admin sets otherwise. Edited in the table, saved a moment after each
+  # change. Loaded only when an admin opens this page.
   campaign_days <- reactive({
     sd <- campaigns$start_date[campaigns$campaign_id == campaign_id()]
     if (length(sd) == 0 || is.na(sd)) return(c(Sys.Date() - 60, Sys.Date()))
@@ -1421,10 +1410,15 @@ admin_server <- function(input, output, session, auth) {
     sq$district <- shapes$district_name[vapply(hit, function(i) if (length(i)) i[1] else NA_integer_, integer(1))]
     sq <- sq[!is.na(sq$district), ]
     if (nrow(sq) == 0) return(NULL)
+    # one row per team: the district where it logged most GPS
     by <- as.data.frame(dplyr::summarise(dplyr::group_by(sq, team_name, district), n = sum(n), .groups = 'drop'))
     tot <- tapply(by$n, by$team_name, sum)
     by <- by[order(by$team_name, -by$n), ]
     by <- by[!duplicated(by$team_name), ]
+    teams_changed()
+    ov <- tryCatch(vb_get_team_roles(campaign_id()), error = function(e) NULL)
+    j <- match(by$team_name, ov$team_name)
+    district <- ifelse(!is.na(j) & !is.na(ov$district_name[j]), ov$district_name[j], by$district)
     # From its name: ignored / no health area / the drawn health area of its
     # district its name matches (else the name itself, where none are drawn)
     drawn <- areas()$health_areas
@@ -1432,159 +1426,163 @@ admin_server <- function(input, output, session, auth) {
     def <- def[match(by$team_name, def$team_name), ]
     auto_ha <- vapply(seq_len(nrow(by)), function(i) {
       if (def$role[i] != 'area') return(NA_character_)
-      h <- drawn$health_area[drawn$district_name == by$district[i]]
+      h <- drawn$health_area[drawn$district_name == district[i]]
       if (length(h) == 0) return(team_ha_name(by$team_name[i]))
       b <- .name_match(by$team_name[i], h)
       if (length(b)) h[b[1]] else NA_character_
     }, character(1))
-    teams_changed()
-    ov <- tryCatch(vb_get_team_roles(campaign_id()), error = function(e) NULL)
-    j <- match(by$team_name, ov$team_name)
-    out <- data.frame(team_name = by$team_name, district = by$district, n_points = as.integer(tot[by$team_name]),
-                      auto_role = def$role, auto_ha = auto_ha, set_by_admin = !is.na(j))
-    out$role <- ifelse(is.na(j), out$auto_role, ov$role[j])
-    out$health_area <- ifelse(is.na(j), out$auto_ha, ov$health_area_name[j])
+    set <- !is.na(j) & !ov$role[j] %in% 'auto'
+    out <- data.frame(team_name = by$team_name, n_points = as.integer(tot[by$team_name]), district = district,
+                      usual_district = by$district, auto_role = def$role, auto_ha = auto_ha, set = set)
+    out$role <- ifelse(set, ov$role[j], out$auto_role)
+    out$health_area <- ifelse(set, ov$health_area_name[j], out$auto_ha)
     out[order(out$district, out$team_name), ]
+  })
+
+  # What "Belongs to" offers: the campaign's health areas, labelled with
+  # their district -- drawn ones, or for districts without, those the team
+  # names give
+  TEAM_AUTO <- 'From its name'; TEAM_NONE <- 'Not part of a health area'; TEAM_IGNORE <- 'Ignore – not a vaccination team'
+  ha_options <- reactive({
+    t <- team_list(); drawn <- areas()$health_areas
+    o <- if (!is.null(drawn) && nrow(drawn)) data.frame(district = drawn$district_name, ha = drawn$health_area)
+         else data.frame(district = character(0), ha = character(0))
+    no_map <- t[!t$district %in% o$district & !is.na(t$auto_ha), ]
+    o <- base::unique(rbind(o, data.frame(district = no_map$district, ha = no_map$auto_ha)))
+    o <- o[order(o$district, o$ha), ]
+    o$label <- sprintf('%s (%s)', o$ha, o$district)
+    o
+  })
+
+  # The table as loaded
+  teams_table <- reactive({
+    t <- team_list(); req(t)
+    data.frame(Team = t$team_name, `GPS points` = t$n_points, District = t$district,
+               `Belongs to` = ifelse(!t$set, TEAM_AUTO, ifelse(t$role == 'no_area', TEAM_NONE, ifelse(t$role == 'ignore', TEAM_IGNORE,
+                                     sprintf('%s (%s)', t$health_area, t$district)))),
+               `Its name gives` = .role_label(t$auto_role, t$auto_ha), check.names = FALSE)
   })
 
   output$teams_hint <- renderUI({
     days <- campaign_days()
     p(class = 'hint', sprintf('Teams with GPS data in %s (%s to %s – change the campaign at the top right). ', campaign_name(),
                               format(days[1], '%d %b'), format(days[2], '%d %b %Y')),
-      'A team belongs to the health area its name gives unless you change it here. Changes apply the next time missed places are found.')
+      'Change a team\'s district or what it belongs to in the table; it saves by itself and applies the next time missed places are found.')
   })
 
-  output$teams_table <- renderDT({
-    t <- team_list()
-    validate(need(!is.null(t), 'No Vaccine Buddy GPS data for this campaign\'s days yet.'))
-    tbl <- data.frame(Team = t$team_name, District = t$district, `Belongs to` = .role_label(t$role, t$health_area),
-                      `Set by` = ifelse(t$set_by_admin, 'Admin', 'Its name'), `GPS points` = t$n_points, check.names = FALSE)
-    datatable(tbl, rownames = FALSE, selection = 'single', options = modifyList(DT_OPTS, list(scrollY = 'calc(100vh - 260px)'))) |>
-      formatStyle('Set by', fontWeight = styleEqual('Admin', 'bold')) |>
-      formatStyle('Belongs to', color = styleEqual('Not matched – where it worked most', '#b45309'))
+  output$teams_hot <- renderRHandsontable({
+    tb <- teams_table()
+    districts <- base::sort(base::unique(c(areas()$districts$district_name, tb$District)))
+    rhandsontable(tb, rowHeaders = NULL, stretchH = 'all', height = 600, contextMenu = FALSE) |>
+      hot_col(c('Team', 'GPS points', 'Its name gives'), readOnly = TRUE) |>
+      hot_col('District', type = 'dropdown', source = districts, strict = TRUE) |>
+      hot_col('Belongs to', type = 'dropdown', source = c(TEAM_AUTO, TEAM_NONE, TEAM_IGNORE, ha_options()$label), strict = TRUE)
   })
 
-  tm_sel <- reactive({
-    t <- team_list(); i <- input$teams_table_rows_selected
-    if (is.null(t) || length(i) != 1) NULL else t[i, ]
-  })
-
-  output$tm_form <- renderUI({
-    t <- tm_sel()
-    if (is.null(t)) return(p(class = 'hint', 'Click a team to move it to another health area, or to mark it as not part of a ',
-                             'health area (e.g. Surge teams) or not a vaccination team (e.g. FETP monitors).'))
-    # Its district's health areas: drawn, else those the team names give
-    drawn <- areas()$health_areas
-    h <- drawn$health_area[drawn$district_name == t$district]
-    if (length(h) == 0) { all <- team_list(); h <- all$health_area[all$district == t$district & all$role == 'area'] }
-    h <- base::sort(base::unique(stats::na.omit(c(h, if (t$role == 'area') t$health_area))))
-    current <- if (!t$set_by_admin) 'auto' else if (t$role == 'area') paste0('ha:', t$health_area) else t$role
-    tagList(
-      div(class = 'rightbar-title', t$team_name),
-      p(class = 'hint', sprintf('Worked mostly in %s · %s GPS points', t$district, format(t$n_points, big.mark = ','))),
-      div(class = 'mini-label', 'Belongs to'),
-      selectInput('tm_choice', NULL, width = '100%', selected = current, choices = list(
-        'Automatic' = stats::setNames('auto', sprintf('From its name: %s', .role_label(t$auto_role, t$auto_ha))),
-        'Health area' = stats::setNames(paste0('ha:', h), h),
-        'Other' = c('Not part of a health area (e.g. Surge teams)' = 'no_area',
-                    'Ignore – not a vaccination team (e.g. FETP monitors)' = 'ignore'))),
-      actionButton('tm_save', 'Save', class = 'btn btn-success', width = '100%', icon = icon('floppy-disk')))
-  })
-
-  observeEvent(input$tm_save, {
-    req(is_admin()); t <- tm_sel(); v <- input$tm_choice; req(t, v)
+  # Save the rows that changed since the table was loaded (or last saved).
+  # Picking a health area also sets its district; moving a team to another
+  # district drops a health area of the old one.
+  teams_last <- NULL
+  observeEvent(teams_table(), teams_last <<- teams_table())
+  teams_edited <- debounce(reactive({ req(input$teams_hot); hot_to_r(input$teams_hot) }), 1000)
+  observeEvent(teams_edited(), {
+    req(is_admin(), teams_last)
+    e <- teams_edited(); e <- e[e$Team %in% teams_last$Team, ]
+    o <- teams_last[match(e$Team, teams_last$Team), ]
+    changed <- which(e$District != o$District | e$`Belongs to` != o$`Belongs to`)
+    if (length(changed) == 0) return()
+    t <- team_list(); opts <- ha_options()
     ok <- tryCatch({
-      if (v == 'auto') vb_set_team_role(campaign_id(), t$team_name, NULL, user = user())
-      else if (startsWith(v, 'ha:')) vb_set_team_role(campaign_id(), t$team_name, 'area', sub('^ha:', '', v), user = user())
-      else vb_set_team_role(campaign_id(), t$team_name, v, user = user())
+      for (k in changed) {
+        b <- e$`Belongs to`[k]; dist <- e$District[k]
+        role <- switch(b, 'From its name' = 'auto', 'Not part of a health area' = 'no_area', 'Ignore – not a vaccination team' = 'ignore', 'area')
+        ha <- NA_character_
+        if (role == 'area') {
+          i <- match(b, opts$label); ha <- opts$ha[i]
+          if (b != o$`Belongs to`[k]) dist <- opts$district[i]
+          else if (dist != opts$district[i]) { role <- 'auto'; ha <- NA_character_ }
+        }
+        usual <- t$usual_district[match(e$Team[k], t$team_name)]
+        dist_set <- if (identical(dist, usual)) NA_character_ else dist
+        if (role == 'auto' && is.na(dist_set)) vb_set_team_role(campaign_id(), e$Team[k], NULL, user = user())
+        else vb_set_team_role(campaign_id(), e$Team[k], role, ha, dist_set, user = user())
+      }
       TRUE
-    }, error = function(e) { showNotification(paste('Could not save:', conditionMessage(e)), type = 'error'); FALSE })
-    if (ok) {
-      teams_changed(teams_changed() + 1)
-      showNotification(sprintf('%s saved. It applies the next time missed places are found.', t$team_name), type = 'message')
-    }
+    }, error = function(err) { showNotification(paste('Could not save:', conditionMessage(err)), type = 'error'); FALSE })
+    if (ok) teams_changed(teams_changed() + 1)
   })
 
+  # Users: edited in the table -- name, role, a new password, Remove -- with
+  # two blank rows for adding people; Save changes checks and applies it all
+  # (asking first if anyone is to be removed).
   users_changed <- reactiveVal(0)
   users <- reactive({ users_changed(); req(is_admin()); vb_list_users() })
 
-  output$users_table <- renderDT({
+  output$users_hot <- renderRHandsontable({
     u <- users()
-    tbl <- data.frame(Username = u$username, Name = u$display_name,
-                      Role = ifelse(u$role == 'admin', 'Admin', 'Regular'),
-                      Added = format(lubridate::with_tz(u$created_at, ODK_TZ), '%d %b %Y'))
-    datatable(tbl, rownames = FALSE, selection = 'single', options = modifyList(DT_OPTS, list(scrollY = '30vh')))
+    d <- data.frame(Username = c(u$username, '', ''), Name = c(u$display_name, '', ''),
+                    Role = c(ifelse(u$role == 'admin', 'Admin', 'Regular'), 'Regular', 'Regular'),
+                    `New password` = '', Remove = FALSE, check.names = FALSE)
+    h <- rhandsontable(d, rowHeaders = NULL, stretchH = 'all', contextMenu = FALSE) |>
+      hot_col('Role', type = 'dropdown', source = c('Regular', 'Admin'), strict = TRUE) |>
+      hot_col('Remove', type = 'checkbox')
+    # existing usernames can't be changed (that would make a new account)
+    for (i in seq_len(nrow(u))) h <- hot_cell(h, i, 1, readOnly = TRUE)   # (column 1: Username)
+    h
   })
 
-  # The form is either adding a new user or editing the one clicked in the
-  # table (username locked, so editing can't rename or create an account).
-  u_mode <- reactiveVal('add')
-  output$u_form_title <- renderUI(div(class = 'rightbar-title',
-    if (u_mode() == 'add') 'Add a new user' else sprintf('Edit %s', input$u_username)))
-  output$u_pw_label <- renderUI(div(class = 'mini-label',
-    if (u_mode() == 'add') 'Password (at least 8 characters)' else 'New password (leave blank to keep the current one)'))
-  observe({
-    shinyjs::toggleState('u_username', u_mode() == 'add')
-    shinyjs::toggle('u_delete', condition = u_mode() == 'edit')
-  })
-
-  # Click a user -> load them into the form for editing
-  observeEvent(input$users_table_rows_selected, {
-    u <- users(); i <- input$users_table_rows_selected
-    req(length(i) == 1)
-    u_mode('edit')
-    updateTextInput(session, 'u_username', value = u$username[i])
-    updateTextInput(session, 'u_display', value = u$display_name[i])
-    updateTextInput(session, 'u_password', value = '')
-    updateRadioButtons(session, 'u_role', selected = u$role[i])
-  })
-
-  clear_user_form <- function() {
-    u_mode('add')
-    for (id in c('u_username', 'u_display', 'u_password')) updateTextInput(session, id, value = '')
-    updateRadioButtons(session, 'u_role', selected = 'user')
-    DT::selectRows(DT::dataTableProxy('users_table'), NULL)
-  }
-  observeEvent(input$u_add, clear_user_form())
-
-  observeEvent(input$u_save, {
-    req(is_admin())
-    uname <- tolower(trimws(input$u_username %||% '')); disp <- trimws(input$u_display %||% '')
-    pw <- input$u_password %||% ''; role <- input$u_role
-    u <- users(); existing <- uname %in% u$username
-    problem <- if (!grepl('^[a-z0-9._-]{2,}$', uname)) 'Username: at least 2 characters, letters/numbers/. _ - only, no spaces.'
-      else if (u_mode() == 'add' && existing) sprintf('There is already a user called %s – click them in the table to edit.', uname)
-      else if (!nzchar(disp)) 'Please enter a name.'
-      else if (!existing && nchar(pw) < 8) 'New users need a password of at least 8 characters.'
-      else if (nzchar(pw) && nchar(pw) < 8) 'Passwords need at least 8 characters.'
-      else if (existing && role != 'admin' && u$role[u$username == uname] == 'admin' && sum(u$role == 'admin') == 1) 'This is the only admin – make someone else admin first.'
+  # What Save changes would do, or the first problem found
+  users_plan <- function() {
+    d <- hot_to_r(input$users_hot)
+    d[] <- lapply(d, function(x) if (is.logical(x)) x %in% TRUE else trimws(dplyr::coalesce(as.character(x), '')))
+    u <- users()
+    d$Username <- tolower(d$Username)
+    d <- d[nzchar(d$Username) | nzchar(d$Name) | nzchar(d$`New password`), ]
+    d$existing <- d$Username %in% u$username
+    d$role <- ifelse(d$Role == 'Admin', 'admin', 'user')
+    old <- u[match(d$Username, u$username), ]
+    remove <- d$Username[d$existing & d$Remove]
+    save <- d[!d$Remove & (!d$existing | d$Name != old$display_name | d$role != old$role | nzchar(d$`New password`)), ]
+    admins_after <- base::union(setdiff(u$username[u$role == 'admin'], c(remove, save$Username[save$role != 'admin'])),
+                                save$Username[save$role == 'admin'])
+    problem <-
+      if (any(bad <- !grepl('^[a-z0-9._-]{2,}$', save$Username))) sprintf('Username %s: at least 2 characters, letters/numbers/. _ - only, no spaces.', save$Username[bad][1])
+      else if (any(dup <- duplicated(d$Username))) sprintf('There is already a user called %s.', d$Username[dup][1])
+      else if (any(!nzchar(save$Name))) 'Please give every user a name.'
+      else if (any(!save$existing & nchar(save$`New password`) < 8)) 'New users need a password of at least 8 characters.'
+      else if (any(nzchar(save$`New password`) & nchar(save$`New password`) < 8)) 'Passwords need at least 8 characters.'
+      else if (user() %in% remove) 'You can\'t remove yourself.'
+      else if (length(admins_after) == 0) 'There must be at least one admin.'
       else NULL
-    if (!is.null(problem)) return(showNotification(problem, type = 'error'))
-    ok <- tryCatch({ vb_save_user(uname, disp, role, if (nzchar(pw)) pw else NULL); TRUE },
-                   error = function(e) { showNotification(paste('Could not save:', conditionMessage(e)), type = 'error'); FALSE })
-    if (ok) {
-      showNotification(sprintf('%s %s.', uname, if (existing) 'updated' else 'added'), type = 'message')
-      users_changed(users_changed() + 1); clear_user_form()
-    }
-  })
+    list(save = save, remove = remove, problem = problem)
+  }
 
-  observeEvent(input$u_delete, {
-    req(is_admin())
-    u <- users(); i <- input$users_table_rows_selected
-    if (length(i) != 1) return(showNotification('Click the user to remove in the table first.', type = 'warning'))
-    target <- u$username[i]
-    if (identical(target, user())) return(showNotification('You can\'t remove yourself.', type = 'warning'))
-    if (u$role[i] == 'admin' && sum(u$role == 'admin') == 1) return(showNotification('You can\'t remove the only admin.', type = 'warning'))
-    showModal(modalDialog(title = 'Remove user?', sprintf('Remove %s (%s)? They will no longer be able to sign in.', target, u$display_name[i]),
-                          footer = tagList(modalButton('Cancel'), actionButton('u_delete_ok', 'Remove', class = 'btn btn-danger'))))
+  apply_users <- function(plan) {
+    ok <- tryCatch({
+      for (i in seq_len(nrow(plan$save)))
+        vb_save_user(plan$save$Username[i], plan$save$Name[i], plan$save$role[i],
+                     if (nzchar(plan$save$`New password`[i])) plan$save$`New password`[i] else NULL)
+      for (x in plan$remove) vb_delete_user(x)
+      TRUE
+    }, error = function(e) { showNotification(paste('Could not save:', conditionMessage(e)), type = 'error'); FALSE })
+    users_changed(users_changed() + 1)
+    if (ok) showNotification(sprintf('Saved: %d added or changed, %d removed.', nrow(plan$save), length(plan$remove)), type = 'message')
+  }
+
+  pending_users <- reactiveVal(NULL)
+  observeEvent(input$u_save, {
+    req(is_admin(), input$users_hot)
+    plan <- users_plan()
+    if (!is.null(plan$problem)) return(showNotification(plan$problem, type = 'error'))
+    if (nrow(plan$save) == 0 && length(plan$remove) == 0) return(showNotification('Nothing has changed.'))
+    if (length(plan$remove) == 0) return(apply_users(plan))
+    pending_users(plan)
+    showModal(modalDialog(title = 'Remove users?',
+                          sprintf('Remove %s? They will no longer be able to sign in.', paste(plan$remove, collapse = ', ')),
+                          footer = tagList(modalButton('Cancel'), actionButton('u_remove_ok', 'Save and remove', class = 'btn btn-danger'))))
   })
-  observeEvent(input$u_delete_ok, {
-    req(is_admin())
-    u <- users(); i <- input$users_table_rows_selected
-    removeModal()
-    req(length(i) == 1, !identical(u$username[i], user()))
-    vb_delete_user(u$username[i])
-    showNotification(sprintf('%s removed.', u$username[i]), type = 'message')
-    users_changed(users_changed() + 1); clear_user_form()
+  observeEvent(input$u_remove_ok, {
+    req(is_admin(), pending_users())
+    removeModal(); apply_users(pending_users()); pending_users(NULL)
   })
 }

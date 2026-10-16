@@ -160,7 +160,7 @@ supervisor_server <- function(input, output, session, token) {
               div(tags$b(open), if (open == 1) ' place left' else ' places left'),
               if (!is.null(p)) div(tags$b(sum(p$status != 'open')), ' done'))),
       div(class = 'howto',
-          'Red areas have houses the vaccination teams did not pass. Tap ', tags$b('Navigate'), ' for directions.',
+          'Red areas have houses the vaccination teams did not visit. Tap ', tags$b('Navigate'), ' for directions.',
           if (team_view) tagList(' Tap ', tags$b('Done'), ' once the children there are vaccinated, or ', tags$b('Inaccessible'),
                                  ' or ', tags$b('No children'), '.')
           else tagList(' Use ', tags$b('Send to team'), ' to give each team its places on WhatsApp, or tick places to send them to any team. ',
@@ -194,7 +194,6 @@ supervisor_server <- function(input, output, session, token) {
       '<div style="background:#fff;padding:6px 9px;border-radius:6px;font-size:11px;line-height:1.7;box-shadow:0 1px 4px rgba(0,0,0,.25);">',
       dot(STATUS_COLORS[['open']]), ' Missed place<br>',
       dot(STATUS_COLORS[['done']]), ' Done<br>',
-      '<span style="display:inline-block;width:14px;border-top:2px solid ', TRACK_LINE, ';vertical-align:3px;"></span> Team GPS track<br>',
       '<img src="', FACILITY_ICON$iconUrl, '" width="11" height="11" style="vertical-align:-1px;"> Health facility</div>')
     m |> addControl(htmltools::HTML(legend), position = 'bottomright')
   })
@@ -218,27 +217,37 @@ supervisor_server <- function(input, output, session, token) {
   })
 
   # --- Team GPS tracks (off by default: saves mobile data) ---------------------
-  # Only this health area's own teams -- or just the team / ticked places'
-  # teams in a link forwarded to a team. Loaded once, when first switched on.
+  # Every team's GPS around the health area (its extent plus ~2 km), loaded
+  # once when first switched on. Orange: the health area's own teams on the
+  # supervisor's page -- or, on a team's page, that team (or the ticked
+  # places' teams); blue: everyone else, in the health area or not.
   ha_teams <- base::union(trimws(strsplit(info$teams %||% '', ',')[[1]]), teams)
   ha_teams <- ha_teams[nzchar(ha_teams)]
+  mine <- if (!is.null(team_q)) team_q
+          else if (length(pick_q)) base::unique(stats::na.omit(all0$assigned_team[all0$place_no %in% pick_q]))
+          else ha_teams
   track_pings <- reactive({
-    req(isTRUE(input$sup_tracks), !is.null(area_bb), length(ha_teams) > 0)
+    req(isTRUE(input$sup_tracks), !is.null(area_bb))
     rows <- vb_load_entries(info$data_from, info$data_to, area_bb)
-    rows <- rows[rows$team_name %in% ha_teams, ]
+    rows <- rows[!rows$team_name %in% unlist(run_params$ignore_teams), ]
     if (nrow(rows) == 0) return(NULL)
     clean_pings(rows, run_params)$pings
   })
   observe({
-    proxy <- leafletProxy('sup_map') |> clearGroup('tracks')
+    proxy <- leafletProxy('sup_map') |> clearGroup('tracks') |> removeControl('trk_legend')
     req(isTRUE(input$sup_tracks))
     pg <- tryCatch(track_pings(), error = function(e) NULL)
     if (is.null(pg)) return()
-    show <- if (!is.null(team_q)) team_q
-            else if (length(pick_q)) base::unique(all0$assigned_team[all0$place_no %in% pick_q])
-            else if (!(input$sup_team %||% 'all') %in% c('all', '')) input$sup_team
-            else ha_teams
-    add_tracks(proxy, pg[pg$team_name %in% show, ], run_params, pane = 'tracks', max_points = 8000)
+    own <- pg$team_name %in% mine
+    proxy <- add_tracks(proxy, pg[!own, ], run_params, pane = 'tracks', max_points = 6000)
+    proxy <- add_tracks(proxy, pg[own, ], run_params, pane = 'tracks', max_points = 6000,
+                        line_color = TRACK_MINE_LINE, point_color = TRACK_MINE_POINT)
+    line <- function(col, text) sprintf('<span style="display:inline-block;width:14px;border-top:3px solid %s;vertical-align:3px;"></span> %s', col, text)
+    labels <- if (team_view) c("Your team's GPS track", "Other teams' GPS tracks")
+              else c("Team GPS track (this health area's teams)", 'Team GPS track (other teams)')
+    proxy |> addControl(htmltools::HTML(paste0(
+      '<div style="background:#fff;padding:6px 9px;border-radius:6px;font-size:11px;line-height:1.7;box-shadow:0 1px 4px rgba(0,0,0,.25);">',
+      line(TRACK_MINE_POINT, labels[1]), '<br>', line(TRACK_POINT, labels[2]), '</div>')), position = 'bottomleft', layerId = 'trk_legend')
   })
 
   observeEvent(input$place_focus, {
