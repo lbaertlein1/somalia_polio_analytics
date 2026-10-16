@@ -127,7 +127,17 @@ places_pdf <- function(places, file, title, subtitle, ha_poly = NULL, size = 'A1
 
   s <- page[1] / 841   # text scales with the page (sizes below are for A1)
   map <- ggplot2::ggplot()
-  if (!is.null(tiles)) map <- map + tidyterra::geom_spatraster_rgb(data = tiles, maxcell = Inf)
+  # The background as one picture (not a table of every pixel, which takes
+  # hundreds of MB for a large page)
+  if (!is.null(tiles)) {
+    v <- terra::values(tiles[[1:3]], mat = TRUE)
+    v[is.na(v)] <- 255; v <- pmin(pmax(v, 0), 255)
+    pic <- grDevices::as.raster(matrix(grDevices::rgb(v[, 1], v[, 2], v[, 3], maxColorValue = 255),
+                                       nrow = terra::nrow(tiles), byrow = TRUE))
+    rm(v)
+    e <- as.vector(terra::ext(tiles))
+    map <- map + ggplot2::annotation_raster(pic, xmin = e[['xmin']], xmax = e[['xmax']], ymin = e[['ymin']], ymax = e[['ymax']])
+  }
   if (!is.null(tracks) && nrow(tracks) > 0)
     map <- map + ggplot2::geom_sf(data = sf::st_transform(tracks, 3857), colour = '#3b82f6', linewidth = 0.35 * s, alpha = 0.8)
   if (!is.null(ha)) map <- map + ggplot2::geom_sf(data = ha, fill = NA, colour = if (basemap == 'satellite') 'white' else '#0f172a', linewidth = 1.6 * s)
