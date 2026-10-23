@@ -354,7 +354,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
     })
 
     region_lookup <- reactive({
-      districts_shp |> sf::st_drop_geometry() |>
+      districts_shp_for_campaign(campaign_id()) |> sf::st_drop_geometry() |>
         dplyr::distinct(district_name, region_name) |>
         dplyr::mutate(district_name = as.character(district_name), region_name = as.character(region_name))
     })

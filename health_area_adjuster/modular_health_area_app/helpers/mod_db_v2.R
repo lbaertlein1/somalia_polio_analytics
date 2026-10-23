@@ -161,6 +161,8 @@ db_create_campaign <- function(pool, campaign_name, description, created_by, sta
   tryCatch({
     start_date <- as.Date(start_date)
     if (length(start_date) != 1 || is.na(start_date)) stop('start_date is required')
+    cur_set <- .db_query(pool, "SELECT set_label FROM boundary_sets WHERE is_current")
+    if (nrow(cur_set) == 0) stop('no boundary set is marked current')
     row <- .db_query(pool, "
       INSERT INTO campaigns (campaign_name, description, created_by, start_date, boundary_set)
       VALUES (?n, ?d, ?u, ?s, (SELECT set_label FROM boundary_sets WHERE is_current))

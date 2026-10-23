@@ -246,7 +246,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   }
   tryCatch(
     zip::zip(zipfile = file, files = out_files, mode = 'cherry-pick'),
-    error = function(e) zip(zipfile = file, files = out_files, flags = '-j')
+    error = function(e) utils::zip(zipfile = file, files = out_files, flags = '-j')
   )
   invisible(NULL)
 }
@@ -484,7 +484,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
   }
   tryCatch(
     zip::zip(zipfile = file, files = out_files, mode = 'cherry-pick'),
-    error = function(e) zip(zipfile = file, files = out_files, flags = '-j')
+    error = function(e) utils::zip(zipfile = file, files = out_files, flags = '-j')
   )
   invisible(NULL)
 }

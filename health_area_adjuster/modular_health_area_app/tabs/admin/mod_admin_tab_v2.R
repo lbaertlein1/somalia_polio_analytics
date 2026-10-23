@@ -489,6 +489,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       showModal(modalDialog(
         title = 'New campaign', easyClose = FALSE,
         textInput(session$ns('new_campaign_name'), 'Campaign name'),
+        dateInput(session$ns('new_campaign_start'), 'Start date', value = Sys.Date()),
         textAreaInput(session$ns('new_campaign_desc'), 'Description (optional)', rows = 3),
         footer = tagList(modalButton('Cancel'),
                          actionButton(session$ns('confirm_add_campaign'), 'Create', class = 'btn btn-primary'))
@@ -498,9 +499,13 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
     observeEvent(input$confirm_add_campaign, {
       nm <- trimws(input$new_campaign_name %||% '')
       if (!nzchar(nm)) { showNotification('Campaign name is required.', type = 'warning', duration = 3); return() }
-      res <- tryCatch(db_create_campaign(pool, nm, input$new_campaign_desc %||% '', current_user()),
+      sd <- input$new_campaign_start
+      if (length(sd) != 1 || is.na(sd)) { showNotification('Start date is required.', type = 'warning', duration = 3); return() }
+      res <- tryCatch(db_create_campaign(pool, nm, input$new_campaign_desc %||% '', current_user(), sd),
                       error = function(e) { showNotification(paste('Failed:', e$message), type = 'error', duration = 6); NULL })
-      if (!is.null(res)) { removeModal(); refresh_campaigns(); showNotification('Campaign created.', type = 'message', duration = 3) }
+      # db_create_campaign() swallows its own errors and returns NULL
+      if (is.null(res)) { showNotification('Failed to create campaign -- see R console for details.', type = 'error', duration = 6); return() }
+      removeModal(); refresh_campaigns(); showNotification('Campaign created.', type = 'message', duration = 3)
     }, ignoreInit = TRUE)
 
     observeEvent(input$toggle_campaign_row, {

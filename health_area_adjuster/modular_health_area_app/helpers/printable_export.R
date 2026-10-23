@@ -260,7 +260,7 @@ library(png)
   # by name, the same source mod_facility_tab.R's own district_base()
   # already trusts for this district's identity.
   zr <- tryCatch(
-    districts_shp |> sf::st_drop_geometry() |>
+    districts_shp_for_campaign(campaign_id) |> sf::st_drop_geometry() |>
       dplyr::filter(district_name == !!district_name) |> dplyr::slice(1),
     error = function(e) NULL
   )

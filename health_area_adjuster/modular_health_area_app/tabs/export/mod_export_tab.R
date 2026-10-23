@@ -164,7 +164,7 @@ exportTabServer <- function(id, districts_shp) {
           showNotification('This district has no current health-area map to export.', type = 'warning', duration = 5)
           return()
         }
-        dinfo <- districts_shp |> dplyr::filter(district_name == dname)
+        dinfo <- districts_shp_for_campaign(cid) |> dplyr::filter(district_name == dname)
         zone_val   <- if (nrow(dinfo) > 0) as.character(dinfo$zone_name[1])   else ''
         region_val <- if (nrow(dinfo) > 0) as.character(dinfo$region_name[1]) else ''
         tmp <- tempfile(fileext = '.zip')
