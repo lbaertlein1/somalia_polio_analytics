@@ -1,3 +1,7 @@
+# The limit applies to the whole folder scan, before the exclusions below
+# (data/ alone is ~7 GB of pipeline caches). The deployed bundle is far smaller.
+options(rsconnect.max.bundle.size = 10 * 1024^3)
+
 all_files <- rsconnect::listBundleFiles(getwd())$contents
 
 # Folders that are pipeline inputs/scratch only -- never deployed.

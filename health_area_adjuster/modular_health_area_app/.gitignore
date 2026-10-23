@@ -1,3 +1,4 @@
 # Ignore geopackages
 *.gpkg
 .env
+.env_v2

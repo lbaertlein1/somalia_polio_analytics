@@ -17,12 +17,12 @@
 #
 # Needs boundary_sets to exist (migrate_boundary_sets.R). Safe to re-run.
 # Run from the project root that holds data/boundary_sets/ -- point
-# ENV_FILE at the app's .env_v2.
+# ENV_FILE at the app's .env.
 # =============================================================================
 
 DRY_RUN <- TRUE
 
-ENV_FILE <- '.env_v2'                  # e.g. 'health_area_adjuster/modular_health_area_app/.env_v2'
+ENV_FILE <- '.env'                  # e.g. 'health_area_adjuster/modular_health_area_app/.env'
 SETS_DIR <- 'data/boundary_sets'
 
 SETS <- list(

@@ -62,8 +62,8 @@ library(dotenv)
 # =============================================================================
 # CONFIGURATION
 #
-# Reads from .env_v2 (same directory as this script). Copy the template,
-# fill in the values, do not commit it.
+# Reads from the app's .env (run from the app folder). Fill in the values,
+# do not commit it.
 #
 #   DB_HOST            — Postgres host (same server as the current app)
 #   DB_PORT             — defaults to 5432 if unset
@@ -73,7 +73,7 @@ library(dotenv)
 #   ADMIN_PASSWORD           — optional; skip to add an admin login later
 # =============================================================================
 
-dotenv::load_dot_env('.env_v2')
+dotenv::load_dot_env('.env')
 
 DB_HOST            <- Sys.getenv('DB_HOST', '23.239.19.115')
 DB_PORT             <- as.integer(Sys.getenv('DB_PORT', '5432'))
@@ -83,7 +83,7 @@ SHINY_APP_PASSWORD     <- Sys.getenv('SHINY_APP_PASSWORD', '')
 ADMIN_PASSWORD           <- Sys.getenv('ADMIN_PASSWORD', '')
 
 if (!nzchar(POSTGRES_PASSWORD)) {
-  stop('POSTGRES_PASSWORD is not set. Add it to .env_v2 before running this script.')
+  stop('POSTGRES_PASSWORD is not set. Add it to .env before running this script.')
 }
 
 

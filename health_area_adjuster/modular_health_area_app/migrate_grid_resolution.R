@@ -36,12 +36,12 @@ DRY_RUN <- TRUE               # <-- set to FALSE only after reviewing a dry-run 
 TARGET_CAMPAIGN_ID <- 2    # <-- set this to the Aug SNID 2026 campaign_id, shown below
 TARGET_DISTRICTS <- c('Garasbaley', 'Danyile', 'Khada')
 
-dotenv::load_dot_env('.env_v2')
+dotenv::load_dot_env('.env')
 DB_HOST <- Sys.getenv('DB_HOST', '23.239.19.115')
 DB_PORT <- as.integer(Sys.getenv('DB_PORT', '5432'))
 DB_NAME <- Sys.getenv('DB_NAME', 'somalia_health_areas_v2')
 POSTGRES_PASSWORD <- Sys.getenv('POSTGRES_PASSWORD', '')
-if (!nzchar(POSTGRES_PASSWORD)) stop('POSTGRES_PASSWORD is not set. Add it to .env_v2 before running this script.')
+if (!nzchar(POSTGRES_PASSWORD)) stop('POSTGRES_PASSWORD is not set. Add it to .env before running this script.')
 
 # Only what's actually needed: make_paint_grid() (standalone, no Shiny
 # dependency) and safe_make_valid()/%||%. NOT sourcing mod_db_v2.R -- its DB
