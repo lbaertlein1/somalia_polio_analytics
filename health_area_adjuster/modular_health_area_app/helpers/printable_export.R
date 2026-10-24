@@ -86,16 +86,13 @@ library(png)
   if (length(basemap) == 0) 'none' else basemap
 }
 
-# Subdivision styling: a wide, semi-transparent band drawn UNDER the
-# health area borders rather than a thin dashed line on top of them --
-# health area boundaries very often follow subdivision boundaries
-# exactly, and a 1px dashed line on top of a 2px black border was simply
-# invisible wherever the two coincided (reported from a real export).
-# As a band underneath, a shared edge reads as a black line with a
-# purple halo, and a subdivision-only edge still reads as a purple line.
+# Subdivision styling: dashed purple, same as the in-app maps
+# (paint-app.js's subdivisionLayer). Drawn UNDER the health area and
+# district borders, so where a subdivision boundary follows a health area
+# boundary the health area border is what shows. Thicker than the old 1px
+# line, which was too faint to see on a printed page.
 .SUBDIV_COL   <- '#7c3aed'
-.SUBDIV_ALPHA <- 0.55
-.SUBDIV_LWD   <- 5
+.SUBDIV_LWD   <- 2.5
 
 # Point symbol sizes (tmap size units) -- bumped up from the original
 # 0.3/0.25 overview and 0.4/0.35 detail sizes after review feedback that
@@ -118,22 +115,22 @@ library(png)
     if (idp)    list(swatch_col = '#FF1744', shape = 'point', pch = 17, label = 'IDP Settlement'),
                 list(swatch_col = if (high_contrast) '#00e5ff' else 'black', shape = 'line', label = 'Health Area Boundary'),
     if (team)   list(swatch_col = if (high_contrast) '#00e5ff' else '#334155', shape = 'line', label = 'Team Area Boundary'),
-    if (subdiv) list(swatch_col = grDevices::adjustcolor(.SUBDIV_COL, alpha.f = .SUBDIV_ALPHA), shape = 'line', lwd = 5, label = 'Subdivision'),
+    if (subdiv) list(swatch_col = .SUBDIV_COL, shape = 'line', lwd = .SUBDIV_LWD, lty = 'dashed', label = 'Subdivision'),
     if (urban)  list(swatch_col = '#0d9488', shape = 'line', lty = 'dashed', label = 'Urban Extent')
   )
   Filter(Negate(is.null), items)
 }
 .has_rows <- function(x) !is.null(x) && nrow(x) > 0
 
-# Subdivision band (drawn before the health area borders) and its name
-# labels (drawn after, so they aren't hidden under borders). Split in two
-# because they belong at different points in the layer stack.
+# Subdivision lines (drawn right after the health area/district borders)
+# and their name labels (drawn later, above the other line layers). Split
+# in two because they belong at different points in the layer stack.
 # label_min_frac skips labelling slivers -- on a health area detail page
 # the subdivisions are clipped to the health area, and a thin clipped
 # edge piece doesn't merit a name sitting on top of it.
-.subdivision_band <- function(subdiv_sf) {
+.subdivision_lines <- function(subdiv_sf) {
   tmap::tm_shape(subdiv_sf) +
-    tmap::tm_borders(col = .SUBDIV_COL, col_alpha = .SUBDIV_ALPHA, lwd = .SUBDIV_LWD)
+    tmap::tm_borders(col = .SUBDIV_COL, lwd = .SUBDIV_LWD, lty = 'dashed')
 }
 .subdivision_labels <- function(subdiv_sf, label_min_frac = 0) {
   if (!'subdivision_name' %in% names(subdiv_sf)) return(NULL)
@@ -1313,19 +1310,20 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
       tmap::tm_shape(ha_sf)
   }
 
-  # Layer order, bottom to top: subdivision band, health area borders,
+  # Layer order, bottom to top: subdivision lines, health area borders,
   # district border, urban extent, subdivision names, points, health area
-  # name callouts. The subdivision band has to sit UNDER the health area
-  # borders (see .SUBDIV_* constants for why), and the callouts go last so
-  # nothing is ever drawn over the labels a reader looks for first.
+  # name callouts. Health area borders go on top of the subdivision lines
+  # they often coincide with, and the callouts go last so nothing is ever
+  # drawn over the labels a reader looks for first.
   #
   # Subdivisions and campaign/urban extent are context-only reference
   # layers, same purple/teal-dashed color convention every other map in
   # the app already uses for them (mod_facility_map.R,
   # mod_orientation_tab.R, paint-app.js's own subdivisionLayer/
   # settlementExtentsLayer).
+
   if (!is.null(subdiv_sf) && nrow(subdiv_sf) > 0)
-    m <- m + .subdivision_band(subdiv_sf)
+    m <- m + .subdivision_lines(subdiv_sf)
 
   # No fill -- boundaries and area-name labels only, per request. Area
   # identity used to be conveyed by categorical fill color plus a legend;
@@ -1395,12 +1393,12 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
       tmap::tm_shape(ha_one)
   }
 
-  # Same layer order as .district_overview_map() above (subdivision band
-  # under the borders, labels/callouts on top); see that function's
-  # comment for why. Subdivisions/urban extent are clipped to this health
-  # area's own extent by the caller before they get here.
+  # Same layer order as .district_overview_map() above (subdivision lines
+  # under the health area border, labels/callouts on top of everything).
+  # Subdivisions/urban extent are clipped to this health area's own extent
+  # by the caller before they get here.
   if (!is.null(subdiv_one) && nrow(subdiv_one) > 0)
-    m <- m + .subdivision_band(subdiv_one)
+    m <- m + .subdivision_lines(subdiv_one)
 
   # No fill here either -- the health area's own boundary is already this
   # page's title/context, so it gets a border only, no label needed on
