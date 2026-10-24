@@ -736,14 +736,18 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
                ifelse(df$locked, ' \u00b7 \U0001F512 locked', '')),
         '\u2014'
       )
+      # District names go in as JSON string literals, HTML-escaped for the
+      # attribute (.js_str) -- a hand-quoted '...' broke on names with an
+      # apostrophe, e.g. Bu'aale.
+      .js_str <- function(x) htmltools::htmlEscape(as.character(jsonlite::toJSON(as.character(x), auto_unbox = TRUE)), attribute = TRUE)
       action_ha <- vapply(df$district_name, function(dn) {
-        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sha_row_click\', \'%s\', {priority:\'event\'})">Health Areas</button>',
-               ns(''), dn)
+        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sha_row_click\', %s, {priority:\'event\'})">Health Areas</button>',
+               ns(''), .js_str(dn))
       }, character(1))
       action_team <- vapply(seq_len(nrow(df)), function(i) {
         if (!df$has_current_ha[i]) return('<span style="color:#94a3b8;font-size:11px;">Needs health areas first</span>')
-        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%steam_row_click\', \'%s\', {priority:\'event\'})">Team Areas</button>',
-               ns(''), df$district_name[i])
+        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%steam_row_click\', %s, {priority:\'event\'})">Team Areas</button>',
+               ns(''), .js_str(df$district_name[i]))
       }, character(1))
       # "View" opens the same read-only boundary popup as clicking the
       # district's polygon on the overview map (see
@@ -752,8 +756,8 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       # has_current_ha gate action_team already uses above.
       action_view <- vapply(seq_len(nrow(df)), function(i) {
         if (!df$has_current_ha[i]) return('<span style="color:#94a3b8;font-size:11px;">\u2013</span>')
-        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sview_row_click\', \'%s\', {priority:\'event\'})">View</button>',
-               ns(''), df$district_name[i])
+        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sview_row_click\', %s, {priority:\'event\'})">View</button>',
+               ns(''), .js_str(df$district_name[i]))
       }, character(1))
 
       # Grouped into one native <details>/<summary> block per region --
@@ -981,16 +985,23 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       ha_names <- setdiff(unlist(current_ha$snap$dfa_names), c('Inaccessible', 'Unpopulated'))
       summary_df <- tryCatch(db_get_district_team_area_summary(pool, cid, district_name), error = function(e) NULL)
 
+      # Health area names go into the onclick JS as JSON string literals
+      # (jsonlite-escaped) -- a name containing an apostrophe would
+      # otherwise break out of a hand-quoted '...' string.
+      pick_js <- function(input_id, han) sprintf("Shiny.setInputValue('%s%s', %s, {priority:'event'})",
+                                                 ns(''), input_id, jsonlite::toJSON(han, auto_unbox = TRUE))
       rows <- lapply(sort(ha_names), function(han) {
         has_current <- !is.null(summary_df) && any(summary_df$health_area_name == han & summary_df$has_current)
         div(
           style = 'display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #f1f5f9;',
           div(style = 'font-size:13px;color:#0f172a;', han,
              if (has_current) tags$span(style = 'color:#166534;font-size:11px;margin-left:6px;', '\u2713 published')),
-          tags$button(
-            class = 'btn btn-default btn-xs', type = 'button', 'Open',
-            onclick = sprintf("Shiny.setInputValue('%steam_pick_ha', '%s', {priority:'event'})", ns(''), han)
-          )
+          div(style = 'display:flex;gap:6px;',
+              tags$button(class = 'btn btn-default btn-xs', type = 'button', icon('pen'), 'Rename',
+                          title = 'Rename this health area (boundaries are not changed)',
+                          onclick = pick_js('team_rename_ha', han)),
+              tags$button(class = 'btn btn-default btn-xs', type = 'button', 'Open',
+                          onclick = pick_js('team_pick_ha', han)))
         )
       })
 
@@ -1005,6 +1016,56 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       han <- input$team_pick_ha
       team_picker_ha_name(han)
       .show_team_version_step(team_picker_district(), han)
+    }, ignoreInit = TRUE)
+
+    # ── Health area rename ──────────────────────────────────────────────────
+    # Lives here, in the list of the district's PUBLISHED health areas,
+    # because a rename applies to the published map in place
+    # (db_rename_health_area()) and has to work after team areas have
+    # started, when the Health Areas tab itself is locked. Names only --
+    # boundaries, team areas and population figures stay exactly as they
+    # are, just under the new name.
+    rename_ha_old  <- reactiveVal(NULL)
+    rename_ha_done <- reactiveVal(NULL)
+
+    .show_rename_ha_modal <- function(old_name, value = old_name) {
+      showModal(modalDialog(
+        title = paste0('Rename health area — ', team_picker_district()), size = 's', easyClose = FALSE,
+        footer = tagList(
+          actionButton(ns('rename_ha_back'), 'Back', class = 'btn btn-default'),
+          actionButton(ns('rename_ha_save'), 'Rename', class = 'btn btn-primary')
+        ),
+        div(style = 'font-size:12px;color:#64748b;margin-bottom:8px;',
+            'Current name: ', tags$strong(old_name)),
+        textInput(ns('rename_ha_new'), 'New name', value = value, width = '100%'),
+        div(style = 'font-size:11px;color:#64748b;line-height:1.5;',
+            'Only the name changes. Boundaries, team areas and population figures are kept as they are, ',
+            'and the new name shows up everywhere, including exports.')
+      ))
+    }
+
+    observeEvent(input$team_rename_ha, {
+      rename_ha_old(input$team_rename_ha)
+      .show_rename_ha_modal(input$team_rename_ha)
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$rename_ha_back, {
+      .show_team_health_area_step(team_picker_district())
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$rename_ha_save, {
+      dname <- team_picker_district(); old <- rename_ha_old()
+      req(!is.null(dname), !is.null(old))
+      cid <- campaign_id()
+      new <- trimws(input$rename_ha_new %||% '')
+      res <- tryCatch(db_rename_health_area(pool, cid, dname, old, new),
+                      error = function(e) { showNotification(conditionMessage(e), type = 'error', duration = 6); NULL })
+      if (is.null(res)) return()
+      showNotification(sprintf('Renamed "%s" to "%s".', old, new), type = 'message', duration = 4)
+      rename_ha_done(list(district_name = dname, campaign_id = cid, old_name = old, new_name = new,
+                          version_id = res$version_id, ts = Sys.time()))
+      rename_ha_old(NULL)
+      .show_team_health_area_step(dname)
     }, ignoreInit = TRUE)
 
     .show_team_version_step <- function(district_name, health_area_name) {
@@ -1112,7 +1173,8 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
     list(
       campaign_id                  = campaign_id,
       activate_health_area_request = reactive(ha_request()),
-      activate_team_area_request   = reactive(team_request())
+      activate_team_area_request   = reactive(team_request()),
+      health_area_renamed          = reactive(rename_ha_done())
     )
   })
 }

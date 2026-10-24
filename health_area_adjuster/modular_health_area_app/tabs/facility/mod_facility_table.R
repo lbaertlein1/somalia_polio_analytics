@@ -104,9 +104,13 @@ facilityTableServer <- function(id, facility_data_r, selected_id_r, on_data_chan
         rhandsontable::hot_table(
           highlightRow  = TRUE,
           columnSorting = TRUE,
+          # Sends the clicked row's facility id (column 0, read by VISUAL
+          # row), not a row number: with column sorting on, a row number
+          # only matches R's own data order until the user sorts, after
+          # which it selected a different facility than the one clicked.
           afterSelection = htmlwidgets::JS(sprintf("
             function(r, c, r2, c2) {
-              Shiny.setInputValue('%s', r + 1, {priority: 'event'});
+              Shiny.setInputValue('%s', String(this.getDataAtCell(r, 0)), {priority: 'event'});
               var hot = this;
               setTimeout(function() {
                 var nR = hot.countRows(), nC = hot.countCols();
@@ -188,12 +192,15 @@ facilityTableServer <- function(id, facility_data_r, selected_id_r, on_data_chan
     })
     
     observeEvent(input$sia_sel_row, ignoreInit = TRUE, {
-      idx <- as.integer(input$sia_sel_row)
-      df  <- facility_data_r(); req(!is.null(df))
-      sub <- .sia_rows(df)
-      req(!is.na(idx), idx >= 1L, idx <= nrow(sub))
-      selected_id_r(as.character(sub$facility_id[idx]))
+      .select_facility_id(input$sia_sel_row)
     })
+
+    # input$*_sel_row carries the clicked facility's id (see .build_hot()).
+    .select_facility_id <- function(id) {
+      id <- as.character(id %||% '')
+      df <- facility_data_r(); req(!is.null(df), nzchar(id), id %in% as.character(df$facility_id))
+      selected_id_r(id)
+    }
     
     # ── All-facilities table ──────────────────────────────────────────────────
     
@@ -221,11 +228,7 @@ facilityTableServer <- function(id, facility_data_r, selected_id_r, on_data_chan
     })
     
     observeEvent(input$all_sel_row, ignoreInit = TRUE, {
-      idx <- as.integer(input$all_sel_row)
-      df  <- facility_data_r(); req(!is.null(df))
-      sub <- .non_sia_rows(df)
-      req(!is.na(idx), idx >= 1L, idx <= nrow(sub))
-      selected_id_r(as.character(sub$facility_id[idx]))
+      .select_facility_id(input$all_sel_row)
     })
     
   })

@@ -427,10 +427,14 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
     # start blank in this campaign, same as any district with no prior
     # published work anywhere.
     .show_carry_forward_modal <- function(cid, district_names) {
+      # Same source lookup carry-forward itself uses (most recent earlier
+      # campaign, practice campaign excluded, boundary must match), so a
+      # district is only offered when carrying it forward will actually
+      # work -- and says why when it won't.
       candidates <- lapply(district_names, function(dn) {
-        rows <- tryCatch(db_get_shareable_versions(pool, dn, campaign_id = NULL), error = function(e) NULL)
-        has_source <- !is.null(rows) && nrow(rows[rows$campaign_id != cid, , drop = FALSE]) > 0
-        list(district_name = dn, has_source = has_source)
+        src <- tryCatch(db_get_carry_forward_source(pool, cid, dn), error = function(e) NULL)
+        list(district_name = dn, src = src,
+             has_source = !is.null(src) && isTRUE(src$boundary_matches))
       })
 
       rows_ui <- lapply(candidates, function(c) {
@@ -438,11 +442,13 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
           style = 'display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid #f1f5f9;',
           if (c$has_source) {
             checkboxInput(session$ns(paste0('carry_fwd_', gsub('[^A-Za-z0-9]+', '_', c$district_name))),
-                         c$district_name, value = TRUE, width = '100%')
+                         sprintf('%s  (from %s)', c$district_name, c$src$campaign_name), value = TRUE, width = '100%')
           } else {
             tagList(
               tags$span(style = 'font-size:13px;color:#94a3b8;', c$district_name),
-              tags$span(style = 'font-size:11px;color:#94a3b8;margin-left:8px;', '(no prior version to carry forward — starts blank)')
+              tags$span(style = 'font-size:11px;color:#94a3b8;margin-left:8px;',
+                        if (is.null(c$src)) '(no prior version to carry forward — starts blank)'
+                        else sprintf('(district boundary changed since %s — starts blank)', c$src$campaign_name))
             )
           }
         )

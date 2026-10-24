@@ -1,30 +1,3 @@
-# -----------------------------------------------------------------------------
-# Label lookup helpers — translate ODK codes to display labels
-# -----------------------------------------------------------------------------
-FACILITY_TYPE_LABELS <- c(
-  phu       = "Primary Health Unit (PHU)",
-  hc        = "Health Centre (HC)",
-  dh        = "District Hospital (DH)",
-  rh        = "Regional Hospital",
-  nh        = "National Hospital",
-  tb        = "TB Clinic"
-)
-
-OWNERSHIP_LABELS <- c(
-  government = "Government (Public)",
-  private    = "Private (For-profit)",
-  ngo        = "NGO / Faith-based / Non-profit",
-  other      = "Other"
-)
-
-label_facility_type <- function(x) {
-  dplyr::recode(tolower(trimws(x)), !!!FACILITY_TYPE_LABELS, .default = x)
-}
-
-label_ownership <- function(x) {
-  dplyr::recode(tolower(trimws(x)), !!!OWNERSHIP_LABELS, .default = x)
-}
-
 # =============================================================================
 # Shared spatial helpers
 # =============================================================================
@@ -279,11 +252,6 @@ facility_sf_to_df <- function(facility_sf) {
       lat = as.numeric(lat),
       lon = as.numeric(lon)
     )
-}
-
-facility_df_to_sf <- function(facility_df) {
-  if (is.null(facility_df) || nrow(facility_df) == 0) return(NULL)
-  sf::st_as_sf(facility_df, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
 }
 
 

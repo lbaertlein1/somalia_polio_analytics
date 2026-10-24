@@ -284,7 +284,6 @@ campaignScopeTabServer <- function(
 
     last_scene_key  <- reactiveVal(NULL)
     pending_restore <- reactiveVal(NULL)
-    restore_applied <- reactiveVal(FALSE)
 
     .apply_restore <- function(snap) {
       if (is.null(snap$scope_current_assignments) || is.null(rv$grid_sf)) return(invisible(NULL))
@@ -294,7 +293,6 @@ campaignScopeTabServer <- function(
       }, character(1))
       rv$saved_scope_sf    <- snap$scope_saved_dfa_sf
       rv$smoothed_scope_sf <- snap$scope_saved_dfa_sf   # scope has no separate smoothed/presentation geometry
-      restore_applied(TRUE)
       showNotification('Campaign scope draft restored.', type = 'message', duration = 2)
       invisible(NULL)
     }
@@ -302,7 +300,16 @@ campaignScopeTabServer <- function(
     observeEvent(restore_r(), {
       snap <- restore_r()
       req(!is.null(snap))
-      if (!is.null(rv$grid_sf)) .apply_restore(snap) else pending_restore(snap)
+      # A scope submitted earlier in this session belonged to whatever
+      # version was open then -- the newly opened version's own saved
+      # scope (server.R's restore_snapshot fallback) takes over.
+      submitted_scope_sf(NULL)
+      # Apply now only if the grid on hand was built for THIS district;
+      # otherwise (another district's grid, or none yet) wait for the
+      # scene build below, which applies it right after rebuilding.
+      cur_key <- tryCatch(as.character(district_sf_r()$district_name[[1]]), error = function(e) NULL)
+      if (!is.null(rv$grid_sf) && identical(last_scene_key(), cur_key)) .apply_restore(snap)
+      else pending_restore(snap)
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
     # Builds the grid once per (district, extent-availability) combination
@@ -395,10 +402,15 @@ campaignScopeTabServer <- function(
       dsf <- district_sf_r()
       req(!is.null(dsf), nrow(dsf) > 0, "district_name" %in% names(dsf))
       isolate({
-      if (isTRUE(restore_applied())) return()
+      # Rebuilds once per district (the key check). There used to be a
+      # second guard here -- "skip if a restore was ever applied" -- that
+      # was never reset, so after one district's scope was restored,
+      # every other district kept that district's grid and painted scope
+      # (and submitting would have saved it into the wrong district).
       new_key <- as.character(dsf$district_name[[1]])
       if (identical(last_scene_key(), new_key)) return()
       last_scene_key(new_key)
+      submitted_scope_sf(NULL)
 
       .build_scene_for_district(dsf)
 
@@ -760,14 +772,17 @@ campaignScopeTabServer <- function(
         }
 
         if (!is.null(rv$saved_scope_sf) && !is.null(submit_stage_fn)) {
-          submit_stage_fn('scope', list(
+          ok <- submit_stage_fn('scope', list(
             scope_saved_dfa_sf         = rv$saved_scope_sf,
             scope_dfa_names            = .scope_dfa_names,
             scope_current_assignments  = setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id))
           ))
-          showNotification('Campaign scope submitted.', type = 'message', duration = 2)
-          submitted_scope_sf(rv$saved_scope_sf)
-          submitted_counter(submitted_counter() + 1L)
+          # Only treated as submitted if the save worked.
+          if (!isFALSE(ok)) {
+            showNotification('Campaign scope submitted.', type = 'message', duration = 2)
+            submitted_scope_sf(rv$saved_scope_sf)
+            submitted_counter(submitted_counter() + 1L)
+          }
         }
         pending_action(NULL)
         return()
@@ -843,14 +858,17 @@ campaignScopeTabServer <- function(
             if (identical(act, 'save')) {
               showNotification('Campaign scope saved.', type = 'message', duration = 2)
             } else if (!is.null(submit_stage_fn)) {
-              submit_stage_fn('scope', list(
+              ok <- submit_stage_fn('scope', list(
                 scope_saved_dfa_sf         = exact_sf,
                 scope_dfa_names            = .scope_dfa_names,
                 scope_current_assignments  = setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id))
               ))
-              showNotification('Campaign scope submitted.', type = 'message', duration = 2)
-              submitted_scope_sf(exact_sf)
-              submitted_counter(submitted_counter() + 1L)
+              # Only treated as submitted if the save worked.
+              if (!isFALSE(ok)) {
+                showNotification('Campaign scope submitted.', type = 'message', duration = 2)
+                submitted_scope_sf(exact_sf)
+                submitted_counter(submitted_counter() + 1L)
+              }
             }
             pending_action(NULL)
             return()

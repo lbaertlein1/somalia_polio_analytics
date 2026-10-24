@@ -151,17 +151,33 @@ facilityTabServer <- function(
     # -------------------------------------------------------------------------
     # Restore
     # -------------------------------------------------------------------------
+    # priority = -1: runs AFTER the district-change observer below when a
+    # district is opened (both fire in the same flush), so that observer's
+    # reset (clearing app_sf, requesting a fresh ODK fetch) can never wipe
+    # out what's restored here.
     observeEvent(restore_r(), {
       snap <- restore_r()
       if (is.null(snap)) return()
       if (!is.null(snap$odk_sf) || !is.null(snap$app_sf)) {
+        # The saved facilities ARE this version's facility list -- cancel
+        # the fresh registry fetch the district change queued, which would
+        # otherwise replace them (and every coordination-site selection in
+        # them) the first time the Facilities tab is opened.
+        needs_odk_fetch(FALSE)
         if (isTRUE(rv$odk_loading)) {
           pending_restore(snap)
         } else {
-          if (!is.null(snap$odk_sf)) rv$odk_sf <- snap$odk_sf
-          if (!is.null(snap$app_sf)) rv$app_sf  <- snap$app_sf
+          rv$odk_sf <- snap$odk_sf
+          rv$app_sf <- snap$app_sf
           showNotification('Facility state restored.', type = 'message', duration = 2)
         }
+      } else {
+        # Nothing saved yet for this version: start from a fresh registry
+        # fetch, never from whatever the previously opened version left.
+        rv$odk_sf <- NULL
+        rv$app_sf <- NULL
+        editing_locked(FALSE)
+        needs_odk_fetch(TRUE)
       }
       if (!is.null(snap$idp_settlements) && nrow(snap$idp_settlements) > 0) {
         needs_idp_fetch(FALSE)
@@ -180,7 +196,7 @@ facilityTabServer <- function(
         # block submission even though good IDP data is already present.
         rv$idp_fetch_done <- TRUE
       }
-    }, ignoreNULL = TRUE, ignoreInit = TRUE)
+    }, ignoreNULL = TRUE, ignoreInit = TRUE, priority = -1)
 
     # -------------------------------------------------------------------------
     # District boundary
@@ -261,7 +277,7 @@ facilityTabServer <- function(
     # -------------------------------------------------------------------------
     planning_area_pop <- reactive({
       pa <- tryCatch(planning_area_sf_r(), error = function(e) NULL)
-      if (is.null(pa)) pa <- tryCatch(district_base(), error = function(e) NULL)$district_sf
+      if (is.null(pa)) pa <- tryCatch(district_base(), error = function(e) NULL)
 
       if (!is.null(u5_rast) && !is.null(pa)) {
         pop <- tryCatch({
@@ -638,26 +654,32 @@ facilityTabServer <- function(
           'IDP settlement data is still loading for this district -- please wait a moment and submit again.',
           type = 'warning', duration = 6
         )
-        return(invisible(NULL))
+        return(invisible(FALSE))
       }
       df    <- facility_data()
       seeds <- df |> dplyr::filter(polio_sia_coordination_site == "Yes")
+      if (!is.null(submit_stage_fn)) {
+        # A failed save already showed its own error -- leave the stage
+        # unlocked and unsubmitted so the user can retry.
+        if (isFALSE(submit_stage_fn('facilities', list(odk_sf = rv$odk_sf, app_sf = rv$app_sf))))
+          return(invisible(FALSE))
+        if (!is.null(rv$idp_sf) && nrow(rv$idp_sf) > 0 &&
+            isFALSE(submit_stage_fn('idp', list(idp_settlements = sf::st_drop_geometry(
+              dplyr::mutate(rv$idp_sf, lon = sf::st_coordinates(rv$idp_sf)[, 1],
+                            lat = sf::st_coordinates(rv$idp_sf)[, 2])
+            )))))
+          return(invisible(FALSE))
+      }
       submitted_facilities(seeds)
       editing_locked(TRUE)
-      if (!is.null(submit_stage_fn)) {
-        submit_stage_fn('facilities', list(odk_sf = rv$odk_sf, app_sf = rv$app_sf))
-        if (!is.null(rv$idp_sf) && nrow(rv$idp_sf) > 0)
-          submit_stage_fn('idp', list(idp_settlements = sf::st_drop_geometry(
-            dplyr::mutate(rv$idp_sf, lon = sf::st_coordinates(rv$idp_sf)[, 1],
-                          lat = sf::st_coordinates(rv$idp_sf)[, 2])
-          )))
-      }
-      invisible(NULL)
+      invisible(TRUE)
     }
 
+    # Only moves on once the submit actually happened -- .submit_all()
+    # refuses while IDP data is still loading, and a failed save shouldn't
+    # drop the user into Health Areas with nothing saved behind them.
     .do_submit_and_continue_facilities <- function() {
-      .submit_all()
-      .do_continue_to_areas()
+      if (isTRUE(.submit_all())) .do_continue_to_areas()
     }
 
     observeEvent(input$continue_to_areas, {
@@ -729,26 +751,7 @@ facilityTabServer <- function(
       coordination_sites = coordination_sites,
       odk_sf_r           = reactive(rv$odk_sf),
       app_sf_r           = reactive(rv$app_sf),
-      idp_sf_r           = reactive(rv$idp_sf),
-      restore_from_snapshot = function(snap) {
-        has_data <- (!is.null(snap$odk_sf) && nrow(snap$odk_sf) > 0) ||
-          (!is.null(snap$app_sf)  && nrow(snap$app_sf)  > 0)
-
-        if (has_data) {
-          needs_odk_fetch(FALSE)
-          if (!is.null(snap$odk_sf) && nrow(snap$odk_sf) > 0) rv$odk_sf <- snap$odk_sf
-          if (!is.null(snap$app_sf)  && nrow(snap$app_sf)  > 0) rv$app_sf  <- snap$app_sf
-          showNotification('Facility locations restored.', type = 'message', duration = 2)
-        }
-        if (!is.null(snap$idp_settlements) && nrow(snap$idp_settlements) > 0) {
-          needs_idp_fetch(FALSE)
-          rv$idp_sf <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
-          # Same reasoning as the other restore path above -- restoring
-          # valid data resolves the "is this genuinely empty, or just not
-          # loaded yet" question .submit_all()'s guard depends on.
-          rv$idp_fetch_done <- TRUE
-        }
-      }
+      idp_sf_r           = reactive(rv$idp_sf)
     )
   })
 }

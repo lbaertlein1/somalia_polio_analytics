@@ -5,6 +5,11 @@ app_server <- function(input, output, session) {
   # ===========================================================================
   auth <- authServer('auth')
 
+  # Everything except the login form starts only after a successful sign-in.
+  # The login screen is just an overlay over the UI: server logic set up
+  # before login would still answer inputs sent straight over the
+  # websocket (e.g. Shiny.setInputValue from the browser console) by
+  # someone who never signed in -- opening districts, exporting, saving.
   observeEvent(auth$logged_in, {
     req(isTRUE(auth$logged_in))
     shinyjs::hide('login_screen')
@@ -19,7 +24,13 @@ app_server <- function(input, output, session) {
       session$sendCustomMessage('insert_nav_tab', list(value = 'tab_admin', label = 'Admin'))
       adminTabServer('admin', districts_shp = districts_shp, username_r = reactive(auth$username))
     }
+    main_app_server(input, output, session, auth)
   }, ignoreInit = TRUE, once = TRUE)
+}
+
+# The signed-in app: every tab module and the state shared between them.
+# Called once per session, from app_server() above, after login.
+main_app_server <- function(input, output, session, auth) {
 
   actor_role_r <- reactive(auth$role %||% 'user')
 
@@ -338,6 +349,46 @@ app_server <- function(input, output, session) {
     updateTabsetPanel(session, 'main_tabs', selected = 'tab_team_area_mapping')
   }, ignoreInit = TRUE)
 
+  # ── Health area rename (db_rename_health_area()) -- from either the
+  # Health Areas tab's population table or Overview's Team Areas list.
+  #
+  # Team-area work open for the renamed health area is closed: the Team
+  # Areas tab treats a change of health-area name as switching to a
+  # different area (resets, regenerates), so it's reopened from Overview
+  # under the new name instead. Its saved team areas were already moved
+  # to the new name by the rename itself.
+  .close_team_work_for_renamed <- function(old_name, new_name) {
+    if (!identical(active_team_health_area(), old_name)) return(invisible(NULL))
+    team_area_session$deactivate()
+    active_team_health_area(NULL)
+    showNotification(sprintf('Team areas for "%s" were closed for the rename. Reopen them from Overview → Team Areas.', new_name),
+                     type = 'message', duration = 8)
+  }
+
+  # From the Health Areas tab: rename in the version that tab has open
+  # (draft or published). allow_missing -- a version that hasn't stored
+  # the name yet is fine; the tab's own in-session rename is then saved
+  # on its next submit.
+  rename_open_health_area <- function(old_name, new_name) {
+    db_rename_health_area(pool, active_campaign_id(), active_district(), old_name, new_name,
+                          version_id = health_area_session$version_id(), allow_missing = TRUE)
+    .close_team_work_for_renamed(old_name, new_name)
+  }
+
+  # From Overview (always the published version): if this session has
+  # that same version open in the Health Areas tab, rename it there too,
+  # in place -- not a reload from the DB, which would drop unsaved paint.
+  # Other users' open sessions pick the name up when they next open the
+  # district.
+  observeEvent(intro$health_area_renamed(), {
+    ev <- intro$health_area_renamed()
+    req(!is.null(ev))
+    if (!identical(active_district(), ev$district_name) || !identical(active_campaign_id(), ev$campaign_id)) return()
+    if (identical(health_area_session$version_id(), ev$version_id))
+      health_area$apply_rename(ev$old_name, ev$new_name)
+    .close_team_work_for_renamed(ev$old_name, ev$new_name)
+  }, ignoreInit = TRUE)
+
   # ===========================================================================
   # Orientation
   # ===========================================================================
@@ -419,6 +470,7 @@ app_server <- function(input, output, session) {
     subdivisions_r           = subdivisions_rv,
     settlement_extents_r     = settlement_extents_rv,
     idp_sf_r                 = idp_context_rv,
+    rename_health_area_fn    = rename_open_health_area,
     planning_area_sf_r       = planning_area_sf,
     submit_stage_fn          = function(stage, data) health_area_session$submit_stage(stage, data),
     restore_r                = health_area_session$restore_snapshot,
@@ -490,7 +542,7 @@ app_server <- function(input, output, session) {
   # ===========================================================================
   # Facility restore side-effect — extracting submitted_facilities from a
   # restored health-area snapshot is server.R-specific glue, not something
-  # any single tab's own restore_from_snapshot handles (facility tab reads
+  # any single tab's own restore handles (facility tab reads
   # submitted_facilities as a reactiveVal it doesn't own). Each tab's own
   # restore_r() observer (wired above) handles its own restoration; this is
   # purely the cross-tab side-effect the old server.R also had.
@@ -505,6 +557,10 @@ app_server <- function(input, output, session) {
       if (length(parts) == 0) NULL else do.call(rbind, parts)
     }, error = function(e) NULL)
 
+    # Always replaced, never left as-is: a version with no submitted
+    # coordination sites must clear them, or the PREVIOUS district's sites
+    # would carry over and seed this district's health-area generation.
+    sia <- NULL
     if (!is.null(fac_sf)) {
       fac_df <- facility_sf_to_df(fac_sf)
       sia    <- fac_df[
@@ -512,8 +568,8 @@ app_server <- function(input, output, session) {
           fac_df$polio_sia_coordination_site == 'Yes', ,
         drop = FALSE
       ]
-      if (nrow(sia) > 0) submitted_facilities(sia)
     }
+    submitted_facilities(if (!is.null(sia) && nrow(sia) > 0) sia else NULL)
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
   # ===========================================================================
@@ -615,3 +671,7 @@ app_server <- function(input, output, session) {
     }
   }, ignoreInit = TRUE)
 }
+
+# Shiny uses the value of server.R as the server function when it runs
+# ui.R/server.R directly, so app_server (not main_app_server) must come last.
+app_server

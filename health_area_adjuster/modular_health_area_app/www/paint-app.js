@@ -438,6 +438,59 @@ function buildAreaMembershipTester(areaRings, vertexPos) {
   };
 }
 
+// The reverse of buildAreaGeojson(): rebuilds the vertex model (vertexPos,
+// areaRings, outerVertexIds) from refined boundaries saved earlier, so a
+// new refinement session can continue from them instead of re-tracing the
+// painted grid. Neighbouring areas' shared borders were written out from
+// the SAME vertices, so identical coordinates on both sides are mapped back
+// to one shared vertex id -- that's what keeps a dragged shared vertex
+// moving both areas together. Rings are normalised to this file's winding
+// convention (exterior positive signed area, holes negative).
+// sharedEdgeCount lets the caller reject input whose borders don't line up.
+function buildVertexModelFromGeojson(gj, areaKey) {
+  const vertexPos = {}, idByKey = {}, areaRings = {};
+  let next = 0;
+  const vid = (lng, lat) => {
+    const k = lng + ',' + lat;
+    let id = idByKey[k];
+    if (id === undefined) { id = 'g' + (next++); idByKey[k] = id; vertexPos[id] = { lat: lat, lng: lng }; }
+    return id;
+  };
+  ((gj && gj.features) || []).forEach(f => {
+    const area = f.properties && f.properties[areaKey];
+    const g = f.geometry;
+    if (!area || !g) return;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : (g.type === 'MultiPolygon' ? g.coordinates : []);
+    polys.forEach(poly => poly.forEach((coords, ringIdx) => {
+      const ring = [];
+      coords.forEach(([lng, lat]) => { const id = vid(lng, lat); if (ring[ring.length - 1] !== id) ring.push(id); });
+      if (ring.length > 1 && ring[0] === ring[ring.length - 1]) ring.pop();
+      if (ring.length < 3) return;
+      ring.push(ring[0]);
+      const signed = signedRingArea(ring, vertexPos);
+      if ((ringIdx === 0 && signed < 0) || (ringIdx > 0 && signed > 0)) ring.reverse();
+      (areaRings[area] = areaRings[area] || []).push(ring);
+    }));
+  });
+
+  // Same outer/interior classification as simplifyVertexBoundary(): an
+  // edge only one area uses is outer boundary (locked).
+  const edgeAreas = {};
+  Object.keys(areaRings).forEach(a => areaRings[a].forEach(r => {
+    for (let i = 0; i < r.length - 1; i++) {
+      const key = [r[i], r[i + 1]].sort().join('|');
+      (edgeAreas[key] = edgeAreas[key] || new Set()).add(a);
+    }
+  }));
+  const outerVertexIds = new Set();
+  let sharedEdgeCount = 0;
+  Object.keys(edgeAreas).forEach(key => {
+    if (edgeAreas[key].size <= 1) key.split('|').forEach(v => outerVertexIds.add(v));
+    else sharedEdgeCount++;
+  });
+  return { vertexPos, areaRings, outerVertexIds, sharedEdgeCount };
+}
+
 function buildAreaGeojson(areaRings, vertexPos, areaNamePropertyKey) {
   areaNamePropertyKey = areaNamePropertyKey || 'dfa_name';
   const features = [];
@@ -693,6 +746,22 @@ function getApp(msg) {
       landmarkLayer: null,
       brushPreview: null,
       isPainting: false,
+      // Counts every change to the painted assignments (strokes, undo,
+      // reset); restarts at 0 with each loadScene(). Sent with every
+      // assignments/vertex-geojson report so R can tell "repainted since
+      // the current boundaries were made" from "just reselected an area" --
+      // see the capture handling in mod_health_area_tab.R. Deliberately NOT
+      // bumped when leaving refinement (exitVertexMode), which re-derives
+      // cells from the refined shapes rather than repainting.
+      paintEpoch: 0,
+      // paintEpoch at which the boundaries on the map (savedLayer) are
+      // REFINED ones (set by R via loadScene's savedRefined / showSaved's
+      // refined flag), else null. While paintEpoch still equals it,
+      // nothing has been painted since, so the map shows those refined
+      // boundaries as-is: grid cells hidden, the selected area highlighted
+      // on its refined shape (see showingRefined()). The first change to
+      // the painting switches back to the normal grid view.
+      refinedEpoch: null,
       assignments: {},
       initialAssignments: {},
       dfaColors: {},
@@ -780,7 +849,37 @@ function getApp(msg) {
     this.vertexSmoothness = opts.smoothness || this.vertexSmoothness || 2;
     this.vertexStiffness = opts.stiffness || this.vertexStiffness || 6;
     this.vertexSnapTolerance = opts.snapTolerance || this.vertexSnapTolerance || 20;
-    this._applyVertexParams();
+    // Checked BEFORE anything below changes state: refined boundaries are
+    // on the map and nothing has been painted since.
+    const continueFromRefined = this.showingRefined() && !!this._savedGeojsonRaw;
+    this._applyVertexParams();   // grid trace: always built (engine constants, fallback)
+
+    // Continue from the earlier refinement instead of the fresh grid trace.
+    this._refinedStartModel = null;
+    if (continueFromRefined) {
+      try {
+        const m = buildVertexModelFromGeojson(this._savedGeojsonRaw, this.vertexAreaNameKey || 'dfa_name');
+        const nAreas = Object.keys(m.areaRings).length;
+        // Usable only if neighbouring borders actually line up (shared
+        // edges exist whenever there's more than one area); otherwise
+        // stay on the grid trace rather than hand over a broken model.
+        if (nAreas > 0 && (nAreas < 2 || m.sharedEdgeCount > 0)) {
+          this.vertexPos = m.vertexPos;
+          this.areaRings = m.areaRings;
+          this.outerVertexIds = m.outerVertexIds;
+          this.outerRings = buildOuterRingsFromModel(this.areaRings, this.outerVertexIds);
+          // Reset inside this session returns here, not to the grid trace.
+          this._refinedStartModel = this._snapshotVertexState();
+          this.vertexUndoStack = [];
+          this.emitVertexUndoCount();
+          this._rebuildEngineOnly();
+        } else {
+          console.warn('[refine] saved boundaries have no shared borders -- starting from the grid trace');
+        }
+      } catch (err) {
+        console.error('[refine] could not continue from saved refinement -- starting from the grid trace', err);
+      }
+    }
 
     this.mode = 'vertex';
     this._hidePaintLayersForVertexMode();
@@ -843,6 +942,14 @@ function getApp(msg) {
   // its checkpoints are meaningful once the whole edit history is wiped.
   resetVertexEdits: function() {
     if (!this._rawIdRingsByArea) return;
+    // Continuing an earlier refinement: reset to where this session
+    // started (that refinement), not all the way back to the grid trace.
+    if (this._refinedStartModel) {
+      this._restoreVertexSnapshot(JSON.parse(JSON.stringify(this._refinedStartModel)));
+      this.vertexUndoStack = [];
+      this.emitVertexUndoCount();
+      return;
+    }
     this._applyVertexParams();
   },
 
@@ -931,6 +1038,9 @@ function getApp(msg) {
   setVertexSmoothness: function(n) {
     if (!this._rawIdRingsByArea) return;
     this.vertexSmoothness = n;
+    // Re-derives from the grid trace (see above), so an earlier
+    // refinement this session continued from no longer applies.
+    this._refinedStartModel = null;
     this._applyVertexParams();
   },
 
@@ -1477,7 +1587,7 @@ function getApp(msg) {
     const geojson = buildAreaGeojson(this.areaRings, this.vertexPos, this.vertexAreaNameKey || 'dfa_name');
     Shiny.setInputValue(
       this.vertexGeojsonInputId || (this.assignmentsInputId + '_vertex_geojson'),
-      { geojson: JSON.stringify(geojson), nonce: Date.now() },
+      { geojson: JSON.stringify(geojson), epoch: this.paintEpoch, nonce: Date.now() },
       { priority: 'event' }
     );
   },
@@ -1660,9 +1770,58 @@ function getApp(msg) {
         return '#000000';
       },
 
+      showingRefined: function() {
+        return this.refinedEpoch !== null && this.refinedEpoch === this.paintEpoch && !!this.savedLayer;
+      },
+
+      // Style for one saved-boundary polygon. In the refined view the
+      // selected area also gets a light fill, since its grid cells (the
+      // usual selection highlight) are hidden.
+      savedStyleFor: function(nm) {
+        const highlight = this.showingRefined() && nm === this.activeDfa;
+        return {
+          color: this.borderColorForDfa(nm),
+          weight: 2.5,
+          opacity: 1,
+          dashArray: null,
+          fill: highlight,
+          fillColor: '#FFD400',
+          fillOpacity: highlight ? 0.25 : 0
+        };
+      },
+
+      restyleSaved: function() {
+        if (!this.savedLayer) return;
+        this.savedLayer.eachLayer((layer) => {
+          const nm = layer.feature.properties && layer.feature.properties.dfa_name;
+          layer.setStyle(this.savedStyleFor(nm));
+        });
+      },
+
+      // Called after any change to the painting: if that change just ended
+      // the refined view, every cell (and the saved layer) needs restyling,
+      // not only the cells that changed.
+      _afterPaintChange: function(wasRefinedView, changedIds) {
+        if (wasRefinedView && !this.showingRefined()) {
+          this.refreshAllStyles();
+          this.restyleSaved();
+        } else if (changedIds) {
+          this.refreshCellsAndNeighbors(changedIds);
+        }
+      },
+
       styleForFeature: function(feature) {
         const id = String(feature.properties.cell_id);
         const dfa = this.assignments[id];
+
+        // Refined boundaries are current and nothing's been painted since:
+        // the grid stays hidden (its cells only approximate the refined
+        // shapes, which made selecting an area look like the boundaries
+        // had reverted to painted ones).
+        if (this.showingRefined()) {
+          return { stroke: false, color: '#000000', weight: 0, opacity: 0,
+                  fillColor: '#757575', fillOpacity: 0 };
+        }
 
         // Not yet assigned (mid wave-reveal animation, before propagation
         // has reached this cell) -- fully transparent and borderless,
@@ -1768,6 +1927,7 @@ function getApp(msg) {
       paintCells: function(cellIds) {
         const dfa = this.activeDfa;
         if (!dfa || !cellIds || cellIds.length === 0) return;
+        const wasRefinedView = this.showingRefined();
         for (let i = 0; i < cellIds.length; i++) {
           const id = String(cellIds[i]);
           // Record this cell's pre-stroke value the FIRST time this
@@ -1788,9 +1948,10 @@ function getApp(msg) {
               this._strokeChanges[id] = this.assignments[id];
             }
             this.assignments[id] = dfa;
+            this.paintEpoch++;
           }
         }
-        this.refreshCellsAndNeighbors(cellIds);
+        this._afterPaintChange(wasRefinedView, cellIds);
       },
 
       // Bucket size chosen as a balance between "too many buckets to
@@ -1886,6 +2047,36 @@ function getApp(msg) {
           delete this.dfaColors[oldName];
         }
         if (this.activeDfa === oldName) this.activeDfa = newName;
+        // Undo history too: its entries hold each cell's pre-stroke area
+        // name, and undoing a pre-rename stroke must restore the NEW name
+        // -- the old one no longer exists on the R side, which would then
+        // reject every later assignments update as stale.
+        const renameIn = (diff) => {
+          if (!diff) return;
+          Object.keys(diff).forEach(cid => { if (diff[cid] === oldName) diff[cid] = newName; });
+        };
+        (this.undoStack || []).forEach(renameIn);
+        renameIn(this._strokeChanges);
+        // ...and the Reset baseline, for the same reason.
+        renameIn(this.initialAssignments);
+        // Refinement mode keys its rings by area name; buildAreaGeojson()
+        // writes those keys out as each area's name. (Rename is blocked in
+        // the UI while refining, so this is a backstop, not the main path.)
+        [this.areaRings, this._rawIdRingsByArea, this._refinedStartModel && this._refinedStartModel.areaRings].forEach(rings => {
+          if (rings && Object.prototype.hasOwnProperty.call(rings, oldName)) {
+            rings[newName] = rings[oldName];
+            delete rings[oldName];
+          }
+        });
+        // The drawn boundaries carry the name too (used for their styling
+        // and the selected-area highlight).
+        if (this.savedLayer) {
+          this.savedLayer.eachLayer((layer) => {
+            const p = layer.feature && layer.feature.properties;
+            if (p && p.dfa_name === oldName) p.dfa_name = newName;
+          });
+          this.restyleSaved();
+        }
         // Seed-point markers carry a permanent tooltip showing the area
         // name directly on the map -- these are a separate layer from
         // cell assignments, so they don't update on their own.
@@ -1938,6 +2129,7 @@ function getApp(msg) {
         // their neighbors (refreshCellsAndNeighbors, already used for
         // painting itself) instead of every cell in the district via
         // refreshAllStyles.
+        const wasRefinedView = this.showingRefined();
         const diff = this.undoStack.pop();
         const changedIds = Object.keys(diff);
         changedIds.forEach((id) => {
@@ -1947,7 +2139,8 @@ function getApp(msg) {
             this.assignments[id] = diff[id];
           }
         });
-        this.refreshCellsAndNeighbors(changedIds);
+        this.paintEpoch++;
+        this._afterPaintChange(wasRefinedView, changedIds);
         this.emitUndoCount();
       },
 
@@ -2273,6 +2466,11 @@ function getApp(msg) {
 
         this.cellLayers = {};
         this.centroids = {};
+        // Rebuilt by loadScene() for each scene; left uncleared, every
+        // reload re-added every cell (strokes slowing down over a session)
+        // and ids from an older, larger grid could point at no centroid.
+        this._spatialBuckets = {};
+        this._savedGeojsonRaw = null;
         this.neighbors = {};
         this.edgeCells = {};
       },
@@ -2327,19 +2525,7 @@ function getApp(msg) {
         this.dfaColors = colorsObj || {};
         this.activeDfa = activeDfa || null;
         this.refreshAllStyles();
-
-        if (this.savedLayer) {
-          this.savedLayer.eachLayer((layer) => {
-            const nm = layer.feature.properties && layer.feature.properties.dfa_name;
-            layer.setStyle({
-              color: this.borderColorForDfa(nm),
-              weight: 2.5,
-              opacity: 1,
-              dashArray: null,
-              fill: false
-            });
-          });
-        }
+        this.restyleSaved();
       },
 
       loadScene: function(msg) {
@@ -2360,6 +2546,8 @@ function getApp(msg) {
         // freshly loaded/restored scene wouldn't make sense.
         this.undoStack = [];
         this._strokeChanges = null;
+        this.paintEpoch = 0;
+        this.refinedEpoch = msg.savedRefined ? 0 : null;
         if (msg.undoCountInputId) this.undoCountInputId = msg.undoCountInputId;
         this.emitUndoCount();
 
@@ -2435,18 +2623,18 @@ function getApp(msg) {
 
         if (msg.savedGeojson) {
           const savedGeo = (typeof msg.savedGeojson === 'string') ? JSON.parse(msg.savedGeojson) : msg.savedGeojson;
+          // Kept as-is (full precision) for continuing a refinement from
+          // these boundaries -- see buildVertexModelFromGeojson().
+          this._savedGeojsonRaw = savedGeo;
           this.savedLayer = L.geoJSON(savedGeo, {
-            style: (feature) => {
-              const nm = feature.properties && feature.properties.dfa_name;
-              return {
-                color: this.borderColorForDfa(nm),
-                weight: 2.5,
-                opacity: 1,
-                dashArray: null,
-                fill: false
-              };
-            }
+            style: (feature) => this.savedStyleFor(feature.properties && feature.properties.dfa_name)
           }).addTo(this.map);
+          // The grid was styled above, before savedLayer existed (so before
+          // showingRefined() could be true) -- restyle for the refined view.
+          if (this.showingRefined()) {
+            this.refreshAllStyles();
+            this.restyleSaved();
+          }
         }
 
         if (this.popLayer && msg.showPop && this.popLayer.bringToFront) {
@@ -2521,6 +2709,7 @@ function getApp(msg) {
                      '-> dfaColors[dfa]', JSON.stringify(this.dfaColors[updates[sampleId]]),
                      '| dfaColors keys:', JSON.stringify(Object.keys(this.dfaColors)));
         }
+        if (ids.length > 0) this.paintEpoch++;
         ids.forEach((id) => {
           this.assignments[id] = updates[id];
           const layer = this.cellLayers[id];
@@ -2545,6 +2734,8 @@ function getApp(msg) {
           this.pushUndo(JSON.parse(beforeStr));
         }
         this.assignments = JSON.parse(JSON.stringify(this.initialAssignments));
+        this.paintEpoch++;
+        this.refinedEpoch = null;
         this.refreshAllStyles();
         if (this.savedLayer) {
           this.map.removeLayer(this.savedLayer);
@@ -2555,38 +2746,37 @@ function getApp(msg) {
       emitAssignments: function() {
         Shiny.setInputValue(
           this.assignmentsInputId,
-          { assignments: this.assignments, nonce: Date.now() },
+          { assignments: this.assignments, epoch: this.paintEpoch, nonce: Date.now() },
           { priority: 'event' }
         );
       },
 
-      showSaved: function(geojsonText) {
+      // refined/epoch: whether these are refined boundaries, and the paint
+      // count they correspond to (see refinedEpoch). Omitted = not refined.
+      showSaved: function(geojsonText, refined, epoch) {
         if (!this.map) return;
 
         if (this.savedLayer) {
           this.map.removeLayer(this.savedLayer);
           this.savedLayer = null;
         }
+        this.refinedEpoch = refined ? (typeof epoch === 'number' ? epoch : this.paintEpoch) : null;
+        this._savedGeojsonRaw = null;
 
         if (!geojsonText) {
+          this.refreshAllStyles();
           this.bringPointLayersToFront();
           return;
         }
 
         const gj = (typeof geojsonText === 'string') ? JSON.parse(geojsonText) : geojsonText;
+        this._savedGeojsonRaw = gj;
         this.savedLayer = L.geoJSON(gj, {
-          style: (feature) => {
-            const nm = feature.properties && feature.properties.dfa_name;
-            return {
-              color: this.borderColorForDfa(nm),
-              weight: 2.5,
-              opacity: 1,
-              dashArray: null,
-              fill: false
-            };
-          }
+          style: (feature) => this.savedStyleFor(feature.properties && feature.properties.dfa_name)
         }).addTo(this.map);
 
+        // Grid visibility depends on whether these are refined boundaries.
+        this.refreshAllStyles();
         this.bringPointLayersToFront();
       }
     };
@@ -2646,9 +2836,14 @@ function getApp(msg) {
       // "this is working" state, even though the underlying block
       // itself is unchanged.
       showLoading({ loadingOverlayId: app.loadingOverlayId });
+      // try/finally: if the work throws, the overlay must still come down,
+      // or the map stays covered until the page is reloaded.
       setTimeout(() => {
-        app.enterVertexMode({ smoothness: msg.smoothness, stiffness: msg.stiffness });
-        hideLoading({ loadingOverlayId: app.loadingOverlayId });
+        try {
+          app.enterVertexMode({ smoothness: msg.smoothness, stiffness: msg.stiffness });
+        } finally {
+          hideLoading({ loadingOverlayId: app.loadingOverlayId });
+        }
       }, 0);
     });
 
@@ -2681,8 +2876,7 @@ function getApp(msg) {
       // screen before the block starts, rather than an unexplained freeze.
       showLoading({ loadingOverlayId: app.loadingOverlayId });
       setTimeout(() => {
-        app.saveVertexBoundaryEdits();
-        hideLoading({ loadingOverlayId: app.loadingOverlayId });
+        try { app.saveVertexBoundaryEdits(); } finally { hideLoading({ loadingOverlayId: app.loadingOverlayId }); }
       }, 0);
     });
 
@@ -2693,8 +2887,7 @@ function getApp(msg) {
       // own path to it.
       showLoading({ loadingOverlayId: app.loadingOverlayId });
       setTimeout(() => {
-        app.runCleanUpBoundaries();
-        hideLoading({ loadingOverlayId: app.loadingOverlayId });
+        try { app.runCleanUpBoundaries(); } finally { hideLoading({ loadingOverlayId: app.loadingOverlayId }); }
       }, 0);
     });
 
@@ -2719,7 +2912,7 @@ function getApp(msg) {
     });
 
     Shiny.addCustomMessageHandler('paint_show_saved', function(msg) {
-      getApp(msg).showSaved(msg.geojson);
+      getApp(msg).showSaved(msg.geojson, msg.refined, msg.epoch);
     });
 
     Shiny.addCustomMessageHandler('paint_toggle_population', function(msg) {

@@ -3,8 +3,9 @@
 #
 # Fetches urban subdivision polygons from the ArcGIS FeatureServer for the
 # selected district. Results are clipped to the district boundary, cached
-# per district within the session, and used to offer subdivision-level
-# planning areas on the intro tab.
+# per district within the session, and used as a context layer on every
+# map, the printable PDF and the boundary download (plus soft barriers
+# for health-area generation, via subdivisions_to_boundary_lines()).
 #
 # Source:
 #   https://services.arcgis.com/5T5nSi527N4F7luB/ArcGIS/rest/services/
@@ -20,9 +21,6 @@ ARCGIS_SUBDIVISIONS_URL <- paste0(
   "som_city_sections_2026v1/FeatureServer/0/query"
 )
 
-# Minimum area (m²) for the remainder polygon to be offered as a planning
-# option. Remainders smaller than this are treated as boundary slivers.
-REMAINDER_MIN_AREA_M2 <- 1e6   # 1 km²
 
 # Session-level cache keyed by district_name
 .subdivision_cache <- new.env(parent = emptyenv())
@@ -261,112 +259,6 @@ fetch_settlement_extents_for_district <- function(district_sf) {
 
 
 # -----------------------------------------------------------------------------
-# compute_remainder()
-#
-# Returns an sf row representing the district area not covered by the
-# subdivision union, or NULL if that area is smaller than REMAINDER_MIN_AREA_M2
-# (i.e. the subdivisions effectively cover the full district, or any gap is
-# just a boundary sliver).
-# -----------------------------------------------------------------------------
-compute_remainder <- function(district_sf, subdivisions_sf) {
-  
-  if (is.null(subdivisions_sf) || nrow(subdivisions_sf) == 0) return(NULL)
-  
-  tryCatch({
-    district_geom <- district_sf |>
-      sf::st_transform(3857) |>
-      sf::st_union() |>
-      sf::st_make_valid()
-    
-    subdiv_union <- subdivisions_sf |>
-      sf::st_transform(3857) |>
-      sf::st_union() |>
-      sf::st_make_valid()
-    
-    remainder_geom <- sf::st_difference(district_geom, subdiv_union)
-    remainder_geom <- sf::st_make_valid(remainder_geom)
-    
-    # Extract polygons only (st_difference can return GEOMETRYCOLLECTION)
-    remainder_geom <- tryCatch(
-      sf::st_collection_extract(remainder_geom, "POLYGON"),
-      error = function(e) remainder_geom
-    )
-    
-    area_m2 <- as.numeric(sf::st_area(remainder_geom))
-    
-    if (length(area_m2) == 0 || sum(area_m2, na.rm = TRUE) < REMAINDER_MIN_AREA_M2) {
-      cat("[subdivisions] remainder too small (<", REMAINDER_MIN_AREA_M2 / 1e6, "km²), not offering\n")
-      return(NULL)
-    }
-    
-    remainder_sf <- sf::st_as_sf(
-      data.frame(subdivision_name = "District area outside subdivisions"),
-      geometry = sf::st_sfc(sf::st_union(remainder_geom), crs = 3857)
-    ) |>
-      sf::st_transform(4326)
-    
-    cat("[subdivisions] remainder area:", round(sum(area_m2) / 1e6, 1), "km²\n")
-    remainder_sf
-    
-  }, error = function(e) {
-    warning("[subdivisions] remainder computation failed: ", conditionMessage(e))
-    NULL
-  })
-}
-
-
-# -----------------------------------------------------------------------------
-# build_planning_area_sf()
-#
-# Returns the effective planning polygon as an sf object given the user's
-# selection. district_sf is always the fallback for "Full district".
-# -----------------------------------------------------------------------------
-build_planning_area_sf <- function(
-    selection,          # character: subdivision_name, "Full district", or
-    #            "District area outside subdivisions"
-    district_sf,
-    subdivisions_sf,
-    remainder_sf
-) {
-  if (is.null(selection) || !nzchar(selection) ||
-      selection == "Full district") {
-    return(district_sf |> sf::st_transform(4326))
-  }
-  
-  if (selection == "District area outside subdivisions") {
-    if (!is.null(remainder_sf)) return(remainder_sf)
-    warning("[subdivisions] remainder requested but not available; falling back to full district")
-    return(district_sf |> sf::st_transform(4326))
-  }
-  
-  # Named subdivision
-  row <- subdivisions_sf[subdivisions_sf$subdivision_name == selection, ,
-                         drop = FALSE]
-  if (nrow(row) == 1) return(row)
-  
-  warning("[subdivisions] subdivision '", selection, "' not found; falling back to full district")
-  district_sf |> sf::st_transform(4326)
-}
-
-
-# -----------------------------------------------------------------------------
-# make_planning_label()
-#
-# Builds the combined label used as the DB key and in filenames.
-# "Kismayo" + "Farjano"     -> "Kismayo — Farjano"
-# "Kismayo" + "Full district" -> "Kismayo"
-# -----------------------------------------------------------------------------
-make_planning_label <- function(district_name, subdivision_name) {
-  if (is.null(subdivision_name) ||
-      !nzchar(subdivision_name) ||
-      subdivision_name == "Full district") {
-    return(district_name)
-  }
-  paste0(district_name, " \u2014 ", subdivision_name)
-}
-
-
-# -----------------------------------------------------------------------------
 # subdivisions_to_boundary_lines()
 #
 # Extracts the interior subdivision boundary lines from a subdivisions sf
@@ -428,93 +320,3 @@ subdivisions_to_boundary_lines <- function(subdivisions_sf) {
 }
 
 
-# -----------------------------------------------------------------------------
-# compute_urban_hull()
-#
-# Returns the union of all subdivision polygons (dissolved into one geometry),
-# clipped to the district boundary. This is the "Urban" planning unit.
-# Uses direct union — no convex hull — so islands are preserved as-is.
-# Returns an sf polygon or NULL on error.
-# -----------------------------------------------------------------------------
-compute_urban_hull <- function(subdivisions_sf, district_sf) {
-  if (is.null(subdivisions_sf) || nrow(subdivisions_sf) == 0) return(NULL)
-  tryCatch({
-    subdiv_3857 <- subdivisions_sf |>
-      sf::st_transform(3857) |>
-      sf::st_make_valid()
-    
-    district_3857 <- district_sf |>
-      sf::st_transform(3857) |>
-      sf::st_union() |>
-      sf::st_make_valid()
-    
-    # Direct union of subdivisions (no convex hull — islands preserved)
-    urban_union <- sf::st_union(subdiv_3857) |>
-      sf::st_make_valid()
-    
-    # Clip to district boundary
-    urban <- sf::st_intersection(urban_union, district_3857) |>
-      sf::st_make_valid()
-    
-    urban <- tryCatch(
-      sf::st_collection_extract(urban, "POLYGON"),
-      error = function(e) urban
-    )
-    
-    cat("[planning_unit] urban area computed,",
-        round(as.numeric(sf::st_area(urban)) / 1e6, 1), "km²\n")
-    
-    sf::st_as_sf(
-      data.frame(planning_unit = "Urban"),
-      geometry = sf::st_sfc(sf::st_union(urban), crs = 3857)
-    ) |> sf::st_transform(4326)
-  }, error = function(e) {
-    warning("[planning_unit] urban area failed: ", conditionMessage(e))
-    NULL
-  })
-}
-
-
-# -----------------------------------------------------------------------------
-# compute_rural_remainder()
-#
-# Returns the district polygon minus the urban hull — the "Rural" planning unit.
-# Returns an sf polygon or NULL if the remainder is negligible (<1 km²).
-# -----------------------------------------------------------------------------
-compute_rural_remainder <- function(district_sf, urban_hull_sf) {
-  if (is.null(urban_hull_sf)) return(NULL)
-  tryCatch({
-    district_3857 <- district_sf |>
-      sf::st_transform(3857) |>
-      sf::st_union() |>
-      sf::st_make_valid()
-    
-    urban_3857 <- urban_hull_sf |>
-      sf::st_transform(3857) |>
-      sf::st_union() |>
-      sf::st_make_valid()
-    
-    rural <- sf::st_difference(district_3857, urban_3857) |>
-      sf::st_make_valid()
-    
-    rural <- tryCatch(
-      sf::st_collection_extract(rural, "POLYGON"),
-      error = function(e) rural
-    )
-    
-    area_m2 <- sum(as.numeric(sf::st_area(rural)), na.rm = TRUE)
-    if (area_m2 < 1e6) {
-      cat("[planning_unit] rural remainder too small (<1 km²), not offering\n")
-      return(NULL)
-    }
-    
-    # st_union above already ensures a single geometry; wrap in sf with one row
-    sf::st_as_sf(
-      data.frame(planning_unit = "Rural"),
-      geometry = sf::st_sfc(sf::st_union(rural), crs = 3857)
-    ) |> sf::st_transform(4326)
-  }, error = function(e) {
-    warning("[planning_unit] rural remainder failed: ", conditionMessage(e))
-    NULL
-  })
-}

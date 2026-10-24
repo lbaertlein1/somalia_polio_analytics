@@ -95,7 +95,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   .write_sf <- function(sf_obj, fname) {
     if (is.null(sf_obj) || nrow(sf_obj) == 0) return(invisible(NULL))
     out <- sf_obj |>
-      dplyr::mutate(zone_name = zone, region_name = region, district_name = district_name) |>
+      dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name) |>
       sf::st_transform(4326)
     sf::st_write(out, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
   }
@@ -214,7 +214,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   .write_points_df <- function(df, fname) {
     if (is.null(df) || nrow(df) == 0 || !all(c('lon', 'lat') %in% names(df))) return(invisible(NULL))
     pts <- sf::st_as_sf(df, coords = c('lon', 'lat'), crs = 4326, remove = FALSE) |>
-      dplyr::mutate(zone_name = zone, region_name = region, district_name = district_name)
+      dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name)
     sf::st_write(pts, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
   }
   .write_points_df(snap$idp_settlements, paste0('idp_settlements.', spec$ext))
@@ -229,7 +229,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     fac_sf <- do.call(rbind, fac_parts)
     fac_out <- sf::st_drop_geometry(fac_sf) |>
       dplyr::mutate(
-        zone_name = zone, region_name = region, district_name = district_name,
+        zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name,
         lon = sf::st_coordinates(fac_sf)[, 1], lat = sf::st_coordinates(fac_sf)[, 2]
       ) |>
       dplyr::select(zone_name, region_name, district_name,

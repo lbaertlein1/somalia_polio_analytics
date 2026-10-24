@@ -136,41 +136,6 @@ show_help_modal <- function(session, campaign_id = NULL) {
   )
 }
 
-calc_grid_limits <- function(max_dim_m) {
-  min_n_raw <- clamp_num(max_dim_m / 350, 100, 300)
-  max_n_raw <- clamp_num(max_dim_m / 120, 140, 350)
-  
-  min_n <- floor(min_n_raw)
-  max_n <- ceiling(max_n_raw)
-  
-  if (max_n <= min_n) {
-    max_n <- min_n + 20
-  }
-  
-  range_n <- max_n - min_n
-  step_n <- round(range_n * 0.10)
-  step_n <- clamp_num(step_n, 2, 20)
-  
-  if (step_n <= 5) {
-    step_n <- 1
-  } else if (step_n <= 10) {
-    step_n <- 2
-  } else if (step_n <= 20) {
-    step_n <- 5
-  } else {
-    step_n <- 10
-  }
-  
-  default_n <- round(min_n + 0.40 * (max_n - min_n))
-  
-  list(
-    min = as.integer(min_n),
-    max = as.integer(max_n),
-    value = as.integer(default_n),
-    step = as.integer(step_n)
-  )
-}
-
 calc_brush_limits <- function(max_dim_m) {
   min_b <- round_to_step(clamp_num(max_dim_m * 0.02, 50, 10000), brush_step_m)
   max_b <- round_to_step(clamp_num(max_dim_m * 0.18, 50, 10000), brush_step_m)
@@ -353,52 +318,6 @@ build_dfa_polygons_from_assignments <- function(grid_sf, assignments, district_s
     dplyr::select(dfa_name, geometry)
 }
 
-
-smooth_dfa_boundaries <- function(dfa_sf, district_sf, iterations = 1) {
-  dfa_sf <- safe_make_valid(dfa_sf)
-  
-  # Normalise CRS
-  if (!identical(sf::st_crs(dfa_sf), sf::st_crs(district_sf)))
-    district_sf <- sf::st_transform(district_sf, sf::st_crs(dfa_sf))
-  
-  dfa_sf <- rmapshaper::ms_smooth(
-    dfa_sf,
-    method = "chaikin",
-    iterations = iterations
-  )
-  
-  # Same tibble-vs-st_intersection() bug as build_dfa_polygons_from_
-  # assignments() above -- ms_smooth() can hand back (or simply pass
-  # through) a tibble-classed sf object, and the intersection below can
-  # legitimately split one smoothed health-area shape into multiple
-  # disjoint pieces against district_sf, which a tibble-backed object
-  # can fail on (vctrs row-recycling error) where a plain data.frame-
-  # backed one won't. See that function's own comment for the full
-  # explanation; not re-verified as ms_smooth()'s specific output class,
-  # but stripping these classes is harmless either way.
-  class(dfa_sf) <- setdiff(class(dfa_sf), c('tbl_df', 'tbl'))
-  
-  dfa_sf <- suppressWarnings(sf::st_intersection(dfa_sf, district_sf))
-  dfa_sf <- safe_make_valid(dfa_sf)
-  dfa_sf <- tryCatch(sf::st_collection_extract(dfa_sf, 'POLYGON'), error = function(e) dfa_sf)
-  dfa_sf$geometry <- sf::st_cast(dfa_sf$geometry, "MULTIPOLYGON", warn = FALSE)
-  
-  dfa_sf
-}
-
-make_dfa_label_points <- function(dfa_sf) {
-  if (is.null(dfa_sf) || nrow(dfa_sf) == 0) return(NULL)
-  
-  pts <- suppressWarnings(st_point_on_surface(dfa_sf))
-  coords <- st_coordinates(pts)
-  
-  data.frame(
-    dfa_name = dfa_sf$dfa_name,
-    lon = coords[, 1],
-    lat = coords[, 2],
-    stringsAsFactors = FALSE
-  )
-}
 
 load_worldpop_u5_raster <- function(t_u1_1to4_file) {
   t_path <- path.expand(t_u1_1to4_file)

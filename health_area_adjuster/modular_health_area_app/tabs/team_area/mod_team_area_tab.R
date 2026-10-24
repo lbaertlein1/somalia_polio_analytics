@@ -440,13 +440,15 @@ teamAreaTabServer <- function(
         # pattern as mod_health_area_tab.R's own team-targets "Done"
         # handler re-submitting after its own modal.
         if (!is.null(submit_stage_fn) && !is.null(rv$saved_team_sf)) {
-          submit_stage_fn(list(
+          ok <- submit_stage_fn(list(
             saved_team_sf             = rv$saved_team_sf,
             team_names                = rv$team_names,
             current_team_assignments  = setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id)),
             smoothed_team_sf          = rv$smoothed_team_sf,
             team_field_pop_overrides  = rv$team_field_pop_overrides
           ))
+          # Don't offer to publish a version whose save just failed.
+          if (isFALSE(ok)) { removeModal(); return() }
         }
         # Back-calculation to the health area's OWN field target
         # deliberately does NOT happen here -- this is still just a
@@ -926,6 +928,12 @@ teamAreaTabServer <- function(
       # the brief window before recompute_population_table() reruns.
       rv$team_field_pop_overrides <- list()
       rv$pop_table <- NULL
+      # The previous health area's grid as well -- otherwise the restore
+      # observer below applied the NEW health area's saved draft onto the
+      # OLD grid, set restore_applied, and the scene rebuild then skipped
+      # building this health area's own grid entirely (the same "shows the
+      # first one's data" bug as above, for a health area with a draft).
+      rv$grid_sf <- NULL
     }, ignoreInit = TRUE)
 
     .apply_restore <- function(snap) {
@@ -947,7 +955,9 @@ teamAreaTabServer <- function(
       snap <- restore_r()
       req(!is.null(snap))
       if (!is.null(rv$grid_sf)) .apply_restore(snap) else pending_restore(snap)
-    }, ignoreNULL = TRUE, ignoreInit = TRUE)
+      # priority = -1: runs after the health_area_name() reset above when
+      # both fire together (opening a different health area's team areas).
+    }, ignoreNULL = TRUE, ignoreInit = TRUE, priority = -1)
 
     # Was observeEvent(team_scene_mod$scene(), {...}, ignoreInit = TRUE) --
     # replaced with observe()+isolate() after confirming directly that
@@ -1312,7 +1322,7 @@ teamAreaTabServer <- function(
             setNames(vals, nms)
           }, error = function(e) list())
 
-          submit_stage_fn(list(
+          ok <- submit_stage_fn(list(
             saved_team_sf             = rv$saved_team_sf,
             team_names                = rv$team_names,
             current_team_assignments  = setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id)),
@@ -1326,6 +1336,9 @@ teamAreaTabServer <- function(
             team_field_pop_overrides = rv$team_field_pop_overrides,
             team_worldpop_pop         = team_worldpop_list
           ))
+          # A failed save already showed its own error; stop here rather
+          # than continuing to the population/publish prompts.
+          if (isFALSE(ok)) { pending_action(NULL); return() }
           # Field population entry happens HERE, after this submit, the
           # same way mod_health_area_tab.R's own field-target modal
           # appears right after its submit -- not as an always-editable

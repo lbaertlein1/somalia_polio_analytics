@@ -5,7 +5,7 @@ healthAreaTabUI <- function(id) {
     column(width = 6, div(style = 'height: calc(100vh - 120px);', healthAreaMapUI(ns('map')))),
     column(width = 3,
            div(style = 'overflow-y: auto; height: calc(100vh - 120px);',
-               healthAreaPopulationUI(ns('population'), name_col_label = "Health Area", allow_rename = FALSE)))
+               healthAreaPopulationUI(ns('population'), name_col_label = "Health Area", allow_rename = TRUE)))
   )
 }
 
@@ -42,7 +42,11 @@ healthAreaTabServer <- function(
     # Context-only overlays, shown the same way subdivisions_r already
     # is -- see server.R's settlement_extents_rv / idp_context_rv.
     settlement_extents_r     = reactive(NULL),
-    idp_sf_r                 = reactive(NULL)
+    idp_sf_r                 = reactive(NULL),
+    # function(old_name, new_name) -> renames in the DB (server.R wires it
+    # to db_rename_health_area() on the open version); stop()s with a
+    # user-facing message if the rename isn't allowed. NULL = rename off.
+    rename_health_area_fn    = NULL
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -56,6 +60,18 @@ healthAreaTabServer <- function(
     changed_areas_rv          <- reactiveVal(character(0))
     last_scene_key            <- reactiveVal(NULL)
     areas_submitted_to_db     <- reactiveVal(FALSE)   # TRUE after submit, FALSE after any assignment change
+    # The browser paint counter (paintEpoch in paint-app.js) that the
+    # current rv$saved_dfa_sf reflects -- a capture only rebuilds the
+    # boundaries from the grid when the counter has moved, i.e. something
+    # was actually repainted, so refined boundaries survive reselecting
+    # or renaming an area. NA = unknown, always rebuild.
+    saved_epoch               <- reactiveVal(NA_real_)
+    # Whether rv$saved_dfa_sf is final (refined/vertex-converted) boundary
+    # geometry -- from a refinement save, a Save/Submit, or a restored
+    # version -- rather than the grid-stepped preview a capture builds.
+    # Save/Submit reuse final geometry as-is when nothing was repainted
+    # since (same saved_epoch), instead of re-tracing it from the grid.
+    saved_refined             <- reactiveVal(FALSE)
     
     # ── Animated propagation reveal ──────────────────────────────────────────
     # Cosmetic only: propagate_assignments() itself still runs as one
@@ -268,13 +284,60 @@ healthAreaTabServer <- function(
       make_fill_colors(active_dfa = active_dfa_rv(), dfa_names = rv$dfa_names)
     })
     
+    # ── Health area rename ──────────────────────────────────────────────────
+    # Typed into the name column of the population table. Renames in two
+    # places at once: the open version's DB row in place (rename_health_
+    # area_fn -> db_rename_health_area(), names only, never geometry -- a
+    # no-op if this version hasn't stored the name yet), and this
+    # session's own state, including the map in the browser. The session
+    # side is renamed rather than reloaded from the DB so unsaved paint
+    # strokes aren't lost.
+    .apply_health_area_rename <- function(old_name, new_name) {
+      rn <- function(x) { if (is.null(x)) return(x); x <- as.character(x); x[!is.na(x) & x == old_name] <- new_name; x }
+      rv$dfa_names           <- rn(rv$dfa_names)
+      rv$current_assignments <- rn(rv$current_assignments)
+      # Fallback for any cell the browser doesn't report (see the
+      # assignments observer) -- the old name must not sneak back in here.
+      rv$initial_assignments <- rn(rv$initial_assignments)
+      if (!is.null(rv$saved_dfa_sf))    rv$saved_dfa_sf$dfa_name    <- rn(rv$saved_dfa_sf$dfa_name)
+      if (!is.null(rv$smoothed_dfa_sf)) rv$smoothed_dfa_sf$dfa_name <- rn(rv$smoothed_dfa_sf$dfa_name)
+      if (old_name %in% names(rv$team_targets)) names(rv$team_targets)[names(rv$team_targets) == old_name] <- new_name
+      changed_areas_rv(rn(changed_areas_rv()))
+      if (!is.null(wave_final())) wave_final(rn(wave_final()))
+      if (!is.null(wave_queue())) wave_queue(lapply(wave_queue(), function(w) lapply(w, function(v) if (identical(v, old_name)) new_name else v)))
+      if (identical(active_dfa_rv(), old_name)) active_dfa_rv(new_name)
+      if (!is.null(rv$grid_sf) && isTRUE(scene_ever_sent()))
+        send_paint_message("paint_rename_area", list(oldName = old_name, newName = new_name))
+      if (!is.null(rv$grid_sf) && length(rv$current_assignments) == nrow(rv$grid_sf))
+        recompute_population_table(rv$current_assignments)
+      invisible(TRUE)
+    }
+
+    .on_health_area_rename <- function(old_name, new_name) {
+      fail <- function(msg) { showNotification(msg, type = "warning", duration = 5); FALSE }
+      if (is.null(rename_health_area_fn)) return(FALSE)
+      if (old_name %in% extra_dfa_names) return(fail(sprintf('"%s" can\'t be renamed.', old_name)))
+      if (tolower(new_name) %in% tolower(extra_dfa_names)) return(fail(sprintf('"%s" is a reserved name.', new_name)))
+      if (nchar(new_name) > 100) return(fail('The new name is too long (100 characters max).'))
+      if (tolower(new_name) %in% tolower(setdiff(rv$dfa_names, old_name)))
+        return(fail(sprintf('A health area named "%s" already exists.', new_name)))
+      ok <- tryCatch({ rename_health_area_fn(old_name, new_name); TRUE },
+                     error = function(e) fail(conditionMessage(e)))
+      if (!isTRUE(ok)) return(FALSE)
+      .apply_health_area_rename(old_name, new_name)
+      showNotification(sprintf('Renamed "%s" to "%s".', old_name, new_name), type = "message", duration = 3)
+      TRUE
+    }
+
     healthAreaPopulationServer(
       "population",
       active_dfa_rv        = active_dfa_rv,
       show_pop_raster      = controls$show_pop_raster,
       show_friction_raster = controls$show_friction_raster,
       pop_table            = reactive(rv$pop_table),
-      in_vertex_mode       = in_vertex_mode
+      in_vertex_mode       = in_vertex_mode,
+      allow_rename         = !is.null(rename_health_area_fn),
+      on_rename            = .on_health_area_rename
     )
     
     # Use globally loaded raster from global.R (avoids redundant loading)
@@ -379,6 +442,12 @@ healthAreaTabServer <- function(
       rv$current_assignments <- NULL
       rv$pop_table           <- NULL
       rv$smoothed_dfa_sf     <- NULL
+      # The grid too: it belongs to the previous district. Left in place,
+      # the restore observer below saw "a grid exists" and applied the new
+      # district's saved boundaries onto the OLD district's grid -- and the
+      # new district's own scene build then found nothing pending and
+      # generated a fresh proposal in place of its saved boundaries.
+      rv$grid_sf             <- NULL
       in_vertex_mode(FALSE)
       last_scene_key(NULL)   # force full reset next time health areas tab opens
     }, ignoreInit = TRUE)
@@ -551,6 +620,9 @@ healthAreaTabServer <- function(
       req(tab_active())
       req(!is.null(rv$district_sf), !is.null(rv$grid_sf), !is.null(rv$current_assignments))
       scene_ever_sent(TRUE)
+      # loadScene() restarts the browser's paint counter at 0, and the
+      # boundaries sent with the scene are the current ones.
+      saved_epoch(0)
       scene_load_confirmed(FALSE)
       
       # Unconditionally force the JS side back to paint mode before every
@@ -635,11 +707,14 @@ healthAreaTabServer <- function(
         edgeCells            = rv$edge_list,
         brushSize            = controls$brush_m() / 2,  # diameter -> radius for JS
         boundaryOnly         = controls$boundary_only(),
-        seedPoints           = rv$seed_points,
+        seedPoints           = .seed_points_labelled(),
         facilityPoints       = facility_pts,
         landmarkPoints       = landmark_pts,
         idpPoints            = idp_pts,
-        savedGeojson         = saved_geojson_text
+        savedGeojson         = saved_geojson_text,
+        # Lets the map show refined boundaries as-is (grid cells hidden)
+        # until something is painted -- see refinedEpoch in paint-app.js.
+        savedRefined         = isTRUE(saved_refined()) && !is.null(rv$saved_dfa_sf)
       )
       # [json_debug] Finds which part of the scene can't be serialised
       # before sending, so a failure names the culprit instead of only
@@ -654,6 +729,29 @@ healthAreaTabServer <- function(
       send_paint_message("paint_load_scene", scene_payload)
     }
     
+    # Seed markers are labelled with the facility name they were seeded
+    # from, which is the area's name until the area is renamed. A seed
+    # whose name is no longer an area takes the name of the area its grid
+    # cell is assigned to instead, so the map label follows renames --
+    # including ones made in another session, before this one loaded.
+    .seed_points_labelled <- function() {
+      sp <- rv$seed_points; asg <- rv$current_assignments
+      if (length(sp) == 0 || is.null(rv$grid_sf) || length(asg) != nrow(rv$grid_sf)) return(sp)
+      stale <- which(!vapply(sp, function(p) (p$dfa_name %||% '') %in% rv$dfa_names, logical(1)))
+      if (length(stale) == 0) return(sp)
+      tryCatch({
+        pts <- sf::st_as_sf(data.frame(lon = vapply(sp[stale], function(p) as.numeric(p$lon %||% NA), numeric(1)),
+                                       lat = vapply(sp[stale], function(p) as.numeric(p$lat %||% NA), numeric(1))),
+                            coords = c('lon', 'lat'), crs = 4326)
+        hit <- sf::st_intersects(sf::st_transform(pts, sf::st_crs(rv$grid_sf)), rv$grid_sf)
+        for (k in seq_along(stale)) {
+          nm <- if (length(hit[[k]]) > 0) asg[hit[[k]][1]] else NA_character_
+          if (!is.na(nm) && nzchar(nm) && !nm %in% extra_dfa_names) sp[[stale[k]]]$dfa_name <- nm
+        }
+        sp
+      }, error = function(e) sp)
+    }
+
     # Spatially re-derives cell assignments from the SAVED BOUNDARY
     # POLYGONS (smoothed_dfa_sf preferred, else saved_dfa_sf) rather than
     # from the saved cell-by-cell assignments array -- used specifically
@@ -705,11 +803,7 @@ healthAreaTabServer <- function(
       # when a real value was stored in the database, because rv$
       # team_targets started at list() and nothing in the normal
       # district-open/restore path (this function) ever loaded it from
-      # snap$team_targets. The exposed restore_from_snapshot() below did
-      # have this exact line already, but that function is never actually
-      # called anywhere in server.R -- effectively dead code duplicating
-      # logic that needed to live here, on the restore path that's
-      # actually used.
+      # snap$team_targets.
       if (!is.null(snap$team_targets)) rv$team_targets <- .unwrap_team_targets(snap$team_targets)
       n_grid <- nrow(rv$grid_sf)
       ca <- snap$current_assignments
@@ -752,7 +846,13 @@ healthAreaTabServer <- function(
         # current_assignments not stored (older submission) — use initial grid state
         rv$current_assignments <- rv$initial_assignments
       }
-      if (!is.null(snap$saved_dfa_sf)) rv$saved_dfa_sf <- snap$saved_dfa_sf
+      if (!is.null(snap$saved_dfa_sf)) {
+        # Prefer the stored presentation geometry (what was actually
+        # refined and submitted), falling back to the raw saved shapes.
+        rv$saved_dfa_sf    <- snap$smoothed_dfa_sf %||% snap$saved_dfa_sf
+        rv$smoothed_dfa_sf <- rv$saved_dfa_sf
+        saved_refined(TRUE)
+      }
       recompute_population_table(rv$current_assignments)
       if (isTRUE(tab_active())) send_current_scene()
       showNotification('Health area state restored.', type = 'message', duration = 2)
@@ -794,8 +894,15 @@ healthAreaTabServer <- function(
       scene_is_new <- !identical(last_scene_key(), new_key)
       last_scene_key(new_key)
       
-      # Always refresh spatial/structural data (cheap; needed by send_current_scene)
-      rv$dfa_names           <- sc$dfa_names
+      # Always refresh spatial/structural data (cheap; needed by send_current_scene).
+      # Names only for a genuinely new scene, though: sc$dfa_names comes
+      # from the seed points (facility names), and for the same scene the
+      # current names may differ -- restored from a version, or renamed --
+      # so resetting them here on every tab revisit would orphan every
+      # cell's assignment (and make every later capture look stale). A
+      # pending restore (another version opened) starts from the seed
+      # names too; .apply_restore() then applies that version's own.
+      if (scene_is_new || !is.null(pending_restore())) rv$dfa_names <- sc$dfa_names
       rv$district_sf         <- sc$district_sf
       rv$grid_sf             <- sc$grid_sf
       rv$initial_assignments <- sc$initial_assignments
@@ -858,7 +965,10 @@ healthAreaTabServer <- function(
         if (!is.null(rv$grid_sf)) .apply_restore(snap)
         else pending_restore(snap)
       }
-    }, ignoreNULL = TRUE, ignoreInit = TRUE)
+      # priority = -1: when a district is opened, the district-change
+      # reset above fires in the same flush and must run first (it clears
+      # the previous district's grid, so this waits for the new one).
+    }, ignoreNULL = TRUE, ignoreInit = TRUE, priority = -1)
     
     observeEvent(active_tab(), {
       if (isTRUE(scene_claimed_this_tab_switch())) {
@@ -1217,65 +1327,82 @@ healthAreaTabServer <- function(
       if (identical(act, "manual_refine_save")) {
         rv$saved_dfa_sf    <- parsed
         rv$smoothed_dfa_sf <- parsed
-        send_paint_message("paint_show_saved", list(geojson = as_geojson_text(parsed)))
+        saved_epoch(payload$epoch)
+        saved_refined(TRUE)
+        send_paint_message("paint_show_saved", list(geojson = as_geojson_text(parsed), refined = TRUE, epoch = payload$epoch))
         showNotification("Boundary refinements saved.", type = "message", duration = 2)
         pending_action(NULL)
         return()
       }
       
       if (identical(act, "finalize_save") || identical(act, "finalize_submit")) {
-        old_saved <- rv$pending_old_saved_dfa_sf
-        rv$saved_dfa_sf    <- parsed
-        rv$smoothed_dfa_sf <- parsed
-        send_paint_message("paint_show_saved", list(geojson = as_geojson_text(parsed)))
-        recompute_population_table(rv$current_assignments)
-        changed_areas_rv(.find_changed_areas(old_saved, parsed))
-        
-        # If this conversion ran silently (the user hadn't opened Refine
-        # Boundaries themselves), return them to the paint view they were
-        # actually looking at rather than leaving them in a refinement
-        # screen they never asked to see.
-        if (isTRUE(rv$vertex_mode_silently_entered)) {
-          send_paint_message("paint_exit_vertex_mode")
-          rv$vertex_mode_silently_entered <- FALSE
-        }
-        
-        if (identical(act, "finalize_submit")) {
-          if (!is.null(submit_stage_fn)) {
-            # Computed WorldPop per health area, from the just-submitted
-            # boundary -- stored alongside it (dfa_worldpop_pop) so
-            # every later read (PDF/CSV export, the intro popup) uses
-            # this instead of re-running raster extraction every time.
-            # .polygon_u5_population() (printable_export.R), not the
-            # urban/rural split variant -- this is a plain total, no
-            # urban/rural breakdown is stored or needed here.
-            dfa_worldpop_list <- tryCatch({
-              nms <- setdiff(unique(as.character(parsed$dfa_name)), extra_dfa_names)
-              vals <- lapply(nms, function(nm) {
-                poly <- parsed[parsed$dfa_name == nm, , drop = FALSE]
-                sum(.polygon_u5_population(poly, u5_rast), na.rm = TRUE)
-              })
-              setNames(vals, nms)
-            }, error = function(e) list())
-            
-            submit_stage_fn('areas', list(
-              saved_dfa_sf        = parsed,
-              dfa_names           = rv$dfa_names,
-              current_assignments = rv$current_assignments,
-              smoothed_dfa_sf     = parsed,
-              team_targets        = rv$team_targets,
-              dfa_worldpop_pop    = dfa_worldpop_list
-            ))
-            areas_submitted_to_db(TRUE)
-            .show_team_targets_modal()
-          }
-        } else {
-          showNotification("Health area boundaries saved.", type = "message", duration = 2)
-        }
-        pending_action(NULL)
+        .finalize_areas(parsed, act, payload$epoch)
         return()
       }
     }, ignoreInit = TRUE)
+
+    # Stores the final boundaries for a Save ("finalize_save") or Submit
+    # ("finalize_submit"), and for Submit writes them to the DB. parsed is
+    # either the just-refined vertex result or, when nothing was repainted
+    # since the current refined boundaries were made, those boundaries
+    # themselves (see the save/submit branch of the assignments observer).
+    .finalize_areas <- function(parsed, act, epoch) {
+      old_saved <- rv$pending_old_saved_dfa_sf
+      rv$saved_dfa_sf    <- parsed
+      rv$smoothed_dfa_sf <- parsed
+      saved_epoch(epoch)
+      saved_refined(TRUE)
+      send_paint_message("paint_show_saved", list(geojson = as_geojson_text(parsed), refined = TRUE, epoch = epoch))
+      recompute_population_table(rv$current_assignments)
+      changed_areas_rv(.find_changed_areas(old_saved, parsed))
+      
+      # If this conversion ran silently (the user hadn't opened Refine
+      # Boundaries themselves), return them to the paint view they were
+      # actually looking at rather than leaving them in a refinement
+      # screen they never asked to see.
+      if (isTRUE(rv$vertex_mode_silently_entered)) {
+        send_paint_message("paint_exit_vertex_mode")
+        rv$vertex_mode_silently_entered <- FALSE
+      }
+      
+      if (identical(act, "finalize_submit")) {
+        if (!is.null(submit_stage_fn)) {
+          # Computed WorldPop per health area, from the just-submitted
+          # boundary -- stored alongside it (dfa_worldpop_pop) so
+          # every later read (PDF/CSV export, the intro popup) uses
+          # this instead of re-running raster extraction every time.
+          # .polygon_u5_population() (printable_export.R), not the
+          # urban/rural split variant -- this is a plain total, no
+          # urban/rural breakdown is stored or needed here.
+          dfa_worldpop_list <- tryCatch({
+            nms <- setdiff(unique(as.character(parsed$dfa_name)), extra_dfa_names)
+            vals <- lapply(nms, function(nm) {
+              poly <- parsed[parsed$dfa_name == nm, , drop = FALSE]
+              sum(.polygon_u5_population(poly, u5_rast), na.rm = TRUE)
+            })
+            setNames(vals, nms)
+          }, error = function(e) list())
+          
+          ok <- submit_stage_fn('areas', list(
+            saved_dfa_sf        = parsed,
+            dfa_names           = rv$dfa_names,
+            current_assignments = rv$current_assignments,
+            smoothed_dfa_sf     = parsed,
+            team_targets        = rv$team_targets,
+            dfa_worldpop_pop    = dfa_worldpop_list
+          ))
+          # A failed save already showed its own error; don't go on to
+          # the targets/publish prompts as if it had worked.
+          if (isFALSE(ok)) { pending_action(NULL); return() }
+          areas_submitted_to_db(TRUE)
+          .show_team_targets_modal()
+        }
+      } else {
+        showNotification("Health area boundaries saved.", type = "message", duration = 2)
+      }
+      pending_action(NULL)
+      invisible(NULL)
+    }
     
     # ── Receive assignments from JS ───────────────────────────────────────────
     observeEvent(map_mod$assignments(), {
@@ -1307,7 +1434,7 @@ healthAreaTabServer <- function(
       
       rv$current_assignments <- ordered_assignments
       act <- pending_action()
-      
+
       # Only mark as unsubmitted when user actively saves (paints new boundaries).
       # Passive captures (colour changes, tab focus) should not reset this flag.
       if (identical(act, 'save'))
@@ -1315,6 +1442,18 @@ healthAreaTabServer <- function(
       
       if (identical(act, "capture")) {
         recompute_population_table(ordered_assignments)
+        # A capture fires on every change of the selected health area --
+        # including just clicking a row in the population table (e.g. to
+        # rename it). If nothing was repainted since the current boundaries
+        # were made (same browser paint counter, see paintEpoch in
+        # paint-app.js), they're still right and may be REFINED ones;
+        # rebuilding them from the raw grid here replaced refinement work
+        # with grid-stepped boundaries.
+        if (!is.null(rv$saved_dfa_sf) && !is.null(payload$epoch) &&
+            identical(as.numeric(payload$epoch), as.numeric(saved_epoch()))) {
+          pending_action(NULL)
+          return()
+        }
         saved <- tryCatch(
           build_saved_dfa_sf(grid_sf = rv$grid_sf, assignments = ordered_assignments,
                              district_sf = rv$district_sf),
@@ -1327,7 +1466,9 @@ healthAreaTabServer <- function(
         # mod_team_area_tab.R's own vertex_geojson() observers.
         if (!is.null(saved) && nrow(saved) > 0) {
           rv$saved_dfa_sf <- saved
-          send_paint_message("paint_show_saved", list(geojson = as_geojson_text(saved)))
+          saved_epoch(payload$epoch)
+          saved_refined(FALSE)
+          send_paint_message("paint_show_saved", list(geojson = as_geojson_text(saved), refined = FALSE))
         }
         pending_action(NULL)
         return()
@@ -1359,7 +1500,19 @@ healthAreaTabServer <- function(
         }
         rv$pending_old_saved_dfa_sf <- rv$saved_dfa_sf
         recompute_population_table(ordered_assignments)
-        
+
+        # Nothing repainted since the current refined boundaries were made
+        # (and not mid-refinement): use them as they are. Re-tracing from
+        # the grid here threw away every refinement made before going back
+        # to painting -- or, on a reopened district, the refined published
+        # boundaries themselves (e.g. submitting after only a rename).
+        if (!isTRUE(in_vertex_mode()) && isTRUE(saved_refined()) && !is.null(rv$saved_dfa_sf) &&
+            !is.null(payload$epoch) && identical(as.numeric(payload$epoch), as.numeric(saved_epoch()))) {
+          .finalize_areas(rv$saved_dfa_sf, if (identical(act, "save")) "finalize_save" else "finalize_submit",
+                          payload$epoch)
+          return()
+        }
+
         pending_action(if (identical(act, "save")) "finalize_save" else "finalize_submit")
         if (!isTRUE(in_vertex_mode())) {
           # Silent conversion -- deliberately does NOT flip in_vertex_mode()
@@ -1425,7 +1578,9 @@ healthAreaTabServer <- function(
         existing <- rv$team_targets[[area_name]]
         
         tagList(
-          div(style = 'align-self:center;font-size:12px;', area_name),
+          # Editable -- a changed name is applied on Done, through the same
+          # names-only rename as the population table (.on_health_area_rename).
+          textInput(session$ns(paste0('target_name_', sid)), NULL, value = area_name, width = '100%'),
           div(style = 'align-self:center;font-size:12px;', format(round(area_pop), big.mark = ',')),
           numericInput(session$ns(paste0('target_pop_', sid)), NULL,
                        value = existing$target_pop %||% NA, min = 0, width = '100%'),
@@ -1442,7 +1597,8 @@ healthAreaTabServer <- function(
           style = 'font-size:12px;color:#475569;margin-bottom:12px;',
           'Optionally set a field target population or a specific number of teams for each health area. ',
           'Leave a field blank to use the recommended number of teams, based on WorldPop population ',
-          'and the population-per-team setting from the Admin page.'
+          'and the population-per-team setting from the Admin page. ',
+          'Health area names can be edited here too -- only the name changes, never the boundary.'
         ),
         div(
           style = paste0('display:grid;grid-template-columns:2fr 1fr 1.2fr 1fr 1.2fr;',
@@ -1456,12 +1612,38 @@ healthAreaTabServer <- function(
     observeEvent(input$team_targets_done, {
       if (!is.null(rv$pop_table)) {
         area_rows <- rv$pop_table[!(rv$pop_table$area_name %in% c("District Total", extra_dfa_names)), , drop = FALSE]
+        old_names <- area_rows$area_name
+
+        # Renames typed into the Health Area column, checked together
+        # before any is applied -- a problem keeps the dialog open so it
+        # can be corrected, rather than half the renames going through.
+        typed <- vapply(old_names, function(nm) {
+          v <- input[[paste0('target_name_', .safe_target_id(nm))]]
+          if (is.null(v)) nm else trimws(v)
+        }, character(1))
+        renamed <- old_names[typed != old_names]
+        problem <- if (any(!nzchar(typed))) 'Health area names can\'t be blank.'
+          else if (any(nchar(typed) > 100)) 'Health area names are limited to 100 characters.'
+          else if (any(tolower(typed) %in% tolower(extra_dfa_names))) sprintf('"%s" and "%s" are reserved names.', extra_dfa_names[1], extra_dfa_names[2])
+          else if (anyDuplicated(tolower(typed))) 'Two health areas can\'t have the same name.'
+          # Taking a name another area currently has (e.g. swapping two
+          # names) would collide mid-way, since renames apply one at a time.
+          else if (any(tolower(typed[renamed]) %in% tolower(setdiff(rv$dfa_names, renamed))))
+            'One of the new names is already used by another health area -- pick a different name.'
+        if (!is.null(problem)) {
+          showNotification(problem, type = 'warning', duration = 6)
+          return()
+        }
+        final_name <- setNames(old_names, old_names)
+        for (nm in renamed)
+          if (isTRUE(.on_health_area_rename(nm, typed[[nm]]))) final_name[[nm]] <- typed[[nm]]
+
         new_targets <- list()
-        for (area_name in area_rows$area_name) {
+        for (area_name in old_names) {
           sid <- .safe_target_id(area_name)
           target_pop_val      <- input[[paste0('target_pop_', sid)]]
           requested_teams_val <- input[[paste0('requested_teams_', sid)]]
-          new_targets[[area_name]] <- list(
+          new_targets[[final_name[[area_name]]]] <- list(
             target_pop = if (is.null(target_pop_val) || is.na(target_pop_val))
               NA_real_ else as.numeric(target_pop_val),
             requested_teams = if (is.null(requested_teams_val) || is.na(requested_teams_val))
@@ -1474,13 +1656,15 @@ healthAreaTabServer <- function(
         # targets survive a session restore -- reuses whatever was just
         # submitted (still current in rv$saved_dfa_sf etc. at this point).
         if (!is.null(submit_stage_fn) && !is.null(rv$saved_dfa_sf)) {
-          submit_stage_fn('areas', list(
+          ok <- submit_stage_fn('areas', list(
             saved_dfa_sf        = rv$saved_dfa_sf,
             dfa_names           = rv$dfa_names,
             current_assignments = rv$current_assignments,
             smoothed_dfa_sf     = rv$smoothed_dfa_sf,
             team_targets        = rv$team_targets
           ))
+          # Don't offer to publish a version whose save just failed.
+          if (isFALSE(ok)) { removeModal(); return() }
         }
       }
       .show_make_current_prompt()
@@ -1568,19 +1752,9 @@ healthAreaTabServer <- function(
       pop_table_r           = reactive(rv$pop_table),
       areas_regenerated     = areas_regenerated_counter,
       changed_areas         = changed_areas_rv,
-      restore_from_snapshot = function(snap) {
-        # Always restore saved_dfa_sf immediately — the microplan tab reads it
-        # directly and must not have to wait for the health area grid to compute.
-        if (!is.null(snap$saved_dfa_sf) && nrow(snap$saved_dfa_sf) > 0)
-          rv$saved_dfa_sf <- snap$saved_dfa_sf
-        if (!is.null(snap$smoothed_dfa_sf) && nrow(snap$smoothed_dfa_sf) > 0)
-          rv$smoothed_dfa_sf <- snap$smoothed_dfa_sf
-        if (!is.null(snap$team_targets))
-          rv$team_targets <- .unwrap_team_targets(snap$team_targets)
-        
-        if (!is.null(rv$grid_sf)) .apply_restore(snap)
-        else pending_restore(snap)
-      }
+      # Session-side half of a rename made elsewhere (Overview's Team
+      # Areas list) on the version this tab has open.
+      apply_rename          = .apply_health_area_rename
     )
   })
 }

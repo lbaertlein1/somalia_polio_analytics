@@ -28,8 +28,7 @@
 #     to a specific health-area version via based_on_health_area_version_id.
 #     Team areas can ONLY ever be drawn against a district's CURRENT
 #     health-area version — no branch/carry-forward choice at that level,
-#     unlike mapping_versions. See db_get_active_team_draft() /
-#     db_create_team_area_draft().
+#     unlike mapping_versions. See db_create_team_area_draft().
 #   - LOCKING: once any health area in a district has a current
 #     (is_shared=TRUE) team-area version, db_publish_version() refuses
 #     UNCONDITIONALLY for the WHOLE district — no admin override. To
@@ -108,6 +107,12 @@ db_validate_credentials <- function(pool, uname, pword) {
     identical(pword, stored)
   }
   if (!isTRUE(valid)) return(NULL)
+  # Legacy plaintext password: still accepted, but replaced with a bcrypt
+  # hash now that we know it's correct, so it doesn't stay stored in clear.
+  if (!startsWith(stored, '$2'))
+    tryCatch(.db_execute(pool, "UPDATE users SET password = ?p, updated_at = NOW() WHERE username = ?u",
+                         list(p = bcrypt::hashpw(pword), u = uname)),
+             error = function(e) cat('[db] password rehash failed for', uname, ':', conditionMessage(e), '\n'))
   row[1L, c('username', 'display_name', 'role')]
 }
 
@@ -171,13 +176,6 @@ db_create_campaign <- function(pool, campaign_name, description, created_by, sta
             s = format(start_date)))
     as.integer(row$campaign_id[1])
   }, error = function(e) { cat('[db] create_campaign error:', e$message, '\n'); NULL })
-}
-
-db_set_campaign_start_date <- function(pool, campaign_id, start_date) {
-  start_date <- as.Date(start_date)
-  if (length(start_date) != 1 || is.na(start_date)) stop('start_date is required')
-  .db_execute(pool, "UPDATE campaigns SET start_date = ?s WHERE campaign_id = ?c",
-              list(s = format(start_date), c = as.integer(campaign_id)))
 }
 
 db_set_campaign_active <- function(pool, campaign_id, is_active) {
@@ -295,24 +293,6 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
 # SECTION 5: Fetch versions
 # =============================================================================
 
-#' The current user's own unpublished-or-published draft for a district+campaign,
-#' if one exists. A user has at most one row per (owner, campaign, district)
-#' that they are actively editing — the most recently updated, non-archived one.
-db_get_active_draft <- function(pool, owner_username, campaign_id, district_name) {
-  rows <- tryCatch(
-    .db_query(pool, sprintf("
-      SELECT %s FROM mapping_versions
-      WHERE owner_username = ?u AND campaign_id = ?c AND district_name = ?d
-        AND archived_at IS NULL
-      ORDER BY last_updated_at DESC
-      LIMIT 1
-    ", .mv_full_cols), list(u = owner_username, c = as.integer(campaign_id), d = district_name)),
-    error = function(e) { cat('[db] get_active_draft error:', e$message, '\n'); NULL }
-  )
-  if (is.null(rows) || nrow(rows) == 0) return(NULL)
-  .parse_mv_row(rows[1, ])
-}
-
 #' The current shared (published) version for a district+campaign, if any.
 #' At most one such row can exist at a time — enforced by db_publish_version().
 db_get_shared_version <- function(pool, campaign_id, district_name) {
@@ -344,26 +324,6 @@ db_get_owner_versions <- function(pool, owner_username, district_name = NULL) {
       WHERE owner_username = ?u AND district_name = ?d AND archived_at IS NULL
       ORDER BY version_number DESC
     ", .mv_meta_cols), list(u = owner_username, d = district_name))
-  }
-}
-
-#' All shared/published versions across all users for a district — the
-#' "branch from a shared version" picker source. campaign_id filter optional
-#' (omit to support "carry forward from a prior campaign").
-db_get_shareable_versions <- function(pool, district_name, campaign_id = NULL) {
-  if (is.null(campaign_id)) {
-    .db_query(pool, sprintf("
-      SELECT %s FROM mapping_versions
-      WHERE district_name = ?d AND is_shared = TRUE AND archived_at IS NULL
-      ORDER BY shared_at DESC
-    ", .mv_meta_cols), list(d = district_name))
-  } else {
-    .db_query(pool, sprintf("
-      SELECT %s FROM mapping_versions
-      WHERE district_name = ?d AND campaign_id = ?c
-        AND is_shared = TRUE AND archived_at IS NULL
-      ORDER BY shared_at DESC
-    ", .mv_meta_cols), list(d = district_name, c = as.integer(campaign_id)))
   }
 }
 
@@ -451,7 +411,8 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         saved_dfa_sf, dfa_names, current_assignments, team_targets,
         smoothed_dfa_sf, smoothing_generated_at,
         landmarks, idp_settlements, dfa_worldpop_pop,
-        has_landmarks, has_facilities, has_idp, has_health_areas
+        has_landmarks, has_facilities, has_idp, has_health_areas,
+        scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope
       )
       SELECT
         $2, $3, $4, $5, version_id,
@@ -461,7 +422,11 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         saved_dfa_sf, dfa_names, current_assignments, team_targets,
         smoothed_dfa_sf, smoothing_generated_at,
         landmarks, idp_settlements, dfa_worldpop_pop,
-        has_landmarks, has_facilities, has_idp, has_health_areas
+        has_landmarks, has_facilities, has_idp, has_health_areas,
+        -- Campaign scope lives on this row too; without these a fork
+        -- (any edit of a published version) or a carry-forward silently
+        -- dropped the district's scope.
+        scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope
       FROM mapping_versions
       WHERE version_id = $1
       RETURNING version_id
@@ -507,10 +472,13 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
 
   target_id <- as.integer(cur$version_id[1])
 
-  # Editing a shared version forks a new one first
+  # Editing a shared version forks a new one first -- owned by whoever is
+  # editing, not the published version's owner, so it shows up as THEIR
+  # draft (in their own drafts list), not as someone else's.
   if (isTRUE(cur$is_shared[1])) {
     target_id <- db_branch_version(
-      pool, source_version_id = target_id, owner_username = cur$owner_username[1],
+      pool, source_version_id = target_id,
+      owner_username = if (nzchar(username %||% '')) username else cur$owner_username[1],
       target_campaign_id = cur$campaign_id[1], district_name = cur$district_name[1]
     )
     if (is.null(target_id)) stop('failed to fork version for edit')
@@ -650,6 +618,157 @@ db_update_health_area_field_target <- function(pool, campaign_id, district_name,
   })
 }
 
+# SQL expression builders for db_rename_health_area(), one per storage
+# shape. Each takes a column name and uses $2 (old name) / $3 (new name)
+# placeholders. Element-wise rename for a JSONB array of names; a lone
+# string is handled too, since .to_json_for_db()'s auto_unbox stores a
+# length-1 vector as a bare string rather than a one-element array.
+.jsonb_rename_in_array <- function(col) sprintf("
+  CASE jsonb_typeof(%1$s)
+    WHEN 'array' THEN (SELECT COALESCE(jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($3::text) ELSE e END ORDER BY i), '[]'::jsonb)
+                       FROM jsonb_array_elements(%1$s) WITH ORDINALITY t(e, i))
+    WHEN 'string' THEN CASE WHEN %1$s = to_jsonb($2::text) THEN to_jsonb($3::text) ELSE %1$s END
+    ELSE %1$s END", col)
+# properties.dfa_name on each feature of a GeoJSON FeatureCollection --
+# the geometry member of each feature is carried through untouched.
+.jsonb_rename_in_features <- function(col) sprintf("
+  CASE WHEN jsonb_typeof(%1$s->'features') = 'array' THEN
+    jsonb_set(%1$s, '{features}', (SELECT COALESCE(jsonb_agg(
+        CASE WHEN f->'properties'->>'dfa_name' = $2::text
+             THEN jsonb_set(f, '{properties,dfa_name}', to_jsonb($3::text)) ELSE f END ORDER BY i), '[]'::jsonb)
+      FROM jsonb_array_elements(%1$s->'features') WITH ORDINALITY t(f, i)))
+  ELSE %1$s END", col)
+# Object keyed by health area name (team_targets, dfa_worldpop_pop).
+.jsonb_rename_key <- function(col) sprintf("
+  CASE WHEN jsonb_typeof(%1$s) = 'object' AND (%1$s -> $2::text) IS NOT NULL
+       THEN (%1$s - $2::text) || jsonb_build_object($3::text, %1$s -> $2::text)
+       ELSE %1$s END", col)
+# Hash of every feature's geometry across the given FeatureCollection
+# columns -- the before/after guard in db_rename_health_area().
+.geom_hash_sql <- function(...) paste(vapply(c(...), function(col) sprintf(
+  "md5(COALESCE((SELECT jsonb_agg(f->'geometry' ORDER BY i)
+                 FROM jsonb_array_elements(%1$s->'features') WITH ORDINALITY t(f, i))::text, ''))", col),
+  character(1)), collapse = ' || ')
+
+#' Renames ONE health area in the district's current SHARED health-area
+#' version, IN PLACE -- same deliberate exception to the "editing a shared
+#' version forks" rule as db_update_health_area_field_target() above, and
+#' allowed while the district is locked (team areas started). A fork would
+#' leave every team-area version pinned to the old version (stale), and a
+#' resubmit would re-run smoothing; a rename must do neither.
+#'
+#' Name-only by construction: every change is a JSONB edit done in SQL on
+#' the name fields themselves, so polygon coordinates are never parsed or
+#' re-serialised through sf/geojsonsf. Rewrites, for that one version row:
+#'   dfa_names, current_assignments    -- array elements equal to old_name
+#'   saved_dfa_sf, smoothed_dfa_sf     -- features[].properties.dfa_name
+#'   team_targets, dfa_worldpop_pop    -- the old_name key
+#' plus team_area_versions.health_area_name for every team-area version
+#' pinned to that health-area version. Older, already-stale team-area
+#' versions pinned to other health-area versions keep the old name, which
+#' still matches the version they were drawn against.
+#'
+#' As a guard, a hash of every feature's geometry (raw + smoothed) is
+#' taken before and after inside the same transaction; any difference
+#' rolls the whole rename back. last_updated_at is deliberately NOT
+#' bumped -- it records when the map's work last changed, and a rename
+#' isn't map work.
+#'
+#' version_id: rename in that specific version instead (the Health Areas
+#' tab renames whichever version it has open -- a draft or the published
+#' one). With allow_missing = TRUE, a version that doesn't have old_name
+#' stored yet (health areas never submitted, or regenerated since) is
+#' left untouched rather than treated as an error -- the caller's own
+#' in-session rename is then the only change, and gets saved on submit.
+#'
+#' Returns list(version_id, n_team_versions, stored) on success, stored =
+#' whether anything in the DB changed; stop()s with a user-facing message
+#' otherwise (caller shows it).
+db_rename_health_area <- function(pool, campaign_id, district_name, old_name, new_name,
+                                  version_id = NULL, allow_missing = FALSE) {
+  new_name <- trimws(new_name %||% '')
+  if (!nzchar(new_name)) stop('The new name is blank.')
+  if (nchar(new_name) > 100) stop('The new name is too long (100 characters max).')
+  if (identical(new_name, old_name)) stop('The new name is the same as the current one.')
+  if (tolower(new_name) %in% tolower(extra_dfa_names) || old_name %in% extra_dfa_names)
+    stop(sprintf('"%s" and "%s" are reserved and can\'t be renamed or used.', extra_dfa_names[1], extra_dfa_names[2]))
+
+  conn <- pool::poolCheckout(pool)
+  on.exit(pool::poolReturn(conn))
+
+  tryCatch({
+    DBI::dbBegin(conn)
+
+    cur <- if (is.null(version_id)) DBI::dbGetQuery(conn,
+      "SELECT version_id, dfa_names FROM mapping_versions
+       WHERE campaign_id = $1 AND district_name = $2 AND is_shared = TRUE AND archived_at IS NULL
+       LIMIT 1 FOR UPDATE",
+      list(as.integer(campaign_id), district_name))
+    else DBI::dbGetQuery(conn,
+      "SELECT version_id, dfa_names FROM mapping_versions
+       WHERE version_id = $3 AND campaign_id = $1 AND district_name = $2 AND archived_at IS NULL
+       FOR UPDATE",
+      list(as.integer(campaign_id), district_name, as.integer(version_id)))
+    if (nrow(cur) == 0) stop('This district has no saved health-area map to rename in.')
+    version_id <- as.integer(cur$version_id[1])
+    names_now  <- as.character(unlist(.from_json_vec_db(cur$dfa_names[1])))
+    if (!old_name %in% names_now) {
+      if (isTRUE(allow_missing)) {
+        DBI::dbRollback(conn)
+        return(list(version_id = version_id, n_team_versions = 0L, stored = FALSE))
+      }
+      stop(sprintf('"%s" isn\'t a health area in the saved map.', old_name))
+    }
+    others <- setdiff(names_now, old_name)
+    if (tolower(new_name) %in% tolower(others)) stop(sprintf('A health area named "%s" already exists in this district.', new_name))
+
+    # team_area_versions is unique on (owner, campaign, district,
+    # health_area_name, version_number) -- an old, stale team version
+    # already carrying new_name for the same owner/number would collide.
+    clash <- DBI::dbGetQuery(conn,
+      "SELECT 1 FROM team_area_versions a JOIN team_area_versions b
+         ON b.owner_username = a.owner_username AND b.campaign_id = a.campaign_id
+        AND b.district_name = a.district_name AND b.version_number = a.version_number
+       WHERE a.based_on_health_area_version_id = $1 AND a.health_area_name = $2
+         AND b.health_area_name = $3 LIMIT 1",
+      list(version_id, old_name, new_name))
+    if (nrow(clash) > 0)
+      stop(sprintf('Older team-area work under the name "%s" exists in this district, so that name can\'t be reused. Pick a different name.', new_name))
+
+    hash_sql <- paste0("SELECT ", .geom_hash_sql('saved_dfa_sf', 'smoothed_dfa_sf'),
+                       " AS h FROM mapping_versions WHERE version_id = $1")
+    hash_before <- DBI::dbGetQuery(conn, hash_sql, list(version_id))$h[1]
+
+    DBI::dbExecute(conn, paste0(
+      "UPDATE mapping_versions SET",
+      "  dfa_names           = ", .jsonb_rename_in_array('dfa_names'), ",",
+      "  current_assignments = ", .jsonb_rename_in_array('current_assignments'), ",",
+      "  saved_dfa_sf        = ", .jsonb_rename_in_features('saved_dfa_sf'), ",",
+      "  smoothed_dfa_sf     = ", .jsonb_rename_in_features('smoothed_dfa_sf'), ",",
+      "  team_targets        = ", .jsonb_rename_key('team_targets'), ",",
+      "  dfa_worldpop_pop    = ", .jsonb_rename_key('dfa_worldpop_pop'),
+      " WHERE version_id = $1"),
+      list(version_id, old_name, new_name))
+
+    hash_after <- DBI::dbGetQuery(conn, hash_sql, list(version_id))$h[1]
+    if (!identical(hash_before, hash_after)) stop('Safety check failed: geometry would have changed. Nothing was renamed.')
+
+    n_team <- DBI::dbExecute(conn,
+      "UPDATE team_area_versions SET health_area_name = $3
+       WHERE based_on_health_area_version_id = $1 AND health_area_name = $2",
+      list(version_id, old_name, new_name))
+
+    DBI::dbCommit(conn)
+    cat(sprintf('[db] rename_health_area: version %d, "%s" -> "%s", %d team-area version(s) re-pointed\n',
+                version_id, old_name, new_name, n_team))
+    list(version_id = version_id, n_team_versions = as.integer(n_team), stored = TRUE)
+  }, error = function(e) {
+    tryCatch(DBI::dbRollback(conn), error = function(e2) NULL)
+    cat('[db] rename_health_area error:', conditionMessage(e), '\n')
+    stop(e)
+  })
+}
+
 #' Explicit "Refresh from source" — updates the locked facility/boundary
 #' snapshot fields and re-stamps the lock timestamps. Never called
 #' automatically; the UI must warn the user first since this can invalidate
@@ -776,13 +895,11 @@ db_district_has_locked_team_areas <- function(pool, campaign_id, district_name) 
 # SECTION 9: Archive / delete / unshare  (admin)
 # =============================================================================
 
+# Archiving also unpublishes: an archived row is hidden from every lookup,
+# so leaving is_shared = TRUE on it left the district with a "current"
+# version nothing can see (and its team areas pinned to it).
 db_archive_version <- function(pool, version_id) {
-  .db_execute(pool, "UPDATE mapping_versions SET archived_at = NOW() WHERE version_id = ?v",
-              list(v = as.integer(version_id)))
-}
-
-db_delete_version <- function(pool, version_id) {
-  .db_execute(pool, "DELETE FROM mapping_versions WHERE version_id = ?v",
+  .db_execute(pool, "UPDATE mapping_versions SET archived_at = NOW(), is_shared = FALSE WHERE version_id = ?v",
               list(v = as.integer(version_id)))
 }
 
@@ -1138,8 +1255,10 @@ db_submit_team_area_stage <- function(pool, team_version_id, username, data) {
 
   target_id <- as.integer(cur$team_version_id[1])
 
+  # Fork owned by the editor, same reasoning as db_submit_stage_v2().
   if (isTRUE(cur$is_shared[1])) {
-    target_id <- db_branch_team_area_version(pool, target_id, cur$owner_username[1])
+    target_id <- db_branch_team_area_version(pool, target_id,
+                                             if (nzchar(username %||% '')) username else cur$owner_username[1])
     if (is.null(target_id)) stop('failed to fork team-area version for edit')
   }
 
@@ -1179,24 +1298,6 @@ db_submit_team_area_stage <- function(pool, team_version_id, username, data) {
   })
 
   invisible(target_id)
-}
-
-#' The current user's own active (non-archived) draft for one health area,
-#' if one exists.
-db_get_active_team_draft <- function(pool, owner_username, campaign_id, district_name, health_area_name) {
-  rows <- tryCatch(
-    .db_query(pool, sprintf("
-      SELECT %s FROM team_area_versions
-      WHERE owner_username = ?u AND campaign_id = ?c AND district_name = ?d AND health_area_name = ?h
-        AND archived_at IS NULL
-      ORDER BY last_updated_at DESC
-      LIMIT 1
-    ", .tav_full_cols), list(u = owner_username, c = as.integer(campaign_id),
-                             d = district_name, h = health_area_name)),
-    error = function(e) { cat('[db] get_active_team_draft error:', e$message, '\n'); NULL }
-  )
-  if (is.null(rows) || nrow(rows) == 0) return(NULL)
-  .parse_tav_row(rows[1, ])
 }
 
 #' The current shared (published) team-area version for one health area, if any.
@@ -1333,12 +1434,8 @@ db_unshare_team_area_version <- function(pool, team_version_id) {
 }
 
 db_archive_team_area_version <- function(pool, team_version_id) {
-  .db_execute(pool, "UPDATE team_area_versions SET archived_at = NOW() WHERE team_version_id = ?v",
-              list(v = as.integer(team_version_id)))
-}
-
-db_delete_team_area_version <- function(pool, team_version_id) {
-  .db_execute(pool, "DELETE FROM team_area_versions WHERE team_version_id = ?v",
+  # Unpublished too, same reasoning as db_archive_version().
+  .db_execute(pool, "UPDATE team_area_versions SET archived_at = NOW(), is_shared = FALSE WHERE team_version_id = ?v",
               list(v = as.integer(team_version_id)))
 }
 
@@ -1557,13 +1654,17 @@ db_carry_forward_district_to_campaign <- function(pool, target_campaign_id, dist
           owner_username, campaign_id, district_name, health_area_name,
           based_on_health_area_version_id, version_number, branched_from_id, submitted_by,
           saved_team_sf, team_names, current_team_assignments,
-          smoothed_team_sf, smoothing_generated_at
+          smoothed_team_sf, smoothing_generated_at,
+          team_field_pop_overrides, team_worldpop_pop
         )
         SELECT
           $2, $3, $4, health_area_name,
           $5, $6, team_version_id, $2,
           saved_team_sf, team_names, current_team_assignments,
-          smoothed_team_sf, smoothing_generated_at
+          smoothed_team_sf, smoothing_generated_at,
+          -- Field-verified team populations and the stored WorldPop
+          -- figures carry forward with the boundaries they belong to.
+          team_field_pop_overrides, team_worldpop_pop
         FROM team_area_versions
         WHERE team_version_id = $1
         RETURNING team_version_id

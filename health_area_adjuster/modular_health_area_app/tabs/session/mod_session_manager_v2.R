@@ -126,10 +126,11 @@ healthAreaSessionServer <- function(id, username_r, district_r, campaign_id_r) {
         )
         showNotification(paste0(stage_label, ' submitted successfully.'),
                          type = 'message', duration = 3)
+        TRUE
       }, error = function(e) {
         showNotification(paste0('Submit failed: ', e$message), type = 'error', duration = 6)
+        FALSE
       })
-      invisible(NULL)
     }
 
     # "Make current" — called from the submit-flow prompt in
@@ -276,10 +277,11 @@ teamAreaSessionServer <- function(id, username_r, district_r, campaign_id_r, hea
           if (!is.null(on_forked)) on_forked(new_id)
         }
         showNotification('Team areas submitted successfully.', type = 'message', duration = 3)
+        TRUE
       }, error = function(e) {
         showNotification(paste0('Submit failed: ', e$message), type = 'error', duration = 6)
+        FALSE
       })
-      invisible(NULL)
     }
 
     # "Make current" — called from the submit-flow prompt in

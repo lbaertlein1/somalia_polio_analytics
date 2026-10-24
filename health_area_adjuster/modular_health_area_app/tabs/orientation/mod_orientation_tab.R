@@ -491,8 +491,9 @@ orientationTabServer <- function(
     # ── Submit landmarks → DB ─────────────────────────────────────────────────
     observeEvent(input$submit_landmarks, {
       if (!is.null(submit_stage_fn)) {
-        submit_stage_fn('landmarks', list(landmarks = rv$landmarks))
-        landmarks_submitted_to_db(TRUE)
+        # Only marked submitted if the save actually worked.
+        if (!isFALSE(submit_stage_fn('landmarks', list(landmarks = rv$landmarks))))
+          landmarks_submitted_to_db(TRUE)
       } else {
         showNotification('Submit not configured.', type = 'warning', duration = 3)
       }
@@ -649,7 +650,8 @@ orientationTabServer <- function(
     
     .do_submit_and_continue_landmarks <- function() {
       if (!is.null(submit_stage_fn)) {
-        submit_stage_fn('landmarks', list(landmarks = rv$landmarks))
+        # Stay on this step if the save failed (its error is already shown).
+        if (isFALSE(submit_stage_fn('landmarks', list(landmarks = rv$landmarks)))) return(invisible(NULL))
         landmarks_submitted_to_db(TRUE)
       }
       .do_continue_to_facilities()
@@ -691,10 +693,7 @@ orientationTabServer <- function(
     
     # ── Return ────────────────────────────────────────────────────────────────
     list(
-      landmarks_r           = reactive(rv$landmarks),
-      restore_from_snapshot = function(snap) {
-        if (!is.null(snap$landmarks)) rv$landmarks <- snap$landmarks
-      }
+      landmarks_r           = reactive(rv$landmarks)
     )
   })
 }

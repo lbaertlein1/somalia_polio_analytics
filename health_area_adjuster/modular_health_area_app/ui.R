@@ -14,8 +14,12 @@ app_ui <- function() {
         integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=',
         crossorigin = ''
       ),
-      tags$link(rel = 'stylesheet', type = 'text/css', href = 'styles.css'),
-      tags$script(src = 'paint-app.js'),
+      # ?v=<file modified time>: browsers cache these by URL, so without it
+      # an updated paint-app.js/styles.css could keep running the old copy
+      # until a hard refresh.
+      tags$link(rel = 'stylesheet', type = 'text/css',
+                href = paste0('styles.css?v=', as.integer(file.mtime('www/styles.css')))),
+      tags$script(src = paste0('paint-app.js?v=', as.integer(file.mtime('www/paint-app.js')))),
       
       tags$script(HTML("
         $(document).ready(function() {
