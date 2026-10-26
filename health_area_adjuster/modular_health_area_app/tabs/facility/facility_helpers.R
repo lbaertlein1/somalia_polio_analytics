@@ -21,6 +21,26 @@ get_allowed_distance_m <- function(district_density) {
   return(10000)
 }
 
+# Coordination site names become health area names, so they must be
+# unique (ignoring case and spacing), non-blank, and not one of the
+# special area classes (extra_dfa_names). Returns a message describing
+# the problem for the user, or NULL if the names are fine.
+coordination_site_name_problem <- function(site_names) {
+  nm  <- trimws(as.character(site_names))
+  key <- tolower(gsub("\\s+", " ", nm))
+  if (any(is.na(nm) | !nzchar(nm)))
+    return("Every coordination site needs a name -- give the blank one(s) a name in the table, then submit again.")
+  reserved <- nm[key %in% tolower(extra_dfa_names)]
+  if (length(reserved) > 0)
+    return(sprintf("\"%s\" is reserved for a special area type -- rename that coordination site in the table, then submit again.",
+                   reserved[1]))
+  dups <- unique(nm[key %in% key[duplicated(key)]])
+  if (length(dups) > 0)
+    return(sprintf("Coordination sites must have different names (each becomes a health area name). Rename the duplicate(s) in the table, then submit again: %s",
+                   paste0("\"", dups, "\"", collapse = ", ")))
+  NULL
+}
+
 # =============================================================================
 # facility_odk.R
 # ODK fetch helpers for the facility tab

@@ -658,6 +658,14 @@ facilityTabServer <- function(
       }
       df    <- facility_data()
       seeds <- df |> dplyr::filter(polio_sia_coordination_site == "Yes")
+      # Each coordination site's name becomes its health area's name, so
+      # two sites with the same name would silently merge into ONE health
+      # area (and a site named like a special class would merge into it).
+      name_problem <- coordination_site_name_problem(seeds$facility_name)
+      if (!is.null(name_problem)) {
+        showNotification(name_problem, type = 'error', duration = 10)
+        return(invisible(FALSE))
+      }
       if (!is.null(submit_stage_fn)) {
         # A failed save already showed its own error -- leave the stage
         # unlocked and unsubmitted so the user can retry.

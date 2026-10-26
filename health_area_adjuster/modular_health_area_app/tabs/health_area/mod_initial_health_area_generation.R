@@ -67,6 +67,15 @@ normalize_sites <- function(site_sf, grid_sf, name_col = NULL) {
     else if ("facility_name" %in% names(site_sf)) name_col <- "facility_name"
   }
   site_sf$dfa_name <- if (is.null(name_col)) paste("Health Area", seq_len(nrow(site_sf))) else as.character(site_sf[[name_col]])
+  # Duplicate names would merge their health areas into one. The Facilities
+  # step refuses to submit them, but versions saved before that check can
+  # still hold duplicates -- number the repeats instead: "Name", "Name (2)".
+  nm <- trimws(site_sf$dfa_name)
+  nm[is.na(nm) | !nzchar(nm)] <- "Health Area"
+  key <- tolower(gsub("\\s+", " ", nm))
+  for (i in which(duplicated(key)))
+    nm[i] <- paste0(nm[i], " (", sum(key[seq_len(i)] == key[i]), ")")
+  site_sf$dfa_name <- nm
   site_sf
 }
 
