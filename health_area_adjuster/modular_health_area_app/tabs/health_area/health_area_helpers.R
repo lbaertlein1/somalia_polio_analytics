@@ -307,13 +307,21 @@ build_dfa_polygons_from_assignments <- function(grid_sf, assignments, district_s
   # here, right before the intersection, sidesteps that without
   # changing anything about the actual geometry produced.
   class(out) <- setdiff(class(out), c('tbl_df', 'tbl'))
-  
-  out <- safe_make_valid(out)
-  out <- suppressWarnings(st_intersection(out, district_sf))
+
+  # Clipped in metres (EPSG:3857, planar GEOS), not lon/lat. In lon/lat sf
+  # uses s2, whose intersection can return a polygon PLUS a stray line
+  # where the two shapes share an edge as two separate results for one
+  # input row -- st_intersection() then fails with "replacement has 2
+  # rows, data has 1". Seen for Waberi (SIA 2026 Round 1): one health area
+  # covering the whole district. GEOS returns one geometry collection per
+  # row instead, which st_collection_extract() below reduces to polygons.
+  out <- safe_make_valid(sf::st_transform(out, 3857))
+  out <- suppressWarnings(st_intersection(out, safe_make_valid(sf::st_transform(district_sf, 3857))))
   out <- safe_make_valid(out)
   out <- tryCatch(sf::st_collection_extract(out, 'POLYGON'), error = function(e) out)
+  out <- sf::st_transform(out, target_crs)
   out$geometry <- st_cast(out$geometry, 'MULTIPOLYGON', warn = FALSE)
-  
+
   out |>
     dplyr::select(dfa_name, geometry)
 }
