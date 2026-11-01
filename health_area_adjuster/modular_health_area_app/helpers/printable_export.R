@@ -1078,7 +1078,30 @@ scope_pop_scale <- function(snap) {
   grid::pushViewport(grid::viewport(x = 0, width = 0.62, just = 'left',
                                     layout = grid::grid.layout(nrow = 2, heights = c(0.62, 0.38))))
   grid::pushViewport(grid::viewport(layout.pos.row = 1))
-  grid::grid.text(title, x = 0.02, just = 'left', gp = grid::gpar(fontsize = 20, fontface = 'bold', col = '#1e293b'))
+  # Fit the title to its column: long titles (district -- health area --
+  # "Team Summary (1 of 2)") used to run under the campaign badge. Shrink
+  # from 20 pt down to 12 pt; if it still doesn't fit, wrap onto two lines
+  # at that size.
+  avail_in <- grid::convertWidth(grid::unit(0.96, 'npc'), 'inches', valueOnly = TRUE)
+  title_gp <- function(fs) grid::gpar(fontsize = fs, fontface = 'bold', col = '#1e293b', lineheight = 0.95)
+  width_at <- function(txt, fs) grid::convertWidth(grid::grobWidth(grid::textGrob(txt, gp = title_gp(fs))),
+                                                   'inches', valueOnly = TRUE)
+  fs <- 20
+  w  <- width_at(title, fs)
+  if (w > avail_in) fs <- max(12, floor(fs * avail_in / w))
+  title_txt <- title
+  if (width_at(title_txt, fs) > avail_in) {
+    words <- strsplit(title, ' ', fixed = TRUE)[[1]]
+    best  <- NULL
+    for (k in seq_len(length(words) - 1)) {   # most balanced two-line split that fits
+      l1 <- paste(words[1:k], collapse = ' '); l2 <- paste(words[-(1:k)], collapse = ' ')
+      if (max(width_at(l1, fs), width_at(l2, fs)) <= avail_in &&
+          (is.null(best) || abs(nchar(l1) - nchar(l2)) < best$d))
+        best <- list(txt = paste0(l1, '\n', l2), d = abs(nchar(l1) - nchar(l2)))
+    }
+    if (!is.null(best)) title_txt <- best$txt
+  }
+  grid::grid.text(title_txt, x = 0.02, just = 'left', gp = title_gp(fs))
   grid::upViewport()
   grid::pushViewport(grid::viewport(layout.pos.row = 2))
   subtitle <- paste0('State: ', toupper(zone %||% '\u2013'), '   \u00b7   Region: ', toupper(region %||% '\u2013'),
@@ -1116,11 +1139,17 @@ scope_pop_scale <- function(snap) {
     # grid.roundrect() is NOT a real base-grid drawing function (only
     # roundrectGrob() exists, as a grob constructor) -- grid.draw() is
     # what actually renders it.
-    grid::grid.draw(grid::roundrectGrob(x = 0.9, y = 0.5, width = 0.9, height = 0.5, just = c('right', 'center'),
+    # Box sized to the campaign name (plus padding, capped at the column),
+    # with the name centred in it -- a fixed-width box left a long empty
+    # stretch to the left of a short name.
+    badge_gp <- grid::gpar(fontsize = 10, fontface = 'bold', col = 'white')
+    text_w   <- grid::convertWidth(grid::grobWidth(grid::textGrob(campaign_name, gp = badge_gp)), 'npc', valueOnly = TRUE)
+    pad      <- grid::convertWidth(grid::unit(0.3, 'inches'), 'npc', valueOnly = TRUE)
+    box_w    <- min(0.9, text_w + pad)
+    grid::grid.draw(grid::roundrectGrob(x = 0.9, y = 0.5, width = box_w, height = 0.5, just = c('right', 'center'),
                                         r = grid::unit(0.15, 'snpc'),
                                         gp = grid::gpar(fill = .GPEI_BLUE, col = NA)))
-    grid::grid.text(campaign_name, x = 0.85, y = 0.5, just = c('right', 'center'),
-                    gp = grid::gpar(fontsize = 10, fontface = 'bold', col = 'white'))
+    grid::grid.text(campaign_name, x = 0.9 - box_w / 2, y = 0.5, just = c('center', 'center'), gp = badge_gp)
     grid::upViewport()
   }
   grid::upViewport()
