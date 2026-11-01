@@ -122,6 +122,7 @@ healthAreaSessionServer <- function(id, username_r, district_r, campaign_id_r) {
                               facilities = 'Facilities',
                               idp        = 'IDP settlements',
                               areas      = 'Health areas',
+                              scope      = 'Campaign scope',
                               stage
         )
         showNotification(paste0(stage_label, ' submitted successfully.'),
@@ -150,6 +151,35 @@ healthAreaSessionServer <- function(id, username_r, district_r, campaign_id_r) {
       }, error = function(e) {
         showNotification(paste0('Could not publish: ', e$message), type = 'error', duration = 6)
         invisible(FALSE)
+      })
+    }
+
+    # In-Scope Field U5, added or edited after scope is locked (e.g. a
+    # district whose health or team areas are already mapped). In place on
+    # the active version, published or not -- see db_set_scope_population().
+    set_scope_population <- function(target_pop, worldpop_pop) {
+      req(!is.null(rv$version_id))
+      tryCatch({
+        db_set_scope_population(pool, rv$version_id, target_pop, worldpop_pop)
+        showNotification('In-Scope Field U5 saved.', type = 'message', duration = 3)
+        TRUE
+      }, error = function(e) {
+        showNotification(paste0('Could not save In-Scope Field U5: ', e$message), type = 'error', duration = 6)
+        FALSE
+      })
+    }
+
+    # Health-area Field Target U5s / Field Requested Teams, in place on the
+    # active version -- never re-submits boundaries; see db_set_team_targets().
+    set_team_targets <- function(team_targets) {
+      req(!is.null(rv$version_id))
+      tryCatch({
+        db_set_team_targets(pool, rv$version_id, team_targets)
+        showNotification('Health area field targets saved.', type = 'message', duration = 3)
+        TRUE
+      }, error = function(e) {
+        showNotification(paste0('Could not save health area field targets: ', e$message), type = 'error', duration = 6)
+        FALSE
       })
     }
 
@@ -182,6 +212,8 @@ healthAreaSessionServer <- function(id, username_r, district_r, campaign_id_r) {
       submit_stage         = submit_stage,
       make_current         = make_current,
       refresh_snapshot     = refresh_snapshot,
+      set_scope_population = set_scope_population,
+      set_team_targets     = set_team_targets,
 
       # For the submit-flow prompt to decide, BEFORE offering "make
       # current", whether to show it plainly or show the locked
@@ -284,6 +316,20 @@ teamAreaSessionServer <- function(id, username_r, district_r, campaign_id_r, hea
       })
     }
 
+    # Per-team Field Target U5s, in place on the active team version --
+    # never re-submits team boundaries; see db_set_team_field_pop_overrides().
+    set_team_field_pop_overrides <- function(overrides) {
+      req(!is.null(rv$team_version_id))
+      tryCatch({
+        db_set_team_field_pop_overrides(pool, rv$team_version_id, overrides)
+        showNotification('Team field targets saved.', type = 'message', duration = 3)
+        TRUE
+      }, error = function(e) {
+        showNotification(paste0('Could not save team field targets: ', e$message), type = 'error', duration = 6)
+        FALSE
+      })
+    }
+
     # "Make current" — called from the submit-flow prompt in
     # mod_team_area_tab.R. No role-gating (team-area publish never
     # invalidates anything else downstream, unlike health-area publish) —
@@ -321,6 +367,7 @@ teamAreaSessionServer <- function(id, username_r, district_r, campaign_id_r, hea
       activate_team_version_id = activate_team_version_id,
       deactivate                = deactivate,
       submit_stage               = submit_stage,
+      set_team_field_pop_overrides = set_team_field_pop_overrides,
       make_current                = make_current
     )
   })

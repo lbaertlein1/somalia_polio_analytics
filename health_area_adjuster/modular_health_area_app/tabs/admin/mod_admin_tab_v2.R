@@ -329,9 +329,10 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
           actionButton(session$ns('save_manage_districts'), 'Save', class = 'btn btn-primary')
         ),
         tags$p(style = 'font-size:11px;color:#94a3b8;margin-bottom:8px;',
-               '"Partial" adds a Campaign Scope stage for that district, between Landmarks and Facilities, ',
-               'where the in-scope/out-of-scope boundary is painted directly, starting from the campaign ',
-               'extent below (clipped to the district) where available, or the whole blank district otherwise.'),
+               'Every district goes through a Campaign Scope stage between Landmarks and Facilities, where the ',
+               'in-scope/out-of-scope boundary is painted and the In-Scope Field U5 can be entered. ',
+               '"Full district" starts that stage with the whole district In Scope. "Partial" starts from the ',
+               'campaign extent below (clipped to the district) where available, or the whole blank district otherwise.'),
         div(
           style = 'border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:12px;background:#f8fafc;',
           div(class = 'mini-label', 'Campaign extent URL (this campaign)',
@@ -721,20 +722,24 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
         }, error = function(e) NA_real_)
       }, numeric(1))
 
-      field_pop   <- vapply(areas, function(a) targets[[a]]$target_pop %||% NA_real_, numeric(1))
-      field_teams <- vapply(areas, function(a) targets[[a]]$requested_teams %||% NA_real_, numeric(1))
-      recommended_teams <- vapply(worldpop_pop, function(p) {
+      field_pop   <- vapply(areas, function(a) .unwrap_num(targets[[a]]$target_pop), numeric(1))
+      field_teams <- vapply(areas, function(a) .unwrap_num(targets[[a]]$requested_teams), numeric(1))
+      # Scaled WorldPop U5 when the district has an In-Scope Field U5;
+      # plain WorldPop U5 otherwise.
+      pop_scale  <- scope_pop_scale(ver$snap)
+      scaled_pop <- .scaled_pop(worldpop_pop, pop_scale)
+      recommended_teams <- vapply(scaled_pop, function(p) {
         tryCatch(as.integer(compute_n_teams(p, campaign_id = review_target()$campaign_id)), error = function(e) NA_integer_)
       }, integer(1))
+      .fmt <- function(x) ifelse(is.na(x), '\u2013', format(round(x), big.mark = ','))
 
-      display <- data.frame(
-        `Health Area`                   = areas,
-        `WorldPop Population`            = ifelse(is.na(worldpop_pop), '\u2013', format(round(worldpop_pop), big.mark = ',')),
-        `Field Target Population`         = ifelse(is.na(field_pop), '\u2013', format(round(field_pop), big.mark = ',')),
-        `Recommended Teams (WorldPop)`     = ifelse(is.na(recommended_teams), '\u2013', as.character(recommended_teams)),
-        `Field Requested Teams`             = ifelse(is.na(field_teams), '\u2013', as.character(field_teams)),
-        check.names = FALSE, stringsAsFactors = FALSE
-      )
+      display <- data.frame(`Health Area` = areas, check.names = FALSE, stringsAsFactors = FALSE)
+      display[[.WP_POP_COL]] <- .fmt(worldpop_pop)
+      if (!is.na(pop_scale)) display[[.SCALED_POP_COL]] <- .fmt(scaled_pop)
+      display[[.FIELD_POP_COL]] <- .fmt(field_pop)
+      display[[paste0('Recommended Teams (', if (is.na(pop_scale)) .WP_POP_COL else .SCALED_POP_COL, ')')]] <-
+        ifelse(is.na(recommended_teams), '\u2013', as.character(recommended_teams))
+      display[['Field Requested Teams']] <- ifelse(is.na(field_teams), '\u2013', as.character(field_teams))
       DT::datatable(display, rownames = FALSE, selection = 'none', options = list(dom = 't', scrollX = TRUE))
     })
 

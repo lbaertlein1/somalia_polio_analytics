@@ -28,17 +28,23 @@ healthAreaPopulationServer <- function(
     name_col_label = "Health Area",
     allow_rename = FALSE,
     on_rename = NULL,
-    # Column header for the population column -- defaults to "WorldPop
-    # U5 Population" for Health Area Mapping and Campaign Scope, where
-    # the value really is a raw WorldPop extraction. Team Areas passes
-    # "Target Population" instead, since its values are scaled to match
-    # a field-entered health area target when one exists, so calling it
-    # "WorldPop" there would misstate where the number came from. Only
-    # ever ONE population column, regardless of caller -- population
-    # field-entry itself happens in a submit-time modal (see
-    # mod_team_area_tab.R's own .show_team_population_targets_modal()),
-    # not as a second, always-editable column here.
-    pop_col_label = "WorldPop U5 Population"
+    # Column header for the main population column -- "WorldPop U5" by
+    # default (Campaign Scope, and Health Area Mapping with no In-Scope
+    # Field U5), where the value really is a raw WorldPop extraction.
+    # Health Area Mapping relabels it "Scaled WorldPop U5" once the
+    # district has an In-Scope Field U5, and Team Areas uses "Target
+    # Population" -- in both cases raw_col_label below adds the WorldPop
+    # U5 alongside. May be a reactive/function returning the label.
+    # Population figures are never edited in this table -- field entry
+    # happens in the submit-time modals (e.g. mod_team_area_tab.R's own
+    # .show_team_population_targets_modal()).
+    pop_col_label = "WorldPop U5",
+    # Optional second, read-only column showing the raw WorldPop U5
+    # (pop_table()$raw_worldpop) next to a scaled/target figure, so the
+    # two are never shown without each other. Label string, or a
+    # reactive/function returning one -- NULL hides the column (e.g.
+    # when the main column already IS raw WorldPop).
+    raw_col_label = NULL
 ) {
   moduleServer(id, function(input, output, session) {
 
@@ -53,6 +59,9 @@ healthAreaPopulationServer <- function(
       table_revision()
       df <- pop_table()
       if (is.null(df) || nrow(df) == 0) return(NULL)
+      pop_col_label <- if (is.function(pop_col_label)) pop_col_label() else pop_col_label
+      raw_label     <- if (is.function(raw_col_label)) raw_col_label() else raw_col_label
+      show_raw      <- !is.null(raw_label) && 'raw_worldpop' %in% names(df)
       
       # This module is shared across three tabs whose total row is
       # labeled differently: "District Total" (Health Area Mapping,
@@ -80,6 +89,12 @@ healthAreaPopulationServer <- function(
       )
       names(display_df)[names(display_df) == "name_display"] <- name_col_label
       names(display_df)[names(display_df) == "pop_display"]  <- pop_col_label
+      # WorldPop U5 goes before the scaled/target column -- the same order
+      # as the targets modals and exports (WorldPop U5, then Scaled).
+      if (show_raw) {
+        display_df[[raw_label]] <- as.integer(round(df$raw_worldpop))
+        display_df <- display_df[, c(1, 2, 4, 3)]
+      }
       
       row_renderer <- htmlwidgets::JS(sprintf("
   function(instance, td, row, col, prop, value, cellProperties) {
@@ -106,7 +121,7 @@ healthAreaPopulationServer <- function(
         }
       ")
       
-      rhandsontable::rhandsontable(
+      hot <- rhandsontable::rhandsontable(
         display_df,
         rowHeaders = NULL,
         stretchH   = "all",
@@ -114,8 +129,10 @@ healthAreaPopulationServer <- function(
         useTypes   = FALSE
       ) |>
         rhandsontable::hot_col("area_name_internal", width = 1,   readOnly = TRUE, renderer = blank_renderer) |>
-        rhandsontable::hot_col(name_col_label,        width = 180, readOnly = !allow_rename || isTRUE(in_vertex_mode()), renderer = row_renderer) |>
-        rhandsontable::hot_col(pop_col_label,        width = 110,  readOnly = TRUE, renderer = row_renderer) |>
+        rhandsontable::hot_col(name_col_label,        width = if (show_raw) 150 else 180, readOnly = !allow_rename || isTRUE(in_vertex_mode()), renderer = row_renderer) |>
+        rhandsontable::hot_col(pop_col_label,        width = if (show_raw) 95 else 110,  readOnly = TRUE, renderer = row_renderer)
+      if (show_raw) hot <- rhandsontable::hot_col(hot, raw_label, width = 95, readOnly = TRUE, renderer = row_renderer)
+      hot |>
         rhandsontable::hot_table(
           highlightRow   = TRUE,
           columnSorting  = FALSE,

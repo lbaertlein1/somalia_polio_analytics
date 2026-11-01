@@ -25,7 +25,7 @@ Before generating, you confirm or adjust the population estimate and team count 
 ![The "Team planning for Hawa Tako Health Center" dialog, showing a WorldPop estimate of 3,917, an editable Population estimate field, Recommended teams of 5 (calculated as ceil(3,917 ÷ 800)), and an editable Number of teams field](images/team-areas-planning-confirm.png)
 <p class="img-caption">Recommended teams = ceil(population estimate ÷ 800 target per team). Both fields are editable before generating.</p>
 
-- **Population estimate (under-5)** — pre-filled from WorldPop, but editable if you have a better field figure.
+- **Population to use (under-5)** — pre-filled with the health area's Target Population: its Field Target U5 if one was entered, otherwise Scaled WorldPop U5 (or WorldPop U5 if the district has no In-Scope Field U5). Editable if you have a better figure for this session.
 - **Number of teams** — pre-filled with the recommended count, but editable directly — this is what actually controls how many team areas get generated, regardless of what's recommended.
 
 ## Painting and renaming
@@ -49,7 +49,13 @@ Same tools as [Health Areas](health-areas). Select a team from the table on the 
 
 ## Submitting and setting as published
 
-**Submit Team Areas** saves the team-area boundaries for all teams worked on so far to the database. After submitting, you're asked whether to publish this version as the health area's active team map:
+**Submit Team Areas** saves the team-area boundaries for all teams worked on so far to the database.
+
+The **Team Population Targets** dialog then lets you enter a **Field Target U5** for any team. A team without one shows its WorldPop share of the health area's Target Population. A team's Field Target U5 replaces that team's figure only — it doesn't change the health area's own Target Population or any other team's, so team figures don't have to add up to the health area's total. Leave a team blank to keep its estimate.
+
+You can reopen this dialog at any time — including on a team map that's already published — from **Edit team Field Target U5s** in the **Population figures** box above the team table. Saving it only changes population figures, never the team boundaries, and doesn't create a new version.
+
+After that, you're asked whether to publish this version as the health area's active team map:
 
 ![The "Team areas submitted" dialog asking "Set this submission as Hiran Regional Hospital's published team map?" with Not now and Set as published buttons](images/team-areas-set-as-current.png)
 <p class="img-caption">Submitting saves the draft either way — Set as published is what actually publishes it.</p>

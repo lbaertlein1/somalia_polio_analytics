@@ -5,6 +5,7 @@ healthAreaTabUI <- function(id) {
     column(width = 6, div(style = 'height: calc(100vh - 120px);', healthAreaMapUI(ns('map')))),
     column(width = 3,
            div(style = 'overflow-y: auto; height: calc(100vh - 120px);',
+               uiOutput(ns('scope_pop_summary')),
                healthAreaPopulationUI(ns('population'), name_col_label = "Health Area", allow_rename = TRUE)))
   )
 }
@@ -27,6 +28,24 @@ healthAreaTabServer <- function(
     # (falls back to the global default of 400/team), so existing callers
     # that don't pass this are unaffected.
     campaign_id         = reactive(NULL),
+    # scope_pop_scale() for this district (server.R's pop_scale_r): every
+    # population figure shown on this tab is WorldPop x this factor
+    # (Scaled WorldPop U5). NA = plain WorldPop U5 (no In-Scope Field U5).
+    pop_scale_r         = reactive(NA_real_),
+    # list(scope_target_pop, scope_worldpop_pop) behind pop_scale_r, and
+    # set_scope_population_fn(target_pop, worldpop_pop) -> TRUE/FALSE to
+    # add/edit it from here -- the way back for a district whose Campaign
+    # Scope is already locked (health or team areas mapped). NULL hides
+    # the edit link.
+    scope_pop_r             = reactive(NULL),
+    set_scope_population_fn = NULL,
+    # set_team_targets_fn(team_targets) -> TRUE/FALSE: saves the Team
+    # Planning Targets (Field Target U5 / Field Requested Teams per health
+    # area) in place on the open version, without re-submitting boundaries
+    # -- so they can be added or changed at any time, including for a
+    # district whose team areas are already published. NULL falls back to
+    # re-submitting the "areas" stage (the old behaviour).
+    set_team_targets_fn     = NULL,
     # "Make current" support -- wired from server.R to
     # healthAreaSession$make_current / healthAreaSession$is_locked_for_publish
     # (mod_session_manager_v2.R). Both default to safe no-ops so a caller
@@ -337,9 +356,90 @@ healthAreaTabServer <- function(
       pop_table            = reactive(rv$pop_table),
       in_vertex_mode       = in_vertex_mode,
       allow_rename         = !is.null(rename_health_area_fn),
-      on_rename            = .on_health_area_rename
+      on_rename            = .on_health_area_rename,
+      pop_col_label        = function() if (is.na(pop_scale_r())) .WP_POP_COL else .SCALED_POP_COL,
+      # WorldPop U5 alongside, only when the main column is the scaled one.
+      raw_col_label        = function() if (is.na(pop_scale_r())) NULL else .WP_POP_COL
     )
     
+    # ── In-Scope Field U5 (the field figure WorldPop is scaled to) ───────
+    # WorldPop over the planning area, i.e. the In Scope area (the whole
+    # district if scope was never painted) -- recomputed rather than read
+    # from the stored scope_worldpop_pop, so an edit here always compares
+    # against the boundary actually in use.
+    in_scope_worldpop <- reactive({
+      pa <- tryCatch(planning_area_sf_r(), error = function(e) NULL)
+      req(!is.null(pa), nrow(pa) > 0)
+      sum(.polygon_u5_population(pa, u5_rast), na.rm = TRUE)
+    })
+
+    output$scope_pop_summary <- renderUI({
+      req(isTRUE(district_ready()))
+      field <- .unwrap_num((scope_pop_r() %||% list())$scope_target_pop)
+      wp    <- tryCatch(in_scope_worldpop(), error = function(e) NA_real_)
+      div(
+        style = 'font-size:11px;color:#475569;margin-bottom:8px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;',
+        div(style = 'font-weight:600;margin-bottom:2px;', 'Population figures'),
+        div(sprintf('In Scope area -- %s: %s  |  In-Scope Field U5: %s', .WP_POP_COL, .fmt_pop(wp), .fmt_field(field))),
+        if (!is.na(field)) div(style = 'color:#64748b;',
+                               'Health area figures below are Scaled WorldPop U5 -- WorldPop scaled to the In-Scope Field U5.'),
+        div(style = 'margin-top:3px;',
+          if (!is.null(set_scope_population_fn))
+            actionLink(session$ns('edit_scope_pop'), if (is.na(field)) 'Add In-Scope Field U5' else 'Edit In-Scope Field U5'),
+          # Only once this version has health areas to attach targets to.
+          if (!is.null(set_team_targets_fn) && !is.null(rv$saved_dfa_sf))
+            tagList(' | ', actionLink(session$ns('edit_team_targets'), 'Edit health area Field Target U5s'))
+        ),
+        div(style = 'color:#94a3b8;', 'Changing these never changes any boundary.')
+      )
+    })
+
+    observeEvent(input$edit_team_targets, {
+      req(!isTRUE(in_vertex_mode()))
+      .show_team_targets_modal(after_submit = FALSE)
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$edit_scope_pop, {
+      field <- .unwrap_num((scope_pop_r() %||% list())$scope_target_pop)
+      wp    <- tryCatch(in_scope_worldpop(), error = function(e) NA_real_)
+      showModal(modalDialog(
+        title = 'In-Scope Field U5', size = 'm', easyClose = FALSE,
+        footer = tagList(
+          modalButton('Cancel'),
+          actionButton(session$ns('scope_pop_save'), 'Save', class = 'btn btn-primary')
+        ),
+        div(
+          style = 'font-size:13px;color:#475569;line-height:1.6;',
+          tags$p('WorldPop U5 for this district\'s In Scope area: ', tags$strong(.fmt_pop(wp)), '.'),
+          tags$p('Enter the field figure for children under 5 in this area if you have one -- for example ',
+                 'from microplan enumeration. WorldPop is then scaled to match it, and health areas and ',
+                 'teams show Scaled WorldPop U5. A Field Target U5 already entered for an individual health ',
+                 'area or team still takes priority. Clear the box to go back to WorldPop U5.')
+        ),
+        numericInput(session$ns('scope_pop_edit_input'), 'In-Scope Field U5',
+                     value = if (is.na(field)) NA else field, min = 0, step = 1, width = '100%')
+      ))
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$scope_pop_save, {
+      req(!is.null(set_scope_population_fn))
+      v <- suppressWarnings(as.numeric(input$scope_pop_edit_input))
+      if (length(v) == 0) v <- NA_real_
+      if (!is.na(v) && v <= 0) {
+        showNotification('Enter a population above 0, or clear the box to use WorldPop.', type = 'warning', duration = 5)
+        return()
+      }
+      wp <- tryCatch(in_scope_worldpop(), error = function(e) NA_real_)
+      if (isTRUE(set_scope_population_fn(v, wp))) removeModal()
+    }, ignoreInit = TRUE)
+
+    # The scale can arrive after the grid was built (e.g. the saved
+    # snapshot loads after the scene), so the table follows it.
+    observeEvent(pop_scale_r(), {
+      req(!is.null(rv$grid_sf), !is.null(rv$current_assignments))
+      recompute_population_table(rv$current_assignments)
+    }, ignoreInit = TRUE, ignoreNULL = FALSE)
+
     # Use globally loaded raster from global.R (avoids redundant loading)
     get_u5_worldpop <- function() u5_rast
     
@@ -372,15 +472,23 @@ healthAreaTabServer <- function(
         return(invisible(NULL))
       }
       
-      df <- data.frame(area_name = assignments, est_u5_pop = rv$grid_sf$u5_pop,
-                       stringsAsFactors = FALSE) |>
+      # Scaled WorldPop U5 when the district has an In-Scope Field U5
+      # (pop_scale_r()); only the displayed/team-count figures change --
+      # rv$grid_sf$u5_pop itself stays raw WorldPop, which generation and
+      # the stored dfa_worldpop_pop both use.
+      cell_pop <- .scaled_pop(rv$grid_sf$u5_pop, pop_scale_r())
+      # raw_worldpop is kept alongside, so the table and the targets modal
+      # can show WorldPop U5 next to Scaled WorldPop U5.
+      df <- data.frame(area_name = assignments, est_u5_pop = cell_pop,
+                       raw_worldpop = rv$grid_sf$u5_pop, stringsAsFactors = FALSE) |>
         dplyr::filter(!is.na(area_name), nzchar(area_name)) |>
         dplyr::group_by(area_name) |>
-        dplyr::summarise(est_u5_pop = round(sum(est_u5_pop, na.rm = TRUE), 0), .groups = "drop")
+        dplyr::summarise(est_u5_pop   = round(sum(est_u5_pop, na.rm = TRUE), 0),
+                         raw_worldpop = round(sum(raw_worldpop, na.rm = TRUE), 0), .groups = "drop")
       missing_classes <- setdiff(current_names, df$area_name)
       if (length(missing_classes) > 0)
         df <- dplyr::bind_rows(df, data.frame(area_name = missing_classes, est_u5_pop = 0,
-                                              stringsAsFactors = FALSE))
+                                              raw_worldpop = 0, stringsAsFactors = FALSE))
       df <- df |>
         dplyr::mutate(area_name = factor(area_name, levels = current_names)) |>
         dplyr::arrange(area_name) |>
@@ -388,7 +496,8 @@ healthAreaTabServer <- function(
       rv$pop_table <- dplyr::bind_rows(
         df,
         data.frame(area_name = "District Total",
-                   est_u5_pop = round(sum(rv$grid_sf$u5_pop, na.rm = TRUE), 0),
+                   est_u5_pop = round(sum(cell_pop, na.rm = TRUE), 0),
+                   raw_worldpop = round(sum(rv$grid_sf$u5_pop, na.rm = TRUE), 0),
                    stringsAsFactors = FALSE)
       )
       invisible(NULL)
@@ -1395,7 +1504,7 @@ healthAreaTabServer <- function(
           # the targets/publish prompts as if it had worked.
           if (isFALSE(ok)) { pending_action(NULL); return() }
           areas_submitted_to_db(TRUE)
-          .show_team_targets_modal()
+          .show_team_targets_modal(after_submit = TRUE)
         }
       } else {
         showNotification("Health area boundaries saved.", type = "message", duration = 2)
@@ -1548,22 +1657,33 @@ healthAreaTabServer <- function(
     # ── Post-submit team planning targets modal ──────────────────────────────
     # Fires once per successful submit. One row per real health area
     # (Inaccessible/Unpopulated excluded -- they don't get outreach teams).
-    # Field Target Population is purely informational, captured for the
-    # admin's own records -- it does NOT feed the recommended-teams
-    # calculation, which is always based on WorldPop population (per the
-    # stated design: "Recommended number of teams based on WorldPop and
-    # admin-entered population per team"). Field Requested Teams is what
-    # actually overrides Team Areas' own team count when non-blank.
+    # Field Target U5 does NOT feed this modal's Recommended Teams, which
+    # is always based on Scaled WorldPop U5 (WorldPop U5 if the district
+    # has no In-Scope Field U5) and the admin's population-per-team
+    # setting. It IS the health area's Target Population downstream --
+    # Team Areas uses it (area_population()), and the exports show it.
+    # Field Requested Teams is what actually overrides Team Areas' own
+    # team count when non-blank.
     .safe_target_id <- function(area_name) gsub("[^A-Za-z0-9]+", "_", area_name)
     
-    .show_team_targets_modal <- function() {
+    # after_submit: opened by a health-area submit (Done then offers to
+    # publish) vs. opened on its own from the Population figures box (Done
+    # just saves and closes).
+    team_targets_after_submit <- reactiveVal(FALSE)
+
+    .show_team_targets_modal <- function(after_submit = FALSE) {
       if (is.null(rv$pop_table)) return(invisible(NULL))
+      team_targets_after_submit(isTRUE(after_submit))
       area_rows <- rv$pop_table[!(rv$pop_table$area_name %in% c("District Total", extra_dfa_names)), , drop = FALSE]
       if (nrow(area_rows) == 0) return(invisible(NULL))
       
+      # WorldPop U5 always; Scaled WorldPop U5 next to it when the district
+      # has an In-Scope Field U5 (recommended teams are then based on it).
+      scaled <- !is.na(pop_scale_r())
       header_row <- tagList(
-        tags$strong('Health Area'), tags$strong('WorldPop U5 Pop.'),
-        tags$strong('Field Target Population'), tags$strong('Recommended Teams'),
+        tags$strong('Health Area'), tags$strong(.WP_POP_COL),
+        if (scaled) tags$strong(.SCALED_POP_COL),
+        tags$strong(.FIELD_POP_COL), tags$strong('Recommended Teams'),
         tags$strong('Field Requested Teams')
       )
       
@@ -1581,7 +1701,8 @@ healthAreaTabServer <- function(
           # Editable -- a changed name is applied on Done, through the same
           # names-only rename as the population table (.on_health_area_rename).
           textInput(session$ns(paste0('target_name_', sid)), NULL, value = area_name, width = '100%'),
-          div(style = 'align-self:center;font-size:12px;', format(round(area_pop), big.mark = ',')),
+          div(style = 'align-self:center;font-size:12px;', format(round(area_rows$raw_worldpop[i] %||% NA), big.mark = ',')),
+          if (scaled) div(style = 'align-self:center;font-size:12px;', format(round(area_pop), big.mark = ',')),
           numericInput(session$ns(paste0('target_pop_', sid)), NULL,
                        value = existing$target_pop %||% NA, min = 0, width = '100%'),
           div(style = 'align-self:center;font-size:12px;', recommended),
@@ -1595,13 +1716,16 @@ healthAreaTabServer <- function(
         footer = actionButton(session$ns('team_targets_done'), 'Done', class = 'btn btn-primary'),
         div(
           style = 'font-size:12px;color:#475569;margin-bottom:12px;',
-          'Optionally set a field target population or a specific number of teams for each health area. ',
-          'Leave a field blank to use the recommended number of teams, based on WorldPop population ',
+          'Optionally set a Field Target U5 or a specific number of teams for each health area. ',
+          'Leave a field blank to use the recommended number of teams, based on ',
+          if (scaled) 'Scaled WorldPop U5 (WorldPop scaled to the In-Scope Field U5) '
+          else 'WorldPop U5 ',
           'and the population-per-team setting from the Admin page. ',
           'Health area names can be edited here too -- only the name changes, never the boundary.'
         ),
         div(
-          style = paste0('display:grid;grid-template-columns:2fr 1fr 1.2fr 1fr 1.2fr;',
+          style = paste0('display:grid;grid-template-columns:',
+                         if (scaled) '2fr 1fr 1fr 1.2fr 1fr 1.2fr;' else '2fr 1fr 1.2fr 1fr 1.2fr;',
                          'gap:8px 10px;align-items:center;'),
           header_row,
           data_rows
@@ -1652,10 +1776,14 @@ healthAreaTabServer <- function(
         }
         rv$team_targets <- new_targets
         
-        # Persist alongside the boundary data already submitted, so team
-        # targets survive a session restore -- reuses whatever was just
-        # submitted (still current in rv$saved_dfa_sf etc. at this point).
-        if (!is.null(submit_stage_fn) && !is.null(rv$saved_dfa_sf)) {
+        # Persisted in place (set_team_targets_fn) -- only team_targets is
+        # written, so boundaries are never re-submitted and a published
+        # version is never forked just to record field figures. The
+        # fallback re-submits the boundary data already submitted (still
+        # current in rv$saved_dfa_sf etc. at this point).
+        if (!is.null(set_team_targets_fn)) {
+          if (!isTRUE(set_team_targets_fn(rv$team_targets))) { removeModal(); return() }
+        } else if (!is.null(submit_stage_fn) && !is.null(rv$saved_dfa_sf)) {
           ok <- submit_stage_fn('areas', list(
             saved_dfa_sf        = rv$saved_dfa_sf,
             dfa_names           = rv$dfa_names,
@@ -1667,7 +1795,7 @@ healthAreaTabServer <- function(
           if (isFALSE(ok)) { removeModal(); return() }
         }
       }
-      .show_make_current_prompt()
+      if (isTRUE(team_targets_after_submit())) .show_make_current_prompt() else removeModal()
     }, ignoreInit = TRUE)
     
     # ── "Make current" prompt — shown right after a health-area submission,

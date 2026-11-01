@@ -47,17 +47,26 @@ Once saved, a painted **Inaccessible** area shows filled and outlined in red on 
 
 ## Team Planning Targets
 
-Each health area's row shows its **WorldPop U5 Population** — the estimated under-5 population inside that area's boundary, from the WorldPop dataset. From this, the tool calculates a **Recommended Teams** figure for each health area, based on that population and the population-per-team setting configured on the [Admin](admin) tab.
+Each health area's row shows its **WorldPop U5** — the estimated under-5 population inside that area's boundary, from the WorldPop dataset. If the district has an **In-Scope Field U5** (entered at [Campaign Scope](campaign-scope)), a **Scaled WorldPop U5** column is shown as well — WorldPop scaled so the district adds up to that field figure — with WorldPop U5 next to it for comparison. From this, the tool calculates a **Recommended Teams** figure for each health area, based on that population and the population-per-team setting configured on the [Admin](admin) tab.
+
+The **Population figures** box above the table shows the district's WorldPop U5 and In-Scope Field U5 for the In Scope area, with two links:
+
+- **Add / Edit In-Scope Field U5** — the district's field figure (Campaign Scope itself locks once Facilities work begins, so this is where to add or change it afterwards).
+- **Edit health area Field Target U5s** — reopens the Team Planning Targets dialog below, once health areas have been saved.
+
+Both work at any time, including for a district whose health or team areas are already mapped or published, and save straight away. They only change population figures — never any boundary, and they don't create a new version. See the [Glossary](reference) for all the population names.
 
 The **Team Planning Targets** dialog lets you override this for individual health areas if the WorldPop estimate or the standard formula doesn't match what's actually needed on the ground:
 
-- **Field Target Population** — enter a different population figure for that health area if the WorldPop estimate needs correcting.
+- **Field Target U5** — enter a different population figure for that health area if the WorldPop estimate needs correcting.
 - **Field Requested Teams** — enter a specific number of teams directly, overriding the recommended figure.
 
 Leave either field blank to keep using the calculated default. Click **Done** to close the dialog once you've made any adjustments.
 
 ![The Team Planning Targets dialog listing each health area with its WorldPop U5 Population, an empty Field Target Population input, the calculated Recommended Teams figure, and an empty Field Requested Teams input](images/health-areas-team-planning-targets.png)
 <p class="img-caption">Both override fields are optional — leaving them blank keeps the WorldPop-based recommendation.</p>
+
+The dialog opens automatically after **Submit**, and can be reopened at any time from **Edit health area Field Target U5s** in the Population figures box.
 
 ## Context layers
 

@@ -36,4 +36,4 @@ The map also shows several reference layers that appear again throughout the too
 
 ## Submitting
 
-**Submit Landmarks** saves them to the database. **Continue →** moves you forward in the workflow — normally to [Campaign Scope](campaign-scope) or straight to [Facilities](facilities), depending on whether an admin has marked this district as full or partial coverage (see [Admin](admin) for where that's decided — it isn't decided here).
+**Submit Landmarks** saves them to the database. **Continue →** moves you on to [Campaign Scope](campaign-scope). (If this district's scope is already locked because Facilities work has begun, you're taken straight to [Facilities](facilities) instead.)

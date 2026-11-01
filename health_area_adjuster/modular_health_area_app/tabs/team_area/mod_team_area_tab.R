@@ -39,6 +39,7 @@ teamAreaTabUI <- function(id) {
     column(width = 6, div(style = 'height: calc(100vh - 120px);', teamAreaMapUI(ns('map')))),
     column(width = 3,
            div(style = 'overflow-y: auto; height: calc(100vh - 120px);',
+               uiOutput(ns('team_field_summary')),
                healthAreaPopulationUI(ns('population'), name_col_label = "Team Name", allow_rename = TRUE)))
   )
 }
@@ -60,6 +61,12 @@ teamAreaTabServer <- function(
     landmarks_r       = reactive(NULL),
     submit_stage_fn   = NULL,
     restore_r         = reactive(NULL),
+    # set_team_field_pop_overrides_fn(overrides) -> TRUE/FALSE: saves the
+    # per-team Field Target U5s in place on the open team version, without
+    # re-submitting team boundaries -- so they can be added or changed at
+    # any time, including on a published team map. NULL falls back to
+    # re-submitting the team stage (the old behaviour).
+    set_team_field_pop_overrides_fn = NULL,
     # "Make current" / staleness support -- wired from server.R to
     # teamAreaSession$make_current / teamAreaSession$is_stale
     # (mod_session_manager_v2.R). Both default to safe no-ops/FALSE so a
@@ -207,10 +214,12 @@ teamAreaTabServer <- function(
       # entered via the post-submit modal (.show_team_population_targets_
       # modal(), same pattern as mod_health_area_tab.R's own field-target
       # modal), so calling the whole column "WorldPop" would misstate
-      # where the numbers actually came from. Only ever this one
-      # population column -- field entry happens in that submit-time
-      # modal, not as a second column here.
-      pop_col_label        = "Target Population"
+      # where the numbers actually came from. Field entry happens in that
+      # submit-time modal, never in this table.
+      pop_col_label        = "Target Population",
+      # The raw WorldPop U5 alongside, so the Target Population is never
+      # shown without the WorldPop figure it came from.
+      raw_col_label        = .WP_POP_COL
     )
 
     recompute_population_table <- function(assignments) {
@@ -242,44 +251,40 @@ teamAreaTabServer <- function(
       # not an assumption.
       df$raw_worldpop <- df$est_u5_pop
 
-      # Team-level populations are made to sum to the health area's own
-      # authoritative population (field-entered if set, else the WorldPop
-      # backup -- area_population() already implements exactly that
-      # fallback), rather than left as raw per-team grid sums, which can
-      # drift from that total due to ordinary raster/boundary rounding.
-      #
-      # Once any team has its OWN field-verified population entered
-      # (rv$team_field_pop_overrides), the relationship inverts: the
-      # health area's population becomes DERIVED as the sum of (that
-      # team's field value) + (raw WorldPop, unscaled, for every other
-      # team) -- there's no longer a single external target to scale
-      # everyone else against, since ground truth now exists at the team
-      # level for at least one team. This is why non-overridden teams'
-      # values are NOT rescaled to fit some new derived total in that
-      # branch: doing so would silently move numbers the user never
-      # touched every time a different team's override changes.
-      overrides <- rv$team_field_pop_overrides %||% list()
-      overridden_names <- intersect(names(overrides), df$area_name)
+      # Field figures stay at the level they were entered -- nothing here
+      # rolls team figures up into the health area:
+      #   - The Health Area Total row is the health area's OWN Target
+      #     Population (area_population(): its Field Target U5 if set,
+      #     else Scaled WorldPop U5 / WorldPop U5), whatever the teams say.
+      #   - A team with its own Field Target U5 (rv$team_field_pop_
+      #     overrides) shows that figure.
+      #   - Every other team shows its WorldPop share of the health area's
+      #     Target Population -- the same proportional rule printable_
+      #     export.R's .build_team_summary_table() uses, so the tab and the
+      #     exports agree. Shares are over ALL teams' WorldPop, so teams
+      #     with their own figures don't shift anyone else's number.
+      # Team rows therefore needn't add up to the total once any team has
+      # its own figure; that's deliberate.
+      ha_target <- suppressWarnings(as.numeric(area_population()))
+      raw_total <- sum(df$est_u5_pop, na.rm = TRUE)
+      if (!is.na(ha_target) && ha_target >= 0 && raw_total > 0) {
+        df$est_u5_pop <- round(df$est_u5_pop * (ha_target / raw_total), 0)
+      }
+      ha_total <- if (!is.na(ha_target)) ha_target else sum(df$est_u5_pop, na.rm = TRUE)
 
+      overrides <- rv$team_field_pop_overrides %||% list()
       df$field_pop <- NA_real_
-      if (length(overridden_names) > 0) {
-        for (nm in overridden_names) {
-          # .unwrap_num(), not plain as.numeric() -- overrides can arrive
-          # restored from the DB (.apply_restore() -> snap$team_field_
-          # pop_overrides -> .from_json_db()'s simplifyVector=FALSE
-          # parsing), the same wrapped-in-a-length-1-list structure
-          # documented on .unwrap_num() itself in printable_export.R.
-          ov <- .unwrap_num(overrides[[nm]])
-          if (!is.na(ov) && ov >= 0) df$field_pop[df$area_name == nm] <- ov
+      for (nm in intersect(names(overrides), df$area_name)) {
+        # .unwrap_num(), not plain as.numeric() -- overrides can arrive
+        # restored from the DB (.apply_restore() -> snap$team_field_
+        # pop_overrides -> .from_json_db()'s simplifyVector=FALSE
+        # parsing), the same wrapped-in-a-length-1-list structure
+        # documented on .unwrap_num() itself in printable_export.R.
+        ov <- .unwrap_num(overrides[[nm]])
+        if (!is.na(ov) && ov >= 0) {
+          df$field_pop[df$area_name == nm]  <- ov
+          df$est_u5_pop[df$area_name == nm] <- ov
         }
-        ha_total <- sum(ifelse(!is.na(df$field_pop), df$field_pop, df$est_u5_pop), na.rm = TRUE)
-      } else {
-        ha_target <- suppressWarnings(as.numeric(area_population()))
-        raw_total <- sum(df$est_u5_pop, na.rm = TRUE)
-        if (!is.na(ha_target) && ha_target >= 0 && raw_total > 0) {
-          df$est_u5_pop <- round(df$est_u5_pop * (ha_target / raw_total), 0)
-        }
-        ha_total <- if (!is.na(ha_target)) ha_target else sum(df$est_u5_pop, na.rm = TRUE)
       }
 
       rv$pop_table <- dplyr::bind_rows(
@@ -301,13 +306,25 @@ teamAreaTabServer <- function(
     # mirroring exactly when the health-area equivalent modal appears.
     .safe_team_pop_id <- function(team_name) gsub("[^A-Za-z0-9]+", "_", team_name)
 
-    .show_team_population_targets_modal <- function() {
+    # after_submit: opened by a team-area submit (Done then offers to
+    # publish) vs. opened on its own from the Field Target U5 box above the
+    # table (Done just saves and closes).
+    team_pop_after_submit <- reactiveVal(FALSE)
+
+    .show_team_population_targets_modal <- function(after_submit = FALSE) {
       if (is.null(rv$pop_table)) return(invisible(NULL))
+      team_pop_after_submit(isTRUE(after_submit))
       team_rows <- rv$pop_table[rv$pop_table$area_name != 'Health Area Total', , drop = FALSE]
       if (nrow(team_rows) == 0) return(invisible(NULL))
 
+      # Scaled WorldPop U5 next to WorldPop U5 when the district has an
+      # In-Scope Field U5.
+      pop_scale <- isolate(scope_pop_scale_r())
+      scaled <- !is.na(pop_scale)
       header_row <- tagList(
-        tags$strong('Team'), tags$strong('Target Pop (WorldPop)'), tags$strong('Field Population')
+        tags$strong('Team'), tags$strong(.WP_POP_COL),
+        if (scaled) tags$strong(.SCALED_POP_COL),
+        tags$strong(.FIELD_POP_COL)
       )
 
       # Field Population's own default is each team's PROPORTIONAL share
@@ -347,6 +364,7 @@ teamAreaTabServer <- function(
         tagList(
           div(style = 'align-self:center;font-size:12px;', team_name),
           div(style = 'align-self:center;font-size:12px;', format(round(wp_val), big.mark = ',')),
+          if (scaled) div(style = 'align-self:center;font-size:12px;', format(round(.scaled_pop(wp_val, pop_scale)), big.mark = ',')),
           # Defaults to this team's PROPORTIONAL share of the health
           # area's field target (this_default), not blank -- lets the
           # user see and adjust the calculated figure directly rather
@@ -366,14 +384,15 @@ teamAreaTabServer <- function(
         footer = actionButton(session$ns('team_population_targets_done'), 'Done', class = 'btn btn-primary'),
         div(
           style = 'font-size:12px;color:#475569;margin-bottom:12px;',
-          'Optionally enter a field-verified population for any team. Target Population shows the current ',
-          'estimate for that team -- entering a field value here replaces it for that team, and Target ',
-          'Population everywhere else (including this health area\'s own total) is recalculated from ',
-          'whatever mix of field-entered and estimated team values results. Leave blank to keep using the ',
-          'estimate.'
+          'Optionally enter a Field Target U5 for any team. Target Population shows the current figure ',
+          'for that team -- a Field Target U5 entered here replaces it for that team only. It doesn\'t change ',
+          'the health area\'s own Target Population or any other team\'s figure. Leave blank to keep using ',
+          'the estimate.'
         ),
         div(
-          style = 'display:grid;grid-template-columns:2fr 1.2fr 1.2fr;gap:8px 10px;align-items:center;',
+          style = paste0('display:grid;grid-template-columns:',
+                         if (scaled) '2fr 1fr 1fr 1.2fr;' else '2fr 1.2fr 1.2fr;',
+                         'gap:8px 10px;align-items:center;'),
           header_row,
           data_rows
         )
@@ -420,9 +439,7 @@ teamAreaTabServer <- function(
           # field-verified. Without this check, every team would
           # silently become "field-verified" on every submit just by
           # opening this modal and clicking Done -- misrepresenting
-          # calculated estimates as confirmed field data, and
-          # incorrectly triggering the health area's own back-
-          # calculation every time.
+          # calculated estimates as confirmed field data.
           original_default <- field_default_done[[team_name]]
           had_prior_override <- team_name %in% names(prior_overrides)
           matches_default <- !is.na(original_default) && isTRUE(round(as.numeric(val)) == round(original_default))
@@ -433,13 +450,15 @@ teamAreaTabServer <- function(
         rv$team_field_pop_overrides <- new_overrides
         recompute_population_table(rv$current_assignments)
 
-        # Persisted alongside the boundary data already submitted, so
-        # field-entered team populations survive a session restore --
-        # reuses whatever was just submitted (still current in
-        # rv$saved_team_sf etc. at this point). Same reasoning and same
-        # pattern as mod_health_area_tab.R's own team-targets "Done"
-        # handler re-submitting after its own modal.
-        if (!is.null(submit_stage_fn) && !is.null(rv$saved_team_sf)) {
+        # Persisted in place (set_team_field_pop_overrides_fn) -- only the
+        # overrides are written, so team boundaries are never re-submitted
+        # and a published team version is never forked just to record
+        # field figures. Same as mod_health_area_tab.R's own team-targets
+        # "Done" handler. The fallback re-submits whatever was just
+        # submitted (still current in rv$saved_team_sf etc. at this point).
+        if (!is.null(set_team_field_pop_overrides_fn)) {
+          if (!isTRUE(set_team_field_pop_overrides_fn(rv$team_field_pop_overrides))) { removeModal(); return() }
+        } else if (!is.null(submit_stage_fn) && !is.null(rv$saved_team_sf)) {
           ok <- submit_stage_fn(list(
             saved_team_sf             = rv$saved_team_sf,
             team_names                = rv$team_names,
@@ -450,14 +469,30 @@ teamAreaTabServer <- function(
           # Don't offer to publish a version whose save just failed.
           if (isFALSE(ok)) { removeModal(); return() }
         }
-        # Back-calculation to the health area's OWN field target
-        # deliberately does NOT happen here -- this is still just a
-        # draft submission, before the user has actually confirmed
-        # "Set as current" below. See that confirm handler for where
-        # this actually fires, gated on make_current_fn() succeeding.
       }
       removeModal()
-      .show_make_current_prompt()
+      if (isTRUE(team_pop_after_submit())) .show_make_current_prompt()
+    }, ignoreInit = TRUE)
+
+    # Entry point for team Field Target U5s outside the submit flow -- e.g.
+    # adding field figures to a team map that's already published. Shown
+    # once this team version has submitted boundaries to attach them to.
+    output$team_field_summary <- renderUI({
+      req(!is.null(set_team_field_pop_overrides_fn), !is.null(rv$saved_team_sf), !is.null(rv$pop_table))
+      n_teams <- sum(rv$pop_table$area_name != 'Health Area Total')
+      n_field <- length(intersect(names(rv$team_field_pop_overrides %||% list()), rv$pop_table$area_name))
+      div(
+        style = 'font-size:11px;color:#475569;margin-bottom:8px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;',
+        div(style = 'font-weight:600;margin-bottom:2px;', 'Population figures'),
+        div(sprintf('Team Field Target U5 entered for %d of %d teams.', n_field, n_teams)),
+        div(style = 'margin-top:3px;', actionLink(session$ns('edit_team_field_pop'), 'Edit team Field Target U5s')),
+        div(style = 'color:#94a3b8;', 'Changing these never changes any boundary.')
+      )
+    })
+
+    observeEvent(input$edit_team_field_pop, {
+      req(!isTRUE(in_vertex_mode()))
+      .show_team_population_targets_modal(after_submit = FALSE)
     }, ignoreInit = TRUE)
 
     selected_health_area_sf <- reactive({
@@ -503,6 +538,19 @@ teamAreaTabServer <- function(
       (ver$snap$team_targets %||% list())[[health_area_name() %||% '']]
     }
 
+    # Same source as .fetch_ha_field_target(): the published health-area
+    # version, which carries the district's Campaign Scope population.
+    .fetch_scope_pop_scale <- function() {
+      ver <- tryCatch(db_get_shared_version(pool, campaign_id(), district()), error = function(e) NULL)
+      if (is.null(ver)) NA_real_ else scope_pop_scale(ver$snap)
+    }
+    # Cached per district/campaign/health area -- the population table
+    # recomputes on every paint refresh, too often for a DB read each time.
+    scope_pop_scale_r <- reactive({
+      district(); campaign_id(); health_area_name()
+      .fetch_scope_pop_scale()
+    })
+
     area_population <- reactive({
       # Local, this-session-only override from the pop-up shown when a
       # health area is first selected (see modal_confirmed observer
@@ -531,9 +579,12 @@ teamAreaTabServer <- function(
       ha <- tryCatch(selected_health_area_sf(), error = function(e) NULL)
       req(!is.null(ha))
       if (is.null(u5_rast)) return(0)
+      # WorldPop backup -- Scaled WorldPop U5 when the district has an
+      # In-Scope Field U5 (scope_pop_scale()), else WorldPop U5.
       tryCatch({
         ha_proj <- sf::st_transform(ha, sf::st_crs(terra::crs(u5_rast)))
-        sum(exactextractr::exact_extract(raster::raster(u5_rast), ha_proj, fun = 'sum'), na.rm = TRUE)
+        wp <- sum(exactextractr::exact_extract(raster::raster(u5_rast), ha_proj, fun = 'sum'), na.rm = TRUE)
+        .scaled_pop(wp, scope_pop_scale_r())
       }, error = function(e) 0)
     })
 
@@ -549,8 +600,12 @@ teamAreaTabServer <- function(
       # area_population()'s own local override above.
       local_ov <- local_teams_override()
       if (!is.null(local_ov) && !is.na(local_ov) && local_ov > 0) return(as.integer(local_ov))
-      override  <- .fetch_ha_field_target()$requested_teams
-      if (!is.null(override) && !is.na(override) && override > 0) {
+      # .unwrap_num(): a blank Field Requested Teams is stored as the JSON
+      # string "NA" (inside a length-1 list). Read raw, "NA" > 0 compared
+      # as text and passed, as.integer() then gave NA, and the planning
+      # modal fell back to 1 team instead of the recommendation.
+      override  <- .unwrap_num(.fetch_ha_field_target()$requested_teams)
+      if (!is.na(override) && override > 0) {
         as.integer(override)
       } else {
         compute_n_teams(area_population(), campaign_id = campaign_id())
@@ -643,13 +698,20 @@ teamAreaTabServer <- function(
         title = sprintf('Team planning for %s', health_area_name()),
         p('Confirm or adjust the population estimate and number of teams for this health area before the team map is generated.'),
         div(style = 'font-size:11px;color:#64748b;margin-bottom:4px;',
-            sprintf('WorldPop estimate: %s   |   Field target: %s',
-                    if (is.na(wp_pop_val)) 'N/A' else format(round(wp_pop_val), big.mark = ','),
-                    if (is.na(field_pop_val)) '\u2013' else format(round(field_pop_val), big.mark = ','))),
+            # Scaled WorldPop U5 shown next to WorldPop U5 when the district
+            # has an In-Scope Field U5 -- it's what the population below
+            # defaults to when there's no Field Target U5.
+            paste0(
+              sprintf('WorldPop U5: %s', if (is.na(wp_pop_val)) 'N/A' else format(round(wp_pop_val), big.mark = ',')),
+              if (!is.na(isolate(scope_pop_scale_r())) && !is.na(wp_pop_val))
+                sprintf('   |   Scaled WorldPop U5: %s',
+                        format(round(.scaled_pop(wp_pop_val, isolate(scope_pop_scale_r()))), big.mark = ',')),
+              sprintf('   |   Field Target U5: %s',
+                      if (is.na(field_pop_val)) '\u2013' else format(round(field_pop_val), big.mark = ',')))),
         numericInput(session$ns('modal_pop_ui'), 'Population to use (under-5)',
                     value = pop_default, min = 0, step = 1),
         div(style = 'font-size:10px;color:#94a3b8;margin-bottom:4px;',
-            'Defaults to the field target if set, otherwise WorldPop.'),
+            'Defaults to the Field Target U5 if set, otherwise Scaled WorldPop U5 (or WorldPop U5 if no In-Scope Field U5 was entered).'),
         div(style = 'font-size:11px;color:#64748b;margin-bottom:4px;',
             sprintf('Recommended teams: %s   |   Field requested: %s',
                     if (is.na(recommended_teams)) '\u2013' else as.character(as.integer(recommended_teams)),
@@ -698,6 +760,19 @@ teamAreaTabServer <- function(
     # from under it, which is exactly what "flashed and closed" looks
     # like from the user's side. Only actually showing the modal once
     # tab_active() is TRUE fixes this at its source.
+    # Moving to a different health area starts its planning afresh. Without
+    # this, modal_confirmed() stayed TRUE from the previous health area
+    # (it was only ever reset inside .show_team_planning_modal() itself,
+    # which the req() below then never reached), so the next health area
+    # skipped the planning modal and generated with the PREVIOUS health
+    # area's local population/team-count overrides. Runs before the
+    # debounced trigger below fires.
+    observeEvent(health_area_name(), {
+      modal_confirmed(FALSE)
+      local_pop_override(NULL)
+      local_teams_override(NULL)
+    }, ignoreInit = TRUE)
+
     team_planning_debounce_ms <- 400
     team_planning_trigger <- reactive({
       list(health_area_name(), tab_active())
@@ -760,6 +835,15 @@ teamAreaTabServer <- function(
         # large one caps at the 500m ceiling.
         target_cellsize <- max_dim / 160
         cellsize        <- max(100, min(500, target_cellsize))
+        # Finer cells when the requested team count needs them: at least
+        # ~20 cells per team (down to a 40 m floor). With the 100 m floor
+        # alone, a dense urban health area with many teams had only a few
+        # cells per team (e.g. 426 cells for 53 teams), so crowded teams
+        # ended up as 1-2 cell slivers. Depends on n_teams_r(), so a
+        # changed team count rebuilds the grid too.
+        area_m2      <- as.numeric(sum(sf::st_area(ha_3857)))
+        per_team_max <- sqrt(area_m2 / (max(1L, n_teams_r()) * 20))
+        cellsize     <- max(40, min(cellsize, per_team_max))
         max(20L, as.integer(round(max_dim / cellsize)))   # 20-floor preserved from the
                                                            # previous formula -- team
                                                            # boundaries need more minimum
@@ -995,6 +1079,15 @@ teamAreaTabServer <- function(
       rv$friction_path              <- sc$friction_path
       rv$seed_points                  <- sc$seed_points_list
       rv$team_names                     <- normalize_dfa_names_team(unique(as.character(sc$initial_assignments)))
+      # Teams are listed from the cells they actually got, so a team that
+      # ended up with no territory would otherwise just be missing. That
+      # shouldn't happen any more (propagate_assignments() keeps each seed
+      # its own cell), but say so plainly if it ever does.
+      n_generated <- length(setdiff(rv$team_names, extra_dfa_names))
+      n_requested <- isolate(n_teams_r())
+      if (isTRUE(n_generated < n_requested))
+        showNotification(sprintf('%d teams were requested but only %d could be generated for this health area.',
+                                 n_requested, n_generated), type = 'warning', duration = 10)
       rv$initial_assignments             <- sc$initial_assignments
       rv$current_assignments               <- sc$initial_assignments
       rv$saved_team_sf                       <- NULL
@@ -1342,10 +1435,10 @@ teamAreaTabServer <- function(
           # Field population entry happens HERE, after this submit, the
           # same way mod_health_area_tab.R's own field-target modal
           # appears right after its submit -- not as an always-editable
-          # table column. This modal re-submits (see its own "Done"
-          # handler) once the user's entries are collected, then shows
-          # .show_make_current_prompt() itself.
-          .show_team_population_targets_modal()
+          # table column (it can also be reopened later from the box above
+          # the table). Its "Done" handler saves the entries in place, then
+          # shows .show_make_current_prompt() itself.
+          .show_team_population_targets_modal(after_submit = TRUE)
         }
         pending_action(NULL)
         return()
@@ -1382,47 +1475,10 @@ teamAreaTabServer <- function(
     observeEvent(input$team_make_current_confirm, {
       removeModal()
       if (is.null(make_current_fn)) return(invisible(NULL))
-      ok <- tryCatch(make_current_fn(), error = function(e) FALSE)
-      cat(sprintf('[ha_field_backcalc_debug] make_current_fn() ok=%s\n', ok))
-      # Back-calculation to the health area's OWN field target fires
-      # HERE specifically -- only once team areas are actually confirmed
-      # as this health area's current map, not merely submitted as a
-      # draft. Gating on isTRUE(ok) (make_current_fn()'s own success/
-      # failure result) means a failed or declined publish (e.g. the
-      # pinned health-area version stopped being current in the
-      # meantime) never touches the health area's stored field target
-      # either -- both writes succeed together or neither does.
-      n_overrides <- length(rv$team_field_pop_overrides %||% list())
-      cat(sprintf('[ha_field_backcalc_debug] n_overrides=%d pop_table_is_null=%s\n',
-                  n_overrides, is.null(rv$pop_table)))
-      if (isTRUE(ok) && n_overrides > 0 && !is.null(rv$pop_table)) {
-        new_total <- rv$pop_table$est_u5_pop[rv$pop_table$area_name == 'Health Area Total']
-        cat(sprintf('[ha_field_backcalc_debug] new_total length=%d value=%s | campaign_id=%s district=%s health_area=%s\n',
-                    length(new_total), paste(new_total, collapse = ','),
-                    campaign_id() %||% 'NULL', district() %||% 'NULL', health_area_name() %||% 'NULL'))
-        if (length(new_total) == 1 && !is.na(new_total)) {
-          wrote <- tryCatch(
-            db_update_health_area_field_target(pool, campaign_id(), district(), health_area_name(), as.numeric(new_total)),
-            error = function(e) {
-              cat(sprintf('[ha_field_backcalc_debug] db_update_health_area_field_target threw: %s\n', conditionMessage(e)))
-              FALSE
-            }
-          )
-          cat(sprintf('[ha_field_backcalc_debug] wrote=%s\n', wrote))
-          if (isTRUE(wrote)) {
-            showNotification(
-              sprintf("Health area field population updated to %s from team-level entries.",
-                      format(round(new_total), big.mark = ',')),
-              type = "message", duration = 6
-            )
-          } else {
-            showNotification(
-              "Team areas published, but the health area's own field population could not be updated.",
-              type = "warning", duration = 6
-            )
-          }
-        }
-      }
+      tryCatch(make_current_fn(), error = function(e) FALSE)
+      # Team Field Target U5s are NOT written back to the health area's
+      # own Field Target U5 on publish -- field figures stay at the level
+      # they were entered.
     }, ignoreInit = TRUE)
 
     # saved_sf_override lets callers supply an already-computed boundary

@@ -249,6 +249,11 @@ library(png)
   # worldpop_pop) -- read here so .build_health_area_summary_table()
   # can use it instead of re-extracting from the raster.
   dfa_worldpop_pop <- snap$dfa_worldpop_pop %||% list()
+  pop_scale <- scope_pop_scale(snap)
+  # District-level field figure (In-Scope Field U5) -- the district's own
+  # input, shown on the overview card. Never derived from health-area
+  # Field Target U5s: field figures stay at the level they were entered.
+  scope_field_pop <- .unwrap_num(snap$scope_target_pop)
   cat('[export_debug] checkpoint: snap/ha_sf/district_sf unpacked\n')
 
   # Team areas: combine every health area's CURRENT team-area version —
@@ -394,7 +399,7 @@ library(png)
     poly <- ha_sf[ha_sf$dfa_name == nm, , drop = FALSE]
     team_one <- if (!is.null(team_sf) && 'health_area' %in% names(team_sf))
       team_sf[team_sf$health_area == nm, , drop = FALSE] else NULL
-    st <- .compute_ha_stats(nm, poly, team_one, team_targets, u5_rast, campaign_id, dfa_worldpop_pop[[nm]])
+    st <- .compute_ha_stats(nm, poly, team_one, team_targets, u5_rast, campaign_id, dfa_worldpop_pop[[nm]], pop_scale)
     cat(sprintf('[export_debug] checkpoint: ha_stats for "%s" done | wp_pop=%s | field_pop=%s | n_teams=%s\n',
                 nm, st$wp_pop %||% NA, st$field_pop %||% NA, st$n_teams %||% NA))
     st
@@ -406,7 +411,8 @@ library(png)
        zone_val = zone_val, region_val = region_val, area_names = area_names,
        ha_stats_list = ha_stats_list, u5_rast = u5_rast,
        team_field_overrides_by_ha = team_field_overrides_by_ha,
-       dfa_worldpop_pop = dfa_worldpop_pop, team_worldpop_by_ha = team_worldpop_by_ha)
+       dfa_worldpop_pop = dfa_worldpop_pop, team_worldpop_by_ha = team_worldpop_by_ha,
+       pop_scale = pop_scale, scope_field_pop = scope_field_pop)
 }
 
 build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
@@ -436,6 +442,8 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   team_field_overrides_by_ha <- ctx$team_field_overrides_by_ha
   dfa_worldpop_pop <- ctx$dfa_worldpop_pop
   team_worldpop_by_ha <- ctx$team_worldpop_by_ha
+  pop_scale <- ctx$pop_scale
+  scope_field_pop <- ctx$scope_field_pop
 
   # page_width_in/page_height_in (free-form, in inches) override the
   # named paper preset when given -- the preset stays as the default
@@ -465,19 +473,23 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   cat('[export_debug] checkpoint: pdf device opened\n')
 
   # District overview page -- IDP count is the WHOLE district's IDP
-  # points (not per-area), wp_pop/field_pop/n_teams are sums across
-  # every health area's own stats above.
+  # points (not per-area), wp_pop/scaled_pop/n_teams are sums across
+  # every health area's own stats above; the field figure is the
+  # district's own In-Scope Field U5.
   idp_count_district <- if (is.null(idp_sf)) 0 else nrow(idp_sf)
   district_wp_pop    <- sum(vapply(ha_stats_list, function(s) s$wp_pop %||% 0, numeric(1)), na.rm = TRUE)
-  district_field_pop <- {
-    fp <- vapply(ha_stats_list, function(s) s$field_pop %||% NA_real_, numeric(1))
-    if (all(is.na(fp))) NA_real_ else sum(fp, na.rm = TRUE)
-  }
+  # The district's own In-Scope Field U5, not a sum of health-area Field
+  # Target U5s -- summing only the areas that happen to have one gave a
+  # partial district total.
+  district_field_pop <- scope_field_pop %||% NA_real_
   district_n_teams <- sum(vapply(ha_stats_list, function(s) s$n_teams %||% 0, numeric(1)), na.rm = TRUE)
+  district_scaled_pop <- if (is.na(pop_scale)) NA_real_ else
+    sum(vapply(ha_stats_list, function(s) s$scaled_pop %||% 0, numeric(1)), na.rm = TRUE)
   cat('[export_debug] checkpoint: district-level card values computed\n')
   overview_cards <- .build_stat_cards(
     idp_count_district, district_wp_pop, district_field_pop, district_n_teams,
-    extra_first = list(value = as.character(length(area_names)), label = 'Health Areas')
+    extra_first = list(value = as.character(length(area_names)), label = 'Health Areas'),
+    scaled_pop = district_scaled_pop
   )
   # One overview page per selected basemap.
   for (bm in basemaps) {
@@ -500,7 +512,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   table_chrome <- list(campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
                        basemap = basemaps, page_width_in = unname(size['width']), page_height_in = unname(size['height']))
 
-  summary_df <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf, dfa_worldpop_pop)
+  summary_df <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf, dfa_worldpop_pop, pop_scale)
   cat('[export_debug] checkpoint: summary_df built OK\n')
   .print_table_page(summary_df, paste0(district_name, ' \u2014 Health Area Summary'), table_chrome)
   page_done('Health area summary table')
@@ -537,7 +549,8 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
 
     st <- ha_stats_list[[nm]]
     ha_cards <- .build_stat_cards(
-      if (is.null(idp_one)) 0 else nrow(idp_one), st$wp_pop, st$field_pop, st$n_teams
+      if (is.null(idp_one)) 0 else nrow(idp_one), st$wp_pop, st$field_pop, st$n_teams,
+      scaled_pop = st$scaled_pop
     )
     for (bm in basemaps) {
       cat(sprintf('[export_debug] checkpoint "%s": about to build .health_area_detail_map() tmap object (basemap=%s)\n', nm, bm))
@@ -557,7 +570,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
 
     if (!is.null(team_one) && nrow(team_one) > 0) {
       field_target <- .unwrap_num(team_targets[[nm]]$target_pop)
-      team_df <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[nm]], team_worldpop_by_ha[[nm]])
+      team_df <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[nm]], team_worldpop_by_ha[[nm]], pop_scale)
       if (!is.null(team_df)) .print_table_page(team_df, paste0(district_name, ' \u2014 ', nm, ' \u2014 Team Summary'), table_chrome)
       page_done(paste(nm, 'team table'))
       cat(sprintf('[export_debug] checkpoint "%s": team summary table done\n', nm))
@@ -609,14 +622,17 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
 
   idp_count_district <- if (is.null(ctx$idp_sf)) 0 else nrow(ctx$idp_sf)
   district_wp_pop    <- sum(vapply(ctx$ha_stats_list, function(s) s$wp_pop %||% 0, numeric(1)), na.rm = TRUE)
-  district_field_pop <- {
-    fp <- vapply(ctx$ha_stats_list, function(s) s$field_pop %||% NA_real_, numeric(1))
-    if (all(is.na(fp))) NA_real_ else sum(fp, na.rm = TRUE)
-  }
+  # The district's own In-Scope Field U5, not a sum of health-area Field
+  # Target U5s -- summing only the areas that happen to have one gave a
+  # partial district total.
+  district_field_pop <- ctx$scope_field_pop %||% NA_real_
   district_n_teams <- sum(vapply(ctx$ha_stats_list, function(s) s$n_teams %||% 0, numeric(1)), na.rm = TRUE)
+  district_scaled_pop <- if (is.na(ctx$pop_scale)) NA_real_ else
+    sum(vapply(ctx$ha_stats_list, function(s) s$scaled_pop %||% 0, numeric(1)), na.rm = TRUE)
   overview_cards <- .build_stat_cards(
     idp_count_district, district_wp_pop, district_field_pop, district_n_teams,
-    extra_first = list(value = as.character(length(ctx$area_names)), label = 'Health Areas')
+    extra_first = list(value = as.character(length(ctx$area_names)), label = 'Health Areas'),
+    scaled_pop = district_scaled_pop
   )
   overview_legend <- .legend_items(basemap, fac = .has_rows(ctx$fac_sf), idp = .has_rows(ctx$idp_sf),
                                    subdiv = .has_rows(ctx$subdiv_sf), urban = .has_rows(ctx$urban_sf))
@@ -740,19 +756,53 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
   suppressWarnings(as.numeric(x))
 }
 
-#' One row per health area: name, WorldPop population, field target
-#' population, WorldPop-recommended team count, and field-requested team
-#' count -- all four shown separately (never merged into one "whichever
-#' is set" number), matching the Team Planning Targets modal's own
-#' columns (mod_health_area_tab.R) so a person sees the identical
-#' figures whether they're looking at the modal or this table. Also
+#' Factor that scales WorldPop to the field-entered U5 total for the
+#' district's In Scope area (entered at Campaign Scope submit, stored as
+#' mapping_versions.scope_target_pop alongside scope_worldpop_pop, the
+#' WorldPop sum over that same area at submit time). WorldPop then only
+#' decides how the In-Scope Field U5 is split between health areas and teams.
+#' snap is a version's snapshot (version$snap) or anything else carrying
+#' those two fields. NA -- meaning "no scaling, plain WorldPop" -- when no
+#' In-Scope Field U5 was entered or the in-scope WorldPop sum is zero.
+scope_pop_scale <- function(snap) {
+  target <- .unwrap_num(snap$scope_target_pop)
+  wp     <- .unwrap_num(snap$scope_worldpop_pop)
+  if (is.na(target) || is.na(wp) || target < 0 || wp <= 0) return(NA_real_)
+  target / wp
+}
+
+#' WorldPop value(s) scaled by scope_pop_scale(); unchanged when the scale is NA.
+.scaled_pop <- function(wp, pop_scale) if (is.na(pop_scale %||% NA_real_)) wp else wp * pop_scale
+
+# Population names, used the same way on every screen and export:
+#   WorldPop U5        -- the raw WorldPop estimate
+#   Scaled WorldPop U5 -- WorldPop scaled so the district's In Scope area
+#                         sums to the In-Scope Field U5 (health areas, teams)
+#   Field Target U5    -- a field figure entered for one health area or team
+#   In-Scope Field U5  -- the district's field figure for its In Scope area;
+#                         not itself scaled WorldPop, it's what WorldPop is
+#                         scaled TO
+#   Target Population  -- whichever of the first three is actually used
+.WP_POP_COL     <- 'WorldPop U5'
+.SCALED_POP_COL <- 'Scaled WorldPop U5'
+.FIELD_POP_COL  <- 'Field Target U5'
+
+#' One row per health area: name, WorldPop U5, Scaled WorldPop U5 (only
+#' when the district has an In-Scope Field U5), Field Target U5, IDP
+#' count, recommended team count, and field-requested team count -- each
+#' shown separately (never merged into one "whichever is set" number),
+#' matching the Team Planning Targets modal's own columns (mod_health_
+#' area_tab.R) so a person sees the identical figures whether they're
+#' looking at the modal or this table. Also
 #' splits population and recommended-team-count into urban/rural
 #' components (reporting only -- see compute_n_teams()'s own doc comment
 #' for why this doesn't change what generation actually targets).
 #' urban_sf may be NULL (no urban-areas layer available for this
 #' district) -- every area's urban component is then 0, rural equals the
 #' unstratified total, rather than failing the whole table.
-.build_health_area_summary_table <- function(ha_sf, team_targets, u5_rast, campaign_id, urban_sf = NULL, idp_sf = NULL, stored_worldpop = NULL) {
+#' pop_scale (scope_pop_scale()) adds a scaled column next to WorldPop and
+#' bases Recommended Teams on it; NA leaves the table exactly as before.
+.build_health_area_summary_table <- function(ha_sf, team_targets, u5_rast, campaign_id, urban_sf = NULL, idp_sf = NULL, stored_worldpop = NULL, pop_scale = NA_real_) {
   area_names <- setdiff(unique(as.character(ha_sf$dfa_name)), extra_dfa_names)
   rows <- lapply(area_names, function(nm) {
     poly    <- ha_sf[ha_sf$dfa_name == nm, , drop = FALSE]
@@ -789,17 +839,19 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
     # -- a stratified urban/rural version of this was tried and
     # reverted (see mod_facility_tab.R's outreach_counts_card for the
     # full reasoning).
-    recommended_teams <- tryCatch(compute_n_teams(wp_val, campaign_id = campaign_id), error = function(e) NA_integer_)
+    scaled_val <- .scaled_pop(wp_val, pop_scale)
+    recommended_teams <- tryCatch(compute_n_teams(scaled_val, campaign_id = campaign_id), error = function(e) NA_integer_)
 
-    data.frame(
-      `Health Area`             = nm,
-      `Target Pop (WorldPop)`   = .fmt_pop(wp_val),
-      `Target Pop (Field)`       = .fmt_field(field_pop),
+    row <- data.frame(`Health Area` = nm, check.names = FALSE, stringsAsFactors = FALSE)
+    row[[.WP_POP_COL]] <- .fmt_pop(wp_val)
+    if (!is.na(pop_scale)) row[[.SCALED_POP_COL]] <- .fmt_pop(scaled_val)
+    row[[.FIELD_POP_COL]] <- .fmt_field(field_pop)
+    cbind(row, data.frame(
       `IDP Settlements`          = as.character(idp_count),
       `Recommended Teams`        = if (is.na(recommended_teams)) '\u2013' else as.character(as.integer(recommended_teams)),
       `Field Requested Teams`    = if (is.na(req_teams) || req_teams <= 0) '\u2013' else as.character(as.integer(req_teams)),
       check.names = FALSE, stringsAsFactors = FALSE
-    )
+    ))
   })
   do.call(rbind, rows)
 }
@@ -818,36 +870,39 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
 # area_summary_table() -- and so the cards and the summary table always
 # show the same number. Live extraction is only the fallback for older
 # versions submitted before that column existed.
-.compute_ha_stats <- function(nm, poly, team_one, team_targets, u5_rast, campaign_id, stored_wp = NULL) {
+.compute_ha_stats <- function(nm, poly, team_one, team_targets, u5_rast, campaign_id, stored_wp = NULL, pop_scale = NA_real_) {
   wp_val <- .unwrap_num(stored_wp)
   if (is.na(wp_val)) wp_val <- tryCatch({
     split <- .polygon_u5_population_urban_rural(poly, u5_rast, NULL)
     sum(split$total, na.rm = TRUE)
   }, error = function(e) NA_real_)
+  scaled_val <- if (is.na(pop_scale)) NA_real_ else .scaled_pop(wp_val, pop_scale)
   tgt <- team_targets[[nm]]
   field_pop <- .unwrap_num(tgt$target_pop)
   actual_teams <- if (!is.null(team_one) && nrow(team_one) > 0 && 'dfa_name' %in% names(team_one)) {
     length(setdiff(unique(as.character(team_one$dfa_name)), extra_dfa_names))
   } else NA_integer_
-  recommended_teams <- tryCatch(as.integer(compute_n_teams(wp_val, campaign_id = campaign_id)), error = function(e) NA_integer_)
+  recommended_teams <- tryCatch(as.integer(compute_n_teams(.scaled_pop(wp_val, pop_scale), campaign_id = campaign_id)), error = function(e) NA_integer_)
   n_teams <- if (!is.na(actual_teams) && actual_teams > 0) actual_teams else recommended_teams
-  list(wp_pop = wp_val, field_pop = field_pop, n_teams = n_teams)
+  list(wp_pop = wp_val, scaled_pop = scaled_val, field_pop = field_pop, n_teams = n_teams)
 }
 
 # Card list for one page -- shared value/label formatting so it can
 # never drift between the district overview and health-area detail
 # pages. extra_first is the one card unique to the overview page
 # (# health areas); detail pages omit it.
-.build_stat_cards <- function(idp_count, wp_pop, field_pop, n_teams, extra_first = NULL) {
-  # Field pop is the primary value whenever it's actually set; WorldPop
-  # is the fallback primary value when it isn't, and becomes a small
-  # reference subtext underneath ONLY when field pop is what's actually
-  # shown as the big number -- not shown as "X / Y", which reads as a
-  # fraction rather than "here's the number, and here's where it came
-  # from / how it compares."
-  field_available <- !is.na(field_pop)
-  pop_value   <- if (field_available) .fmt_field(field_pop) else .fmt_pop(wp_pop)
-  pop_subtext <- if (field_available) paste0('WorldPop est: ', .fmt_pop(wp_pop)) else NULL
+.build_stat_cards <- function(idp_count, wp_pop, field_pop, n_teams, extra_first = NULL, scaled_pop = NA_real_) {
+  # Field pop is the primary value whenever it's actually set, then the
+  # scope-scaled figure, then WorldPop. WorldPop becomes a small reference
+  # subtext underneath whenever something else is the big number -- not
+  # shown as "X / Y", which reads as a fraction rather than "here's the
+  # number, and here's where it came from / how it compares."
+  field_available  <- !is.na(field_pop)
+  scaled_available <- !is.na(scaled_pop %||% NA_real_)
+  pop_value   <- if (field_available) .fmt_field(field_pop)
+                 else if (scaled_available) .fmt_pop(scaled_pop)
+                 else .fmt_pop(wp_pop)
+  pop_subtext <- if (field_available || scaled_available) paste0(.WP_POP_COL, ': ', .fmt_pop(wp_pop)) else NULL
   cards <- list()
   if (!is.null(extra_first)) cards[[length(cards) + 1]] <- extra_first
   cards[[length(cards) + 1]] <- list(value = as.character(idp_count), label = 'IDP Settlements')
@@ -857,16 +912,15 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
 }
 
 
-#' One row per team within a single health area: team name, WorldPop
-#' population (from that team's own drawn polygon), and a field target
-#' population -- there is no per-team field figure in the data model
-#' (only a whole-health-area one), so this is the health area's own
-#' field target divided evenly across its teams, shown as each team's
-#' implied share. NA (blank) if the health area itself has no field
-#' target set. Also splits each team's own population into urban/rural
+#' One row per team within a single health area: team name, WorldPop U5
+#' (from that team's own drawn polygon), Scaled WorldPop U5 (only when the
+#' district has an In-Scope Field U5), and Field Target U5 -- the team's
+#' own field figure if one was entered, otherwise its WorldPop share of
+#' the health area's Field Target U5, or blank if the health area has
+#' none either. Also splits each team's own population into urban/rural
 #' components, same urban_sf/reporting-only caveat as the health-area
 #' table above.
-.build_team_summary_table <- function(team_one, health_area_field_target, u5_rast, urban_sf = NULL, team_field_overrides = NULL, stored_worldpop = NULL) {
+.build_team_summary_table <- function(team_one, health_area_field_target, u5_rast, urban_sf = NULL, team_field_overrides = NULL, stored_worldpop = NULL, pop_scale = NA_real_) {
   if (is.null(team_one) || nrow(team_one) == 0) return(NULL)
   team_names <- setdiff(unique(as.character(team_one$dfa_name)), extra_dfa_names)
   if (length(team_names) == 0) return(NULL)
@@ -935,12 +989,11 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
     # production error, not hypothetical.
     own_field <- .unwrap_num(team_field_overrides[[tn]])
     field_val <- if (!is.na(own_field) && own_field >= 0) own_field else per_team_field_fallback[[tn]]
-    data.frame(
-      Team                     = tn,
-      `Target Pop (WorldPop)` = .fmt_pop(wp_val),
-      `Target Pop (Field)`     = .fmt_field(field_val),
-      check.names = FALSE, stringsAsFactors = FALSE
-    )
+    row <- data.frame(Team = tn, check.names = FALSE, stringsAsFactors = FALSE)
+    row[[.WP_POP_COL]] <- .fmt_pop(wp_val)
+    if (!is.na(pop_scale)) row[[.SCALED_POP_COL]] <- .fmt_pop(.scaled_pop(wp_val, pop_scale))
+    row[[.FIELD_POP_COL]] <- .fmt_field(field_val)
+    row
   })
   do.call(rbind, rows)
 }
@@ -1140,8 +1193,14 @@ build_printable_overview_preview_png <- function(file, version, district_name, c
                           topo      = 'OpenTopoMap',
                           'no basemap'), character(1)), collapse = ', ')
   current_month_year <- format(Sys.Date(), '%b %Y')
+  # Year read from the raster the app actually loads (global.R's
+  # worldpop_t_u1_1to4_file, e.g. som_u5_population_2026_100m.tif) -- it
+  # was hard-coded as 2025 and went stale when the raster was updated.
+  wp_year <- tryCatch(regmatches(worldpop_t_u1_1to4_file, regexpr('20[0-9]{2}', worldpop_t_u1_1to4_file)),
+                      error = function(e) character(0))
   sources <- paste0(
-    'Sources: ', basemap_label, '; WorldPop 2025 (100m U5 grid); ',
+    'Sources: ', basemap_label, '; WorldPop Global2 ', if (length(wp_year)) wp_year else '',
+    ' (100m U5 grid, scaled to In-Scope Field U5 where entered); ',
     'CCCM IDP dataset, Nov 2025; MHFL, ', current_month_year, ' \u2014 WHO Somalia'
   )
   produced <- paste0('Produced: ', format(Sys.Date(), '%d %b %Y'))

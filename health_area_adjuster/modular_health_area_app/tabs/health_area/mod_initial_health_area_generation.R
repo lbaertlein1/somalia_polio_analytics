@@ -217,6 +217,38 @@ starter_cells_list_override  = NULL
       }
       as.integer(starters)
     })
+
+    # Resolve overlapping starter regions BEFORE the BFS. bfs_propagate_cpp()
+    # hands out starter cells first come, first served, in area order --
+    # so when seeds sat within a couple of cells of each other (common for
+    # team areas in a dense urban health area, where population-weighted
+    # seeds crowd together), an earlier area's starter rings could claim a
+    # later area's seed cell and every other starter it had. That area
+    # then started with nothing, grew nothing, and silently vanished from
+    # the generated map (e.g. 23 of 31 requested teams, 37 of 53).
+    #   1. Every area keeps its OWN seed cell (unique per area, see
+    #      get_unique_seed_cells()) -- so no area can be left empty.
+    #   2. Every other contested starter cell goes to the NEAREST seed,
+    #      not to whichever area happens to come first -- so crowded areas
+    #      split their shared starting ground fairly instead of a late one
+    #      being boxed into its single seed cell.
+    all_seed_cells <- as.integer(seed_cells)
+    starter_cells_indexed <- lapply(seq_len(n_areas), function(i)
+      unique(c(all_seed_cells[i], setdiff(starter_cells_indexed[[i]], all_seed_cells[-i]))))
+    claims <- unlist(starter_cells_indexed)
+    contested <- unique(claims[duplicated(claims)])
+    if (length(contested) > 0) {
+      cxy  <- sf::st_coordinates(suppressWarnings(sf::st_centroid(sf::st_geometry(grid_sf))))
+      sxy  <- cxy[all_seed_cells, , drop = FALSE]
+      owners_of <- lapply(contested, function(ci) which(vapply(starter_cells_indexed, function(s) ci %in% s, logical(1))))
+      winner <- vapply(seq_along(contested), function(k) {
+        cand <- owners_of[[k]]
+        d    <- (sxy[cand, 1] - cxy[contested[k], 1])^2 + (sxy[cand, 2] - cxy[contested[k], 2])^2
+        cand[which.min(d)]
+      }, integer(1))
+      for (k in seq_along(contested)) for (i in setdiff(owners_of[[k]], winner[k]))
+        starter_cells_indexed[[i]] <- setdiff(starter_cells_indexed[[i]], contested[k])
+    }
   }
   
   # ── Call C++ BFS ───────────────────────────────────────────────────────

@@ -20,10 +20,10 @@ Create new campaigns (name + optional description) and toggle each one **Active*
 
 The **Campaign extent URL** field is the outer boundary for this campaign as a whole — an admin sets it once per campaign, as a URL to a feature service, and it defines the outer bound of scope for every district in that campaign that's set to Partial.
 
-For each district assigned to the campaign, choose:
+Every district goes through the [Campaign Scope](campaign-scope) stage, between Landmarks and Facilities — that's where the in-scope boundary is painted and the district's **In-Scope Field U5** (the field under-5 figure for the in-scope area) can be entered. This setting only decides where that stage starts:
 
-- **Full district** — the entire district's geography is in scope. The [Campaign Scope](campaign-scope) stage is skipped entirely for this district — its full boundary is used as-is and goes straight to [Facilities](facilities).
-- **Partial (paint scope)** — adds the [Campaign Scope](campaign-scope) stage for that district, between Landmarks and Facilities. When that stage is painted, the starting canvas is clipped to this district from the campaign extent URL above, where available, or the whole blank district otherwise — from there it's the campaign team that paints in/out the actual in-scope boundary by hand.
+- **Full district** — Campaign Scope starts with the whole district In Scope. If nothing needs excluding, the user can submit it as it is.
+- **Partial (paint scope)** — Campaign Scope starts from the campaign extent URL above, clipped to this district, where available, or the whole blank district otherwise — from there it's the campaign team that paints in/out the actual in-scope boundary by hand.
 
 ### Carry forward
 
@@ -39,7 +39,7 @@ A table of every district in the selected campaign with its current status. **Cl
 The modal shows:
 
 - A boundary preview map of the published health-area version.
-- Population and team targets for that version (WorldPop Population, Field Target Population, Recommended Teams, Field Requested Teams — per health area).
+- Population and team targets for that version, per health area: **WorldPop U5**, **Scaled WorldPop U5** (only when the district has an In-Scope Field U5), **Field Target U5**, Recommended Teams, and Field Requested Teams. See the [Glossary](reference) for what each population figure means.
 - Full health-area version history, one row per version, with:
   - **Owner** — who created that version.
   - **Published** — whether this is the version currently published and live in the tool.

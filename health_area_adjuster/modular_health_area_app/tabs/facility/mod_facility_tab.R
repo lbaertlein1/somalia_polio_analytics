@@ -117,7 +117,8 @@ facilityTabServer <- function(
     planning_area_sf_r = reactive(NULL),
     save_snapshot_fn   = NULL,   # kept for compatibility, no-op
     restore_r          = reactive(NULL),
-    campaign_id         = reactive(NULL)   # new -- needed for target_pop_per_health_area(_urban/_rural), which respect a per-campaign override; NULL falls back to the campaign-independent global default, same as db_get_generation_setting()'s own fallback
+    campaign_id         = reactive(NULL),  # new -- needed for target_pop_per_health_area(_urban/_rural), which respect a per-campaign override; NULL falls back to the campaign-independent global default, same as db_get_generation_setting()'s own fallback
+    pop_scale_r         = reactive(NA_real_)  # scope_pop_scale() for this district; NA = plain WorldPop
 ) {
   moduleServer(id, function(input, output, session) {
 
@@ -285,7 +286,9 @@ facilityTabServer <- function(
           val <- exactextractr::exact_extract(
             raster::raster(u5_rast), pa_proj, fun = "sum"
           )
-          round(sum(val, na.rm = TRUE))
+          # Scaled to the In-Scope Field U5 when one was entered --
+          # planning_area_sf_r() IS that In Scope area, so this equals it.
+          round(.scaled_pop(sum(val, na.rm = TRUE), pop_scale_r()))
         }, error = function(e) NULL)
         if (!is.null(pop) && pop > 0) return(pop)
       }
@@ -354,10 +357,14 @@ facilityTabServer <- function(
         ),
         div(
           style = 'font-size: 10px; color: #94a3b8; margin-top: 6px; text-align: center;',
-          sprintf('Recommended = ceil(%s population \u00f7 %s target per health area) = %s',
+          sprintf('Recommended = ceil(%s %spopulation \u00f7 %s target per health area) = %s%s',
                  format(round(planning_pop), big.mark = ','),
+                 if (is.na(pop_scale_r())) 'WorldPop U5 ' else 'In-Scope Field U5 ',
                  format(round(pop_target), big.mark = ','),
-                 as.character(n_recommended))
+                 as.character(n_recommended),
+                 # The WorldPop U5 alongside the field figure it was scaled to.
+                 if (is.na(pop_scale_r())) '' else
+                   sprintf(' (WorldPop U5: %s)', format(round(planning_pop / pop_scale_r()), big.mark = ',')))
         )
       )
     })

@@ -183,10 +183,9 @@ main_app_server <- function(input, output, session, auth) {
   # THE planning area actually used everywhere -- landmarks, facilities,
   # health areas, and (transitively, since team-area's own planning area
   # is derived from the health area's saved boundary, not the district
-  # directly) team areas too. full_district_sf() unless this district is
-  # scoped to 'partial' for the active campaign AND its Campaign Scope
-  # stage has actually been painted and saved -- in which case it's the
-  # "In Scope" polygon from that saved scope grid instead.
+  # directly) team areas too. full_district_sf() unless this district's
+  # Campaign Scope stage has actually been painted and saved -- in which
+  # case it's the "In Scope" polygon from that saved scope grid instead.
   #
   # Reads the CURRENT health-area session's own saved snapshot
   # (scope_saved_dfa_sf, added alongside saved_dfa_sf/landmarks/etc. on
@@ -210,7 +209,6 @@ main_app_server <- function(input, output, session, auth) {
   planning_area_sf <- reactive({
     full_sf <- full_district_sf()
     req(!is.null(full_sf))
-    if (!identical(active_mapping_scope(), 'partial')) return(full_sf)
 
     # Prefer the live, just-submitted scope from THIS session
     # (campaign_scope$submitted_scope_sf(), set the moment a submit
@@ -405,7 +403,6 @@ main_app_server <- function(input, output, session, auth) {
     settlement_extents_r = settlement_extents_rv,
     idp_sf_r           = idp_context_rv,
     planning_area_sf_r = planning_area_sf,
-    mapping_scope_r    = active_mapping_scope,
     campaign_id        = active_campaign_id
   )
 
@@ -425,8 +422,40 @@ main_app_server <- function(input, output, session, auth) {
     settlement_extents_r  = settlement_extents_rv,
     idp_sf_r              = idp_context_rv,
     submit_stage_fn       = function(stage, data) health_area_session$submit_stage(stage, data),
-    restore_r             = health_area_session$restore_snapshot
+    restore_r             = health_area_session$restore_snapshot,
+    mapping_scope_r       = active_mapping_scope
   )
+
+  # In-scope population pair -- list(scope_target_pop, scope_worldpop_pop)
+  # -- for the open version: the field U5 total for the In Scope area and
+  # the WorldPop sum it's compared against. Written by a Campaign Scope
+  # submit, or later from Health Area Mapping (set_scope_population(),
+  # for districts whose scope is already locked). scope_pop_live holds
+  # whichever of those happened last THIS session; otherwise the version's
+  # saved snapshot -- same live-first, snapshot-second order as
+  # planning_area_sf. Reset whenever a different version is opened.
+  scope_pop_live <- reactiveVal(NULL)
+  observeEvent(campaign_scope$submitted_scope_pop(), {
+    scope_pop_live(campaign_scope$submitted_scope_pop())
+  }, ignoreInit = TRUE, ignoreNULL = TRUE)
+  observeEvent(health_area_session$restore_snapshot(), scope_pop_live(NULL), ignoreInit = TRUE)
+
+  scope_pop_r <- reactive({
+    live <- scope_pop_live()
+    if (!is.null(live)) return(live)
+    snap <- tryCatch(health_area_session$restore_snapshot(), error = function(e) NULL)
+    if (is.null(snap)) NULL else snap[c('scope_target_pop', 'scope_worldpop_pop')]
+  })
+
+  # Factor every WorldPop figure for this district is scaled by
+  # (scope_pop_scale(), printable_export.R); NA = plain WorldPop.
+  pop_scale_r <- reactive(scope_pop_scale(scope_pop_r() %||% list()))
+
+  set_scope_population <- function(target_pop, worldpop_pop) {
+    ok <- isTRUE(health_area_session$set_scope_population(target_pop, worldpop_pop))
+    if (ok) scope_pop_live(list(scope_target_pop = target_pop, scope_worldpop_pop = worldpop_pop))
+    ok
+  }
 
   observeEvent(campaign_scope$submitted(), {
     updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_facility_mapping')
@@ -451,7 +480,8 @@ main_app_server <- function(input, output, session, auth) {
     settlement_extents_r = settlement_extents_rv,
     planning_area_sf_r   = planning_area_sf,
     restore_r            = health_area_session$restore_snapshot,
-    campaign_id          = reactive(active_campaign_id())
+    campaign_id          = reactive(active_campaign_id()),
+    pop_scale_r          = pop_scale_r
   )
 
   # ===========================================================================
@@ -475,6 +505,10 @@ main_app_server <- function(input, output, session, auth) {
     submit_stage_fn          = function(stage, data) health_area_session$submit_stage(stage, data),
     restore_r                = health_area_session$restore_snapshot,
     campaign_id              = active_campaign_id,
+    pop_scale_r              = pop_scale_r,
+    scope_pop_r              = scope_pop_r,
+    set_scope_population_fn  = set_scope_population,
+    set_team_targets_fn      = function(team_targets) health_area_session$set_team_targets(team_targets),
     make_current_fn          = function(actor_role) health_area_session$make_current(actor_role = actor_role),
     is_locked_for_publish_r  = health_area_session$is_locked_for_publish,
     actor_role_r             = actor_role_r
@@ -525,6 +559,7 @@ main_app_server <- function(input, output, session, auth) {
     settlement_extents_r = settlement_extents_rv,
     idp_sf_r          = idp_context_rv,
     submit_stage_fn   = function(data) team_area_session$submit_stage(data),
+    set_team_field_pop_overrides_fn = function(overrides) team_area_session$set_team_field_pop_overrides(overrides),
     restore_r         = team_area_session$restore_snapshot,
     make_current_fn   = function() team_area_session$make_current(),
     is_stale_r        = team_area_session$is_stale
@@ -589,26 +624,17 @@ main_app_server <- function(input, output, session, auth) {
   observe({
     ready  <- isTRUE(district_ready())
     locked <- isTRUE(health_area_locked_to_current())
-    is_partial      <- identical(active_mapping_scope(), 'partial')
     scope_locked    <- isTRUE(campaign_scope_locked_to_current())
     set_tab_enabled('tab_orientation',             ready && !locked,
                     title = if (locked) 'This district\'s health areas are already mapped -- Landmarks is locked for this session' else 'Choose a district from the Introduction tab first')
-    # Only shown as a usable option at all for a district set to
-    # 'partial' scope (see mod_admin_tab_v2.R) -- a 'full' district never
-    # gets this tab enabled, which is the entire mechanism for "skip the
-    # Campaign Scope stage" here: navigation in this app is tab-based,
-    # not a forced wizard sequence, so simply never enabling the tab for
-    # 'full' districts IS skipping it. A 'partial' district ALWAYS gets
-    # this tab enabled, regardless of whether a campaign extent exists
-    # for it -- the extent is a starting canvas to refine within, never
-    # a reason to skip human review; when no extent exists, the canvas
-    # is just the whole blank district instead (see mod_campaign_scope_
-    # tab.R). Locks independently of health_area_locked_to_current --
+    # Enabled for every district -- 'full' and 'partial' (see mod_admin_
+    # tab_v2.R) only differ in the starting canvas (see mod_campaign_
+    # scope_tab.R), and every district gets the in-scope population prompt
+    # on submit. Locks independently of health_area_locked_to_current --
     # scope locks one stage later, once Facilities begins, not at the
     # same point Landmarks/Facilities do.
-    set_tab_enabled('tab_campaign_scope',          ready && is_partial && !scope_locked,
-                    title = if (!is_partial) 'This district is scoped to the full district -- Campaign Scope does not apply'
-                            else if (scope_locked) 'Campaign scope is locked for this session -- facilities work has already begun'
+    set_tab_enabled('tab_campaign_scope',          ready && !scope_locked,
+                    title = if (scope_locked) 'Campaign scope is locked for this session -- facilities work has already begun'
                             else 'Choose a district from the Introduction tab first')
     set_tab_enabled('tab_health_facility_mapping', ready && !locked,
                     title = if (locked) 'This district\'s health areas are already mapped -- Facilities is locked for this session' else 'Choose a district from the Introduction tab first')
@@ -657,11 +683,10 @@ main_app_server <- function(input, output, session, auth) {
     # set_tab_enabled()'s title text above explains why the tab wasn't
     # clickable in the first place.
     if (identical(input$main_tabs, 'tab_campaign_scope') &&
-        (!identical(active_mapping_scope(), 'partial') ||
-         isTRUE(campaign_scope_locked_to_current()))) {
-      cat("[navdebug] REDIRECT away from tab_campaign_scope -- reason: not partial scope or already locked\n")
+        isTRUE(campaign_scope_locked_to_current())) {
+      cat("[navdebug] REDIRECT away from tab_campaign_scope -- reason: already locked\n")
       updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_facility_mapping')
-      showNotification('Campaign Scope does not apply here.', type = 'message', duration = 3)
+      showNotification('Campaign scope is locked -- facilities work has already begun.', type = 'message', duration = 3)
       return()
     }
     if (identical(input$main_tabs, 'tab_team_area_mapping') && !isTRUE(team_area_session$active())) {

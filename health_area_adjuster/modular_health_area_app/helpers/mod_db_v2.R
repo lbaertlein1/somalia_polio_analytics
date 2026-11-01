@@ -243,7 +243,8 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
   "saved_dfa_sf, dfa_names, current_assignments, team_targets,",
   "smoothed_dfa_sf, smoothing_generated_at,",
   "landmarks, idp_settlements, dfa_worldpop_pop,",
-  "scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope"
+  "scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope,",
+  "scope_target_pop, scope_worldpop_pop"
 )
 
 .parse_mv_row <- function(r) {
@@ -282,7 +283,11 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
       dfa_worldpop_pop                          = .from_json_db(r$dfa_worldpop_pop %||% NA_character_),
       scope_saved_dfa_sf                        = .from_json_sf_db(r$scope_saved_dfa_sf %||% NA_character_),
       scope_dfa_names                              = .from_json_vec_db(r$scope_dfa_names %||% NA_character_),
-      scope_current_assignments                      = .from_json_vec_db(r$scope_current_assignments %||% NA_character_)
+      scope_current_assignments                      = .from_json_vec_db(r$scope_current_assignments %||% NA_character_),
+      # Plain NUMERIC columns, not JSON -- In-Scope Field U5 and the WorldPop
+      # U5 it's compared against. NA when no In-Scope Field U5 was entered.
+      scope_target_pop                                 = suppressWarnings(as.numeric(r$scope_target_pop %||% NA)),
+      scope_worldpop_pop                               = suppressWarnings(as.numeric(r$scope_worldpop_pop %||% NA))
     )
   )
 }
@@ -412,7 +417,8 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         smoothed_dfa_sf, smoothing_generated_at,
         landmarks, idp_settlements, dfa_worldpop_pop,
         has_landmarks, has_facilities, has_idp, has_health_areas,
-        scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope
+        scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope,
+        scope_target_pop, scope_worldpop_pop
       )
       SELECT
         $2, $3, $4, $5, version_id,
@@ -426,7 +432,8 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         -- Campaign scope lives on this row too; without these a fork
         -- (any edit of a published version) or a carry-forward silently
         -- dropped the district's scope.
-        scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope
+        scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope,
+        scope_target_pop, scope_worldpop_pop
       FROM mapping_versions
       WHERE version_id = $1
       RETURNING version_id
@@ -507,6 +514,10 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
   scope_saved_dfa_sf_json <- if (stage == "scope") .to_json_for_db(data$scope_saved_dfa_sf)       else NA_character_
   scope_dfa_names_json    <- if (stage == "scope") .to_json_for_db(data$scope_dfa_names)          else NA_character_
   scope_cur_assign_json   <- if (stage == "scope") .to_json_for_db(data$scope_current_assignments) else NA_character_
+  # Written on EVERY scope submit, not COALESCEd like the columns above --
+  # clearing the In-Scope Field U5 on a resubmit has to clear it here too.
+  scope_target_pop   <- if (stage == "scope") suppressWarnings(as.numeric(data$scope_target_pop %||% NA))   else NA_real_
+  scope_worldpop_pop <- if (stage == "scope") suppressWarnings(as.numeric(data$scope_worldpop_pop %||% NA)) else NA_real_
 
   has_landmarks    <- stage == "landmarks"
   has_facilities   <- stage == "facilities"
@@ -534,6 +545,8 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
         scope_saved_dfa_sf                         = COALESCE($16, scope_saved_dfa_sf),
         scope_dfa_names                              = COALESCE($17, scope_dfa_names),
         scope_current_assignments                      = COALESCE($18, scope_current_assignments),
+        scope_target_pop   = CASE WHEN $19 THEN $21::numeric ELSE scope_target_pop   END,
+        scope_worldpop_pop = CASE WHEN $19 THEN $22::numeric ELSE scope_worldpop_pop END,
         %s
         has_landmarks    = has_landmarks    OR $12,
         has_facilities   = has_facilities   OR $13,
@@ -551,7 +564,8 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
         saved_dfa_sf_json, dfa_names_json, cur_assign_json, team_targets_json, smoothed_dfa_json,
         has_landmarks, has_facilities, has_idp, has_health_areas,
         scope_saved_dfa_sf_json, scope_dfa_names_json, scope_cur_assign_json, has_scope,
-        dfa_worldpop_json
+        dfa_worldpop_json,
+        scope_target_pop, scope_worldpop_pop
       )
     )
   }, error = function(e) {
@@ -563,59 +577,51 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
   invisible(target_id)
 }
 
-#' Updates ONE health area's field target population within the current
-#' SHARED health-area version's team_targets, IN PLACE -- deliberately
-#' does NOT fork a new draft, unlike db_submit_stage_v2()'s normal
-#' "editing a shared version forks" rule. Team area mapping is built
-#' directly against the currently shared health-area version, and when
-#' a team-level field population is entered, revising that same shared
-#' version's own field target in place is the intended behavior --
-#' spinning off a new unpublished draft every time would be a heavier,
-#' more surprising side effect than what was actually asked for.
-#'
-#' Preserves every other health area's entry in team_targets untouched,
-#' and this health area's own requested_teams -- only target_pop for
-#' the named health area changes. Returns TRUE on success, FALSE if no
-#' current shared version exists for this campaign/district or the
-#' write fails.
-db_update_health_area_field_target <- function(pool, campaign_id, district_name, health_area_name, new_target_pop) {
-  cat(sprintf('[db] update_health_area_field_target: called with campaign_id=%s district_name=%s health_area_name=%s new_target_pop=%s\n',
-              campaign_id, district_name, health_area_name, new_target_pop))
-  conn <- pool::poolCheckout(pool)
-  on.exit(pool::poolReturn(conn))
-  tryCatch({
-    cur <- DBI::dbGetQuery(conn,
-      "SELECT version_id, team_targets FROM mapping_versions
-       WHERE campaign_id = $1 AND district_name = $2 AND is_shared = TRUE AND archived_at IS NULL
-       LIMIT 1",
-      list(as.integer(campaign_id), district_name))
-    cat(sprintf('[db] update_health_area_field_target: SELECT returned %d row(s)\n', nrow(cur)))
-    if (nrow(cur) == 0) {
-      cat('[db] update_health_area_field_target: no current shared version for',
-          district_name, '/ campaign', campaign_id, '\n')
-      return(FALSE)
-    }
-    version_id <- as.integer(cur$version_id[1])
-    cat(sprintf('[db] update_health_area_field_target: version_id=%d, existing team_targets is.na=%s\n',
-                version_id, is.na(cur$team_targets[1])))
-    existing_targets <- .from_json_db(cur$team_targets[1] %||% NA_character_) %||% list()
-    existing_entry <- existing_targets[[health_area_name]] %||% list()
-    cat(sprintf('[db] update_health_area_field_target: health area "%s" found in existing_targets=%s (names present: %s)\n',
-                health_area_name, health_area_name %in% names(existing_targets),
-                paste(names(existing_targets), collapse = ' | ')))
-    existing_entry$target_pop <- new_target_pop
-    existing_targets[[health_area_name]] <- existing_entry
+#' Set (or clear, with target_pop = NA) a version's In-Scope Field U5,
+#' plus the WorldPop U5 sum over the In Scope area it's compared against.
+#' In place on that version, never forking, unlike db_submit_stage_v2()'s
+#' "editing a shared version forks" rule: this is a planning figure, not a
+#' boundary edit, and forking a published version that already has team
+#' areas would strand the figure on a draft that can't be published.
+#' This is how a district mapped before (or after) Campaign Scope adds or
+#' corrects the figure; a scope submit writes the same two columns.
+db_set_scope_population <- function(pool, version_id, target_pop, worldpop_pop) {
+  target_pop   <- suppressWarnings(as.numeric(target_pop %||% NA))
+  worldpop_pop <- suppressWarnings(as.numeric(worldpop_pop %||% NA))
+  n <- .db_execute(pool,
+    "UPDATE mapping_versions SET scope_target_pop = ?t, scope_worldpop_pop = ?w, last_updated_at = NOW()
+     WHERE version_id = ?v",
+    list(t = target_pop, w = worldpop_pop, v = as.integer(version_id)))
+  if (!isTRUE(n == 1)) stop('version not found')
+  invisible(TRUE)
+}
 
-    n_affected <- DBI::dbExecute(conn,
-      "UPDATE mapping_versions SET team_targets = $2, last_updated_at = NOW()
-       WHERE version_id = $1",
-      list(version_id, .to_json_for_db(existing_targets)))
-    cat(sprintf('[db] update_health_area_field_target: UPDATE affected %s row(s)\n', n_affected))
-    TRUE
-  }, error = function(e) {
-    cat('[db] update_health_area_field_target error:', conditionMessage(e), '\n')
-    FALSE
-  })
+#' Replace a health-area version's team_targets (per health area: Field
+#' Target U5 and Field Requested Teams) in place -- same no-fork reasoning
+#' as db_set_scope_population() above. Only team_targets is written, so
+#' boundaries, smoothing and every team-area version pinned to this one
+#' are untouched; re-submitting the "areas" stage to save these (the old
+#' way) forked published versions and staled their team areas.
+db_set_team_targets <- function(pool, version_id, team_targets) {
+  n <- .db_execute(pool,
+    "UPDATE mapping_versions SET team_targets = CAST(?j AS jsonb), last_updated_at = NOW()
+     WHERE version_id = ?v",
+    list(j = as.character(.to_json_for_db(team_targets %||% list())), v = as.integer(version_id)))
+  if (!isTRUE(n == 1)) stop('version not found')
+  invisible(TRUE)
+}
+
+#' Replace a team-area version's per-team Field Target U5s
+#' (team_field_pop_overrides) in place -- the team-level counterpart of
+#' db_set_team_targets(): only that column is written, never the team
+#' boundaries, and a published team version is never forked for it.
+db_set_team_field_pop_overrides <- function(pool, team_version_id, overrides) {
+  n <- .db_execute(pool,
+    "UPDATE team_area_versions SET team_field_pop_overrides = CAST(?j AS jsonb), last_updated_at = NOW()
+     WHERE team_version_id = ?v",
+    list(j = as.character(.to_json_for_db(overrides %||% list())), v = as.integer(team_version_id)))
+  if (!isTRUE(n == 1)) stop('team version not found')
+  invisible(TRUE)
 }
 
 # SQL expression builders for db_rename_health_area(), one per storage
@@ -652,7 +658,7 @@ db_update_health_area_field_target <- function(pool, campaign_id, district_name,
 
 #' Renames ONE health area in the district's current SHARED health-area
 #' version, IN PLACE -- same deliberate exception to the "editing a shared
-#' version forks" rule as db_update_health_area_field_target() above, and
+#' version forks" rule as db_set_scope_population() above, and
 #' allowed while the district is locked (team areas started). A fork would
 #' leave every team-area version pinned to the old version (stale), and a
 #' resubmit would re-run smoothing; a rename must do neither.

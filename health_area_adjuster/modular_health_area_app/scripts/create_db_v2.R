@@ -303,6 +303,18 @@ statements <- list(
     ADD COLUMN IF NOT EXISTS scope_locked_at            TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS has_scope                  BOOLEAN NOT NULL DEFAULT FALSE",
 
+  # In-Scope Field U5 (scope_target_pop: the optional field under-5
+  # figure for the whole In Scope area, entered at Campaign Scope or later
+  # from Health Area Mapping) and the WorldPop U5 sum over that same area
+  # (scope_worldpop_pop). Their ratio scales every WorldPop figure
+  # downstream into Scaled WorldPop U5 (scope_pop_scale(), printable_
+  # export.R) -- WorldPop then only decides how the In-Scope Field U5 is
+  # split between health areas and teams. NULL target = no field figure,
+  # everything stays plain WorldPop U5.
+  "ALTER TABLE mapping_versions
+    ADD COLUMN IF NOT EXISTS scope_target_pop    NUMERIC,
+    ADD COLUMN IF NOT EXISTS scope_worldpop_pop  NUMERIC",
+
   "CREATE INDEX IF NOT EXISTS idx_mv_shared
      ON mapping_versions(district_name, campaign_id)
      WHERE is_shared = TRUE AND archived_at IS NULL",

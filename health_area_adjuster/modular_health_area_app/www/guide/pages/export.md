@@ -16,7 +16,12 @@ Downloads the actual GIS boundary data for either the whole campaign or a single
 - **Scope** — **Whole campaign** exports every health area and team area mapped so far across the entire campaign, not just one district. **Single district** narrows it to one.
 - **Format** — GeoJSON, Shapefile, or KML.
 
-Along with the boundary geometry itself, the export includes the underlying data attached to each area — population figures, IDP settlements, and team counts — not just the shapes.
+Along with the boundary geometry itself, the export includes the underlying data attached to each area — population figures, IDP settlements, and team counts — not just the shapes. The population CSVs are:
+
+- `health_area_population_summary.csv` and `team_population_summary.csv` — one row per health area / team, with **WorldPop U5**, **Scaled WorldPop U5** (only for districts with an In-Scope Field U5) and **Field Target U5** side by side, plus recommended and field-requested teams.
+- `scope_population_summary.csv` — one row per district: **WorldPop U5 (In Scope)**, the **In-Scope Field U5** entered at [Campaign Scope](campaign-scope) (blank if none), and the **WorldPop Scale Factor** applied to give Scaled WorldPop U5 (1 when there's no field figure).
+
+See the [Glossary](reference) for what each population figure means.
 
 Click **Prepare download** to generate the file.
 
@@ -24,9 +29,9 @@ Click **Prepare download** to generate the file.
 
 Generates a PDF for one district, sized for A3/A4 landscape printing. From a real generated example (Belet Weyne, 4 health areas), the book runs:
 
-1. **District overview page** — the whole-district map plus stat cards for Health Areas, IDP Settlements, Target Population, and Teams, shown in the live preview below.
-2. **Health Area Summary table page** — one row per health area, listing Target Pop (WorldPop), Target Pop (Field, if a field figure was entered), IDP Settlements, Recommended Teams, and Field Requested Teams.
-3. **One page per health area** — a map zoomed to just that health area's boundary, its own stat cards (IDP Settlements, Target Population, Teams), and, if that health area's team areas have been mapped, the Team Area Boundary layer drawn on the map alongside the Health Area Boundary, plus a **Team Summary table** below it (one row per team, same Target Pop WorldPop/Field columns as the health area summary).
+1. **District overview page** — the whole-district map plus stat cards for Health Areas, IDP Settlements, Target Population, and Teams, shown in the live preview below. The district's Target Population card shows its In-Scope Field U5 when one was entered, otherwise the WorldPop total, with the WorldPop U5 figure underneath for comparison.
+2. **Health Area Summary table page** — one row per health area, listing WorldPop U5, Scaled WorldPop U5 (if the district has an In-Scope Field U5), Field Target U5 (if one was entered), IDP Settlements, Recommended Teams, and Field Requested Teams.
+3. **One page per health area** — a map zoomed to just that health area's boundary, its own stat cards (IDP Settlements, Target Population, Teams), and, if that health area's team areas have been mapped, the Team Area Boundary layer drawn on the map alongside the Health Area Boundary, plus a **Team Summary table** below it (one row per team, with the same WorldPop U5 / Scaled WorldPop U5 / Field Target U5 columns as the health area summary).
 
 - **District** — pick which district's map book to generate.
 - **Basemap** — None, OpenStreetMap, Satellite, or Topo.

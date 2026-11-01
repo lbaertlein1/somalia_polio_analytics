@@ -4,7 +4,7 @@
 
 This tool is for digitizing health area and team area boundaries, district by district, for SIA vaccination campaigns.
 
-It suggests coordination sites from the master health facility list, and health area boundaries from population distribution ([WorldPop](https://www.worldpop.org)) and satellite imagery. WorldPop estimates also drive each area's recommended team count and population total. Every suggestion and boundary can be revised manually within the tool.
+It suggests coordination sites from the master health facility list, and health area boundaries from population distribution ([WorldPop](https://www.worldpop.org)) and satellite imagery. WorldPop estimates also drive each area's recommended team count and population total — scaled to a field figure for the district when you have one (see [Campaign Scope](campaign-scope)), and replaceable with field figures for individual health areas and teams. Every suggestion and boundary can be revised manually within the tool.
 
 A **SIA coordination site** oversees a single health area, coordinating the outreach teams working within it — teams assemble there, collect supplies, and report back. In most cases a coordination site is a health facility, though not always, and not all health facilities will be SIA coordination sites (see [Facilities](facilities)).
 
@@ -36,7 +36,7 @@ Generated boundaries are a starting point for review and revision, not a final a
 For each district, work through these steps in order:
 
 1. **[Landmarks](orientation)** — add reference landmarks and review context before mapping.
-2. **[Campaign Scope](campaign-scope)** *(partial-coverage districts only)* — paint exactly which area is in scope.
+2. **[Campaign Scope](campaign-scope)** — confirm or paint exactly which area is in scope, and enter the in-scope under-5 field figure if you have one.
 3. **[Facilities](facilities)** — mark which facilities are active coordination sites this round.
 4. **[Health Area Mapping](health-areas)** — generate or draw, then submit, health area boundaries.
 5. **[Team Area Mapping](team-areas)** — generate or draw, then submit, team-level areas within each health area.

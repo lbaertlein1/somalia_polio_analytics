@@ -1,9 +1,15 @@
 # =============================================================================
 # mod_campaign_scope_tab.R
 #
-# Campaign Scope stage -- shown between Landmarks and Facilities ONLY for a
-# district set to 'partial' in the admin page's Manage Districts modal (see
-# mod_admin_tab_v2.R). Same paint-then-refine-with-vertex engine as Health
+# Campaign Scope stage -- shown between Landmarks and Facilities for every
+# district. A 'full' district (admin page's Manage Districts modal, see
+# mod_admin_tab_v2.R) starts with the whole district In Scope and no
+# campaign extent; a 'partial' one starts from its campaign extent as
+# described below. Either way, submit asks for the optional In-Scope
+# Field U5 -- the field figure for children under 5 in the In Scope area
+# -- which WorldPop is scaled to everywhere downstream (scope_pop_scale(),
+# printable_export.R, where the population names are defined).
+# Same paint-then-refine-with-vertex engine as Health
 # Areas and Team Areas -- same paint-app.js canvas (via healthAreaMapServer,
 # a thin generic wrapper, reused directly under this tab's own module id),
 # same pending_action state machine for save/submit finalizing through a
@@ -27,8 +33,9 @@
 # user paints OUT anything to exclude. When NO extent exists for this
 # district, the canvas falls back to the whole district, sized to the
 # district's own dimensions, and every cell starts "Out of Scope" --
-# genuinely blank, painted in from nothing. There is no longer any
-# computed approximation (the WorldPop density approximation this used to
+# genuinely blank, painted in from nothing. (A 'full' district skips the
+# extent entirely: whole-district canvas, every cell "In Scope".)
+# There is no longer any computed approximation (the WorldPop density approximation this used to
 # fall back to was removed) -- an admin either provides a real extent or
 # doesn't, and the tab behaves accordingly either way.
 #
@@ -78,7 +85,10 @@ campaignScopeTabServer <- function(
     settlement_extents_r = reactive(NULL),
     idp_sf_r             = reactive(NULL),
     submit_stage_fn  = NULL,
-    restore_r        = reactive(NULL)
+    restore_r        = reactive(NULL),
+    # 'full' or 'partial' (server.R's active_mapping_scope) -- only
+    # decides the starting canvas, see the header comment.
+    mapping_scope_r  = reactive('partial')
 ) {
   moduleServer(id, function(input, output, session) {
 
@@ -121,10 +131,12 @@ campaignScopeTabServer <- function(
           ),
           tags$p(
             style = 'margin-top: 10px;',
-            'If a campaign extent has been configured for this district, the map only shows that extent ',
-            '(clipped to the district) -- scope can never spread past it. Everything starts "In Scope" in ',
-            'that case; paint out anything to exclude. With no extent configured, the whole district is ',
-            'shown instead, starting entirely "Out of Scope" -- paint in what belongs.'
+            'For a district planned as a whole, the map starts with the entire district "In Scope" -- ',
+            'paint out anything to exclude. Otherwise, if a campaign extent has been configured for this ',
+            'district, the map only shows that extent (clipped to the district) -- scope can never spread ',
+            'past it. Everything starts "In Scope" in that case; paint out anything to exclude. With no ',
+            'extent configured, the whole district is shown instead, starting entirely "Out of Scope" -- ',
+            'paint in what belongs.'
           ),
           tags$p(
             style = 'margin-top: 10px;',
@@ -137,6 +149,13 @@ campaignScopeTabServer <- function(
             'Save keeps your scope boundary locally. Submit Campaign Scope writes it to the database and ',
             'continues to Facilities -- everything left "Out of Scope" is excluded from facilities, health ',
             'areas, and every population figure downstream from here on.'
+          ),
+          tags$p(
+            style = 'margin-top: 10px;',
+            'On submit you can enter the ', tags$strong('In-Scope Field U5'), ' -- the field figure for ',
+            'children under 5 in the In Scope area (e.g. microplan enumeration). WorldPop is then scaled to ',
+            'that figure, and health areas and teams show Scaled WorldPop U5. Leave it blank to use ',
+            'WorldPop U5 as it is.'
           )
         ),
         easyClose = TRUE, footer = modalButton('Close')
@@ -151,7 +170,11 @@ campaignScopeTabServer <- function(
       pop_overlay_sf = NULL, pop_table = NULL,
       smoothed_scope_sf = NULL,
       vertex_mode_silently_entered = FALSE,
-      extent_missing_at_build = FALSE
+      extent_missing_at_build = FALSE,
+      default_scope_value = OUT_SCOPE_NAME,
+      # In-Scope Field U5 from the submit modal (.show_scope_population_
+      # modal()). NA = not entered.
+      scope_target_pop = NA_real_
     )
 
     pending_action <- reactiveVal(NULL)
@@ -283,6 +306,7 @@ campaignScopeTabServer <- function(
     }
 
     last_scene_key  <- reactiveVal(NULL)
+    last_scene_mode <- reactiveVal(NULL)
     pending_restore <- reactiveVal(NULL)
 
     .apply_restore <- function(snap) {
@@ -293,6 +317,7 @@ campaignScopeTabServer <- function(
       }, character(1))
       rv$saved_scope_sf    <- snap$scope_saved_dfa_sf
       rv$smoothed_scope_sf <- snap$scope_saved_dfa_sf   # scope has no separate smoothed/presentation geometry
+      rv$scope_target_pop  <- .unwrap_num(snap$scope_target_pop)
       showNotification('Campaign scope draft restored.', type = 'message', duration = 2)
       invisible(NULL)
     }
@@ -304,6 +329,7 @@ campaignScopeTabServer <- function(
       # version was open then -- the newly opened version's own saved
       # scope (server.R's restore_snapshot fallback) takes over.
       submitted_scope_sf(NULL)
+      submitted_scope_pop(NULL)
       # Apply now only if the grid on hand was built for THIS district;
       # otherwise (another district's grid, or none yet) wait for the
       # scene build below, which applies it right after rebuilding.
@@ -320,7 +346,8 @@ campaignScopeTabServer <- function(
     # have -- just make_paint_grid() over whatever canvas_sf resolves to,
     # since scope has no BFS propagation to run.
     .build_scene_for_district <- function(dsf) {
-      extent_now <- tryCatch(campaign_extent_r(), error = function(e) NULL)
+      is_full    <- !identical(isolate(mapping_scope_r()), 'partial')
+      extent_now <- if (is_full) NULL else tryCatch(campaign_extent_r(), error = function(e) NULL)
       # Guards against the real race this whole function's docstring
       # already warns about: campaign_extent_r() is a network round trip
       # keyed off active_district() in server.R, so at the moment this
@@ -370,7 +397,7 @@ campaignScopeTabServer <- function(
       # source polygon the way the old urban-buffer prefill needed --
       # canvas_sf already IS exactly the extent (clipped to district),
       # so there's nothing left to test cell-by-cell.
-      default_value <- if (has_extent) IN_SCOPE_NAME else OUT_SCOPE_NAME
+      default_value <- if (has_extent || is_full) IN_SCOPE_NAME else OUT_SCOPE_NAME
       default_assignments <- rep(default_value, nrow(grid_sf))
 
       rv$district_sf          <- dsf
@@ -383,12 +410,14 @@ campaignScopeTabServer <- function(
       rv$current_assignments                    <- default_assignments
       rv$saved_scope_sf                            <- NULL
       rv$smoothed_scope_sf                            <- NULL
+      rv$default_scope_value <- default_value
+      rv$scope_target_pop    <- NA_real_
       # Tracks whether THIS build had no extent to work with, purely for
       # the catch-up observer below (campaign_extent_r() involves a real
       # ArcGIS network round trip in server.R, on its OWN observer keyed
       # off active_district()/active_campaign_id() -- there's no
       # guarantee that fetch has completed by the time this runs).
-      rv$extent_missing_at_build <- !has_extent
+      rv$extent_missing_at_build <- !has_extent && !is_full
 
       if (isTRUE(in_vertex_mode())) send_paint_message("paint_exit_vertex_mode")
       in_vertex_mode(FALSE)
@@ -408,9 +437,14 @@ campaignScopeTabServer <- function(
       # every other district kept that district's grid and painted scope
       # (and submitting would have saved it into the wrong district).
       new_key <- as.character(dsf$district_name[[1]])
-      if (identical(last_scene_key(), new_key)) return()
+      # Rebuilt too if the district's admin scope setting changed, since
+      # that changes the starting canvas.
+      new_mode <- mapping_scope_r()
+      if (identical(last_scene_key(), new_key) && identical(last_scene_mode(), new_mode)) return()
       last_scene_key(new_key)
+      last_scene_mode(new_mode)
       submitted_scope_sf(NULL)
+      submitted_scope_pop(NULL)
 
       .build_scene_for_district(dsf)
 
@@ -608,8 +642,47 @@ campaignScopeTabServer <- function(
       req(tab_active(), !isTRUE(in_vertex_mode())); pending_action('save'); send_paint_message('paint_request_assignments')
     }, ignoreInit = TRUE)
 
+    # Submit asks for the In-Scope Field U5 first -- same
+    # practice as the Health Area and Team Area steps' own target modals,
+    # but before the write rather than after, since the value is part of
+    # what gets submitted.
     observeEvent(controls$submit_click(), {
       req(tab_active())
+      .show_scope_population_modal()
+    }, ignoreInit = TRUE)
+
+    .show_scope_population_modal <- function() {
+      wp <- if (is.null(rv$pop_table)) NA_real_
+            else rv$pop_table$est_u5_pop[rv$pop_table$area_name == IN_SCOPE_NAME][1]
+      showModal(modalDialog(
+        title = 'In-Scope Field U5', size = 'm', easyClose = FALSE,
+        footer = tagList(
+          modalButton('Cancel'),
+          actionButton(session$ns('scope_pop_confirm'), 'Submit Campaign Scope', class = 'btn btn-primary')
+        ),
+        div(
+          style = 'font-size:13px;color:#475569;line-height:1.6;',
+          tags$p('WorldPop U5 for the area marked "In Scope": ', tags$strong(.fmt_pop(wp)), '.'),
+          tags$p('If you have a field figure for children under 5 in this area -- for example from ',
+                 'microplan enumeration -- enter it below. WorldPop is then scaled to match it, and health ',
+                 'areas and teams show Scaled WorldPop U5; the exports show both. Leave it blank to use ',
+                 'WorldPop U5 as it is.')
+        ),
+        numericInput(session$ns('scope_target_pop_input'), 'In-Scope Field U5',
+                     value = if (is.na(rv$scope_target_pop)) NA else rv$scope_target_pop,
+                     min = 0, step = 1, width = '100%')
+      ))
+    }
+
+    observeEvent(input$scope_pop_confirm, {
+      v <- suppressWarnings(as.numeric(input$scope_target_pop_input))
+      if (length(v) == 0) v <- NA_real_
+      if (!is.na(v) && v <= 0) {
+        showNotification('Enter a population above 0, or leave it blank to use WorldPop.', type = 'warning', duration = 5)
+        return()
+      }
+      rv$scope_target_pop <- v
+      removeModal()
       pending_action('submit'); send_paint_message('paint_request_assignments')
     }, ignoreInit = TRUE)
 
@@ -709,6 +782,33 @@ campaignScopeTabServer <- function(
     # cover -- resuming a draft where scope was already submitted in a
     # PREVIOUS session, before this one's activation snapshot was taken.
     submitted_scope_sf <- reactiveVal(NULL)
+    # Same "live, this session" role as submitted_scope_sf, for the
+    # population pair server.R scales everything by.
+    submitted_scope_pop <- reactiveVal(NULL)
+
+    # Everything a scope submit writes. scope_worldpop_pop is extracted
+    # from the exact submitted In Scope polygon (not the grid estimate the
+    # modal shows), so the scale factor matches the boundary actually
+    # saved.
+    .scope_submit_payload <- function(saved_sf) {
+      in_scope <- saved_sf[saved_sf$dfa_name == IN_SCOPE_NAME, , drop = FALSE]
+      wp <- if (nrow(in_scope) == 0) NA_real_
+            else sum(.polygon_u5_population(in_scope, u5_rast), na.rm = TRUE)
+      list(
+        scope_saved_dfa_sf         = saved_sf,
+        scope_dfa_names            = .scope_dfa_names,
+        scope_current_assignments  = setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id)),
+        scope_target_pop           = rv$scope_target_pop,
+        scope_worldpop_pop         = wp
+      )
+    }
+
+    .after_scope_submit <- function(payload) {
+      showNotification('Campaign scope submitted.', type = 'message', duration = 2)
+      submitted_scope_pop(payload[c('scope_target_pop', 'scope_worldpop_pop')])
+      submitted_scope_sf(payload$scope_saved_dfa_sf)
+      submitted_counter(submitted_counter() + 1L)
+    }
 
     # Same three-reason pending_action dispatch as mod_team_area_tab.R's
     # identical wiring:
@@ -772,17 +872,10 @@ campaignScopeTabServer <- function(
         }
 
         if (!is.null(rv$saved_scope_sf) && !is.null(submit_stage_fn)) {
-          ok <- submit_stage_fn('scope', list(
-            scope_saved_dfa_sf         = rv$saved_scope_sf,
-            scope_dfa_names            = .scope_dfa_names,
-            scope_current_assignments  = setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id))
-          ))
+          payload <- .scope_submit_payload(rv$saved_scope_sf)
+          ok <- submit_stage_fn('scope', payload)
           # Only treated as submitted if the save worked.
-          if (!isFALSE(ok)) {
-            showNotification('Campaign scope submitted.', type = 'message', duration = 2)
-            submitted_scope_sf(rv$saved_scope_sf)
-            submitted_counter(submitted_counter() + 1L)
-          }
+          if (!isFALSE(ok)) .after_scope_submit(payload)
         }
         pending_action(NULL)
         return()
@@ -848,7 +941,7 @@ campaignScopeTabServer <- function(
         # normal vertex-conversion path below applies exactly as it did
         # before this.
         if (identical(ordered, rv$initial_assignments)) {
-          default_dfa_name <- if (isTRUE(rv$has_campaign_extent)) IN_SCOPE_NAME else OUT_SCOPE_NAME
+          default_dfa_name <- rv$default_scope_value
           exact_sf <- .build_exact_untouched_scope(rv$district_sf, rv$canvas_sf, default_dfa_name)
           if (!is.null(exact_sf)) {
             rv$saved_scope_sf    <- exact_sf
@@ -858,17 +951,10 @@ campaignScopeTabServer <- function(
             if (identical(act, 'save')) {
               showNotification('Campaign scope saved.', type = 'message', duration = 2)
             } else if (!is.null(submit_stage_fn)) {
-              ok <- submit_stage_fn('scope', list(
-                scope_saved_dfa_sf         = exact_sf,
-                scope_dfa_names            = .scope_dfa_names,
-                scope_current_assignments  = setNames(as.list(rv$current_assignments), as.character(rv$grid_sf$cell_id))
-              ))
+              payload <- .scope_submit_payload(exact_sf)
+              ok <- submit_stage_fn('scope', payload)
               # Only treated as submitted if the save worked.
-              if (!isFALSE(ok)) {
-                showNotification('Campaign scope submitted.', type = 'message', duration = 2)
-                submitted_scope_sf(exact_sf)
-                submitted_counter(submitted_counter() + 1L)
-              }
+              if (!isFALSE(ok)) .after_scope_submit(payload)
             }
             pending_action(NULL)
             return()
@@ -905,7 +991,10 @@ campaignScopeTabServer <- function(
       # vertex-geojson round trip completes, not synchronously with the
       # Submit click itself).
       submitted = reactive(submitted_counter()),
-      submitted_scope_sf = reactive(submitted_scope_sf())
+      submitted_scope_sf = reactive(submitted_scope_sf()),
+      # list(scope_target_pop, scope_worldpop_pop) from this session's
+      # last successful submit, or NULL -- see scope_pop_scale().
+      submitted_scope_pop = reactive(submitted_scope_pop())
     )
   })
 }

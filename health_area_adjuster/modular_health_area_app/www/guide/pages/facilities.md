@@ -7,7 +7,7 @@ This tab is where you identify **outreach coordination sites** — the facilitie
 
 ## The recommended number of sites
 
-The **Recommended** card is calculated automatically: `ceil(district population ÷ target population per health area)`. That target (4,000 in the screenshot below) isn't hard-coded — it's the `target_pop_per_health_area` setting on the [Admin](admin) tab, so it can be changed campaign-wide. For a district of 13,739 people at the default 4,000, that's 4 recommended sites. This is a planning target, not a hard limit — the **Selected** card next to it just counts how many you've actually checked so far, and there's nothing stopping that number from landing above or below the recommendation if the facilities on the ground call for it.
+The **Recommended** card is calculated automatically: `ceil(in-scope population ÷ target population per health area)`, where the in-scope population is the district's **In-Scope Field U5** if one was entered at [Campaign Scope](campaign-scope), otherwise WorldPop U5 for the in-scope area. That target (4,000 in the screenshot below) isn't hard-coded — it's the `target_pop_per_health_area` setting on the [Admin](admin) tab, so it can be changed campaign-wide. For a district of 13,739 people at the default 4,000, that's 4 recommended sites. This is a planning target, not a hard limit — the **Selected** card next to it just counts how many you've actually checked so far, and there's nothing stopping that number from landing above or below the recommendation if the facilities on the ground call for it.
 
 ## Selecting a facility as a coordination site
 

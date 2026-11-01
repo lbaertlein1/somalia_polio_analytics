@@ -30,10 +30,14 @@
 #   landmarks.<ext>          — landmark points
 #   facilities.csv           — all facility records
 #   health_area_population_summary.csv — one row per health area: WorldPop
-#                               population, field target population,
-#                               number of teams
-#   team_population_summary.csv — one row per team: WorldPop population,
-#                               implied field target share
+#                               U5, Scaled WorldPop U5 (districts with an
+#                               In-Scope Field U5 only), Field Target U5,
+#                               IDP count, recommended/requested teams
+#   team_population_summary.csv — one row per team: WorldPop U5, Scaled
+#                               WorldPop U5, Field Target U5 (the team's own,
+#                               else its share of the health area's)
+#   scope_population_summary.csv — one row per district: WorldPop U5 (In
+#                               Scope), In-Scope Field U5, scale factor
 # =============================================================================
 
 #' write.csv() writes in the system's native encoding by default, with no
@@ -50,6 +54,24 @@
   on.exit(close(con), add = TRUE)
   writeBin(charToRaw('\xef\xbb\xbf'), con)
   write.csv(x, con, row.names = row.names, ...)
+}
+
+#' One row recording where a district's population figures come from:
+#' WorldPop U5 over the In Scope area, the In-Scope Field U5 entered at
+#' Campaign Scope (blank if none), and the factor WorldPop is multiplied by
+#' to give the other summaries' Scaled WorldPop U5 (1 when there's no
+#' In-Scope Field U5).
+.scope_population_row <- function(district_name, snap) {
+  wp    <- .unwrap_num(snap$scope_worldpop_pop)
+  field <- .unwrap_num(snap$scope_target_pop)
+  scale <- scope_pop_scale(snap)
+  data.frame(
+    district_name                  = district_name,
+    `WorldPop U5 (In Scope)`       = if (is.na(wp)) NA_real_ else round(wp),
+    `In-Scope Field U5`            = if (is.na(field)) NA_real_ else round(field),
+    `WorldPop Scale Factor`        = if (is.na(scale)) 1 else round(scale, 3),
+    check.names = FALSE, stringsAsFactors = FALSE
+  )
 }
 
 #' Map a user-facing format choice to its sf driver name and file extension.
@@ -183,18 +205,21 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
           all(c('lon', 'lat') %in% names(snap$idp_settlements))) {
         idp_sf_export <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
       }
-      ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop)
+      pop_scale <- scope_pop_scale(snap)
+      ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop, pop_scale)
       if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
         .write_csv_utf8_bom(cbind(district_name = district_name, ha_summary),
                  file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
       }
+      .write_csv_utf8_bom(.scope_population_row(district_name, snap),
+               file.path(tmp, 'scope_population_summary.csv'), row.names = FALSE)
 
       if (!is.null(team_sf) && nrow(team_sf) > 0) {
         team_rows <- lapply(unique(team_sf$health_area), function(han) {
           team_one <- team_sf[team_sf$health_area == han, , drop = FALSE]
           tgt <- team_targets[[han]]
           field_target <- .unwrap_num(tgt$target_pop)
-          tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]])
+          tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]], pop_scale)
           if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
           cbind(district_name = district_name, `Health Area` = han, tbl)
         })
@@ -293,6 +318,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
   urban_parts    <- list()
   ha_summary_parts   <- list()
   team_summary_parts <- list()
+  scope_pop_parts    <- list()
 
   for (i in seq_len(nrow(progress))) {
     dname   <- progress$district_name[i]
@@ -399,16 +425,18 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
             all(c('lon', 'lat') %in% names(snap$idp_settlements))) {
           idp_sf_export <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
         }
-        ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop)
+        pop_scale <- scope_pop_scale(snap)
+        ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop, pop_scale)
         if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
           ha_summary_parts[[dname]] <- cbind(district_name = dname, ha_summary)
         }
+        scope_pop_parts[[dname]] <- .scope_population_row(dname, snap)
         if (!is.null(team_sf) && nrow(team_sf) > 0) {
           d_team_rows <- lapply(unique(team_sf$health_area), function(han) {
             team_one <- team_sf[team_sf$health_area == han, , drop = FALSE]
             tgt <- team_targets[[han]]
             field_target <- .unwrap_num(tgt$target_pop)
-            tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]])
+            tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]], pop_scale)
             if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
             cbind(district_name = dname, `Health Area` = han, tbl)
           })
@@ -446,6 +474,8 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     combined <- dplyr::bind_rows(team_summary_parts)
     if (nrow(combined) > 0) .write_csv_utf8_bom(combined, file.path(tmp, 'team_population_summary.csv'), row.names = FALSE)
   }
+  if (length(scope_pop_parts) > 0)
+    .write_csv_utf8_bom(dplyr::bind_rows(scope_pop_parts), file.path(tmp, 'scope_population_summary.csv'), row.names = FALSE)
 
   if (length(fac_parts) > 0) {
     fac_out <- dplyr::bind_rows(fac_parts) |>

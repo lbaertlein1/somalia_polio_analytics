@@ -124,12 +124,7 @@ orientationTabServer <- function(
     # Context-only overlays, shown the same way subdivisions_r already
     # is -- see server.R's settlement_extents_rv / idp_context_rv.
     settlement_extents_r = reactive(NULL),
-    idp_sf_r              = reactive(NULL),
-    # Added for the Campaign Scope stage -- defaults to 'full' so any
-    # OTHER caller of this module that doesn't pass it gets the exact
-    # same behavior as before this parameter existed (straight to
-    # Facilities, never to Campaign Scope).
-    mapping_scope_r     = reactive('full')
+    idp_sf_r              = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -631,18 +626,15 @@ orientationTabServer <- function(
       }
     })
     
-    # ── Continue → facilities (or Campaign Scope first, if this district
-    # is 'partial') ──────────────────────────────────────────────────────
+    # ── Continue → Campaign Scope ──────────────────────────────────────────────────
     
-    .do_continue_to_facilities <- function() {
-      # Every 'partial' district routes here, regardless of whether a
-      # campaign extent exists for it -- the extent (when it exists) is
-      # just the starting canvas for Campaign Scope to refine within,
-      # never a reason to skip human review; with no extent, that tab's
-      # canvas is just the whole blank district instead (see mod_
-      # campaign_scope_tab.R).
-      needs_scope <- identical(mapping_scope_r(), 'partial')
-      next_tab <- if (needs_scope) 'tab_campaign_scope' else 'tab_health_facility_mapping'
+    .do_continue_to_scope <- function() {
+      # Every district goes through Campaign Scope -- a 'full' district
+      # starts there with the whole district In Scope, and every district
+      # gets the in-scope population prompt on submit (see mod_campaign_
+      # scope_tab.R). A scope that's already locked is sent on to
+      # Facilities by server.R's tab redirect.
+      next_tab <- 'tab_campaign_scope'
       shinyjs::runjs(paste0("$('#main_tabs a[data-value=",
                             '"', next_tab, '"',
                             "]').tab('show');"))
@@ -654,7 +646,7 @@ orientationTabServer <- function(
         if (isFALSE(submit_stage_fn('landmarks', list(landmarks = rv$landmarks)))) return(invisible(NULL))
         landmarks_submitted_to_db(TRUE)
       }
-      .do_continue_to_facilities()
+      .do_continue_to_scope()
     }
     
     observeEvent(input$continue, {
@@ -674,7 +666,7 @@ orientationTabServer <- function(
         ))
         return()
       }
-      .do_continue_to_facilities()
+      .do_continue_to_scope()
     }, ignoreInit = TRUE)
     
     observeEvent(input$lm_continue_cancel, {
@@ -683,7 +675,7 @@ orientationTabServer <- function(
     
     observeEvent(input$lm_continue_without_save, {
       removeModal()
-      .do_continue_to_facilities()
+      .do_continue_to_scope()
     }, ignoreInit = TRUE)
     
     observeEvent(input$lm_submit_and_continue, {

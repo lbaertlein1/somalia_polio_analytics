@@ -509,7 +509,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
     # to see one district's detail.
     .fetch_district_boundaries_for_review <- function(cid, dname) {
       ver <- tryCatch(db_get_shared_version(pool, cid, dname), error = function(e) NULL)
-      if (is.null(ver)) return(list(ha_sf = NULL, ta_sf = NULL, team_targets = list(), team_field_overrides_by_ha = list(), idp_sf = NULL, dfa_worldpop_pop = list(), team_worldpop_by_ha = list()))
+      if (is.null(ver)) return(list(ha_sf = NULL, ta_sf = NULL, team_targets = list(), team_field_overrides_by_ha = list(), idp_sf = NULL, dfa_worldpop_pop = list(), team_worldpop_by_ha = list(), pop_scale = NA_real_))
       ha_geom <- ver$snap$smoothed_dfa_sf %||% ver$snap$saved_dfa_sf
       ha_sf <- if (!is.null(ha_geom) && nrow(ha_geom) > 0) sf::st_transform(safe_make_valid(ha_geom), 4326) else NULL
       # Computed-at-submit WorldPop per health area (mapping_versions.
@@ -573,7 +573,8 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         idp_sf = idp_sf,
         team_field_overrides_by_ha = team_field_overrides_by_ha,
         dfa_worldpop_pop = dfa_worldpop_pop,
-        team_worldpop_by_ha = team_worldpop_by_ha
+        team_worldpop_by_ha = team_worldpop_by_ha,
+        pop_scale = scope_pop_scale(ver$snap)
       )
     }
 
@@ -653,7 +654,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         if (is.null(bounds$ha_sf) || nrow(bounds$ha_sf) == 0)
           return(data.frame(Note = 'No health areas mapped yet for this district.', check.names = FALSE))
         tbl <- tryCatch(
-          .build_health_area_summary_table(bounds$ha_sf, bounds$team_targets, u5_rast, cid, NULL, bounds$idp_sf, bounds$dfa_worldpop_pop),
+          .build_health_area_summary_table(bounds$ha_sf, bounds$team_targets, u5_rast, cid, NULL, bounds$idp_sf, bounds$dfa_worldpop_pop, bounds$pop_scale),
           error = function(e) NULL
         )
         if (is.null(tbl) || nrow(tbl) == 0) data.frame(Note = 'Not available.', check.names = FALSE) else tbl
@@ -677,7 +678,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
             # an unreliable value into an is.na() check downstream.
             field_target <- .unwrap_num(bounds$team_targets[[han]]$target_pop)
             tbl <- tryCatch(
-              .build_team_summary_table(team_one, field_target, u5_rast, NULL, bounds$team_field_overrides_by_ha[[han]], bounds$team_worldpop_by_ha[[han]]),
+              .build_team_summary_table(team_one, field_target, u5_rast, NULL, bounds$team_field_overrides_by_ha[[han]], bounds$team_worldpop_by_ha[[han]], bounds$pop_scale),
               error = function(e) {
                 cat(sprintf('[intro_ta_debug]   build_team_summary_table error for %s: %s\n', han, conditionMessage(e)))
                 NULL
