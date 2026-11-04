@@ -111,6 +111,162 @@ introTabUI <- function(id) {
             });
           })();
         ", ns('campaign_map_cards'), ns('district_table_ui'), ns('campaign_map')))),
+        # District list (output$district_table_ui): compact one-line rows
+        # with a status colour bar, sized to sit level with the 520px map
+        # (toolbar + scroll area ~= the map label + map).
+        tags$style(HTML('
+          .intro-dist-toolbar { display: flex; gap: 8px; margin-bottom: 6px; }
+          .intro-dist-toolbar .intro-dist-search { flex: 1.4 1 0; min-width: 0; height: 32px; font-size: 13px; padding: 4px 10px; }
+          .intro-dist-toolbar .intro-dist-region-filter { flex: 1 1 0; min-width: 0; height: 32px; font-size: 12px; padding: 4px 8px; }
+          .intro-dist-toolbar .intro-dist-status { flex: 1.2 1 0; min-width: 0; height: 32px; font-size: 12px; padding: 4px 8px; }
+          .intro-dist-scroll { height: 504px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+          /* Text columns may shrink to nothing (minmax(0, ...)) and truncate
+             with an ellipsis -- fixed minimums made rows wider than the panel
+             on a laptop and clipped the last button. The actions column is
+             sized to the three buttons. */
+          .intro-dist-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 1.1fr) minmax(0, 0.7fr) 206px;
+            align-items: center; gap: 6px; padding: 4px 6px 4px 8px; font-size: 12.5px; color: #1e293b;
+            border-left: 4px solid transparent; border-bottom: 1px solid #f1f5f9;
+          }
+          .intro-dist-row > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .intro-dist-row > div.intro-dist-actions { overflow: visible; }
+          .intro-dist-row.intro-dist-head > div { white-space: normal; line-height: 1.2; }
+          .intro-dist-row:hover { background: #f8fafc; }
+          .intro-dist-head {
+            position: sticky; top: 0; z-index: 2; background: #f1f5f9; font-size: 11px; font-weight: 600;
+            color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e2e8f0;
+          }
+          .intro-dist-head:hover { background: #f1f5f9; }
+          .intro-dist-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+          .intro-dist-sort:hover { color: #0f172a; }
+          .intro-dist-arrow { margin-left: 3px; color: #0d9488; }
+          .intro-dist-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .intro-dist-region-cell { color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .intro-dist-muted { color: #94a3b8; }
+          .intro-dist-actions { display: flex; gap: 3px; justify-content: flex-end; }
+          .intro-dist-btn {
+            padding: 1px 6px !important; font-size: 11.5px !important; line-height: 1.6 !important; white-space: nowrap;
+            border: 1px solid #cbd5e1 !important; background: #fff !important; color: #334155 !important; border-radius: 4px !important;
+          }
+          .intro-dist-btn:hover:not(:disabled) { background: #f1f5f9 !important; }
+          .intro-dist-btn:disabled { opacity: 0.4; }
+          .intro-dist-btn.intro-dist-next { background: #0d9488 !important; border-color: #0d9488 !important; color: #fff !important; }
+          .intro-dist-btn.intro-dist-next:hover { background: #0f766e !important; }
+          .intro-dist-empty { padding: 16px; color: #64748b; font-size: 13px; }
+        ')),
+        # Client-side search / region / status filter and column sorting over
+        # the rendered rows -- no server round trip. Search matches district
+        # or region name. Clicking a column header sorts by it; clicking the
+        # same header again reverses the order.
+        tags$script(HTML(sprintf("window.introCampaignMapId = '%s';", ns('campaign_map')))),
+        tags$script(HTML("
+          function introFilterDistricts(el) {
+            var panel = $(el).closest('.intro-dist-panel');
+            var q  = (panel.find('.intro-dist-search').val() || '').trim().toLowerCase();
+            var rg = panel.find('.intro-dist-region-filter').val() || '';
+            var st = panel.find('.intro-dist-status').val() || '';
+            var matchText = function(name, region) {
+              return !q || name.indexOf(q) > -1 || region.toLowerCase().indexOf(q) > -1;
+            };
+            var shown = 0, byStatus = {}, matched = {};
+            panel.find('.intro-dist-body .intro-dist-row').each(function() {
+              var d = this.dataset;
+              var ok = matchText(d.name, d.region) && (!rg || d.region === rg) && (!st || d.status === st);
+              this.style.display = ok ? '' : 'none';
+              if (ok) { shown++; byStatus[d.status] = (byStatus[d.status] || 0) + 1; matched[d.name] = true; }
+            });
+            panel.find('.intro-dist-empty').toggle(shown === 0);
+            panel.find('.intro-dist-count').text(shown + ' district' + (shown === 1 ? '' : 's'));
+            // Status cards above the list follow the same filters. Districts
+            // outside the campaign aren't in the list; they're counted from
+            // the cards' own data-unassoc list (and are 0 under a status filter).
+            var cards = $('.intro-card-wrap');
+            var unassoc = [];
+            try { unassoc = JSON.parse(cards.attr('data-unassoc') || '[]'); } catch (e) {}
+            var unassocShown = st ? [] : unassoc.filter(function(u) {
+              return matchText(u.name, u.region || '') && (!rg || u.region === rg);
+            });
+            byStatus.not_associated = unassocShown.length;
+            unassocShown.forEach(function(u) { matched[u.name] = true; });
+            cards.find('.intro-card-val').each(function() {
+              this.textContent = byStatus[this.dataset.key] || 0;
+            });
+            // Debounced so typing in the search box doesn't restart the
+            // zoom animation on every keystroke.
+            window.introMapFilter = { matched: matched, filtered: !!(q || rg || st) };
+            clearTimeout(window.introMapTimer);
+            window.introMapTimer = setTimeout(function() { introUpdateMap(matched, !!(q || rg || st)); }, 200);
+          }
+          function introGetCampaignMap() {
+            var w = window.HTMLWidgets && HTMLWidgets.find('#' + $.escapeSelector(window.introCampaignMapId || ''));
+            return w && w.getMap && w.getMap();
+          }
+          // The map is drawn while the intro content is still hidden, so
+          // Leaflet measures it at the wrong size: the starting view is off
+          // and fitBounds/flyToBounds compute the wrong zoom. Watch the map
+          // element and, whenever its size changes (including when it's
+          // first shown), re-measure and re-fit to the current filter.
+          $(document).on('shiny:value', function(ev) {
+            if (ev.name !== window.introCampaignMapId) return;
+            window.introMapFilter = null;   // a fresh map draw shows every district
+            setTimeout(function() {
+              var el = document.getElementById(window.introCampaignMapId);
+              if (!el || el.introResizeObserver || !window.ResizeObserver) return;
+              el.introResizeObserver = new ResizeObserver(function() {
+                var f = window.introMapFilter || { matched: {}, filtered: false };
+                introUpdateMap(f.matched, f.filtered, true);
+              });
+              el.introResizeObserver.observe(el);
+            }, 0);
+          });
+          // Campaign map follows the list filters: zoom to the matching
+          // districts and fade the rest; no filter = every district, full
+          // extent. Polygons are found by their leaflet layerId (the
+          // district name, see output$campaign_map).
+          // instant = jump rather than animate (used when re-fitting after a resize).
+          function introUpdateMap(matched, filtered, instant) {
+            var map = introGetCampaignMap();
+            var el = document.getElementById(window.introCampaignMapId);
+            if (!map || !el || el.offsetWidth === 0) return;
+            map.invalidateSize({ pan: false });
+            var hit = null, all = null;
+            map.eachLayer(function(l) {
+              var id = l.options && l.options.layerId;
+              if (id == null || !l.getBounds) return;
+              var ok = !filtered || matched[String(id).toLowerCase()] === true;
+              l.setStyle({ fillOpacity: ok ? 0.55 : 0.08, opacity: ok ? 1 : 0.2 });
+              var b = l.getBounds();
+              all = all ? all.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast());
+              if (ok) hit = hit ? hit.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast());
+            });
+            var target = filtered ? hit : all;
+            if (!target || !target.isValid()) return;
+            var opts = { padding: [20, 20], maxZoom: 10 };
+            if (instant) map.fitBounds(target, opts);
+            else map.flyToBounds(target, $.extend({ duration: 0.6 }, opts));
+          }
+          function introSortDistricts(head) {
+            var panel = $(head).closest('.intro-dist-panel');
+            var key = head.dataset.sort, num = head.dataset.type === 'num';
+            var dir = head.dataset.dir === 'asc' ? 'desc' : 'asc';
+            panel.find('.intro-dist-sort').each(function() { this.dataset.dir = ''; $(this).find('.intro-dist-arrow').text(''); });
+            head.dataset.dir = dir;
+            $(head).find('.intro-dist-arrow').text(dir === 'asc' ? '\u25B2' : '\u25BC');
+            var body = panel.find('.intro-dist-body');
+            var rows = body.children('.intro-dist-row').get();
+            rows.sort(function(a, b) {
+              var x = a.dataset[key], y = b.dataset[key], c;
+              if (num) c = parseFloat(x) - parseFloat(y);
+              else c = x.localeCompare(y);
+              // Ties fall back to district name, always A-Z.
+              if (c === 0) return a.dataset.name.localeCompare(b.dataset.name);
+              return dir === 'asc' ? c : -c;
+            });
+            body.append(rows);
+          }
+        ")),
         shinyjs::hidden(
           div(
             id = ns('intro_loaded_content'),
@@ -277,6 +433,17 @@ introTabUI <- function(id) {
   all_mapped           = 'All team areas mapped'
 )
 
+# Status key (names of .CAMPAIGN_MAP_COLORS) for a district assigned to
+# the campaign -- shared by the campaign map and the district list so the
+# two always agree.
+.district_status_key <- function(has_current_ha, n_ha, n_ta) {
+  if (!isTRUE(has_current_ha)) return('ha_not_mapped')
+  n_ha <- suppressWarnings(as.integer(n_ha))
+  n_ta <- suppressWarnings(as.integer(n_ta))
+  if (is.na(n_ha) || n_ha <= 0) return('ha_mapped_ta_pending')
+  if (!is.na(n_ta) && n_ta >= n_ha) 'all_mapped' else 'ha_mapped_ta_pending'
+}
+
 # .campaign_map_legend() removed -- replaced by output$campaign_map_cards
 # (live district counts per category), which now sits above the map
 # instead of a static color-key legend beside it.
@@ -441,11 +608,8 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       status_for <- function(dname) {
         if (is.null(assigned) || !(dname %in% assigned$district_name)) return('not_associated')
         row <- if (!is.null(td)) td[td$district_name == dname, , drop = FALSE] else NULL
-        if (is.null(row) || nrow(row) == 0 || !isTRUE(row$has_current_ha[1])) return('ha_not_mapped')
-        n_ha <- suppressWarnings(as.integer(row$n_health_areas[1]))
-        n_ta <- suppressWarnings(as.integer(row$n_teams_mapped[1]))
-        if (is.na(n_ha) || n_ha <= 0) return('ha_mapped_ta_pending')
-        if (!is.na(n_ta) && n_ta >= n_ha) 'all_mapped' else 'ha_mapped_ta_pending'
+        if (is.null(row) || nrow(row) == 0) return('ha_not_mapped')
+        .district_status_key(row$has_current_ha[1], row$n_health_areas[1], row$n_teams_mapped[1])
       }
 
       all_districts$status_key   <- vapply(as.character(all_districts$district_name), status_for, character(1))
@@ -475,7 +639,21 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
     output$campaign_map_cards <- renderUI({
       status_sf <- campaign_district_status()
       counts <- table(factor(status_sf$status_key, levels = names(.CAMPAIGN_MAP_COLORS)))
+      # Districts outside the campaign aren't rows in the district list, so
+      # their names + regions ride along here (data-unassoc) for
+      # introFilterDistricts() to apply the search/region filter to when it
+      # recounts the cards. The other three cards are recounted from the
+      # list's visible rows.
+      lookup <- tryCatch(region_lookup(), error = function(e) NULL)
+      unassoc_names <- as.character(status_sf$district_name[status_sf$status_key == 'not_associated'])
+      unassoc_regions <- if (is.null(lookup)) rep('', length(unassoc_names)) else
+        lookup$region_name[match(unassoc_names, lookup$district_name)]
+      unassoc_regions[is.na(unassoc_regions)] <- ''
+      unassoc <- lapply(seq_along(unassoc_names), function(k)
+        list(name = tolower(unassoc_names[k]), region = unassoc_regions[k]))
       div(
+        class = 'intro-card-wrap',
+        `data-unassoc` = as.character(jsonlite::toJSON(unassoc, auto_unbox = TRUE, na = 'string')),
         style = 'display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;',
         lapply(names(.CAMPAIGN_MAP_COLORS), function(key) {
           div(
@@ -483,7 +661,8 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
               'flex:1;min-width:150px;background:%s;border-radius:8px;padding:10px 12px;',
               .CAMPAIGN_MAP_COLORS[[key]]
             ),
-            div(style = 'font-size:22px;font-weight:700;color:#1e293b;', unname(counts[key])),
+            div(class = 'intro-card-val', `data-key` = key,
+                style = 'font-size:22px;font-weight:700;color:#1e293b;', unname(counts[key])),
             div(style = 'font-size:11px;color:#334155;', .CAMPAIGN_MAP_LABELS[[key]])
           )
         })
@@ -610,6 +789,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         leaflet::leafletOutput(session$ns('district_review_popup_map'), height = '420px'),
         tags$div(style = 'margin-top:14px;',
           tags$div(class = 'mini-label', 'Health Areas'),
+          uiOutput(session$ns('district_review_scale_note')),
           tableOutput(session$ns('district_review_ha_table'))
         ),
         tags$div(style = 'margin-top:10px;',
@@ -621,6 +801,15 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         .fetch_district_boundaries_for_review(cid, dname),
         error = function(e) list(ha_sf = NULL, ta_sf = NULL, team_targets = list(), team_field_overrides_by_ha = list())
       )
+      # The Scaled WorldPop U5 column only exists when the published
+      # version has an In-Scope Field U5 (scope_pop_scale()) -- say so
+      # rather than leaving the column silently absent.
+      output$district_review_scale_note <- renderUI({
+        if (!is.na(bounds$pop_scale %||% NA_real_) || is.null(bounds$ha_sf)) return(NULL)
+        tags$p(style = 'font-size:11px;color:#94a3b8;margin:2px 0 6px;',
+               'No In-Scope Field U5 is saved on the published version of this district, so figures are plain ',
+               'WorldPop U5 (no Scaled WorldPop U5 column).')
+      })
       output$district_review_popup_map <- leaflet::renderLeaflet({
         if (is.null(bounds$ha_sf) || nrow(bounds$ha_sf) == 0) {
           return(leaflet::leaflet() |> leaflet::addProviderTiles('OpenStreetMap') |>
@@ -635,9 +824,17 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
                               color = '#4b5563', label = ~get(area_col))
         if (!is.null(bounds$ta_sf) && nrow(bounds$ta_sf) > 0) {
           team_col <- if ('dfa_name' %in% names(bounds$ta_sf)) 'dfa_name' else names(bounds$ta_sf)[1]
+          # Near-invisible fill rather than fill = FALSE: an unfilled
+          # polygon only catches the mouse on its outline, so hovering
+          # inside a team area fell through to the health area label.
+          team_labels <- if ('health_area' %in% names(bounds$ta_sf))
+            paste0(bounds$ta_sf$health_area, ' — ', bounds$ta_sf[[team_col]])
+            else as.character(bounds$ta_sf[[team_col]])
           m <- m |> leaflet::addPolygons(
-            data = bounds$ta_sf, fill = FALSE, weight = 0.8, color = '#111827', opacity = 0.85,
-            label = ~get(team_col)
+            data = bounds$ta_sf, fill = TRUE, fillColor = '#ffffff', fillOpacity = 0.01,
+            weight = 0.8, color = '#111827', opacity = 0.85,
+            label = team_labels,
+            highlightOptions = leaflet::highlightOptions(weight = 2.5, color = '#0f172a', bringToFront = FALSE)
           )
         }
         m
@@ -725,106 +922,97 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       }
       df <- df[order(df$region_name, df$district_name), ]
 
-      ha_status <- ifelse(
-        df$has_current_ha,
-        sprintf('%d health areas \u00b7 %s, %s', df$n_health_areas,
-               df$ha_published_by, format(df$ha_published_at, '%d %b %Y')),
-        'Not started'
-      )
-      team_status <- ifelse(
-        df$has_current_ha,
-        sprintf('%d of %d health areas%s', df$n_teams_mapped, df$n_health_areas,
-               ifelse(df$locked, ' \u00b7 \U0001F512 locked', '')),
-        '\u2014'
-      )
+      # One compact row per district: status colour bar, name, region,
+      # health area and team area progress, then the actions -- one flat
+      # list, initially by region then district. Styling, the search/
+      # region/status filters and column sorting live in the static UI
+      # (.intro-dist-* classes, introFilterDistricts(), introSortDistricts()).
+      status_keys <- vapply(seq_len(nrow(df)), function(i)
+        .district_status_key(df$has_current_ha[i], df$n_health_areas[i], df$n_teams_mapped[i]), character(1))
+
       # District names go in as JSON string literals, HTML-escaped for the
       # attribute (.js_str) -- a hand-quoted '...' broke on names with an
       # apostrophe, e.g. Bu'aale.
       .js_str <- function(x) htmltools::htmlEscape(as.character(jsonlite::toJSON(as.character(x), auto_unbox = TRUE)), attribute = TRUE)
-      action_ha <- vapply(df$district_name, function(dn) {
-        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sha_row_click\', %s, {priority:\'event\'})">Health Areas</button>',
-               ns(''), .js_str(dn))
-      }, character(1))
-      action_team <- vapply(seq_len(nrow(df)), function(i) {
-        if (!df$has_current_ha[i]) return('<span style="color:#94a3b8;font-size:11px;">Needs health areas first</span>')
-        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%steam_row_click\', %s, {priority:\'event\'})">Team Areas</button>',
-               ns(''), .js_str(df$district_name[i]))
-      }, character(1))
-      # "View" opens the same read-only boundary popup as clicking the
-      # district's polygon on the overview map (see
-      # .show_district_boundary_popup()) -- disabled text instead of a
-      # button when there's nothing published yet to show, same
-      # has_current_ha gate action_team already uses above.
-      action_view <- vapply(seq_len(nrow(df)), function(i) {
-        if (!df$has_current_ha[i]) return('<span style="color:#94a3b8;font-size:11px;">\u2013</span>')
-        sprintf('<button class="btn btn-default btn-xs" onclick="Shiny.setInputValue(\'%sview_row_click\', %s, {priority:\'event\'})">View</button>',
-               ns(''), .js_str(df$district_name[i]))
-      }, character(1))
+      # Disabled buttons (rather than text) when an action isn't available
+      # yet, so every row's buttons line up.
+      # next = this is the district's next step (teal button).
+      .action_btn <- function(input_id, label, dn, enabled = TRUE, title = NULL, next_step = FALSE) {
+        if (!enabled)
+          return(sprintf('<button class="btn btn-default intro-dist-btn" disabled title="%s">%s</button>',
+                         htmltools::htmlEscape(title %||% '', attribute = TRUE), label))
+        sprintf('<button class="btn btn-default intro-dist-btn%s" onclick="Shiny.setInputValue(\'%s%s\', %s, {priority:\'event\'})">%s</button>',
+                if (next_step) ' intro-dist-next' else '', ns(''), input_id, .js_str(dn), label)
+      }
 
-      # Grouped into one native <details>/<summary> block per region --
-      # expands/collapses with zero JS (every modern browser handles this
-      # natively), which is why this replaced the single flat DT table
-      # rather than trying to add DT's RowGroup extension: RowGroup
-      # doesn't support collapse/expand out of the box either, and
-      # bolting that on would mean custom JS reaching into DT's
-      # re-rendered DOM on every sort/search, with real risk of losing
-      # collapse state on each redraw. The tradeoff worth knowing: this
-      # drops the DT search box the old table had -- there's no
-      # cross-region search now, only expand/collapse. Defaults to OPEN
-      # for every region (matching the old flat table's "everything
-      # visible" behavior) -- collapsing is something the user opts into
-      # per region, not a forced default.
-      # Fixed, IDENTICAL column widths across every region's table --
-      # each <table> below is otherwise independent (default table-
-      # layout: auto sizes every table's columns from its OWN content
-      # alone), which is exactly what made this look clunky: the same
-      # column landing at a different width in every region depending
-      # on what happened to be in it. A shared <colgroup> + table-
-      # layout:fixed forces every table to use these same widths
-      # regardless of content -- wrapping long status text onto a
-      # second line instead of truncating it, rather than growing the
-      # column (which is what caused the misalignment in the first
-      # place).
-      COL_WIDTHS <- c('20%', '40%', '40%')
-      col_group <- tags$colgroup(
-        tags$col(style = sprintf('width:%s;', COL_WIDTHS[1])),
-        tags$col(style = sprintf('width:%s;', COL_WIDTHS[2])),
-        tags$col(style = sprintf('width:%s;', COL_WIDTHS[3]))
-      )
-      cell_style <- 'padding:5px 8px;font-size:12px;word-break:break-word;'
+      row_html <- function(i) {
+        has_ha <- isTRUE(df$has_current_ha[i])
+        dn <- df$district_name[i]
+        # "View" opens the same read-only boundary popup as clicking the
+        # district's polygon on the overview map (.show_district_boundary_popup()).
+        ha_txt <- if (has_ha)
+          sprintf('<span title="Published by %s, %s">%d areas \u00b7 %s</span>',
+                  htmltools::htmlEscape(df$ha_published_by[i] %||% '', attribute = TRUE),
+                  format(df$ha_published_at[i], '%d %b %Y'), df$n_health_areas[i],
+                  format(df$ha_published_at[i], '%d %b'))
+          else '<span class="intro-dist-muted">Not started</span>'
+        ta_txt <- if (has_ha)
+          sprintf('%d / %d%s', df$n_teams_mapped[i], df$n_health_areas[i],
+                  if (isTRUE(df$locked[i])) ' <span title="Team areas locked">\U0001F512</span>' else '')
+          else '<span class="intro-dist-muted">\u2013</span>'
+        # Sort keys for introSortDistricts(): -1 = not started, so those
+        # sort below every district that has something published.
+        n_ha <- suppressWarnings(as.integer(df$n_health_areas[i]))
+        ha_key <- if (has_ha && !is.na(n_ha)) n_ha else -1
+        ta_key <- if (has_ha && !is.na(n_ha) && n_ha > 0) round(df$n_teams_mapped[i] / n_ha, 4) else -1
+        rn <- df$region_name[i] %||% ''
+        HTML(sprintf(
+          '<div class="intro-dist-row" data-name="%s" data-region="%s" data-status="%s" data-ha="%s" data-ta="%s" style="border-left-color:%s;">
+             <div class="intro-dist-name" title="%s">%s</div><div class="intro-dist-region-cell" title="%s">%s</div><div>%s</div><div>%s</div>
+             <div class="intro-dist-actions">%s%s%s</div>
+           </div>',
+          htmltools::htmlEscape(tolower(dn), attribute = TRUE), htmltools::htmlEscape(rn, attribute = TRUE),
+          status_keys[i], ha_key, ta_key, .CAMPAIGN_MAP_COLORS[[status_keys[i]]],
+          htmltools::htmlEscape(dn, attribute = TRUE), htmltools::htmlEscape(dn),
+          htmltools::htmlEscape(rn, attribute = TRUE), htmltools::htmlEscape(rn),
+          ha_txt, ta_txt,
+          .action_btn('view_row_click', 'View', dn, has_ha, 'Nothing published yet'),
+          .action_btn('ha_row_click', 'Health areas', dn, next_step = status_keys[i] == 'ha_not_mapped'),
+          .action_btn('team_row_click', 'Team areas', dn, has_ha, 'Needs health areas first',
+                      next_step = status_keys[i] == 'ha_mapped_ta_pending')
+        ))
+      }
 
-      regions <- unique(df$region_name)
-      region_blocks <- lapply(regions, function(rn) {
-        idx <- which(df$region_name == rn)
-        rows <- lapply(idx, function(i) {
-          tags$tr(
-            tags$td(style = cell_style, HTML(paste0(df$district_name[i], ' ', action_view[i]))),
-            tags$td(style = cell_style, HTML(paste0(ha_status[i], '<br>', action_ha[i]))),
-            tags$td(style = cell_style, HTML(paste0(team_status[i], '<br>', action_team[i])))
-          )
-        })
-        tags$details(
-          open = NA,   # NA renders the bare `open` attribute -- expanded by default
-          style = 'margin-bottom:4px;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;',
-          tags$summary(
-            style = 'cursor:pointer;padding:6px 10px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;list-style:none;',
-            sprintf('%s (%d district%s)', rn, length(idx), if (length(idx) == 1) '' else 's')
-          ),
-          tags$table(
-            style = 'width:100%;table-layout:fixed;border-collapse:collapse;',
-            col_group,
-            tags$thead(
-              tags$tr(
-                tags$th(style = 'text-align:left;padding:5px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0;', 'District'),
-                tags$th(style = 'text-align:left;padding:5px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0;', 'Health Areas'),
-                tags$th(style = 'text-align:left;padding:5px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0;', 'Team Areas')
-              )
-            ),
-            tags$tbody(rows)
-          )
+      # Clickable header cells -- data-sort names the row attribute to sort
+      # on, data-type says whether it compares as text or a number.
+      .sort_head <- function(label, key, type = 'text')
+        div(class = 'intro-dist-sort', `data-sort` = key, `data-type` = type,
+            onclick = 'introSortDistricts(this)', label, tags$span(class = 'intro-dist-arrow'))
+
+      status_keys_all <- c('ha_not_mapped', 'ha_mapped_ta_pending', 'all_mapped')
+      status_choices <- setNames(c('', status_keys_all), c('All statuses', unname(.CAMPAIGN_MAP_LABELS[status_keys_all])))
+      region_choices <- sort(unique(df$region_name[!is.na(df$region_name)]))
+      div(class = 'intro-dist-panel',
+        div(class = 'intro-dist-toolbar',
+          tags$input(type = 'search', class = 'form-control intro-dist-search', placeholder = 'Search district or region\u2026',
+                     oninput = 'introFilterDistricts(this)'),
+          tags$select(class = 'form-control form-select intro-dist-region-filter', onchange = 'introFilterDistricts(this)',
+                      tags$option(value = '', 'All regions'),
+                      lapply(region_choices, function(r) tags$option(value = r, r))),
+          tags$select(class = 'form-control form-select intro-dist-status', onchange = 'introFilterDistricts(this)',
+                      lapply(seq_along(status_choices), function(k)
+                        tags$option(value = status_choices[[k]], names(status_choices)[k])))
+        ),
+        div(class = 'intro-dist-scroll',
+          div(class = 'intro-dist-row intro-dist-head',
+              .sort_head('District', 'name'), .sort_head('Region', 'region'),
+              .sort_head('Health areas', 'ha', 'num'), .sort_head('Team areas', 'ta', 'num'),
+              div(class = 'intro-dist-count', style = 'text-align:right;text-transform:none;font-weight:400;',
+                  sprintf('%d districts', nrow(df)))),
+          div(class = 'intro-dist-body', lapply(seq_len(nrow(df)), row_html)),
+          div(class = 'intro-dist-empty', style = 'display:none;', 'No districts match.')
         )
-      })
-      div(style = 'overflow-y:auto;max-height:calc(100vh - 420px);', region_blocks)
+      )
     })
 
     # ── Request events consumed by server.R — this module never activates a

@@ -58,8 +58,8 @@ exportTabUI <- function(id) {
     
     tags$h4(style = 'font-size: 14px; font-weight: 700; color: #1e293b; margin: 0 0 10px;', 'Printable maps'),
     tags$p(style = 'font-size: 12px; color: #64748b; margin: 0 0 14px;',
-           'One overview page plus one page per health area, sized for A3/A4 landscape printing, ',
-           'each with a population/team summary table.'),
+           'A district overview, one page per health area and/or one page per team, sized for A3/A4 landscape printing, ',
+           'with population/team summary tables.'),
     
     # Sidebar inputs / main-panel preview, same fluidRow(column, column)
     # pattern the app's other map-editing tabs already use (e.g.
@@ -69,7 +69,15 @@ exportTabUI <- function(id) {
     fluidRow(
       column(width = 5,
              uiOutput(ns('print_district_picker_ui')),
-             
+
+             # Map levels to include (build_printable_maps_pdf()'s levels).
+             # Team areas adds one map per team, so it's off by default.
+             div(class = 'mini-label', style = 'margin-top: 10px;', 'Map levels to include'),
+             checkboxGroupInput(ns('print_levels'), NULL,
+                                choices = c('District overview' = 'district', 'Health areas' = 'health_area',
+                                            'Team areas (one map per team)' = 'team_area'),
+                                selected = c('district', 'health_area'), inline = TRUE),
+
              # One set of map pages per ticked basemap, all in the same
              # PDF; nothing ticked prints the maps with no basemap.
              div(class = 'mini-label', style = 'margin-top: 10px;', 'Basemaps (one set of map pages each)'),
@@ -105,7 +113,7 @@ exportTabUI <- function(id) {
                           class = 'btn btn-primary', style = 'margin-top: 14px;')
       ),
       column(width = 7,
-             div(class = 'mini-label', 'Preview (district overview page)'),
+             div(class = 'mini-label', 'Page layout preview'),
              # Aspect ratio of this container is set live from the width/
              # height inputs (see print_preview_container_ui below) so the
              # preview box's own shape actually mirrors the page being
@@ -254,6 +262,11 @@ exportTabServer <- function(id, districts_shp) {
         showNotification('Enter a page width and height between 4 and 60 inches.', type = 'warning', duration = 5)
         return()
       }
+      levels <- input$print_levels
+      if (length(levels) == 0) {
+        showNotification('Select at least one map level to include.', type = 'warning', duration = 5)
+        return()
+      }
 
       version <- tryCatch(db_get_shared_version(pool, cid, dname), error = function(e) NULL)
       if (is.null(version)) {
@@ -273,15 +286,18 @@ exportTabServer <- function(id, districts_shp) {
                                    zoom = print_zoom(),
                                    page_width_in = dims[1], page_height_in = dims[2],
                                    show_pop = isTRUE(input$print_show_pop),
+                                   levels = levels,
                                    progress_fn = function(i, n, label)
                                      setProgress(value = min(i / max(n, 1), 1), detail = sprintf('Page %d of ~%d: %s', i, n, label)))
         })
         print_path(tmp)
         bm_labels <- c(osm = 'OpenStreetMap', satellite = 'Satellite', topo = 'Topo')[basemaps]
+        level_labels <- c(district = 'district overview', health_area = 'one map per health area',
+                          team_area = 'one map per team')[levels]
         showModal(modalDialog(
           title = 'Printable maps ready', easyClose = TRUE, footer = modalButton('Close'),
-          tags$p(sprintf('%s: %d pages — district overview and one map per health area%s, plus summary tables.',
-                         dname, as.integer(n_pages %||% 0),
+          tags$p(sprintf('%s: %d pages — %s%s, plus summary tables.',
+                         dname, as.integer(n_pages %||% 0), paste(level_labels, collapse = ', '),
                          if (length(bm_labels) > 0) paste0(' on each basemap (', paste(bm_labels, collapse = ', '), ')') else '')),
           downloadButton(session$ns('download_print'), 'Download PDF')
         ))
@@ -308,37 +324,33 @@ exportTabServer <- function(id, districts_shp) {
     )
     
     # ── Printable maps: live preview ────────────────────────────────────────
-    # District overview page ONLY, rendered as a PNG -- regenerating the
-    # full multi-page PDF (population raster extraction, one detail page
-    # per health area, team/IDP tables) on every slider tick would be far
-    # too slow to feel live. Debounced 600ms so dragging the zoom slider
-    # or typing in the width/height fields doesn't fire a re-render on
-    # every intermediate value, only once input settles.
+    # Layout-only page (real header/strip/footer, placeholder map) -- no
+    # data fetch or map rendering, so it draws immediately and its job is
+    # just to show the page dimensions. Short debounce so typing in the
+    # width/height fields doesn't redraw on every keystroke.
     print_preview_inputs <- reactive({
       dims <- page_dims()
       list(district = input$print_district %||% '', basemap = input$print_basemap %||% 'none',
-           zoom = print_zoom(), dims_ok = !is.null(dims),
+           dims_ok = !is.null(dims),
            width_in = if (is.null(dims)) 11.69 else dims[1],
-           height_in = if (is.null(dims)) 8.27 else dims[2], show_pop = isTRUE(input$print_show_pop))
+           height_in = if (is.null(dims)) 8.27 else dims[2])
     })
-    print_preview_inputs_d <- debounce(print_preview_inputs, 600)
-    
+    print_preview_inputs_d <- debounce(print_preview_inputs, 250)
+
     print_preview_path <- reactive({
       vals <- print_preview_inputs_d()
-      if (!nzchar(vals$district) || !isTRUE(vals$dims_ok)) return(NULL)
+      if (!isTRUE(vals$dims_ok)) return(NULL)
       cid <- campaign_id()
-      if (is.null(cid)) return(NULL)
-      version <- tryCatch(db_get_shared_version(pool, cid, vals$district), error = function(e) NULL)
-      if (is.null(version)) return('__no_version__')
-      cname <- { cdf <- tryCatch(db_get_campaigns(pool, active_only = FALSE), error = function(e) NULL)
-      row <- if (!is.null(cdf)) cdf[cdf$campaign_id == cid, , drop = FALSE] else NULL
-      if (!is.null(row) && nrow(row) == 1) row$campaign_name[1] else '' }
+      cname <- if (is.null(cid)) '' else {
+        cdf <- tryCatch(db_get_campaigns(pool, active_only = FALSE), error = function(e) NULL)
+        row <- if (!is.null(cdf)) cdf[cdf$campaign_id == cid, , drop = FALSE] else NULL
+        if (!is.null(row) && nrow(row) == 1) row$campaign_name[1] else ''
+      }
       tmp <- tempfile(fileext = '.png')
       ok <- tryCatch({
-        build_printable_overview_preview_png(
-          tmp, version, vals$district, campaign_id = cid, campaign_name = cname,
-          width_in = vals$width_in, height_in = vals$height_in,
-          basemap = vals$basemap, zoom = vals$zoom, show_pop = vals$show_pop
+        build_printable_layout_preview_png(
+          tmp, width_in = vals$width_in, height_in = vals$height_in,
+          district_name = vals$district, campaign_name = cname, basemap = vals$basemap
         )
         TRUE
       }, error = function(e) {
@@ -359,10 +371,8 @@ exportTabServer <- function(id, districts_shp) {
       ratio <- vals$width_in / vals$height_in
       path <- print_preview_path()
       # Say why there's no preview instead of showing an empty box.
-      msg <- if (!nzchar(vals$district)) 'Select a district to preview its overview page.'
-             else if (!isTRUE(vals$dims_ok)) 'Enter a page width and height between 4 and 60 inches.'
-             else if (identical(path, '__no_version__')) 'This district has no published health-area map yet, so there is nothing to print.'
-             else if (is.null(path)) 'The preview could not be drawn for this district.'
+      msg <- if (!isTRUE(vals$dims_ok)) 'Enter a page width and height between 4 and 60 inches.'
+             else if (is.null(path)) 'The preview could not be drawn.'
       if (!is.null(msg))
         return(div(style = 'border: 1px dashed #cbd5e1; border-radius: 6px; padding: 24px; color: #64748b; font-size: 13px; background: #f8fafc;', msg))
       div(style = sprintf(
@@ -375,7 +385,7 @@ exportTabServer <- function(id, districts_shp) {
     
     output$print_preview <- renderImage({
       path <- print_preview_path()
-      if (is.null(path) || identical(path, '__no_version__') || !file.exists(path))
+      if (is.null(path) || !file.exists(path))
         return(list(src = '', alt = '', width = '100%', height = '100%'))
       # object-fit: contain keeps the image whole (no distortion) if the
       # PNG's own aspect ratio and the container's CSS aspect-ratio

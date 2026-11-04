@@ -20,7 +20,9 @@
 #
 # Page sequence: overview map, overview summary table (one row per health
 # area), then per health area: detail map, team summary table (one row
-# per team, only if that health area has a current team-area version).
+# per team, only if that health area has a current team-area version),
+# then one map per team. The levels argument picks which of the district /
+# health area / team map pages are printed.
 #
 # Basemap: optional OSM or satellite tiles under the vector layers, via
 # tmap's tm_basemap() (which uses the maptiles package to fetch tiles for
@@ -106,14 +108,16 @@ library(png)
 # area border swatches must match the neon-blue borders the map switches
 # to on satellite/topo (see .district_overview_map()). pch matches the
 # map's own symbol shapes (21 circle -> 19, 24 triangle -> 17).
-.legend_items <- function(basemap, team = FALSE, fac = TRUE, idp = TRUE, subdiv = TRUE, urban = TRUE) {
+.legend_items <- function(basemap, team = FALSE, fac = TRUE, idp = TRUE, subdiv = TRUE, urban = TRUE,
+                          area_label = 'Health Area Boundary') {
   # Only layers actually drawn on the page get a legend entry -- each
-  # flag says whether that page has any of that layer.
+  # flag says whether that page has any of that layer. area_label names
+  # the page's main (thick) boundary -- a team page's is the team area.
   high_contrast <- basemap %in% c('satellite', 'topo')
   items <- list(
     if (fac)    list(swatch_col = '#0d9488', shape = 'point', pch = 19, label = 'SIA Coordination Site'),
     if (idp)    list(swatch_col = '#FF1744', shape = 'point', pch = 17, label = 'IDP Settlement'),
-                list(swatch_col = if (high_contrast) '#00e5ff' else 'black', shape = 'line', label = 'Health Area Boundary'),
+                list(swatch_col = if (high_contrast) '#00e5ff' else 'black', shape = 'line', label = area_label),
     if (team)   list(swatch_col = if (high_contrast) '#00e5ff' else '#334155', shape = 'line', label = 'Team Area Boundary'),
     if (subdiv) list(swatch_col = .SUBDIV_COL, shape = 'line', lwd = .SUBDIV_LWD, lty = 'dashed', label = 'Subdivision'),
     if (urban)  list(swatch_col = '#0d9488', shape = 'line', lty = 'dashed', label = 'Urban Extent')
@@ -168,7 +172,7 @@ library(png)
 # city health area but means thousands of tiles for the overview of a
 # large rural district (slow, and against OSM's tile usage policy).
 .auto_basemap_zoom <- function(sf_obj, frame_w_in, frame_h_in, dpi = 150) {
-  bb <- sf::st_bbox(sf::st_transform(sf_obj, 4326))
+  bb <- .padded_bbox(sf_obj)
   lon_span <- as.numeric(bb['xmax'] - bb['xmin'])
   lat_span <- as.numeric(bb['ymax'] - bb['ymin'])
   # A tall shape in a wide frame shows more longitude than its own span.
@@ -176,6 +180,20 @@ library(png)
   if (!is.finite(lon_span) || lon_span <= 0) return(.PRINT_BASEMAP_ZOOM)
   z <- ceiling(log2(frame_w_in * dpi * 360 / (256 * lon_span)))
   as.integer(min(max(z, 5), 18))
+}
+
+# Extent of a map page: the shape's bounding box (EPSG:4326) grown by
+# pad_frac of its width/height on every side, so outer boundaries aren't
+# drawn right against the frame edge. A zero-width/height box (a single
+# point) gets a small fixed pad instead.
+.MAP_EXTENT_PAD <- 0.06
+.padded_bbox <- function(sf_obj, pad_frac = .MAP_EXTENT_PAD) {
+  bb <- sf::st_bbox(sf::st_transform(sf_obj, 4326))
+  dx <- as.numeric(bb['xmax'] - bb['xmin']); dy <- as.numeric(bb['ymax'] - bb['ymin'])
+  px <- if (is.finite(dx) && dx > 0) dx * pad_frac else 0.005
+  py <- if (is.finite(dy) && dy > 0) dy * pad_frac else 0.005
+  bb[c('xmin', 'ymin', 'xmax', 'ymax')] <- c(bb['xmin'] - px, bb['ymin'] - py, bb['xmax'] + px, bb['ymax'] + py)
+  bb
 }
 
 # Map frame size in inches for a page -- page minus the 0.25in margins,
@@ -217,14 +235,9 @@ library(png)
 #'                        skipped if u5_rast/district_sf aren't available
 #'                        rather than failing the whole export.
 # Shared data-prep for one district's export -- everything needed to
-# build the district overview page (and, for the full PDF caller, every
-# per-health-area page after it) that does NOT depend on page size,
-# basemap zoom, or which pages actually get printed. Extracted out of
-# build_printable_maps_pdf() so the new fast preview function
-# (build_printable_overview_preview_png()) can share this exact logic
-# rather than duplicating it -- two copies of this data-fetching path
-# drifting apart over time would be a much worse outcome than one
-# shared function with two thin callers.
+# build the district overview page (and every per-health-area and team
+# page after it) that does NOT depend on page size, basemap zoom, or
+# which pages actually get printed.
 .prepare_export_context <- function(version, district_name, campaign_id, u5_rast = NULL, show_pop = FALSE) {
   if (is.null(u5_rast))
     u5_rast <- tryCatch(get('u5_rast', envir = .GlobalEnv), error = function(e) NULL)
@@ -420,10 +433,23 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
                                      basemap = 'none', u5_rast = NULL, show_pop = FALSE,
                                      zoom = NULL,
                                      page_width_in = NULL, page_height_in = NULL,
+                                     levels = c('district', 'health_area'),
                                      progress_fn = NULL) {
   # zoom: NULL = automatic per page (.auto_basemap_zoom()), else a fixed
   # tile zoom for every page. progress_fn(done, total, label), if given,
   # is called as each page is drawn. Returns the number of pages.
+  #
+  # levels: which map levels to print, any of
+  #   'district'    -- overview map(s) + health area summary table
+  #   'health_area' -- one detail map per health area
+  #   'team_area'   -- one map per team, after its health area's pages
+  # The team summary table for a health area is printed when either
+  # 'health_area' or 'team_area' is selected.
+  levels <- intersect(levels %||% character(0), c('district', 'health_area', 'team_area'))
+  if (length(levels) == 0) stop('Select at least one map level to print.')
+  want_district <- 'district' %in% levels
+  want_ha       <- 'health_area' %in% levels
+  want_team     <- 'team_area' %in% levels
 
   if (!requireNamespace('tmap', quietly = TRUE))
     stop('The tmap package is required for printable export.')
@@ -456,12 +482,19 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   frame <- .map_frame_in(unname(size['width']), unname(size['height']))
   zoom_for <- function(shape) if (is.null(zoom)) .auto_basemap_zoom(shape, frame[['w']], frame[['h']]) else zoom
 
-  # Page count for progress: overview + detail map per basemap, summary
-  # table, and a team table per health area that has team areas (an
-  # estimate if a long table splits across pages).
-  n_team_tables <- sum(vapply(area_names, function(nm)
-    !is.null(team_sf) && 'health_area' %in% names(team_sf) && any(team_sf$health_area == nm), logical(1)))
-  n_pages_est <- length(basemaps) * (1 + length(area_names)) + 1 + n_team_tables
+  team_rows_for <- function(nm) if (!is.null(team_sf) && 'health_area' %in% names(team_sf))
+    team_sf[team_sf$health_area == nm, , drop = FALSE] else NULL
+  team_names_for <- function(team_one) if (is.null(team_one) || nrow(team_one) == 0) character(0) else
+    setdiff(unique(as.character(team_one$dfa_name)), extra_dfa_names)
+  n_teams_by_ha <- vapply(area_names, function(nm) length(team_names_for(team_rows_for(nm))), integer(1))
+  if (identical(levels, 'team_area') && sum(n_teams_by_ha) == 0)
+    stop('No team areas have been submitted for this district, so there are no team maps to print.')
+
+  # Page count for progress: per selected level, map pages per basemap
+  # plus its tables (an estimate if a long table splits across pages).
+  n_team_tables <- if (want_ha || want_team) sum(n_teams_by_ha > 0) else 0
+  n_pages_est <- length(basemaps) * (want_district + want_ha * length(area_names) + want_team * sum(n_teams_by_ha)) +
+    want_district + n_team_tables
   pages_done <- 0L
   page_done <- function(label) {
     pages_done <<- pages_done + 1L
@@ -472,108 +505,144 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   on.exit(grDevices::dev.off(), add = TRUE)
   cat('[export_debug] checkpoint: pdf device opened\n')
 
-  # District overview page -- IDP count is the WHOLE district's IDP
-  # points (not per-area), wp_pop/scaled_pop/n_teams are sums across
-  # every health area's own stats above; the field figure is the
-  # district's own In-Scope Field U5.
-  idp_count_district <- if (is.null(idp_sf)) 0 else nrow(idp_sf)
-  district_wp_pop    <- sum(vapply(ha_stats_list, function(s) s$wp_pop %||% 0, numeric(1)), na.rm = TRUE)
-  # The district's own In-Scope Field U5, not a sum of health-area Field
-  # Target U5s -- summing only the areas that happen to have one gave a
-  # partial district total.
-  district_field_pop <- scope_field_pop %||% NA_real_
-  district_n_teams <- sum(vapply(ha_stats_list, function(s) s$n_teams %||% 0, numeric(1)), na.rm = TRUE)
-  district_scaled_pop <- if (is.na(pop_scale)) NA_real_ else
-    sum(vapply(ha_stats_list, function(s) s$scaled_pop %||% 0, numeric(1)), na.rm = TRUE)
-  cat('[export_debug] checkpoint: district-level card values computed\n')
-  overview_cards <- .build_stat_cards(
-    idp_count_district, district_wp_pop, district_field_pop, district_n_teams,
-    extra_first = list(value = as.character(length(area_names)), label = 'Health Areas'),
-    scaled_pop = district_scaled_pop
-  )
-  # One overview page per selected basemap.
-  for (bm in basemaps) {
-    cat(sprintf('[export_debug] checkpoint: about to build .district_overview_map() tmap object (basemap=%s)\n', bm))
-    overview_tm <- .district_overview_map(ha_sf, district_sf, fac_sf, idp_sf, district_name, campaign_name, .resolve_basemap(bm), bm, pop_sf, subdiv_sf, urban_sf, zoom_for(ha_sf))
-    cat('[export_debug] checkpoint: .district_overview_map() tmap object built OK -- about to print via .print_chrome_page()\n')
-    .print_chrome_page(
-      overview_tm,
-      title = district_name, campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
-      cards = overview_cards, basemap = bm,
-      legend_items = .legend_items(bm, fac = .has_rows(fac_sf), idp = .has_rows(idp_sf),
-                                   subdiv = .has_rows(subdiv_sf), urban = .has_rows(urban_sf)),
-      page_width_in = unname(size['width']), page_height_in = unname(size['height'])
-    )
-    page_done(paste('Overview map', if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
-    cat('[export_debug] checkpoint: district overview page printed OK\n')
-  }
-
   # Same header/footer chrome as the map pages, for every table page.
   table_chrome <- list(campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
                        basemap = basemaps, page_width_in = unname(size['width']), page_height_in = unname(size['height']))
 
-  summary_df <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf, dfa_worldpop_pop, pop_scale)
-  cat('[export_debug] checkpoint: summary_df built OK\n')
-  .print_table_page(summary_df, paste0(district_name, ' \u2014 Health Area Summary'), table_chrome)
-  page_done('Health area summary table')
-  cat('[export_debug] checkpoint: summary table page printed OK\n')
-
-  for (nm in area_names) {
-    cat(sprintf('[export_debug] === starting detail page loop for "%s" ===\n', nm))
-    ha_one   <- ha_sf[ha_sf$dfa_name == nm, , drop = FALSE]
-    team_one <- if (!is.null(team_sf) && 'health_area' %in% names(team_sf))
-      team_sf[team_sf$health_area == nm, , drop = FALSE] else NULL
-    fac_one  <- .points_within(fac_sf, ha_one)
-    idp_one  <- .points_within(idp_sf, ha_one)
-    cat(sprintf('[export_debug] checkpoint "%s": ha_one/team_one/fac_one/idp_one clipped\n', nm))
-    # Clipped to this health area's own extent, same tryCatch-guarded
-    # pattern as everything else pop_sf touches -- a clip failure (e.g.
-    # a still-invalid geometry st_make_valid didn't fully resolve) means
-    # this one page just prints without the overlay, not that the whole
-    # export fails.
-    pop_one <- if (!is.null(pop_sf) && nrow(pop_sf) > 0)
-      tryCatch(sf::st_intersection(pop_sf, sf::st_geometry(ha_one) |> sf::st_union()), error = function(e) NULL)
-      else NULL
-    cat(sprintf('[export_debug] checkpoint "%s": pop_one clipped\n', nm))
-    # Same clip pattern as pop_one above -- subdivisions/urban extent
-    # shown as context on this health area's own map, not the whole
-    # district's worth.
-    subdiv_one <- if (!is.null(subdiv_sf) && nrow(subdiv_sf) > 0)
-      tryCatch(sf::st_intersection(subdiv_sf, sf::st_geometry(ha_one) |> sf::st_union()), error = function(e) NULL)
-      else NULL
-    cat(sprintf('[export_debug] checkpoint "%s": subdiv_one clipped\n', nm))
-    urban_one <- if (!is.null(urban_sf) && nrow(urban_sf) > 0)
-      tryCatch(sf::st_intersection(urban_sf, sf::st_geometry(ha_one) |> sf::st_union()), error = function(e) NULL)
-      else NULL
-    cat(sprintf('[export_debug] checkpoint "%s": urban_one clipped\n', nm))
-
-    st <- ha_stats_list[[nm]]
-    ha_cards <- .build_stat_cards(
-      if (is.null(idp_one)) 0 else nrow(idp_one), st$wp_pop, st$field_pop, st$n_teams,
-      scaled_pop = st$scaled_pop
+  if (want_district) {
+    # District overview page -- IDP count is the WHOLE district's IDP
+    # points (not per-area), wp_pop/scaled_pop/n_teams are sums across
+    # every health area's own stats above; the field figure is the
+    # district's own In-Scope Field U5.
+    idp_count_district <- if (is.null(idp_sf)) 0 else nrow(idp_sf)
+    district_wp_pop    <- sum(vapply(ha_stats_list, function(s) s$wp_pop %||% 0, numeric(1)), na.rm = TRUE)
+    # The district's own In-Scope Field U5, not a sum of health-area Field
+    # Target U5s -- summing only the areas that happen to have one gave a
+    # partial district total.
+    district_field_pop <- scope_field_pop %||% NA_real_
+    district_n_teams <- sum(vapply(ha_stats_list, function(s) s$n_teams %||% 0, numeric(1)), na.rm = TRUE)
+    district_scaled_pop <- if (is.na(pop_scale)) NA_real_ else
+      sum(vapply(ha_stats_list, function(s) s$scaled_pop %||% 0, numeric(1)), na.rm = TRUE)
+    cat('[export_debug] checkpoint: district-level card values computed\n')
+    overview_cards <- .build_stat_cards(
+      idp_count_district, district_wp_pop, district_field_pop, district_n_teams,
+      extra_first = list(value = as.character(length(area_names)), label = 'Health Areas'),
+      scaled_pop = district_scaled_pop
     )
+    # One overview page per selected basemap.
     for (bm in basemaps) {
-      cat(sprintf('[export_debug] checkpoint "%s": about to build .health_area_detail_map() tmap object (basemap=%s)\n', nm, bm))
-      detail_tm <- .health_area_detail_map(ha_one, team_one, fac_one, idp_one, nm, district_name, .resolve_basemap(bm), bm, pop_one, subdiv_one, urban_one, zoom_for(ha_one))
-      cat(sprintf('[export_debug] checkpoint "%s": .health_area_detail_map() tmap object built OK -- about to print\n', nm))
+      cat(sprintf('[export_debug] checkpoint: about to build .district_overview_map() tmap object (basemap=%s)\n', bm))
+      overview_tm <- .district_overview_map(ha_sf, district_sf, fac_sf, idp_sf, district_name, campaign_name, .resolve_basemap(bm), bm, pop_sf, subdiv_sf, urban_sf, zoom_for(ha_sf))
+      cat('[export_debug] checkpoint: .district_overview_map() tmap object built OK -- about to print via .print_chrome_page()\n')
       .print_chrome_page(
-        detail_tm,
-        title = paste0(district_name, ' \u2014 ', nm), campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
-        cards = ha_cards, basemap = bm,
-        legend_items = .legend_items(bm, team = .has_rows(team_one), fac = .has_rows(fac_one), idp = .has_rows(idp_one),
-                                     subdiv = .has_rows(subdiv_one), urban = .has_rows(urban_one)),
+        overview_tm,
+        title = district_name, campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
+        cards = overview_cards, basemap = bm,
+        legend_items = .legend_items(bm, fac = .has_rows(fac_sf), idp = .has_rows(idp_sf),
+                                     subdiv = .has_rows(subdiv_sf), urban = .has_rows(urban_sf)),
         page_width_in = unname(size['width']), page_height_in = unname(size['height'])
       )
-      page_done(paste(nm, if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
-      cat(sprintf('[export_debug] checkpoint "%s": detail page printed OK\n', nm))
+      page_done(paste('Overview map', if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
+      cat('[export_debug] checkpoint: district overview page printed OK\n')
     }
 
-    if (!is.null(team_one) && nrow(team_one) > 0) {
+    summary_df <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf, dfa_worldpop_pop, pop_scale)
+    cat('[export_debug] checkpoint: summary_df built OK\n')
+    .print_table_page(summary_df, paste0(district_name, ' — Health Area Summary'), table_chrome)
+    page_done('Health area summary table')
+    cat('[export_debug] checkpoint: summary table page printed OK\n')
+  }
+
+  # Clips a context layer (population overlay, subdivisions, urban
+  # extent) to one page's area. A clip failure (e.g. a still-invalid
+  # geometry st_make_valid didn't fully resolve) means that one page just
+  # prints without the layer, not that the whole export fails.
+  clip_to <- function(layer_sf, area_sf) {
+    if (is.null(layer_sf) || nrow(layer_sf) == 0) return(NULL)
+    tryCatch(sf::st_intersection(layer_sf, sf::st_geometry(area_sf) |> sf::st_union()), error = function(e) NULL)
+  }
+
+  if (want_ha || want_team) for (nm in area_names) {
+    cat(sprintf('[export_debug] === starting detail page loop for "%s" ===\n', nm))
+    ha_one   <- ha_sf[ha_sf$dfa_name == nm, , drop = FALSE]
+    team_one <- team_rows_for(nm)
+
+    if (want_ha) {
+      fac_one    <- .points_within(fac_sf, ha_one)
+      idp_one    <- .points_within(idp_sf, ha_one)
+      pop_one    <- clip_to(pop_sf, ha_one)
+      subdiv_one <- clip_to(subdiv_sf, ha_one)
+      urban_one  <- clip_to(urban_sf, ha_one)
+      cat(sprintf('[export_debug] checkpoint "%s": points and context layers clipped\n', nm))
+
+      st <- ha_stats_list[[nm]]
+      ha_cards <- .build_stat_cards(
+        if (is.null(idp_one)) 0 else nrow(idp_one), st$wp_pop, st$field_pop, st$n_teams,
+        scaled_pop = st$scaled_pop
+      )
+      for (bm in basemaps) {
+        cat(sprintf('[export_debug] checkpoint "%s": about to build .health_area_detail_map() tmap object (basemap=%s)\n', nm, bm))
+        detail_tm <- .health_area_detail_map(ha_one, team_one, fac_one, idp_one, nm, district_name, .resolve_basemap(bm), bm, pop_one, subdiv_one, urban_one, zoom_for(ha_one))
+        cat(sprintf('[export_debug] checkpoint "%s": .health_area_detail_map() tmap object built OK -- about to print\n', nm))
+        .print_chrome_page(
+          detail_tm,
+          title = paste0(district_name, ' — ', nm), campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
+          cards = ha_cards, basemap = bm,
+          legend_items = .legend_items(bm, team = .has_rows(team_one), fac = .has_rows(fac_one), idp = .has_rows(idp_one),
+                                       subdiv = .has_rows(subdiv_one), urban = .has_rows(urban_one)),
+          page_width_in = unname(size['width']), page_height_in = unname(size['height'])
+        )
+        page_done(paste(nm, if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
+        cat(sprintf('[export_debug] checkpoint "%s": detail page printed OK\n', nm))
+      }
+    }
+
+    team_names <- team_names_for(team_one)
+    if (length(team_names) > 0) {
       field_target <- .unwrap_num(team_targets[[nm]]$target_pop)
       team_df <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[nm]], team_worldpop_by_ha[[nm]], pop_scale)
-      if (!is.null(team_df)) .print_table_page(team_df, paste0(district_name, ' \u2014 ', nm, ' \u2014 Team Summary'), table_chrome)
+      if (!is.null(team_df)) .print_table_page(team_df, paste0(district_name, ' — ', nm, ' — Team Summary'), table_chrome)
       page_done(paste(nm, 'team table'))
       cat(sprintf('[export_debug] checkpoint "%s": team summary table done\n', nm))
+    }
+
+    # One map per team, right after its health area's own pages. Drawn
+    # with .health_area_detail_map() with the team polygon as the page's
+    # main area -- same layers, styling and clipping as a health area
+    # page, just one level down.
+    if (want_team && length(team_names) > 0) {
+      team_vals <- .team_pop_values(team_one, .unwrap_num(team_targets[[nm]]$target_pop), u5_rast, urban_sf,
+                                    team_field_overrides_by_ha[[nm]], team_worldpop_by_ha[[nm]])
+      for (tn in team_names) {
+        t_one      <- team_one[team_one$dfa_name == tn, , drop = FALSE]
+        fac_t      <- .points_within(fac_sf, t_one)
+        idp_t      <- .points_within(idp_sf, t_one)
+        pop_t      <- clip_to(pop_sf, t_one)
+        subdiv_t   <- clip_to(subdiv_sf, t_one)
+        urban_t    <- clip_to(urban_sf, t_one)
+        tv <- if (is.null(team_vals)) NULL else team_vals[team_vals$team == tn, , drop = FALSE]
+        t_wp <- if (is.null(tv) || nrow(tv) == 0) NA_real_ else tv$wp_pop[1]
+        t_cards <- .build_stat_cards(
+          if (is.null(idp_t)) 0 else nrow(idp_t), t_wp,
+          if (is.null(tv) || nrow(tv) == 0) NA_real_ else tv$field_pop[1], NULL,
+          scaled_pop = if (is.na(pop_scale)) NA_real_ else .scaled_pop(t_wp, pop_scale),
+          show_teams = FALSE
+        )
+        for (bm in basemaps) {
+          team_tm <- .health_area_detail_map(t_one, NULL, fac_t, idp_t, tn, district_name, .resolve_basemap(bm), bm, pop_t, subdiv_t, urban_t, zoom_for(t_one))
+          .print_chrome_page(
+            team_tm,
+            title = paste0(district_name, ' — ', nm, ' — ', tn), campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
+            cards = t_cards, basemap = bm,
+            legend_items = .legend_items(bm, fac = .has_rows(fac_t), idp = .has_rows(idp_t),
+                                         subdiv = .has_rows(subdiv_t), urban = .has_rows(urban_t),
+                                         area_label = 'Team Area Boundary'),
+            page_width_in = unname(size['width']), page_height_in = unname(size['height'])
+          )
+          page_done(paste(nm, '—', tn, if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
+        }
+        cat(sprintf('[export_debug] checkpoint "%s": team page(s) for "%s" printed OK\n', nm, tn))
+      }
     }
 
     cat(sprintf('[export_debug] === finished detail page loop for "%s" ===\n', nm))
@@ -583,72 +652,31 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   invisible(pages_done)
 }
 
-#' Fast single-page preview: just the district overview page (map +
-#' header/cards/legend/footer chrome), rendered to a PNG instead of the
-#' full multi-page PDF. Built for the export tab's live preview -- as
-#' page width/height/zoom/basemap controls change, regenerating the
-#' FULL PDF (population raster extraction, every health area's own
-#' detail page, team/IDP tables) on every change would be far too slow
-#' to feel live; this skips straight to just the one page that's
-#' actually shown, reusing .prepare_export_context() so the underlying
-#' data-fetch logic can never drift from what the real PDF export uses.
+#' Instant layout preview: one page with the real header, cards/legend
+#' strip and footer, and a grey placeholder where the map goes, rendered
+#' to a PNG. No database, raster or basemap-tile work at all -- its only
+#' job is to show the page dimensions and how the space is divided, so
+#' it can redraw as soon as the width/height/paper inputs change, before
+#' any PDF is generated. Card values are placeholders ("--").
 #'
-#' @param file            output PNG path
-#' @param version,district_name,campaign_id,campaign_name,u5_rast,show_pop
-#'                        same meaning as build_printable_maps_pdf()
-#' @param width_in,height_in  page dimensions in inches (free-form, not
-#'                        a named paper preset -- this is specifically
-#'                        for the export tab's adjustable-dimensions UI)
-#' @param basemap         same as build_printable_maps_pdf(); only the first is previewed
-#' @param zoom             basemap tile zoom level (only matters when
-#'                        basemap != "none")
-#' @param png_res          PNG resolution in DPI -- lower than a real
-#'                        print export's implicit resolution, since
-#'                        this is an on-screen preview, not the final
-#'                        deliverable; keeps preview generation fast.
-build_printable_overview_preview_png <- function(file, version, district_name, campaign_id,
-                                                 campaign_name = '', width_in = 11.69, height_in = 8.27,
-                                                 basemap = 'none', zoom = NULL,
-                                                 u5_rast = NULL, show_pop = FALSE, png_res = 100) {
-  if (!requireNamespace('tmap', quietly = TRUE))
-    stop('The tmap package is required for printable export.')
-
-  tmap::tmap_mode('plot')
-
-  ctx <- .prepare_export_context(version, district_name, campaign_id, u5_rast, show_pop)
-  # Several basemaps selected -> preview the first one's overview page only.
-  basemap <- .expand_basemaps(basemap)[1]
-  basemap_provider <- .resolve_basemap(basemap)
-
-  idp_count_district <- if (is.null(ctx$idp_sf)) 0 else nrow(ctx$idp_sf)
-  district_wp_pop    <- sum(vapply(ctx$ha_stats_list, function(s) s$wp_pop %||% 0, numeric(1)), na.rm = TRUE)
-  # The district's own In-Scope Field U5, not a sum of health-area Field
-  # Target U5s -- summing only the areas that happen to have one gave a
-  # partial district total.
-  district_field_pop <- ctx$scope_field_pop %||% NA_real_
-  district_n_teams <- sum(vapply(ctx$ha_stats_list, function(s) s$n_teams %||% 0, numeric(1)), na.rm = TRUE)
-  district_scaled_pop <- if (is.na(ctx$pop_scale)) NA_real_ else
-    sum(vapply(ctx$ha_stats_list, function(s) s$scaled_pop %||% 0, numeric(1)), na.rm = TRUE)
-  overview_cards <- .build_stat_cards(
-    idp_count_district, district_wp_pop, district_field_pop, district_n_teams,
-    extra_first = list(value = as.character(length(ctx$area_names)), label = 'Health Areas'),
-    scaled_pop = district_scaled_pop
-  )
-  overview_legend <- .legend_items(basemap, fac = .has_rows(ctx$fac_sf), idp = .has_rows(ctx$idp_sf),
-                                   subdiv = .has_rows(ctx$subdiv_sf), urban = .has_rows(ctx$urban_sf))
-  if (is.null(zoom)) {
-    frame <- .map_frame_in(width_in, height_in)
-    zoom <- .auto_basemap_zoom(ctx$ha_sf, frame[['w']], frame[['h']])
-  }
-  overview_tm <- .district_overview_map(ctx$ha_sf, ctx$district_sf, ctx$fac_sf, ctx$idp_sf, district_name, campaign_name,
-                                        basemap_provider, basemap, ctx$pop_sf, ctx$subdiv_sf, ctx$urban_sf, zoom)
-
+#' @param file              output PNG path
+#' @param width_in,height_in page dimensions in inches
+#' @param district_name,campaign_name  for the header (placeholders if blank)
+#' @param basemap           same as build_printable_maps_pdf(); credited in the footer
+#' @param png_res           PNG resolution in DPI -- on-screen preview only
+build_printable_layout_preview_png <- function(file, width_in = 11.69, height_in = 8.27,
+                                               district_name = '', campaign_name = '',
+                                               basemap = 'none', png_res = 60) {
+  district_name <- if (nzchar(district_name %||% '')) district_name else 'District name'
+  basemap <- .expand_basemaps(basemap)
+  cards <- lapply(c('Health Areas', 'IDP Settlements', 'Target Population', 'Teams'),
+                  function(lbl) list(value = '\u2013', label = lbl))
   grDevices::png(file, width = width_in, height = height_in, units = 'in', res = png_res)
   on.exit(grDevices::dev.off(), add = TRUE)
   .print_chrome_page(
-    overview_tm,
-    title = district_name, campaign_name = campaign_name, zone = ctx$zone_val, region = ctx$region_val, district = district_name,
-    cards = overview_cards, legend_items = overview_legend, basemap = basemap,
+    NULL,
+    title = district_name, campaign_name = campaign_name, zone = '', region = '', district = district_name,
+    cards = cards, legend_items = .legend_items(basemap[1]), basemap = basemap,
     page_width_in = width_in, page_height_in = height_in
   )
   invisible(NULL)
@@ -891,7 +919,7 @@ scope_pop_scale <- function(snap) {
 # never drift between the district overview and health-area detail
 # pages. extra_first is the one card unique to the overview page
 # (# health areas); detail pages omit it.
-.build_stat_cards <- function(idp_count, wp_pop, field_pop, n_teams, extra_first = NULL, scaled_pop = NA_real_) {
+.build_stat_cards <- function(idp_count, wp_pop, field_pop, n_teams, extra_first = NULL, scaled_pop = NA_real_, show_teams = TRUE) {
   # Field pop is the primary value whenever it's actually set, then the
   # scope-scaled figure, then WorldPop. WorldPop becomes a small reference
   # subtext underneath whenever something else is the big number -- not
@@ -907,7 +935,8 @@ scope_pop_scale <- function(snap) {
   if (!is.null(extra_first)) cards[[length(cards) + 1]] <- extra_first
   cards[[length(cards) + 1]] <- list(value = as.character(idp_count), label = 'IDP Settlements')
   cards[[length(cards) + 1]] <- list(value = pop_value, label = 'Target Population', subtext = pop_subtext)
-  cards[[length(cards) + 1]] <- list(value = as.character(n_teams %||% '\u2013'), label = 'Teams')
+  # No Teams card on a team's own page (it would always read 1).
+  if (show_teams) cards[[length(cards) + 1]] <- list(value = as.character(n_teams %||% '\u2013'), label = 'Teams')
   cards
 }
 
@@ -921,6 +950,23 @@ scope_pop_scale <- function(snap) {
 #' components, same urban_sf/reporting-only caveat as the health-area
 #' table above.
 .build_team_summary_table <- function(team_one, health_area_field_target, u5_rast, urban_sf = NULL, team_field_overrides = NULL, stored_worldpop = NULL, pop_scale = NA_real_) {
+  vals <- .team_pop_values(team_one, health_area_field_target, u5_rast, urban_sf, team_field_overrides, stored_worldpop)
+  if (is.null(vals)) return(NULL)
+  rows <- lapply(seq_len(nrow(vals)), function(i) {
+    row <- data.frame(Team = vals$team[i], check.names = FALSE, stringsAsFactors = FALSE)
+    row[[.WP_POP_COL]] <- .fmt_pop(vals$wp_pop[i])
+    if (!is.na(pop_scale)) row[[.SCALED_POP_COL]] <- .fmt_pop(.scaled_pop(vals$wp_pop[i], pop_scale))
+    row[[.FIELD_POP_COL]] <- .fmt_field(vals$field_pop[i])
+    row
+  })
+  do.call(rbind, rows)
+}
+
+#' Raw numbers behind .build_team_summary_table(): one row per team with
+#' team, wp_pop (WorldPop U5) and field_pop (Field Target U5, NA if none)
+#' -- also used for the stat cards on each team's own map page, so the
+#' table and the cards can't disagree. NULL when there are no teams.
+.team_pop_values <- function(team_one, health_area_field_target, u5_rast, urban_sf = NULL, team_field_overrides = NULL, stored_worldpop = NULL) {
   if (is.null(team_one) || nrow(team_one) == 0) return(NULL)
   team_names <- setdiff(unique(as.character(team_one$dfa_name)), extra_dfa_names)
   if (length(team_names) == 0) return(NULL)
@@ -974,8 +1020,7 @@ scope_pop_scale <- function(snap) {
     }
   }
 
-  rows <- lapply(team_names, function(tn) {
-    wp_val <- wp_vals[[tn]]
+  field_vals <- vapply(team_names, function(tn) {
     # .unwrap_num(), not plain as.numeric() -- team_field_overrides comes
     # from the same .from_json_db()-parsed, simplifyVector=FALSE JSON
     # structure as team_targets (see .unwrap_num()'s own docstring
@@ -988,14 +1033,9 @@ scope_pop_scale <- function(snap) {
     # zero" depending on which. Confirmed as the actual cause of a real
     # production error, not hypothetical.
     own_field <- .unwrap_num(team_field_overrides[[tn]])
-    field_val <- if (!is.na(own_field) && own_field >= 0) own_field else per_team_field_fallback[[tn]]
-    row <- data.frame(Team = tn, check.names = FALSE, stringsAsFactors = FALSE)
-    row[[.WP_POP_COL]] <- .fmt_pop(wp_val)
-    if (!is.na(pop_scale)) row[[.SCALED_POP_COL]] <- .fmt_pop(.scaled_pop(wp_val, pop_scale))
-    row[[.FIELD_POP_COL]] <- .fmt_field(field_val)
-    row
-  })
-  do.call(rbind, rows)
+    if (!is.na(own_field) && own_field >= 0) own_field else per_team_field_fallback[[tn]]
+  }, numeric(1))
+  data.frame(team = team_names, wp_pop = unname(wp_vals), field_pop = unname(field_vals), stringsAsFactors = FALSE)
 }
 
 #' Renders a data frame as table page(s) in the current pdf() device,
@@ -1303,6 +1343,18 @@ scope_pop_scale <- function(snap) {
   # make the raster's own aspect ratio wrong for the space it actually
   # has to fill, distorting the map when grid.raster() stretches it in.
   map_height_in <- content_height_in * .PRINT_ROW_HEIGHTS['map']
+  if (is.null(tm_obj)) {
+    # Layout preview (build_printable_layout_preview_png()): a grey box
+    # with the map frame's size in place of a rendered map.
+    grid::grid.rect(gp = grid::gpar(fill = '#e2e8f0', col = '#94a3b8', lty = 'dashed'))
+    grid::grid.text(sprintf('Map area\n%.1f × %.1f in', content_width_in, map_height_in),
+                    gp = grid::gpar(col = '#64748b', fontsize = 16, fontface = 'bold'))
+    grid::upViewport()
+    .draw_cards_legend_strip(cards, legend_items)
+    .draw_footer_band(basemap)
+    grid::upViewport(2)
+    return(invisible(NULL))
+  }
   map_tmp <- tempfile(fileext = '.png')
   cat(sprintf('[export_debug]   .print_chrome_page: opening temp map PNG device (%.2f x %.2f in), basemap=%s\n',
               content_width_in, map_height_in, basemap %||% 'NULL'))
@@ -1375,7 +1427,7 @@ scope_pop_scale <- function(snap) {
   # dark. If this doesn't resolve it, .print_chrome_page()'s existing
   # tryCatch will still catch the failure and log the (hopefully
   # different, more specific) error message rather than crash the export.
-  m <- tmap::tm_shape(ha_sf, bbox = sf::st_bbox(ha_sf))
+  m <- tmap::tm_shape(ha_sf, bbox = .padded_bbox(ha_sf))
   if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = zoom)  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
 
   # Population overlay, same 0.5 opacity as the in-app map. fill_color
@@ -1417,7 +1469,10 @@ scope_pop_scale <- function(snap) {
   # identity used to be conveyed by categorical fill color plus a legend;
   # with the fill gone, the name label on each polygon is now what
   # identifies it instead.
-  m <- m + tmap::tm_shape(ha_sf) +
+  # bbox + is.main here, on a shape that draws something: tmap 4 drops
+  # a tm_shape() with no layers of its own, taking its bbox with it, so
+  # the padded extent on the first tm_shape() above alone isn't applied.
+  m <- m + tmap::tm_shape(ha_sf, bbox = .padded_bbox(ha_sf), is.main = TRUE) +
     tmap::tm_borders(col = border_col, lwd = if (needs_high_contrast) 2.5 else 2)
 
   if (!is.null(district_sf) && nrow(district_sf) > 0)
@@ -1466,7 +1521,7 @@ scope_pop_scale <- function(snap) {
   team_border_col <- if (needs_high_contrast) '#00e5ff' else '#334155'
   team_text_col   <- if (needs_high_contrast) '#00e5ff' else '#334155'
 
-  m <- tmap::tm_shape(ha_one)
+  m <- tmap::tm_shape(ha_one, bbox = .padded_bbox(ha_one))
   if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = zoom)  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
 
   # Same population overlay as the overview map, clipped to this health
@@ -1491,7 +1546,8 @@ scope_pop_scale <- function(snap) {
   # No fill here either -- the health area's own boundary is already this
   # page's title/context, so it gets a border only, no label needed on
   # the shape itself.
-  m <- m + tmap::tm_shape(ha_one) +
+  # Padded extent set here, on the border layer -- see .district_overview_map().
+  m <- m + tmap::tm_shape(ha_one, bbox = .padded_bbox(ha_one), is.main = TRUE) +
     tmap::tm_borders(col = ha_border_col, lwd = if (needs_high_contrast) 3.5 else 3)
 
   if (!is.null(urban_one) && nrow(urban_one) > 0)
