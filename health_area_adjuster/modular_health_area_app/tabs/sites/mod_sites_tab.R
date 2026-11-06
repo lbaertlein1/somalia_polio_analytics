@@ -330,13 +330,15 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
       add <- function(p, k, draggable) {
         if (!any(k)) return(p)
         x <- s[k, , drop = FALSE]
+        # USE.NAMES = FALSE matters: htmlwidgets sends a NAMED vector to the
+        # browser as an object, not an array, and then no marker is drawn.
         icons <- leaflet::awesomeIcons(
-          icon = vapply(x$site_type, function(t) .SITE_ICON[[t]]$icon %||% "circle", ""),
-          markerColor = if (draggable) vapply(x$site_type, function(t) .SITE_ICON[[t]]$color %||% "gray", "") else "lightgray",
+          icon = vapply(x$site_type, function(t) .SITE_ICON[[t]]$icon %||% "circle", "", USE.NAMES = FALSE),
+          markerColor = if (draggable) vapply(x$site_type, function(t) .SITE_ICON[[t]]$color %||% "gray", "", USE.NAMES = FALSE) else "lightgray",
           iconColor = "white", library = "fa")
         leaflet::addAwesomeMarkers(p,
           lng = x$lon, lat = x$lat, layerId = x$`__id`, icon = icons, group = "sites",
-          label = sprintf("%s (%s)%s", x$site_name, SITE_TYPES[x$site_type], if (draggable) "" else " -- removed"),
+          label = unname(sprintf("%s (%s)%s", x$site_name, SITE_TYPES[x$site_type], if (draggable) "" else " -- removed")),
           options = leaflet::markerOptions(draggable = draggable && !offline()))
       }
       p <- add(p, removed, FALSE)
