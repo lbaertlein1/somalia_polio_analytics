@@ -283,6 +283,29 @@ library(png)
 # build the district overview page (and every per-health-area and team
 # page after it) that does NOT depend on page size, basemap zoom, or
 # which pages actually get printed.
+# A polygon can be valid on a flat map (st_make_valid is planar) yet
+# invalid on the sphere, where tmap/sf (s2) treat each edge as a great-
+# circle arc: two long nearly-parallel edges can then cross ("Loop 0 is not
+# valid: Edge 4 crosses edge 61") and the whole export fails. Densifying
+# such rows in metres (50 m vertices, so arcs and straight lines agree) and
+# re-validating fixes them; rows that are already valid are left untouched.
+.s2_safe <- function(x) {
+  if (is.null(x) || nrow(x) == 0) return(x)
+  geo <- sf::st_geometry(x)
+  bad <- tryCatch(!s2::s2_is_valid(geo), error = function(e) rep(FALSE, length(geo)))
+  bad[is.na(bad)] <- TRUE
+  if (!any(bad)) return(x)
+  cat(sprintf('[export_debug] .s2_safe: repairing %d polygon(s) invalid on the sphere
+', sum(bad)))
+  fixed <- tryCatch(
+    sf::st_segmentize(sf::st_transform(geo[bad], 32638), 50) |> sf::st_make_valid() |> sf::st_transform(4326),
+    error = function(e) NULL)
+  if (is.null(fixed) || length(fixed) != sum(bad)) return(x)
+  geo[bad] <- fixed
+  sf::st_geometry(x) <- geo
+  x
+}
+
 .prepare_export_context <- function(version, district_name, campaign_id, u5_rast = NULL, show_pop = FALSE) {
   if (is.null(u5_rast))
     u5_rast <- tryCatch(get('u5_rast', envir = .GlobalEnv), error = function(e) NULL)
@@ -349,9 +372,9 @@ library(png)
   if (is.null(ha_sf) || nrow(ha_sf) == 0)
     stop('No health area geometry available for this version — nothing to print.')
 
-  ha_sf <- sf::st_transform(sf::st_make_valid(ha_sf), 4326)
-  if (!is.null(team_sf) && nrow(team_sf) > 0) team_sf <- sf::st_transform(sf::st_make_valid(team_sf), 4326)
-  if (!is.null(district_sf) && nrow(district_sf) > 0) district_sf <- sf::st_transform(sf::st_make_valid(district_sf), 4326)
+  ha_sf <- .s2_safe(sf::st_transform(sf::st_make_valid(ha_sf), 4326))
+  if (!is.null(team_sf) && nrow(team_sf) > 0) team_sf <- .s2_safe(sf::st_transform(sf::st_make_valid(team_sf), 4326))
+  if (!is.null(district_sf) && nrow(district_sf) > 0) district_sf <- .s2_safe(sf::st_transform(sf::st_make_valid(district_sf), 4326))
   cat(sprintf('[export_debug] checkpoint: geometry transformed | ha_sf nrow=%d | district_sf is.null=%s\n',
               nrow(ha_sf), is.null(district_sf)))
 
