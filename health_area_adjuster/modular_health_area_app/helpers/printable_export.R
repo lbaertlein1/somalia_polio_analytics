@@ -643,7 +643,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   n_team_tables <- if (want_ha || want_team) sum(n_teams_by_ha > 0) else 0
   n_pages_est <- length(basemaps) * (want_district + want_ha * length(area_names) + want_team * sum(n_teams_by_ha)) +
     want_district + n_team_tables +
-    (if (.has_rows(sites_sf)) want_district + (want_ha || want_team) * length(area_names) else 0)
+    (if (.has_rows(sites_sf)) (want_ha || want_team) * length(area_names) else 0)
   pages_done <- 0L
   page_done <- function(label) {
     pages_done <<- pages_done + 1L
@@ -700,11 +700,6 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     cat('[export_debug] checkpoint: summary_df built OK\n')
     .print_table_page(summary_df, paste0(district_name, ' — Health Area Summary'), table_chrome)
     page_done('Health area summary table')
-    site_summary <- .build_site_summary_table(sites_sf, ha_sf, area_names)
-    if (!is.null(site_summary)) {
-      .print_table_page(site_summary, paste0(district_name, ' — Microplan Sites by Health Area'), table_chrome)
-      page_done('Site summary table')
-    }
     cat('[export_debug] checkpoint: summary table page printed OK\n')
   }
 
@@ -806,6 +801,12 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
             page_width_in = unname(size['width']), page_height_in = unname(size['height'])
           )
           page_done(paste(nm, '—', tn, if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
+        }
+        # This team's sites, same numbers as its map (and the health area's table).
+        if (.has_rows(sites_t)) {
+          st <- .build_site_table(sites_t)
+          st$`Team area` <- NULL
+          .print_table_page(st, paste0(district_name, ' — ', nm, ' — ', tn, ' — Microplan Sites'), table_chrome)
         }
         cat(sprintf('[export_debug] checkpoint "%s": team page(s) for "%s" printed OK\n', nm, tn))
       }
