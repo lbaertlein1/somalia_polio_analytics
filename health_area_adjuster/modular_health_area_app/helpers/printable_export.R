@@ -159,7 +159,9 @@ library(png)
 }
 
 # One tmap layer per site type present. size = tmap symbol size.
-.site_layers <- function(sites_sf, size, high_contrast) {
+# numbered = TRUE writes each site's site_no next to its symbol (the number
+# in that health area's site table).
+.site_layers <- function(sites_sf, size, high_contrast, numbered = FALSE) {
   m <- NULL
   for (t in .site_types_in(sites_sf)) {
     st <- .EXPORT_SITE_STYLE[.EXPORT_SITE_STYLE$type == t, ]
@@ -168,7 +170,84 @@ library(png)
                        col = 'white', col_alpha = 1, lwd = if (high_contrast) 2 else 1)
     m <- if (is.null(m)) layer else m + layer
   }
+  if (numbered && !is.null(m) && 'site_no' %in% names(sites_sf))
+    m <- m + tmap::tm_shape(sites_sf) +
+      tmap::tm_text('site_no', size = 0.5, col = '#0f172a', fontface = 'bold', xmod = 0.55, ymod = 0.45,
+                    options = tmap::opt_tm_text(shadow = TRUE))
   m
+}
+
+# Sites of one health area, numbered 1..n for its map and site table:
+# grouped by team area (so a team's sites are consecutive), then type, then
+# name. Adds team_area (from team_one) and site_no.
+.number_sites <- function(sites_one, team_one) {
+  if (!.has_rows(sites_one)) return(NULL)
+  sites_one$team_area <- NA_character_
+  if (.has_rows(team_one)) {
+    i <- tryCatch(vapply(suppressMessages(sf::st_intersects(sites_one, team_one)),
+                         function(x) if (length(x)) x[1] else NA_integer_, 1L),
+                  error = function(e) rep(NA_integer_, nrow(sites_one)))
+    sites_one$team_area <- as.character(team_one$dfa_name)[i]
+  }
+  type_rank <- match(sites_one$site_type, .EXPORT_SITE_STYLE$type)
+  team_key <- suppressWarnings(as.numeric(gsub('[^0-9]', '', sites_one$team_area)))
+  o <- order(is.na(sites_one$team_area), team_key, sites_one$team_area, type_rank, tolower(sites_one$site_name))
+  sites_one <- sites_one[o, , drop = FALSE]
+  sites_one$site_no <- seq_len(nrow(sites_one))
+  sites_one
+}
+
+.site_kind_label <- function(s) {
+  sub <- if (exists('SITE_SUBTYPES') && nrow(SITE_SUBTYPES))
+    setNames(SITE_SUBTYPES$label, SITE_SUBTYPES$name)[s$site_subtype] else rep(NA_character_, nrow(s))
+  kind <- ifelse(is.na(sub), ifelse(is.na(s$site_subtype), '', s$site_subtype), sub)
+  other <- ifelse(is.na(s$subtype_other), '', s$subtype_other)
+  kind <- ifelse(nzchar(other), paste0(kind, ': ', other), kind)
+  cross <- ifelse(is.na(s$crossing_name), '', s$crossing_name)
+  ifelse(nzchar(cross), ifelse(nzchar(kind), paste0(kind, ' (', cross, ')'), cross), kind)
+}
+.trunc <- function(x, n) { x <- ifelse(is.na(x), '', as.character(x)); ifelse(nchar(x) > n, paste0(substr(x, 1, n - 1), '\u2026'), x) }
+
+# Site table for one health area (numbers match its map pages).
+.build_site_table <- function(sites_num) {
+  s <- sf::st_drop_geometry(sites_num)
+  type_lbl <- setNames(.EXPORT_SITE_STYLE$label, .EXPORT_SITE_STYLE$type)[s$site_type]
+  u5 <- suppressWarnings(as.numeric(s$u5_population))
+  data.frame(
+    `#` = s$site_no, Site = .trunc(s$site_name, 38), Type = unname(type_lbl),
+    Kind = .trunc(.site_kind_label(s), 40),
+    `Team area` = ifelse(is.na(s$team_area), '\u2013', s$team_area),
+    `U5 (reference)` = ifelse(is.na(u5), '', format(round(u5), big.mark = ',')),
+    `Last confirmed` = ifelse(is.na(s$last_confirmed_date) | !nzchar(s$last_confirmed_date), '',
+                              format(as.Date(substr(s$last_confirmed_date, 1, 10)), '%d %b %Y')),
+    `Lat, Lon` = sprintf('%.5f, %.5f', s$lat, s$lon),
+    check.names = FALSE, stringsAsFactors = FALSE) |>
+    (function(d) d[, vapply(d, function(x) !all(x %in% c('', '–')), logical(1)), drop = FALSE])()
+}
+
+# District summary: sites by type in each health area (+ outside any).
+.build_site_summary_table <- function(sites_sf, ha_sf, area_names) {
+  if (!.has_rows(sites_sf)) return(NULL)
+  i <- tryCatch(vapply(suppressMessages(sf::st_intersects(sites_sf, ha_sf)),
+                       function(x) if (length(x)) x[1] else NA_integer_, 1L),
+                error = function(e) rep(NA_integer_, nrow(sites_sf)))
+  ha <- as.character(ha_sf$dfa_name)[i]
+  ha[is.na(ha) | !ha %in% area_names] <- 'Outside health areas'
+  rows <- c(area_names, if (any(ha == 'Outside health areas')) 'Outside health areas')
+  types <- .site_types_in(sites_sf)
+  u5 <- suppressWarnings(as.numeric(sites_sf$u5_population))
+  df <- data.frame(`Health area` = rows, check.names = FALSE, stringsAsFactors = FALSE)
+  for (t in types) df[[.EXPORT_SITE_STYLE$label[.EXPORT_SITE_STYLE$type == t]]] <-
+    vapply(rows, function(r) sum(ha == r & sites_sf$site_type == t), integer(1))
+  df$`All sites` <- vapply(rows, function(r) sum(ha == r), integer(1))
+  if (any(sites_sf$site_type %in% c('idp', 'nomadic')))
+    df$`IDP + nomadic U5 (reference)` <- vapply(rows, function(r) {
+      k <- ha == r & sites_sf$site_type %in% c('idp', 'nomadic'); if (any(k)) format(round(sum(u5[k], na.rm = TRUE)), big.mark = ',') else '' }, '')
+  tot <- df[1, , drop = FALSE]; tot[1, ] <- NA
+  tot$`Health area` <- 'Total'
+  for (k in names(df)[-1]) tot[[k]] <- if (is.numeric(df[[k]])) sum(df[[k]]) else
+    format(round(sum(u5[sites_sf$site_type %in% c('idp', 'nomadic')], na.rm = TRUE)), big.mark = ',')
+  rbind(df, tot)
 }
 
 # Subdivision lines (drawn right after the health area/district borders)
@@ -563,7 +642,8 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   # plus its tables (an estimate if a long table splits across pages).
   n_team_tables <- if (want_ha || want_team) sum(n_teams_by_ha > 0) else 0
   n_pages_est <- length(basemaps) * (want_district + want_ha * length(area_names) + want_team * sum(n_teams_by_ha)) +
-    want_district + n_team_tables
+    want_district + n_team_tables +
+    (if (.has_rows(sites_sf)) want_district + (want_ha || want_team) * length(area_names) else 0)
   pages_done <- 0L
   page_done <- function(label) {
     pages_done <<- pages_done + 1L
@@ -620,6 +700,11 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     cat('[export_debug] checkpoint: summary_df built OK\n')
     .print_table_page(summary_df, paste0(district_name, ' — Health Area Summary'), table_chrome)
     page_done('Health area summary table')
+    site_summary <- .build_site_summary_table(sites_sf, ha_sf, area_names)
+    if (!is.null(site_summary)) {
+      .print_table_page(site_summary, paste0(district_name, ' — Microplan Sites by Health Area'), table_chrome)
+      page_done('Site summary table')
+    }
     cat('[export_debug] checkpoint: summary table page printed OK\n')
   }
 
@@ -636,11 +721,14 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     cat(sprintf('[export_debug] === starting detail page loop for "%s" ===\n', nm))
     ha_one   <- ha_sf[ha_sf$dfa_name == nm, , drop = FALSE]
     team_one <- team_rows_for(nm)
+    # This health area's registry sites, numbered for its map + site table
+    # (team pages reuse the same numbers).
+    sites_ha <- .number_sites(.points_within(sites_sf, ha_one), team_one)
 
     if (want_ha) {
       fac_one    <- .points_within(fac_sf, ha_one)
       idp_one    <- .points_within(idp_sf, ha_one)
-      sites_one  <- .points_within(sites_sf, ha_one)
+      sites_one  <- sites_ha
       pop_one    <- clip_to(pop_sf, ha_one)
       subdiv_one <- clip_to(subdiv_sf, ha_one)
       urban_one  <- clip_to(urban_sf, ha_one)
@@ -669,6 +757,11 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
       }
     }
 
+    if ((want_ha || want_team) && .has_rows(sites_ha)) {
+      .print_table_page(.build_site_table(sites_ha), paste0(district_name, ' — ', nm, ' — Microplan Sites'), table_chrome)
+      page_done(paste(nm, 'site table'))
+    }
+
     team_names <- team_names_for(team_one)
     if (length(team_names) > 0) {
       field_target <- .unwrap_num(team_targets[[nm]]$target_pop)
@@ -689,7 +782,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
         t_one      <- team_one[team_one$dfa_name == tn, , drop = FALSE]
         fac_t      <- .points_within(fac_sf, t_one)
         idp_t      <- .points_within(idp_sf, t_one)
-        sites_t    <- .points_within(sites_sf, t_one)
+        sites_t    <- .points_within(sites_ha, t_one)
         pop_t      <- clip_to(pop_sf, t_one)
         subdiv_t   <- clip_to(subdiv_sf, t_one)
         urban_t    <- clip_to(urban_sf, t_one)
@@ -1657,7 +1750,7 @@ scope_pop_scale <- function(snap) {
   }
 
   if (use_sites) {
-    sl <- .site_layers(sites_one, .PRINT_PT_SIZE$detail[['idp']], needs_high_contrast)
+    sl <- .site_layers(sites_one, .PRINT_PT_SIZE$detail[['idp']], needs_high_contrast, numbered = TRUE)
     if (!is.null(sl)) m <- m + sl
   } else if (!is.null(idp_one) && nrow(idp_one) > 0)
     m <- m + tmap::tm_shape(idp_one) +

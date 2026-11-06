@@ -32,7 +32,7 @@ NOMAD_CLUSTER_M  <- 500
 
 read_nomad_survey <- function() {
   sel <- paste(c("__id", "__system/submissionDate", "__system/reviewState", "group_profile/today_date",
-                 "community_level/group/group_code", "community_level/movt_type", "community_level/gps",
+                 "community_level/group/group_code", "community_level/gps",
                  "community_level/camp_settlement_name", "community_level/camp_first_month",
                  "community_level/camp_last_month", "polio/camp_tot_pop",
                  "polio/camp_pop_0to11_months", "polio/camp_pop_12to59_months"), collapse = ",")
@@ -102,15 +102,13 @@ read_nomad_camps <- function(existing_sites = NULL, today = Sys.Date(), log = fu
     nm <- trimws(c$camp_settlement_name); nm <- nm[!is.na(nm) & nzchar(nm)]
     name <- if (length(nm)) names(sort(table(tools::toTitleCase(tolower(nm))), decreasing = TRUE))[1] else "Nomadic camp"
     codes <- sort(unique(c$group[!startsWith(c$group, "UNCODED-")]))
-    mv <- sort(unique(stats::na.omit(c$movt_type)))
     data.frame(
       site_name = name, lat = mean(c$lat), lon = mean(c$lon),
       u5_population = if (all(is.na(c$u5))) NA else sum(c$u5, na.rm = TRUE),
       last_confirmed_date = format(max(c$rec_date), "%Y-%m-%d"),
-      notes = sprintf("%d nomadic group(s)%s%s. Type of movement (survey): %s. Expected to stay until %s. Nomad Mapping Survey.",
+      notes = sprintf("%d nomadic group(s)%s%s. Expected to stay until %s. Nomad Mapping Survey.",
                       nrow(c), if (length(codes)) paste0(": ", paste(utils::head(codes, 6), collapse = ", ")) else "",
                       if (length(codes) > 6) sprintf(" +%d more", length(codes) - 6) else "",
-                      if (length(mv)) paste(tools::toTitleCase(mv), collapse = "/") else "unknown",
                       if (any(!is.na(c$last) & c$last <= today + 730)) format(max(c$last[c$last <= today + 730], na.rm = TRUE), "%d %b %Y") else "unknown"),
       stringsAsFactors = FALSE)
   }))
