@@ -77,6 +77,13 @@ source('helpers/mod_db_v2.R', local = TRUE)
 source('helpers/subdivision_helpers.R', local = TRUE)
 source('helpers/idp_helpers.R', local = TRUE)
 source('helpers/printable_export.R', local = TRUE)
+# ODK Central site registry (project 36) + MHFL mirror -- shared with the
+# CLI scripts in odk_forms/.
+source('odk_forms/central_helpers.R', local = TRUE)
+source('odk_forms/mhfl_mirror.R', local = TRUE)
+source('odk_forms/sites_sync.R', local = TRUE)
+source('odk_forms/idp_source.R', local = TRUE)
+source('odk_forms/nomad_source.R', local = TRUE)
 
 sourceCpp('bfs_propagate.cpp')
 

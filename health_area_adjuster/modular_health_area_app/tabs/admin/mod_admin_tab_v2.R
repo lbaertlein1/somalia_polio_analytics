@@ -89,6 +89,32 @@ adminTabUI <- function(id) {
                      textInput(ns('idp_url'), NULL, width = '100%'),
                      actionButton(ns('save_sources_btn'), 'Save', class = 'btn btn-primary btn-sm', style = 'margin-top: 10px;')
                    )
+    ),
+
+    .admin_section('Site registry syncs (ODK project 36)',
+                   action = div(
+                     style = 'display:flex;gap:8px;align-items:center;',
+                     actionButton(ns('sync_mhfl_btn'), 'Update facilities',
+                                  icon = icon('rotate'), class = 'btn btn-primary btn-sm'),
+                     actionButton(ns('sync_idp_btn'), 'Update IDP sites',
+                                  icon = icon('rotate'), class = 'btn btn-primary btn-sm'),
+                     actionButton(ns('sync_nomad_btn'), 'Update nomadic sites',
+                                  icon = icon('rotate'), class = 'btn btn-primary btn-sm')
+                   ),
+                   content = div(
+                     style = 'padding: 14px 16px;',
+                     tags$ul(style = 'font-size: 11px; color: #64748b; margin: 0 0 8px; padding-left: 16px;',
+                       tags$li(tags$b('Facilities: '), 'copies the MHFL (project 31) into the facility list the site form ',
+                               'picks from: adds new, updates changed, removes deleted facilities.'),
+                       tags$li(tags$b('IDP sites: '), 'loads the IDP master list (the IDP settlements URL above) into the ',
+                               'site registry. U5 = individuals x 20%.'),
+                       tags$li(tags$b('Nomadic sites: '), 'turns Nomad Mapping Survey sightings that are present today into ',
+                               'camps (500 m) in the site registry; camps no longer occupied are retired.')),
+                     tags$p(style = 'font-size: 11px; color: #64748b; margin: 0 0 8px;',
+                            'Sites a person has edited or removed (in the app or the ODK form) are never changed by a sync. ',
+                            'Each update usually takes 5-40 seconds.'),
+                     uiOutput(ns('sync_mhfl_status'))
+                   )
     )
   )
 }
@@ -998,6 +1024,62 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       tryCatch(clear_subdivision_cache(), error = function(e) NULL)
       if (ok) showNotification('Data source URLs saved.', type = 'message', duration = 3)
     }, ignoreInit = TRUE)
+
+    # ---- Site registry syncs (ODK project 36) ------------------------------
+    # Run in-session (blocking, typically 5-40 s). If runs approach a
+    # minute, move to cron on the VM: odk_forms/sync_mhfl_mirror.R and
+    # odk_forms/sync_sites.R.
+    sync_results <- reactiveValues()
+
+    run_sync <- function(key, label, fn) {
+      res <- withProgress(message = paste0('Updating ', label, '...'), value = 0.3, {
+        tryCatch(fn(), error = function(e) list(error = conditionMessage(e)))
+      })
+      res$at <- format(Sys.time(), '%Y-%m-%d %H:%M'); res$label <- label
+      sync_results[[key]] <- res
+      if (!is.null(res$error)) {
+        showNotification(sprintf('%s update failed: %s', label, res$error), type = 'error', duration = 8)
+      } else {
+        showNotification(sprintf('%s updated: %d added, %d changed, %d removed (%.0f s).', label, res$created,
+                                 res$updated, res$deleted %||% res$retired, res$seconds),
+                         type = 'message', duration = 5)
+      }
+    }
+    sync_log <- function(tag) function(...) cat(sprintf('[%s]', tag), ..., '\n')
+
+    observeEvent(input$sync_mhfl_btn, run_sync('mhfl', 'Facility list', function()
+      sync_mhfl_mirror(log = sync_log('mhfl_sync'))), ignoreInit = TRUE)
+
+    observeEvent(input$sync_idp_btn, run_sync('idp', 'IDP sites', function() {
+      url <- tryCatch(db_get_data_source_url(pool, 'idp_settlements_url'), error = function(e) '') %||% ''
+      if (!nzchar(trimws(url))) stop('No IDP settlements source URL is set (Data source URLs above).')
+      sync_sites_from_source(read_idp_master_list(url, log = sync_log('idp_sync')), IDP_SOURCE_KEY,
+                             log = sync_log('idp_sync'))
+    }), ignoreInit = TRUE)
+
+    observeEvent(input$sync_nomad_btn, run_sync('nomad', 'Nomadic sites', function() {
+      recs <- read_nomad_camps(existing_sites = central_entities(MICROPLAN_PROJECT, 'sites'),
+                               log = sync_log('nomad_sync'))
+      sync_sites_from_source(recs, NOMAD_SOURCE_KEY, log = sync_log('nomad_sync'))
+    }), ignoreInit = TRUE)
+
+    output$sync_mhfl_status <- renderUI({
+      runs <- Filter(Negate(is.null), lapply(c('mhfl', 'idp', 'nomad'), function(k) sync_results[[k]]))
+      if (!length(runs)) return(NULL)
+      tagList(lapply(runs, function(res) {
+        txt <- if (!is.null(res$error)) {
+          sprintf('%s -- last run %s failed: %s', res$label, res$at, res$error)
+        } else {
+          sprintf('%s -- last run %s: %d added, %d changed, %d removed%s; took %.1f s.%s',
+                  res$label, res$at, res$created, res$updated, res$deleted %||% res$retired,
+                  if (!is.null(res$locally_edited)) sprintf(', %d locally edited (left alone)', res$locally_edited) else '',
+                  res$seconds,
+                  if (res$seconds > 45) ' This is getting slow -- consider running it on the VM instead.' else '')
+        }
+        tags$p(style = sprintf('font-size: 12px; margin: 0 0 4px; color: %s;',
+                               if (!is.null(res$error)) '#b91c1c' else '#0f172a'), txt)
+      }))
+    })
 
     invisible(NULL)
   })
