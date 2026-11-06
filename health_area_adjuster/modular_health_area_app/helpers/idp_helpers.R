@@ -196,7 +196,8 @@ idp_sf_to_points_list <- function(idp_sf) {
     # shape+colour symbol; paint-app.js draws it instead of a red dot.
     list(lat = lat, lon = lon, name = idp_sf$idp_name[i],
          icon = if ('icon' %in% names(idp_sf)) idp_sf$icon[i] else NULL,
-         type = if ('site_type' %in% names(idp_sf)) idp_sf$site_type[i] else NULL)
+         type = if ('site_type' %in% names(idp_sf)) idp_sf$site_type[i] else NULL,
+         size = if ('icon_px' %in% names(idp_sf)) idp_sf$icon_px[i] else NULL)
   })
   Filter(Negate(is.null), pts)
 }

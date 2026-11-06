@@ -392,7 +392,8 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
         # unname(): htmlwidgets sends a NAMED vector to the browser as an
         # object rather than an array, and then no marker is drawn.
         urls <- unname((if (draggable) .SITE_MARKER_URL else .SITE_MARKER_URL_REMOVED)[x$site_type])
-        icons <- leaflet::icons(iconUrl = urls, iconWidth = 22, iconHeight = 22, iconAnchorX = 11, iconAnchorY = 11)
+        px <- site_icon_px(x$site_type, base = 22)   # IDP / nomadic smaller (context)
+        icons <- leaflet::icons(iconUrl = urls, iconWidth = px, iconHeight = px, iconAnchorX = px / 2, iconAnchorY = px / 2)
         leaflet::addMarkers(p,
           lng = x$lon, lat = x$lat, layerId = x$`__id`, icon = icons, group = "sites",
           label = unname(sprintf("%s (%s)%s", x$site_name, SITE_TYPES[x$site_type], if (draggable) "" else " -- removed")),

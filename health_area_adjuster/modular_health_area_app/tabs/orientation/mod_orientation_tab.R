@@ -370,7 +370,8 @@ orientationTabServer <- function(
       if ('icon' %in% names(idp)) {
         proxy |> leaflet::addMarkers(
           lng = coords[, 1], lat = coords[, 2], group = 'idp_settlements',
-          icon = leaflet::icons(iconUrl = unname(idp$icon), iconWidth = 14, iconHeight = 14, iconAnchorX = 7, iconAnchorY = 7),
+          icon = leaflet::icons(iconUrl = unname(idp$icon), iconWidth = unname(idp$icon_px), iconHeight = unname(idp$icon_px),
+                                iconAnchorX = unname(idp$icon_px) / 2, iconAnchorY = unname(idp$icon_px) / 2),
           label = unname(paste0(idp$idp_name, ' – ', SITE_TYPES[idp$site_type])),
           options = leaflet::markerOptions(keyboard = FALSE))
         return()

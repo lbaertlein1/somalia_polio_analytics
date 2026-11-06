@@ -2396,7 +2396,8 @@ function getApp(msg) {
               pane: 'sitesPane',
               interactive: false,
               keyboard: false,
-              icon: L.icon({ iconUrl: pt.icon, iconSize: [13, 13], iconAnchor: [6.5, 6.5] })
+              icon: L.icon({ iconUrl: pt.icon, iconSize: [pt.size || 13, pt.size || 13],
+                             iconAnchor: [(pt.size || 13) / 2, (pt.size || 13) / 2] })
             });
           } else {
             marker = L.circleMarker([pt.lat, pt.lon], {

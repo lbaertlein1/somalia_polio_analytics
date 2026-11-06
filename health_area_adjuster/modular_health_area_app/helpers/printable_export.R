@@ -135,6 +135,10 @@ library(png)
 # Microplan site symbols (site registry, helpers/sites_registry.R): one
 # fillable shape + colour per type, so types stay distinguishable in
 # greyscale too. Coordination sites keep the teal circle.
+# Context site types (shown small, never numbered or listed); the rest
+# are operational vaccination sites.
+SITE_CONTEXT_TYPES <- c('idp', 'nomadic')
+
 .EXPORT_SITE_STYLE <- data.frame(
   type  = c('idp', 'nomadic', 'fixed', 'cross_border', 'transit'),
   label = c('IDP Settlement', 'Nomadic Settlement', 'Fixed Site', 'Cross-border Site', 'Transit Site'),
@@ -162,16 +166,21 @@ library(png)
 # numbered = TRUE writes each site's site_no next to its symbol (the number
 # in that health area's site table).
 .site_layers <- function(sites_sf, size, high_contrast, numbered = FALSE) {
+  # IDP / nomadic settlements are context: smaller symbols, never numbered.
+  # Fixed / cross-border / transit sites are operational: larger, numbered.
   m <- NULL
   for (t in .site_types_in(sites_sf)) {
     st <- .EXPORT_SITE_STYLE[.EXPORT_SITE_STYLE$type == t, ]
+    ctx <- t %in% SITE_CONTEXT_TYPES
     layer <- tmap::tm_shape(sites_sf[sites_sf$site_type == t, ]) +
-      tmap::tm_symbols(fill = st$fill, size = size, shape = st$shape,
-                       col = 'white', col_alpha = 1, lwd = if (high_contrast) 2 else 1)
+      tmap::tm_symbols(fill = st$fill, size = size * (if (ctx) 0.55 else 1.2), shape = st$shape,
+                       col = 'white', col_alpha = 1,
+                       lwd = if (ctx) 0.5 else if (high_contrast) 2 else 1)
     m <- if (is.null(m)) layer else m + layer
   }
-  if (numbered && !is.null(m) && 'site_no' %in% names(sites_sf))
-    m <- m + tmap::tm_shape(sites_sf) +
+  lab <- if (numbered && 'site_no' %in% names(sites_sf)) sites_sf[!is.na(sites_sf$site_no), ] else NULL
+  if (!is.null(m) && .has_rows(lab))
+    m <- m + tmap::tm_shape(lab) +
       tmap::tm_text('site_no', size = 0.32, col = '#0f172a', fontface = 'bold',
                     options = tmap::opt_tm_text(shadow = TRUE))
   m
@@ -179,7 +188,9 @@ library(png)
 
 # Sites of one health area, numbered 1..n for its map and site table:
 # grouped by team area (so a team's sites are consecutive), then type, then
-# name. Adds team_area (from team_one) and site_no.
+# name. Adds team_area (from team_one) and site_no. Only operational sites
+# (fixed / cross-border / transit) get a number; IDP and nomadic
+# settlements are context (site_no NA: not labelled, not listed).
 .number_sites <- function(sites_one, team_one) {
   if (!.has_rows(sites_one)) return(NULL)
   sites_one$team_area <- NA_character_
@@ -193,7 +204,9 @@ library(png)
   team_key <- suppressWarnings(as.numeric(gsub('[^0-9]', '', sites_one$team_area)))
   o <- order(is.na(sites_one$team_area), team_key, sites_one$team_area, type_rank, tolower(sites_one$site_name))
   sites_one <- sites_one[o, , drop = FALSE]
-  sites_one$site_no <- seq_len(nrow(sites_one))
+  op <- !sites_one$site_type %in% SITE_CONTEXT_TYPES
+  sites_one$site_no <- NA_integer_
+  sites_one$site_no[op] <- seq_len(sum(op))
   sites_one
 }
 
@@ -208,8 +221,12 @@ library(png)
 }
 .trunc <- function(x, n) { x <- ifelse(is.na(x), '', as.character(x)); ifelse(nchar(x) > n, paste0(substr(x, 1, n - 1), '\u2026'), x) }
 
-# Site table for one health area (numbers match its map pages).
+# Site table for one health area (numbers match its map pages): the
+# operational sites only. NULL when there are none.
 .build_site_table <- function(sites_num) {
+  if (!.has_rows(sites_num) || !'site_no' %in% names(sites_num)) return(NULL)
+  sites_num <- sites_num[!is.na(sites_num$site_no), , drop = FALSE]
+  if (!nrow(sites_num)) return(NULL)
   s <- sf::st_drop_geometry(sites_num)
   type_lbl <- setNames(.EXPORT_SITE_STYLE$label, .EXPORT_SITE_STYLE$type)[s$site_type]
   u5 <- suppressWarnings(as.numeric(s$u5_population))
@@ -752,8 +769,10 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
       }
     }
 
-    if ((want_ha || want_team) && .has_rows(sites_ha)) {
-      .print_table_page(.build_site_table(sites_ha), paste0(district_name, ' — ', nm, ' — Microplan Sites'), table_chrome)
+    ha_site_tbl <- if (want_ha || want_team) .build_site_table(sites_ha) else NULL
+    if (!is.null(ha_site_tbl)) {
+      .print_table_page(ha_site_tbl, paste0(district_name, ' — ', nm, ' — Microplan Sites'), table_chrome,
+                        base_size = 8, two_up = nrow(ha_site_tbl) > 20)
       page_done(paste(nm, 'site table'))
     }
 
@@ -803,10 +822,11 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
           page_done(paste(nm, '—', tn, if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
         }
         # This team's sites, same numbers as its map (and the health area's table).
-        if (.has_rows(sites_t)) {
-          st <- .build_site_table(sites_t)
+        st <- .build_site_table(sites_t)
+        if (!is.null(st)) {
           st$`Team area` <- NULL
-          .print_table_page(st, paste0(district_name, ' — ', nm, ' — ', tn, ' — Microplan Sites'), table_chrome)
+          .print_table_page(st, paste0(district_name, ' — ', nm, ' — ', tn, ' — Microplan Sites'), table_chrome,
+                            base_size = 8, two_up = nrow(st) > 20)
         }
         cat(sprintf('[export_debug] checkpoint "%s": team page(s) for "%s" printed OK\n', nm, tn))
       }
@@ -1214,17 +1234,22 @@ scope_pop_scale <- function(snap) {
 #' Drawn with grid.draw() on a page this function opens itself -- NOT
 #' gridExtra::grid.arrange(), which opens its own new page on top of an
 #' explicit grid.newpage() and left a blank page before every table.
-.print_table_page <- function(df, title, chrome) {
+.print_table_page <- function(df, title, chrome, base_size = 10, two_up = FALSE) {
+  # base_size / two_up: compact layout for long lists (site tables) --
+  # smaller text, and two tables side by side on each page.
   margin_in <- 0.25
   page_w <- chrome$page_width_in; page_h <- chrome$page_height_in
   body_h_in <- (page_h - 2 * margin_in) * (.PRINT_ROW_HEIGHTS[['map']] + .PRINT_ROW_HEIGHTS[['strip']])
-  # ~0.3in per row at base_size 10 (text + cell padding), one row's worth
-  # reserved for the column header.
-  rows_per_page <- max(5L, as.integer(floor(body_h_in / 0.3)) - 1L)
+  # ~0.3in per row at base_size 10 (text + cell padding), scaling with the
+  # font size; one row's worth reserved for the column header.
+  row_h_in <- 0.3 * base_size / 10
+  rows_per_col <- max(5L, as.integer(floor(body_h_in / row_h_in)) - 1L)
+  rows_per_page <- rows_per_col * (if (two_up) 2L else 1L)
   chunks <- split(seq_len(nrow(df)), ceiling(seq_len(nrow(df)) / rows_per_page))
 
+  pad <- grid::unit(c(if (base_size < 10) 3 else 4, if (base_size < 10) 2 else 4), 'mm')
   tt <- gridExtra::ttheme_default(
-    base_size = 10,
+    base_size = base_size, padding = pad,
     core    = list(bg_params = list(fill = c('white', '#f8fafc'), col = '#e2e8f0')),
     colhead = list(bg_params = list(fill = '#e2e8f0', col = '#cbd5e1'))
   )
@@ -1237,12 +1262,18 @@ scope_pop_scale <- function(snap) {
     grid::pushViewport(grid::viewport(layout = grid::grid.layout(nrow = 4, heights = grid::unit(.PRINT_ROW_HEIGHTS, 'npc'))))
     .draw_header_band(page_title, chrome$campaign_name, chrome$zone, chrome$region, chrome$district)
     grid::pushViewport(grid::viewport(layout.pos.row = 2:3))
-    tbl <- gridExtra::tableGrob(df[chunks[[k]], , drop = FALSE], rows = NULL, theme = tt)
-    # Top-aligned under the header rather than centred in the body area.
-    grid::pushViewport(grid::viewport(y = grid::unit(1, 'npc') - grid::unit(0.1, 'in'), just = 'top',
-                                      width = sum(tbl$widths), height = sum(tbl$heights)))
-    grid::grid.draw(tbl)
-    grid::upViewport(2)
+    rows <- chunks[[k]]
+    cols <- if (two_up && length(rows) > rows_per_col) list(rows[seq_len(rows_per_col)], rows[-seq_len(rows_per_col)]) else list(rows)
+    xs <- if (length(cols) == 2) c(0.25, 0.75) else 0.5
+    for (j in seq_along(cols)) {
+      tbl <- gridExtra::tableGrob(df[cols[[j]], , drop = FALSE], rows = NULL, theme = tt)
+      # Top-aligned under the header rather than centred in the body area.
+      grid::pushViewport(grid::viewport(x = xs[j], y = grid::unit(1, 'npc') - grid::unit(0.1, 'in'), just = 'top',
+                                        width = sum(tbl$widths), height = sum(tbl$heights)))
+      grid::grid.draw(tbl)
+      grid::upViewport()
+    }
+    grid::upViewport()
     .draw_footer_band(chrome$basemap)
     grid::upViewport(2)
   }

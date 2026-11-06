@@ -89,6 +89,10 @@ sites_with_coords <- function(s) {
 .SITE_MARKER_URL <- vapply(.EXPORT_SITE_STYLE$type, .site_marker_svg, "")
 .SITE_MARKER_URL_REMOVED <- vapply(.EXPORT_SITE_STYLE$type, function(t) .site_marker_svg(t, "#9ca3af"), "")
 
+# Marker size in pixels: IDP / nomadic settlements are context (small),
+# fixed / cross-border / transit sites are operational (larger).
+site_icon_px <- function(type, base = 14) ifelse(type %in% SITE_CONTEXT_TYPES, round(base * 0.65), base)
+
 # Legend lines for the site symbols (HTML string, one line per type), for
 # the map legends that used to show a single red "IDP Settlement" dot.
 site_legend_html <- function() {
@@ -126,6 +130,7 @@ registry_context_sf <- function(district_sf, types = NULL) {
     idp_population = suppressWarnings(as.numeric(pts$u5_population)),
     site_type = pts$site_type,
     icon = unname(.SITE_MARKER_URL[pts$site_type]),
+    icon_px = site_icon_px(pts$site_type),
     lon = pts$lon, lat = pts$lat,
     geometry = sf::st_geometry(pts))
   out
