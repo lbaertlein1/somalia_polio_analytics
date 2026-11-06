@@ -636,12 +636,47 @@ main_app_server <- function(input, output, session, auth) {
     set_tab_enabled('tab_campaign_scope',          ready && !scope_locked,
                     title = if (scope_locked) 'Campaign scope is locked for this session -- facilities work has already begun'
                             else 'Choose a district from the Introduction tab first')
-    set_tab_enabled('tab_health_facility_mapping', ready && !locked,
-                    title = if (locked) 'This district\'s health areas are already mapped -- Facilities is locked for this session' else 'Choose a district from the Introduction tab first')
+    # Facilities stays clickable on a mapped district, but asks first
+    # (warning dialog below) -- changing sites redraws the health areas.
+    set_tab_enabled('tab_health_facility_mapping', ready)
+    session$sendCustomMessage('set_tab_confirm', list(value = 'tab_health_facility_mapping', confirm = ready && locked))
     set_tab_enabled('tab_health_area_mapping',     ready)
     set_tab_enabled('tab_team_area_mapping',       isTRUE(team_area_session$active()),
                     title = 'Choose a health area from the Introduction tab first')
   })
+
+  # ── Going back to Facilities on an already-mapped district. Changing
+  # sites under existing boundaries would leave them silently wrong, so
+  # the user is warned first that submitting new sites regenerates every
+  # health area from them. A published version is never changed: the
+  # Facilities submit forks a draft (db_submit_stage_v2).
+  .show_change_sites_dialog <- function() {
+    showModal(modalDialog(
+      title = 'Change coordination sites?',
+      p('This district\'s health areas are already drawn from its current coordination sites.'),
+      p(strong('If you move, add or remove a coordination site and Submit on Facilities, every health area in this district is redrawn from the new sites.'),
+        ' Boundary edits made so far are replaced.'),
+      p('Renaming a site does not need this -- rename the health area on the Health Areas tab instead.'),
+      p('After submitting Facilities, check the redrawn health areas and Submit them, so the saved boundaries match the new sites.',
+        ' If this version is published, your changes go into a new draft; the published version stays as it is.'),
+      footer = tagList(modalButton('Cancel'),
+                       actionButton('unlock_facilities_confirm', 'Go to Facilities', class = 'btn btn-warning')),
+      easyClose = TRUE
+    ))
+  }
+
+  observeEvent(input$confirm_tab_click, {
+    req(identical(input$confirm_tab_click$tab, 'tab_health_facility_mapping'), isTRUE(district_ready()))
+    if (isTRUE(health_area_locked_to_current())) .show_change_sites_dialog()
+    else updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_facility_mapping')
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$unlock_facilities_confirm, {
+    removeModal()
+    req(isTRUE(district_ready()))
+    health_area_locked_to_current(FALSE)
+    updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_facility_mapping')
+  }, ignoreInit = TRUE)
 
   observeEvent(input$main_tabs, {
     # Dismisses the intro tab's loading modal (mod_intro_tab_v2.R's
@@ -672,7 +707,7 @@ main_app_server <- function(input, output, session, auth) {
         isTRUE(health_area_locked_to_current())) {
       cat("[navdebug] REDIRECT to tab_health_area_mapping -- reason: locked-out tab with health_area_locked_to_current TRUE\n")
       updateTabsetPanel(session, 'main_tabs', selected = 'tab_health_area_mapping')
-      showNotification('This district\'s health areas are already mapped -- Landmarks and Facilities are locked for this session.',
+      showNotification('This district\'s health areas are already mapped. To change coordination sites, click the Facilities tab.',
                        type = 'message', duration = 4)
       return()
     }

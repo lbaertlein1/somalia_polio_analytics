@@ -34,9 +34,19 @@ app_ui <- function() {
           // fight the correct R-side logic.
 
           // Header tab click
+          // A tab marked data-confirm (Facilities on an already-mapped
+          // district) asks the server first, which shows a warning dialog
+          // and switches tab only if the user goes on.
           $(document).on('click', '.hdr-tab:not(.hdr-tab-locked)', function() {
             var val = $(this).data('tab');
+            if ($(this).attr('data-confirm') === '1') {
+              Shiny.setInputValue('confirm_tab_click', { tab: val, nonce: Date.now() }, { priority: 'event' });
+              return;
+            }
             $('#main_tabs a[data-value=\"' + val + '\"]').tab('show');
+          });
+          Shiny.addCustomMessageHandler('set_tab_confirm', function(msg) {
+            $('.hdr-tab[data-tab=\"' + msg.value + '\"]').attr('data-confirm', msg.confirm ? '1' : '0');
           });
 
           // Sync header active state + invalidate maps
