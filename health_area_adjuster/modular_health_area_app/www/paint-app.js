@@ -2892,7 +2892,14 @@ function getApp(msg) {
     });
 
     Shiny.addCustomMessageHandler('paint_request_vertex_geojson', function(msg) {
-      getApp(msg).emitVertexGeojson();
+      // Deferred like paint_enter_vertex_mode / paint_save_vertex_edits:
+      // Save and Submit send all three back-to-back, and those two run in
+      // setTimeout(0) callbacks. Emitting synchronously here sent the
+      // PREVIOUS boundary before the fresh trace had even started, so
+      // painting then Save showed (and stored) the old shapes. Timers run
+      // in order, so this now fires after the trace and repair finish.
+      const app = getApp(msg);
+      setTimeout(() => app.emitVertexGeojson(), 0);
     });
 
     Shiny.addCustomMessageHandler('paint_vertex_undo', function(msg) {
