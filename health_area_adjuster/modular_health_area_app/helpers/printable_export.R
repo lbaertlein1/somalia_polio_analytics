@@ -109,22 +109,67 @@ library(png)
 # to on satellite/topo (see .district_overview_map()). pch matches the
 # map's own symbol shapes (21 circle -> 19, 24 triangle -> 17).
 .legend_items <- function(basemap, team = FALSE, fac = TRUE, idp = TRUE, subdiv = TRUE, urban = TRUE,
-                          area_label = 'Health Area Boundary') {
+                          area_label = 'Health Area Boundary', site_types = NULL) {
+  # site_types: registry site types drawn on the page (NULL = registry not
+  # used, so the old IDP triangle entry applies).
   # Only layers actually drawn on the page get a legend entry -- each
   # flag says whether that page has any of that layer. area_label names
   # the page's main (thick) boundary -- a team page's is the team area.
   high_contrast <- basemap %in% c('satellite', 'topo')
   items <- list(
     if (fac)    list(swatch_col = '#0d9488', shape = 'point', pch = 19, label = 'SIA Coordination Site'),
-    if (idp)    list(swatch_col = '#FF1744', shape = 'point', pch = 17, label = 'IDP Settlement'),
+    if (idp && is.null(site_types)) list(swatch_col = '#FF1744', shape = 'point', pch = 17, label = 'IDP Settlement'),
                 list(swatch_col = if (high_contrast) '#00e5ff' else 'black', shape = 'line', label = area_label),
     if (team)   list(swatch_col = if (high_contrast) '#00e5ff' else '#334155', shape = 'line', label = 'Team Area Boundary'),
     if (subdiv) list(swatch_col = .SUBDIV_COL, shape = 'line', lwd = .SUBDIV_LWD, lty = 'dashed', label = 'Subdivision'),
     if (urban)  list(swatch_col = '#0d9488', shape = 'line', lty = 'dashed', label = 'Urban Extent')
   )
-  Filter(Negate(is.null), items)
+  sites <- lapply(site_types %||% character(0), function(t) {
+    st <- .EXPORT_SITE_STYLE[.EXPORT_SITE_STYLE$type == t, ]
+    list(swatch_col = st$fill, shape = 'point', pch = st$shape, label = st$label)
+  })
+  c(Filter(Negate(is.null), items[1]), sites, Filter(Negate(is.null), items[-1]))
 }
 .has_rows <- function(x) !is.null(x) && nrow(x) > 0
+
+# Microplan site symbols (site registry, helpers/sites_registry.R): one
+# fillable shape + colour per type, so types stay distinguishable in
+# greyscale too. Coordination sites keep the teal circle.
+.EXPORT_SITE_STYLE <- data.frame(
+  type  = c('idp', 'nomadic', 'fixed', 'cross_border', 'transit'),
+  label = c('IDP Settlement', 'Nomadic Settlement', 'Fixed Site', 'Cross-border Site', 'Transit Site'),
+  fill  = c('#FF1744', '#f97316', '#2563eb', '#a21caf', '#111827'),
+  shape = c(24L, 23L, 22L, 25L, 21L),
+  stringsAsFactors = FALSE)
+.site_types_in <- function(sites_sf) if (!.has_rows(sites_sf)) character(0) else
+  intersect(.EXPORT_SITE_STYLE$type, unique(sites_sf$site_type))
+
+# Active sites in one district from the site registry, as points. NULL if
+# the registry can't be read at all (no Central, no saved copy) -- the
+# export then falls back to the version's own IDP snapshot. A district
+# with no sites gives a 0-row sf, not NULL.
+.registry_sites_sf <- function(district_code) {
+  if (!exists('sites_registry_get', mode = 'function') || !nzchar(district_code %||% '')) return(NULL)
+  s <- tryCatch(sites_registry_get()$sites, error = function(e) NULL)
+  if (is.null(s)) return(NULL)
+  s <- s[s$district_code == district_code & s$status != 'removed' & s$site_type %in% .EXPORT_SITE_STYLE$type, , drop = FALSE]
+  s <- sites_with_coords(s)
+  s <- s[!is.na(s$lat) & !is.na(s$lon), , drop = FALSE]
+  sf::st_as_sf(s, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
+}
+
+# One tmap layer per site type present. size = tmap symbol size.
+.site_layers <- function(sites_sf, size, high_contrast) {
+  m <- NULL
+  for (t in .site_types_in(sites_sf)) {
+    st <- .EXPORT_SITE_STYLE[.EXPORT_SITE_STYLE$type == t, ]
+    layer <- tmap::tm_shape(sites_sf[sites_sf$site_type == t, ]) +
+      tmap::tm_symbols(fill = st$fill, size = size, shape = st$shape,
+                       col = 'white', col_alpha = 1, lwd = if (high_contrast) 2 else 1)
+    m <- if (is.null(m)) layer else m + layer
+  }
+  m
+}
 
 # Subdivision lines (drawn right after the health area/district borders)
 # and their name labels (drawn later, above the other line layers). Split
@@ -398,6 +443,17 @@ library(png)
   )
   zone_val   <- zr$zone_name %||% ''
   region_val <- zr$region_name %||% ''
+
+  # Microplan sites from the site registry (all types). When available,
+  # its IDP settlements replace the version's own IDP snapshot for the
+  # IDP counts and map symbols.
+  sites_sf <- .registry_sites_sf(zr$DIST_UID %||% '')
+  if (!is.null(sites_sf)) {
+    idp_reg <- sites_sf[sites_sf$site_type == 'idp', , drop = FALSE]
+    idp_sf <- if (nrow(idp_reg) > 0) idp_reg else NULL
+  }
+  cat(sprintf('[export_debug] checkpoint: registry sites | is.null=%s | nrow=%s\n',
+              is.null(sites_sf), if (is.null(sites_sf)) 'NA' else nrow(sites_sf)))
   cat(sprintf('[export_debug] checkpoint: zone/region resolved | zone="%s" | region="%s"\n', zone_val, region_val))
 
   area_names <- setdiff(unique(as.character(ha_sf$dfa_name)), extra_dfa_names)
@@ -420,7 +476,7 @@ library(png)
   cat('[export_debug] checkpoint: ha_stats_list complete for all areas\n')
 
   list(ha_sf = ha_sf, district_sf = district_sf, team_sf = team_sf, team_targets = team_targets,
-       fac_sf = fac_sf, idp_sf = idp_sf, pop_sf = pop_sf, urban_sf = urban_sf, subdiv_sf = subdiv_sf,
+       fac_sf = fac_sf, idp_sf = idp_sf, sites_sf = sites_sf, pop_sf = pop_sf, urban_sf = urban_sf, subdiv_sf = subdiv_sf,
        zone_val = zone_val, region_val = region_val, area_names = area_names,
        ha_stats_list = ha_stats_list, u5_rast = u5_rast,
        team_field_overrides_by_ha = team_field_overrides_by_ha,
@@ -461,6 +517,9 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
   ctx <- .prepare_export_context(version, district_name, campaign_id, u5_rast, show_pop)
   ha_sf <- ctx$ha_sf; district_sf <- ctx$district_sf; team_sf <- ctx$team_sf
   team_targets <- ctx$team_targets; fac_sf <- ctx$fac_sf; idp_sf <- ctx$idp_sf
+  sites_sf <- ctx$sites_sf
+  # Site types drawn on a page, for its legend (NULL = no registry).
+  site_legend <- function(x) if (is.null(sites_sf)) NULL else .site_types_in(x)
   pop_sf <- ctx$pop_sf; urban_sf <- ctx$urban_sf; subdiv_sf <- ctx$subdiv_sf
   zone_val <- ctx$zone_val; region_val <- ctx$region_val
   area_names <- ctx$area_names; ha_stats_list <- ctx$ha_stats_list
@@ -532,14 +591,15 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     # One overview page per selected basemap.
     for (bm in basemaps) {
       cat(sprintf('[export_debug] checkpoint: about to build .district_overview_map() tmap object (basemap=%s)\n', bm))
-      overview_tm <- .district_overview_map(ha_sf, district_sf, fac_sf, idp_sf, district_name, campaign_name, .resolve_basemap(bm), bm, pop_sf, subdiv_sf, urban_sf, zoom_for(ha_sf))
+      overview_tm <- .district_overview_map(ha_sf, district_sf, fac_sf, idp_sf, district_name, campaign_name, .resolve_basemap(bm), bm, pop_sf, subdiv_sf, urban_sf, zoom_for(ha_sf), sites_sf = sites_sf)
       cat('[export_debug] checkpoint: .district_overview_map() tmap object built OK -- about to print via .print_chrome_page()\n')
       .print_chrome_page(
         overview_tm,
         title = district_name, campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
         cards = overview_cards, basemap = bm,
         legend_items = .legend_items(bm, fac = .has_rows(fac_sf), idp = .has_rows(idp_sf),
-                                     subdiv = .has_rows(subdiv_sf), urban = .has_rows(urban_sf)),
+                                     subdiv = .has_rows(subdiv_sf), urban = .has_rows(urban_sf),
+                                     site_types = site_legend(sites_sf)),
         page_width_in = unname(size['width']), page_height_in = unname(size['height'])
       )
       page_done(paste('Overview map', if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
@@ -570,6 +630,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
     if (want_ha) {
       fac_one    <- .points_within(fac_sf, ha_one)
       idp_one    <- .points_within(idp_sf, ha_one)
+      sites_one  <- .points_within(sites_sf, ha_one)
       pop_one    <- clip_to(pop_sf, ha_one)
       subdiv_one <- clip_to(subdiv_sf, ha_one)
       urban_one  <- clip_to(urban_sf, ha_one)
@@ -582,14 +643,15 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
       )
       for (bm in basemaps) {
         cat(sprintf('[export_debug] checkpoint "%s": about to build .health_area_detail_map() tmap object (basemap=%s)\n', nm, bm))
-        detail_tm <- .health_area_detail_map(ha_one, team_one, fac_one, idp_one, nm, district_name, .resolve_basemap(bm), bm, pop_one, subdiv_one, urban_one, zoom_for(ha_one))
+        detail_tm <- .health_area_detail_map(ha_one, team_one, fac_one, idp_one, nm, district_name, .resolve_basemap(bm), bm, pop_one, subdiv_one, urban_one, zoom_for(ha_one), sites_one = sites_one, use_sites = !is.null(sites_sf))
         cat(sprintf('[export_debug] checkpoint "%s": .health_area_detail_map() tmap object built OK -- about to print\n', nm))
         .print_chrome_page(
           detail_tm,
           title = paste0(district_name, ' — ', nm), campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
           cards = ha_cards, basemap = bm,
           legend_items = .legend_items(bm, team = .has_rows(team_one), fac = .has_rows(fac_one), idp = .has_rows(idp_one),
-                                       subdiv = .has_rows(subdiv_one), urban = .has_rows(urban_one)),
+                                       subdiv = .has_rows(subdiv_one), urban = .has_rows(urban_one),
+                                       site_types = site_legend(sites_one)),
           page_width_in = unname(size['width']), page_height_in = unname(size['height'])
         )
         page_done(paste(nm, if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
@@ -617,6 +679,7 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
         t_one      <- team_one[team_one$dfa_name == tn, , drop = FALSE]
         fac_t      <- .points_within(fac_sf, t_one)
         idp_t      <- .points_within(idp_sf, t_one)
+        sites_t    <- .points_within(sites_sf, t_one)
         pop_t      <- clip_to(pop_sf, t_one)
         subdiv_t   <- clip_to(subdiv_sf, t_one)
         urban_t    <- clip_to(urban_sf, t_one)
@@ -629,14 +692,14 @@ build_printable_maps_pdf <- function(file, version, district_name, campaign_id,
           show_teams = FALSE
         )
         for (bm in basemaps) {
-          team_tm <- .health_area_detail_map(t_one, NULL, fac_t, idp_t, tn, district_name, .resolve_basemap(bm), bm, pop_t, subdiv_t, urban_t, zoom_for(t_one))
+          team_tm <- .health_area_detail_map(t_one, NULL, fac_t, idp_t, tn, district_name, .resolve_basemap(bm), bm, pop_t, subdiv_t, urban_t, zoom_for(t_one), sites_one = sites_t, use_sites = !is.null(sites_sf))
           .print_chrome_page(
             team_tm,
             title = paste0(district_name, ' — ', nm, ' — ', tn), campaign_name = campaign_name, zone = zone_val, region = region_val, district = district_name,
             cards = t_cards, basemap = bm,
             legend_items = .legend_items(bm, fac = .has_rows(fac_t), idp = .has_rows(idp_t),
                                          subdiv = .has_rows(subdiv_t), urban = .has_rows(urban_t),
-                                         area_label = 'Team Area Boundary'),
+                                         area_label = 'Team Area Boundary', site_types = site_legend(sites_t)),
             page_width_in = unname(size['width']), page_height_in = unname(size['height'])
           )
           page_done(paste(nm, '—', tn, if (length(basemaps) > 1) paste0('(', bm, ')') else ''))
@@ -1227,18 +1290,26 @@ scope_pop_scale <- function(snap) {
   # legend overlaid on the map itself).
   grid::pushViewport(grid::viewport(x = 0, width = legend_w, just = 'left'))
   grid::grid.rect(x = 0.03, width = 0.94, just = 'left', gp = grid::gpar(fill = 'white', col = '#cbd5e1'))
+  # More than 5 entries (site types add up to 5) -> two columns.
   n_items <- max(length(legend_items), 1)
-  item_h  <- 1 / n_items
+  n_col   <- if (n_items > 5) 2 else 1
+  n_row   <- ceiling(n_items / n_col)
+  item_h  <- 0.92 / n_row
+  col_w   <- 0.94 / n_col
   for (i in seq_along(legend_items)) {
     it <- legend_items[[i]]
-    y_center <- 1 - (i - 0.5) * item_h
+    col_i <- (i - 1) %/% n_row; row_i <- (i - 1) %% n_row
+    x0 <- 0.03 + col_i * col_w
+    y_center <- 0.96 - (row_i + 0.5) * item_h
     if (identical(it$shape, 'line')) {
-      grid::grid.lines(x = c(0.08, 0.16), y = c(y_center, y_center),
+      grid::grid.lines(x = x0 + c(0.04, 0.11) / n_col * 1.3, y = c(y_center, y_center),
                        gp = grid::gpar(col = it$swatch_col, lwd = it$lwd %||% 2, lty = it$lty %||% 'solid'))
     } else {
-      grid::grid.points(x = 0.12, y = y_center, pch = it$pch %||% 19, size = grid::unit(0.5, 'char'), gp = grid::gpar(col = it$swatch_col))
+      grid::grid.points(x = x0 + 0.075 / n_col * 1.3, y = y_center, pch = it$pch %||% 19, size = grid::unit(0.5, 'char'),
+                        gp = grid::gpar(col = it$swatch_col, fill = it$swatch_col))
     }
-    grid::grid.text(it$label, x = 0.19, y = y_center, just = 'left', gp = grid::gpar(fontsize = 8, col = '#334155'))
+    grid::grid.text(it$label, x = x0 + 0.16 / n_col * 1.3, y = y_center, just = 'left',
+                    gp = grid::gpar(fontsize = if (n_col > 1) 7 else 8, col = '#334155'))
   }
   grid::upViewport()
 
@@ -1270,7 +1341,7 @@ scope_pop_scale <- function(snap) {
   sources <- paste0(
     'Sources: ', basemap_label, '; WorldPop Global2 ', if (length(wp_year)) wp_year else '',
     ' (100m U5 grid, scaled to In-Scope Field U5 where entered); ',
-    'CCCM IDP dataset, Nov 2025; MHFL, ', current_month_year, ' \u2014 WHO Somalia'
+    'Site registry (ODK; IDP from CCCM master list, Nov 2025); MHFL, ', current_month_year, ' \u2014 WHO Somalia'
   )
   produced <- paste0('Produced: ', format(Sys.Date(), '%d %b %Y'))
   disclaimer <- 'Disclaimer: For campaign planning purposes only - boundaries and figures are estimates, not official statistics.'
@@ -1397,7 +1468,9 @@ scope_pop_scale <- function(snap) {
   grid::upViewport()  # pop the 0.25in margin viewport
 }
 
-.district_overview_map <- function(ha_sf, district_sf, fac_sf, idp_sf, district_name, campaign_name, basemap_provider = NULL, basemap = 'none', pop_sf = NULL, subdiv_sf = NULL, urban_sf = NULL, zoom = .PRINT_BASEMAP_ZOOM) {
+.district_overview_map <- function(ha_sf, district_sf, fac_sf, idp_sf, district_name, campaign_name, basemap_provider = NULL, basemap = 'none', pop_sf = NULL, subdiv_sf = NULL, urban_sf = NULL, zoom = .PRINT_BASEMAP_ZOOM, sites_sf = NULL) {
+  # sites_sf: registry sites (all types; NULL = registry unavailable, draw
+  # the version's own IDP points instead).
   # Satellite imagery has no consistent light/dark base the way OSM's pale
   # cartography does, so plain black borders and unadorned text can
   # disappear against it -- neon blue + white-halo text/markers now also
@@ -1486,6 +1559,13 @@ scope_pop_scale <- function(snap) {
     if (!is.null(sub_lbl)) m <- m + sub_lbl
   }
 
+  # Registry sites under the coordination sites, so a coordination site
+  # sharing a spot with a fixed site stays visible.
+  if (!is.null(sites_sf)) {
+    sl <- .site_layers(sites_sf, .PRINT_PT_SIZE$overview[['idp']], needs_high_contrast)
+    if (!is.null(sl)) m <- m + sl
+  }
+
   if (!is.null(fac_sf) && nrow(fac_sf) > 0)
     # No facility_name label here (dot only) -- the health area's own
     # dfa_name callout below already identifies it, and health areas are
@@ -1496,7 +1576,7 @@ scope_pop_scale <- function(snap) {
       tmap::tm_symbols(fill = '#0d9488', size = .PRINT_PT_SIZE$overview[['fac']], shape = 21,
                        col = 'white', col_alpha = 1, lwd = if (needs_high_contrast) 2 else 1)
 
-  if (!is.null(idp_sf) && nrow(idp_sf) > 0)
+  if (is.null(sites_sf) && !is.null(idp_sf) && nrow(idp_sf) > 0)
     m <- m + tmap::tm_shape(idp_sf) +
       tmap::tm_symbols(fill = '#FF1744', size = .PRINT_PT_SIZE$overview[['idp']], shape = 24,
                        col = 'white', col_alpha = 1, lwd = if (needs_high_contrast) 2 else 1)
@@ -1514,7 +1594,9 @@ scope_pop_scale <- function(snap) {
     tmap::tm_compass(position = c('right', 'top'), bg.color = if (needs_high_contrast) 'white' else NA)
 }
 
-.health_area_detail_map <- function(ha_one, team_one, fac_one, idp_one, area_name, district_name, basemap_provider = NULL, basemap = 'none', pop_one = NULL, subdiv_one = NULL, urban_one = NULL, zoom = .PRINT_BASEMAP_ZOOM) {
+.health_area_detail_map <- function(ha_one, team_one, fac_one, idp_one, area_name, district_name, basemap_provider = NULL, basemap = 'none', pop_one = NULL, subdiv_one = NULL, urban_one = NULL, zoom = .PRINT_BASEMAP_ZOOM, sites_one = NULL, use_sites = FALSE) {
+  # use_sites: registry available -- draw sites_one (may be NULL = none in
+  # this area) instead of the version's own IDP points.
   # Same satellite + topo gate as .district_overview_map() above.
   needs_high_contrast <- basemap %in% c('satellite', 'topo')
   ha_border_col   <- if (needs_high_contrast) '#00e5ff' else 'black'
@@ -1564,7 +1646,10 @@ scope_pop_scale <- function(snap) {
     if (!is.null(sub_lbl)) m <- m + sub_lbl
   }
 
-  if (!is.null(idp_one) && nrow(idp_one) > 0)
+  if (use_sites) {
+    sl <- .site_layers(sites_one, .PRINT_PT_SIZE$detail[['idp']], needs_high_contrast)
+    if (!is.null(sl)) m <- m + sl
+  } else if (!is.null(idp_one) && nrow(idp_one) > 0)
     m <- m + tmap::tm_shape(idp_one) +
       tmap::tm_symbols(fill = '#FF1744', size = .PRINT_PT_SIZE$detail[['idp']], shape = 24,
                        col = 'white', col_alpha = 1, lwd = if (needs_high_contrast) 2 else 1)

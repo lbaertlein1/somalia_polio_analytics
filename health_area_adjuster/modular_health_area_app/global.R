@@ -84,6 +84,7 @@ source('odk_forms/mhfl_mirror.R', local = TRUE)
 source('odk_forms/sites_sync.R', local = TRUE)
 source('odk_forms/idp_source.R', local = TRUE)
 source('odk_forms/nomad_source.R', local = TRUE)
+source('helpers/sites_registry.R', local = TRUE)
 
 sourceCpp('bfs_propagate.cpp')
 
@@ -241,6 +242,7 @@ source('tabs/team_area/mod_team_area_tab.R', local = TRUE)   # v2: restructured 
 source('tabs/admin/mod_admin_tab_v2.R', local = TRUE)
 
 source('tabs/export/mod_export_tab.R', local = TRUE)   # new — standalone export page, current/published data only
+source('tabs/sites/mod_sites_tab.R', local = TRUE)     # site registry (ODK project 36) -- view / add / edit / remove
 
 # =============================================================================
 # WorldPop raster — loaded after helpers are sourced (load_worldpop_u5_raster

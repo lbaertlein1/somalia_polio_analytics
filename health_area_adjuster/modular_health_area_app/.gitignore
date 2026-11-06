@@ -2,3 +2,4 @@
 *.gpkg
 .env
 .env_v2
+cache/

@@ -127,6 +127,7 @@ app_ui <- function() {
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_facility_mapping', 'Facilities'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_health_area_mapping',     'Health Areas'),
             tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_team_area_mapping',       'Team Areas'),
+            tags$button(class = 'hdr-tab hdr-tab-locked', `data-tab` = 'tab_sites', 'Sites'),
             tags$button(class = 'hdr-tab', `data-tab` = 'tab_export', 'Export')
           ),
 
@@ -175,6 +176,9 @@ app_ui <- function() {
           
           tabPanel(title = 'Team Areas',      value = 'tab_team_area_mapping',
                    teamAreaTabUI('team_area')),
+
+          tabPanel(title = 'Sites',           value = 'tab_sites',
+                   sitesTabUI('sites')),
 
           tabPanel(title = 'Export',          value = 'tab_export',
                    exportTabUI('export'))
