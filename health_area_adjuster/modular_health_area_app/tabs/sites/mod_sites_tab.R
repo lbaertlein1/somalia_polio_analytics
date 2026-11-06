@@ -43,6 +43,7 @@ sitesTabUI <- function(id) {
       div(class = "mini-label", "Site types shown"),
       checkboxGroupInput(ns("types_shown"), NULL, choices = setNames(names(SITE_TYPES), SITE_TYPES),
                          selected = names(SITE_TYPES)),
+      checkboxInput(ns("show_removed"), "Also show removed sites (grey) -- click one to restore it", FALSE),
       tags$hr(style = "margin: 10px 0;"),
       div(class = "mini-label", "Add a site"),
       selectInput(ns("add_type"), NULL, width = "100%",
@@ -204,9 +205,11 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
     }
 
     # ---- sites in the district / in view ---------------------------------------
-    district_sites <- reactive({
+    # Every site in the district, removed ones included (they can be
+    # shown and restored); district_sites() = active only.
+    all_district_sites <- reactive({
       r <- reg(); req(!is.null(r$sites))
-      s <- r$sites[r$sites$district_code == district_code() & r$sites$status != "removed", , drop = FALSE]
+      s <- r$sites[r$sites$district_code == district_code(), , drop = FALSE]
       s <- sites_with_coords(s)
       s <- s[!is.na(s$lat) & !is.na(s$lon), , drop = FALSE]
       s$health_area <- NA_character_; s$team_area <- NA_character_
@@ -224,8 +227,9 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
       }
       s
     })
+    district_sites <- reactive({ s <- all_district_sites(); s[s$status != "removed", , drop = FALSE] })
     view_sites <- reactive({
-      s <- district_sites()
+      s <- if (isTRUE(input$show_removed)) all_district_sites() else district_sites()
       s <- s[s$site_type %in% (input$types_shown %||% character(0)), , drop = FALSE]
       vp <- view_poly()
       if (!is.null(vp)) {
@@ -244,9 +248,12 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
     })
     output$status <- renderUI({
       s <- view_sites()
+      n_removed <- sum(s$status == "removed")
+      s <- s[s$status != "removed", , drop = FALSE]
       counts <- table(factor(s$site_type, levels = names(SITE_TYPES)))
       tagList(
-        tags$p(style = "font-size: 12px; margin: 0 0 4px;", tags$b(nrow(s)), " sites in ", view_label()),
+        tags$p(style = "font-size: 12px; margin: 0 0 4px;", tags$b(nrow(s)), " sites in ", view_label(),
+               if (n_removed) tags$span(style = "color: #94a3b8;", sprintf(" (+%d removed)", n_removed))),
         tags$ul(style = "font-size: 11px; color: #475569; padding-left: 16px; margin: 0 0 8px;",
                 lapply(names(SITE_TYPES), function(t) if (counts[[t]] > 0)
                   tags$li(tags$span(style = sprintf("color:%s;", .SITE_TYPE_HEX[[t]]), "● "),
@@ -319,14 +326,21 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
       s <- view_sites()
       p <- leaflet::leafletProxy("map") |> leaflet::clearGroup("sites")
       if (!nrow(s)) return()
-      icons <- leaflet::awesomeIcons(
-        icon = vapply(s$site_type, function(t) .SITE_ICON[[t]]$icon %||% "circle", ""),
-        markerColor = vapply(s$site_type, function(t) .SITE_ICON[[t]]$color %||% "gray", ""),
-        iconColor = "white", library = "fa")
-      p |> leaflet::addAwesomeMarkers(
-        lng = s$lon, lat = s$lat, layerId = s$`__id`, icon = icons, group = "sites",
-        label = sprintf("%s (%s)", s$site_name, SITE_TYPES[s$site_type]),
-        options = leaflet::markerOptions(draggable = !offline()))
+      removed <- s$status == "removed"
+      add <- function(p, k, draggable) {
+        if (!any(k)) return(p)
+        x <- s[k, , drop = FALSE]
+        icons <- leaflet::awesomeIcons(
+          icon = vapply(x$site_type, function(t) .SITE_ICON[[t]]$icon %||% "circle", ""),
+          markerColor = if (draggable) vapply(x$site_type, function(t) .SITE_ICON[[t]]$color %||% "gray", "") else "lightgray",
+          iconColor = "white", library = "fa")
+        leaflet::addAwesomeMarkers(p,
+          lng = x$lon, lat = x$lat, layerId = x$`__id`, icon = icons, group = "sites",
+          label = sprintf("%s (%s)%s", x$site_name, SITE_TYPES[x$site_type], if (draggable) "" else " -- removed"),
+          options = leaflet::markerOptions(draggable = draggable && !offline()))
+      }
+      p <- add(p, removed, FALSE)
+      add(p, !removed, TRUE)
     })
 
     # ---- Excel download of the sites in view -------------------------------------
@@ -341,7 +355,7 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
           `U5 population` = suppressWarnings(as.integer(s$u5_population)),
           `Last confirmed` = s$last_confirmed_date, `Crossing point` = s$crossing_name,
           `MHFL facility ID` = s$linked_facility_id, Notes = s$notes, Source = s$source,
-          `Last edited by` = s$last_edited_by, `Last edited at` = s$last_edited_at, `Site ID` = s$`__id`,
+          `Last edited by` = s$last_edited_by, `Last edited at` = s$last_edited_at, Status = s$status, `Site ID` = s$`__id`,
           check.names = FALSE, stringsAsFactors = FALSE)
     })
     output$download <- downloadHandler(
@@ -353,14 +367,16 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
       s <- view_sites()
       sub_lbl <- setNames(SITE_SUBTYPES$label, SITE_SUBTYPES$name)[s$site_subtype]
       sub_lbl <- ifelse(is.na(sub_lbl), s$site_subtype, sub_lbl)
+      d <- data.frame(
+        Site = s$site_name, Type = unname(SITE_TYPES[s$site_type]),
+        Kind = unname(sub_lbl),
+        `U5 pop.` = suppressWarnings(as.integer(s$u5_population)),
+        `Health area` = s$health_area, `Team area` = s$team_area,
+        `Last edited by` = s$last_edited_by,
+        check.names = FALSE, stringsAsFactors = FALSE)
+      if (isTRUE(input$show_removed)) d$Status <- ifelse(s$status == "removed", "Removed", "Active")
       DT::datatable(
-        data.frame(
-          Site = s$site_name, Type = unname(SITE_TYPES[s$site_type]),
-          Kind = unname(sub_lbl),
-          `U5 pop.` = suppressWarnings(as.integer(s$u5_population)),
-          `Health area` = s$health_area, `Team area` = s$team_area,
-          `Last edited by` = s$last_edited_by,
-          check.names = FALSE, stringsAsFactors = FALSE),
+        d,
         selection = "single", rownames = FALSE,
         options = list(pageLength = 10, dom = "ftip", order = list(list(1, "asc"), list(0, "asc"))))
     })
@@ -429,9 +445,20 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
     }, ignoreInit = TRUE)
 
     open_existing <- function(id) {
-      s <- district_sites(); site <- s[s$`__id` == id, , drop = FALSE]
+      s <- all_district_sites(); site <- s[s$`__id` == id, , drop = FALSE]
       req(nrow(site) == 1)
       editing(list(id = id, version = site$`__version`, site = as.list(site)))
+      if (identical(site$status, "removed")) {
+        reason <- REMOVAL_REASONS[site$removal_reason]
+        showModal(modalDialog(
+          title = paste("Removed site:", site$site_name),
+          tags$p(sprintf("%s, removed by %s on %s.", SITE_TYPES[[site$site_type]] %||% site$site_type,
+                         site$last_edited_by, substr(site$last_edited_at, 1, 10))),
+          tags$p("Reason: ", if (is.na(reason)) site$removal_reason else reason),
+          footer = tagList(modalButton("Close"),
+                           actionButton(ns("f_restore"), "Restore site", class = "btn btn-primary"))))
+        return(invisible())
+      }
       show_site_modal(as.list(site), site$lat, site$lon, site$site_type)
     }
     guard_editable <- function() {
@@ -593,6 +620,21 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
       } else if (identical(res, "ok")) {
         removeModal(); editing(NULL)
         showNotification("Site removed.", type = "message", duration = 3)
+        reg(sites_registry_get())
+      }
+    })
+
+    observeEvent(input$f_restore, {
+      ed <- editing(); req(!is.null(ed$id), guard_editable())
+      res <- tryCatch(sites_registry_update(ed$id, ed$version, list(status = "active", removal_reason = ""),
+                                            username_r() %||% "app user"),
+                      error = function(e) { showNotification(paste("Could not restore:", conditionMessage(e)), type = "error"); "error" })
+      if (identical(res, "conflict")) {
+        showNotification("Someone else changed this site in the meantime -- reloaded.", type = "warning", duration = 6)
+        load_registry(force = TRUE)
+      } else if (identical(res, "ok")) {
+        removeModal(); editing(NULL)
+        showNotification("Site restored.", type = "message", duration = 3)
         reg(sites_registry_get())
       }
     })
