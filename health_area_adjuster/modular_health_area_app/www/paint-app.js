@@ -2379,15 +2379,36 @@ function getApp(msg) {
 
         idpPoints.forEach((pt) => {
           if (pt.lon == null || pt.lat == null || isNaN(pt.lon) || isNaN(pt.lat)) return;
-          const marker = L.circleMarker([pt.lat, pt.lon], {
-            radius: 4,
-            color: '#ffffff',
-            weight: 1,
-            opacity: 1,
-            fillColor: '#FF1744',
-            fillOpacity: 0.9,
-            interactive: false
-          });
+          // Microplan site registry points carry their own shape+colour
+          // symbol (pt.icon, an SVG data URL -- same symbols as the Sites
+          // tab and printed maps). They go in their own pane just above
+          // the area polygons, and are non-interactive so painting clicks
+          // pass straight through. Points without an icon keep the old
+          // red dot.
+          let marker;
+          if (pt.icon) {
+            if (!this.map.getPane('sitesPane')) {
+              const pane = this.map.createPane('sitesPane');
+              pane.style.zIndex = 405;
+              pane.style.pointerEvents = 'none';
+            }
+            marker = L.marker([pt.lat, pt.lon], {
+              pane: 'sitesPane',
+              interactive: false,
+              keyboard: false,
+              icon: L.icon({ iconUrl: pt.icon, iconSize: [13, 13], iconAnchor: [6.5, 6.5] })
+            });
+          } else {
+            marker = L.circleMarker([pt.lat, pt.lon], {
+              radius: 4,
+              color: '#ffffff',
+              weight: 1,
+              opacity: 1,
+              fillColor: '#FF1744',
+              fillOpacity: 0.9,
+              interactive: false
+            });
+          }
 
           if (pt.name) {
             marker.bindTooltip(String(pt.name), {

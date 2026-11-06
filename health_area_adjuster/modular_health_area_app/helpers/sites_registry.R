@@ -67,6 +67,100 @@ sites_with_coords <- function(s) {
   s
 }
 
+# ---- site symbols (shared by every map) ---------------------------------------
+# Same shape + colour per type as the printed maps (.EXPORT_SITE_STYLE,
+# helpers/printable_export.R), as small SVG images for plain Leaflet
+# markers. Not leaflet's awesome markers: the app loads its own Leaflet
+# (ui.R, for paint-app.js) next to the R leaflet package's copy, and the
+# awesome-markers plugin ends up on the wrong copy -- nothing is drawn.
+.SITE_TYPE_HEX <- setNames(.EXPORT_SITE_STYLE$fill, .EXPORT_SITE_STYLE$type)
+.site_marker_svg <- function(type, fill = .SITE_TYPE_HEX[[type]]) {
+  shape <- .EXPORT_SITE_STYLE$shape[.EXPORT_SITE_STYLE$type == type]
+  body <- switch(as.character(shape),
+    `24` = '<polygon points="11,2 20,19 2,19"/>',            # triangle (IDP)
+    `23` = '<polygon points="11,1 21,11 11,21 1,11"/>',       # diamond (nomadic)
+    `22` = '<rect x="3" y="3" width="16" height="16"/>',      # square (fixed)
+    `25` = '<polygon points="2,3 20,3 11,20"/>',              # down triangle (cross-border)
+    '<circle cx="11" cy="11" r="8"/>')                        # circle (transit)
+  svg <- sprintf('<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><g fill="%s" stroke="white" stroke-width="2">%s</g></svg>',
+                 fill, body)
+  paste0("data:image/svg+xml;charset=UTF-8,", utils::URLencode(svg, reserved = TRUE))
+}
+.SITE_MARKER_URL <- vapply(.EXPORT_SITE_STYLE$type, .site_marker_svg, "")
+.SITE_MARKER_URL_REMOVED <- vapply(.EXPORT_SITE_STYLE$type, function(t) .site_marker_svg(t, "#9ca3af"), "")
+
+# Legend lines for the site symbols (HTML string, one line per type), for
+# the map legends that used to show a single red "IDP Settlement" dot.
+site_legend_html <- function() {
+  lbl <- setNames(.EXPORT_SITE_STYLE$label, .EXPORT_SITE_STYLE$type)
+  paste0(vapply(.EXPORT_SITE_STYLE$type, function(t) sprintf(
+    '<img src="%s" width="11" height="11" style="margin-right:6px;vertical-align:middle;">%s<br>',
+    .SITE_MARKER_URL[[t]], lbl[[t]]), ""), collapse = "")
+}
+
+# ---- registry sites as map context / IDP source for the other tabs -------------
+# Active registry sites inside a district boundary (by location, so it
+# matches what the map shows whatever boundary set is in use). Returned in
+# the same shape the old ArcGIS IDP fetch returned -- idp_name,
+# idp_population, point geometry -- plus site_type and icon, so every
+# existing consumer keeps working. types = NULL -> all site types.
+# NULL if the registry can't be read at all (no Central, no saved copy).
+registry_context_sf <- function(district_sf, types = NULL) {
+  if (is.null(district_sf) || nrow(district_sf) == 0) return(NULL)
+  s <- tryCatch(sites_registry_get()$sites, error = function(e) NULL)
+  if (is.null(s)) return(NULL)
+  s <- s[s$status != "removed" & s$site_type %in% (types %||% .EXPORT_SITE_STYLE$type), , drop = FALSE]
+  s <- sites_with_coords(s)
+  s <- s[!is.na(s$lat) & !is.na(s$lon), , drop = FALSE]
+  empty <- sf::st_sf(idp_name = character(0), idp_population = numeric(0), site_type = character(0),
+                     icon = character(0), geometry = sf::st_sfc(crs = 4326))
+  if (!nrow(s)) return(empty)
+  pts <- sf::st_as_sf(s, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+  old_s2 <- suppressMessages(sf::sf_use_s2(FALSE)); on.exit(suppressMessages(sf::sf_use_s2(old_s2)))
+  area <- sf::st_union(sf::st_make_valid(sf::st_transform(sf::st_geometry(district_sf), 4326)))
+  inside <- lengths(suppressMessages(sf::st_intersects(pts, area))) > 0
+  pts <- pts[inside, , drop = FALSE]
+  if (!nrow(pts)) return(empty)
+  out <- sf::st_sf(
+    idp_name = pts$site_name,
+    idp_population = suppressWarnings(as.numeric(pts$u5_population)),
+    site_type = pts$site_type,
+    icon = unname(.SITE_MARKER_URL[pts$site_type]),
+    lon = pts$lon, lat = pts$lat,
+    geometry = sf::st_geometry(pts))
+  out
+}
+
+# IDP settlements for a health-area version: the registry's IDP sites in
+# the district, or the version's own saved snapshot (snap$idp_settlements,
+# from the retired ArcGIS fetch) if the registry can't be read. Plain data
+# frame with lon/lat, like the snapshot.
+version_idp_points <- function(snap, district_name, campaign_id = NULL) {
+  dsf <- tryCatch(districts_shp_for_campaign(campaign_id) |> dplyr::filter(district_name == !!district_name),
+                  error = function(e) NULL)
+  reg <- if (!is.null(dsf) && nrow(dsf)) tryCatch(registry_context_sf(dsf, types = "idp"), error = function(e) NULL)
+  if (!is.null(reg)) return(sf::st_drop_geometry(reg[, c("idp_name", "idp_population", "lon", "lat")]))
+  snap$idp_settlements
+}
+
+# All registry sites in a district, for downloads (data frame with lon/lat).
+district_sites_df <- function(district_name, campaign_id = NULL) {
+  dsf <- tryCatch(districts_shp_for_campaign(campaign_id) |> dplyr::filter(district_name == !!district_name),
+                  error = function(e) NULL)
+  if (is.null(dsf) || !nrow(dsf)) return(NULL)
+  s <- tryCatch(sites_registry_get()$sites, error = function(e) NULL)
+  reg <- tryCatch(registry_context_sf(dsf), error = function(e) NULL)
+  if (is.null(reg) || !nrow(reg) || is.null(s)) return(NULL)
+  s <- sites_with_coords(s[s$status != "removed", , drop = FALSE])
+  s <- s[paste(s$lon, s$lat, s$site_name) %in% paste(reg$lon, reg$lat, reg$idp_name), , drop = FALSE]
+  sub <- if (nrow(SITE_SUBTYPES)) setNames(SITE_SUBTYPES$label, SITE_SUBTYPES$name)[s$site_subtype] else NA
+  data.frame(site_name = s$site_name, site_type = unname(SITE_TYPES[s$site_type]),
+             kind = ifelse(is.na(sub), s$site_subtype, sub), crossing_name = s$crossing_name,
+             u5_population = suppressWarnings(as.numeric(s$u5_population)),
+             last_confirmed = s$last_confirmed_date, site_id = s$`__id`,
+             lon = s$lon, lat = s$lat, stringsAsFactors = FALSE)
+}
+
 site_label <- function(site_name, site_type, district_name) {
   sprintf("%s - %s (%s)", site_name, SITE_TYPES[[site_type]] %||% site_type, district_name)
 }

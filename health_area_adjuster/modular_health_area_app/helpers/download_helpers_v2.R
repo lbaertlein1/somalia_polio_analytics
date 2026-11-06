@@ -113,6 +113,10 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
 
   snap <- version$snap %||% list()
+  # IDP settlements from the site registry (old snapshot as fallback), and
+  # every registry site in the district for a microplan_sites file.
+  snap$idp_settlements <- tryCatch(version_idp_points(snap, district_name, campaign_id), error = function(e) snap$idp_settlements)
+  sites_dl <- tryCatch(district_sites_df(district_name, campaign_id), error = function(e) NULL)
 
   .write_sf <- function(sf_obj, fname) {
     if (is.null(sf_obj) || nrow(sf_obj) == 0) return(invisible(NULL))
@@ -243,6 +247,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     sf::st_write(pts, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
   }
   .write_points_df(snap$idp_settlements, paste0('idp_settlements.', spec$ext))
+  .write_points_df(sites_dl,             paste0('microplan_sites.', spec$ext))
   .write_points_df(snap$landmarks,       paste0('landmarks.', spec$ext))
 
   # Facilities — combine locked ODK snapshot + user-added sites, same as
@@ -312,6 +317,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
   ha_parts       <- list()
   team_parts     <- list()
   idp_parts      <- list()
+  site_parts     <- list()
   landmark_parts <- list()
   fac_parts      <- list()
   subdiv_parts   <- list()
@@ -332,6 +338,11 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     region_val <- if (nrow(dinfo) > 0) as.character(dinfo$region_name[1]) else ''
 
     snap <- version$snap %||% list()
+    snap$idp_settlements <- tryCatch(version_idp_points(snap, dname, campaign_id), error = function(e) snap$idp_settlements)
+    sd <- tryCatch(district_sites_df(dname, campaign_id), error = function(e) NULL)
+    if (!is.null(sd) && nrow(sd) > 0)
+      site_parts[[dname]] <- sf::st_as_sf(sd, coords = c('lon', 'lat'), crs = 4326, remove = FALSE) |>
+        dplyr::mutate(district_name = dname)
 
     # Subdivisions and campaign/urban extent for THIS district -- same
     # per-district fetch as the single-district export path above, same
@@ -462,6 +473,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
   .write_combined_sf(ha_parts,       paste0('health_areas.', spec$ext))
   .write_combined_sf(team_parts,     paste0('team_areas.', spec$ext))
   .write_combined_sf(idp_parts,      paste0('idp_settlements.', spec$ext))
+  .write_combined_sf(site_parts,     paste0('microplan_sites.', spec$ext))
   .write_combined_sf(landmark_parts, paste0('landmarks.', spec$ext))
   .write_combined_sf(subdiv_parts,   paste0('subdivisions.', spec$ext))
   .write_combined_sf(urban_parts,    paste0('campaign_extent.', spec$ext))

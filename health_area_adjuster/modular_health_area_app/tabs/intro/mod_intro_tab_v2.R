@@ -705,10 +705,12 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       # .build_health_area_summary_table()'s idp_sf argument was never
       # being passed at all (silently defaulting to NULL) rather than
       # any problem with the underlying stored data.
+      # Now from the site registry (version_idp_points()), falling back
+      # to the version's old saved snapshot.
       idp_sf <- NULL
-      if (!is.null(ver$snap$idp_settlements) && nrow(ver$snap$idp_settlements) > 0 &&
-          all(c('lon', 'lat') %in% names(ver$snap$idp_settlements))) {
-        idp_sf <- sf::st_as_sf(ver$snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
+      idp_df <- tryCatch(version_idp_points(ver$snap, dname, cid), error = function(e) NULL)
+      if (!is.null(idp_df) && nrow(idp_df) > 0 && all(c('lon', 'lat') %in% names(idp_df))) {
+        idp_sf <- sf::st_as_sf(idp_df, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
       }
 
       ta_parts <- list()

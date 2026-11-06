@@ -180,23 +180,9 @@ facilityTabServer <- function(
         editing_locked(FALSE)
         needs_odk_fetch(TRUE)
       }
-      if (!is.null(snap$idp_settlements) && nrow(snap$idp_settlements) > 0) {
-        needs_idp_fetch(FALSE)
-        # Same conversion the OTHER restore path (below, in this same
-        # file) already does correctly -- submitted IDP data is stored
-        # as a plain data.frame with lon/lat columns (st_drop_geometry()
-        # at submit time, see submit_stage_fn('idp', ...)), not as an sf
-        # object. Assigning snap$idp_settlements directly here (the bug
-        # this replaces) left rv$idp_sf as exactly that plain data.frame
-        # -- which crashed facilityMapServer's own idp_sf_r consumer the
-        # moment it tried sf::st_geometry() on it ("no applicable method
-        # for 'st_geometry' applied to an object of class 'data.frame'").
-        rv$idp_sf <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
-        # Restoring valid data counts as "resolved" the same way a fresh
-        # fetch completing does -- otherwise .submit_all()'s guard would
-        # block submission even though good IDP data is already present.
-        rv$idp_fetch_done <- TRUE
-      }
+      # Site context (IDP and other microplan sites) always comes from the
+      # live site registry (do_idp_fetch below); an old version's saved IDP
+      # snapshot is no longer restored.
     }, ignoreNULL = TRUE, ignoreInit = TRUE, priority = -1)
 
     # -------------------------------------------------------------------------
@@ -466,9 +452,10 @@ facilityTabServer <- function(
       rv$idp_error   <- NULL
 
       tryCatch({
-        fresh <- fetch_idp_settlements_for_district(db)
+        # Microplan site registry (all site types; context only).
+        fresh <- registry_context_sf(db)
         if (is.null(fresh) || nrow(fresh) == 0) {
-          rv$idp_error <- 'No IDP settlements found (or no source configured).'
+          rv$idp_error <- 'No microplan sites in this district (or the site registry could not be read).'
           rv$idp_sf    <- NULL
         } else {
           rv$idp_sf <- fresh
@@ -656,13 +643,8 @@ facilityTabServer <- function(
       # empty -- so this uses idp_fetch_done specifically, which is only
       # ever set once the fetch (or a snapshot restore) has actually
       # resolved one way or the other.
-      if (!isTRUE(rv$idp_fetch_done)) {
-        showNotification(
-          'IDP settlement data is still loading for this district -- please wait a moment and submit again.',
-          type = 'warning', duration = 6
-        )
-        return(invisible(FALSE))
-      }
+      # (The IDP-loading guard is gone: IDP settlements now live in the
+      # site registry and are no longer saved with the facilities stage.)
       df    <- facility_data()
       seeds <- df |> dplyr::filter(polio_sia_coordination_site == "Yes")
       # Each coordination site's name becomes its health area's name, so
@@ -677,12 +659,6 @@ facilityTabServer <- function(
         # A failed save already showed its own error -- leave the stage
         # unlocked and unsubmitted so the user can retry.
         if (isFALSE(submit_stage_fn('facilities', list(odk_sf = rv$odk_sf, app_sf = rv$app_sf))))
-          return(invisible(FALSE))
-        if (!is.null(rv$idp_sf) && nrow(rv$idp_sf) > 0 &&
-            isFALSE(submit_stage_fn('idp', list(idp_settlements = sf::st_drop_geometry(
-              dplyr::mutate(rv$idp_sf, lon = sf::st_coordinates(rv$idp_sf)[, 1],
-                            lat = sf::st_coordinates(rv$idp_sf)[, 2])
-            )))))
           return(invisible(FALSE))
       }
       submitted_facilities(seeds)

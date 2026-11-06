@@ -222,11 +222,7 @@ healthAreaPopulationServer <- function(
               tags$span(class = "legend-box", style = "background:#FFFFFF;"),
               tags$span("Unpopulated")),
           tags$div(style = "height:4px;"),
-          div(class = "legend-row",
-              tags$span(style = paste0(
-                "display:inline-block;width:10px;height:10px;border-radius:50%;",
-                "background:#FF1744;margin-right:6px;vertical-align:middle;")),
-              tags$span("IDP Settlement")),
+          div(class = "legend-row", HTML(site_legend_html())),
           div(class = "legend-row",
               tags$span(style = paste0(
                 "display:inline-block;width:14px;height:0;border-top:2px dashed #0d9488;",

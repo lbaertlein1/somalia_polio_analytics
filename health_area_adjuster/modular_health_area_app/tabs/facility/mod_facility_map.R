@@ -413,8 +413,7 @@ facilityMapServer <- function(
         'background:#7c3aed;margin-right:6px;vertical-align:middle;"></span>Landmark<br>',
         '<span style="display:inline-block;width:14px;height:0;border-top:2px dashed #7c3aed;',
         'margin-right:6px;vertical-align:middle;"></span>Subdivision<br>',
-        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;',
-        'background:#FF1744;margin-right:6px;vertical-align:middle;"></span>IDP Settlement<br>',
+        site_legend_html(),
         '<span style="display:inline-block;width:14px;height:0;border-top:2px dashed #0d9488;',
         'margin-right:6px;vertical-align:middle;"></span>Settlement Extent',
         pop_section,
@@ -693,6 +692,18 @@ facilityMapServer <- function(
       if (is.null(idp) || nrow(idp) == 0 || !inherits(idp, 'sf')) return()
 
       coords <- sf::st_coordinates(sf::st_geometry(idp))
+      # Microplan site registry points (registry_context_sf()): one symbol
+      # per site type, same as the Sites tab and printed maps.
+      if ('icon' %in% names(idp)) {
+        lbl <- ifelse(is.na(idp$idp_population), idp$idp_name,
+                      paste0(idp$idp_name, ' (U5 ', format(round(idp$idp_population), big.mark = ','), ')'))
+        lbl <- paste0(lbl, ' – ', unname(SITE_TYPES[idp$site_type]))
+        proxy |> leaflet::addMarkers(
+          lng = coords[, 1], lat = coords[, 2], group = 'idp_settlements',
+          icon = leaflet::icons(iconUrl = unname(idp$icon), iconWidth = 14, iconHeight = 14, iconAnchorX = 7, iconAnchorY = 7),
+          label = unname(lbl), options = leaflet::markerOptions(keyboard = FALSE))
+        return()
+      }
       for (i in seq_len(nrow(idp))) {
         label <- idp$idp_name[i]
         if (!is.na(idp$idp_population[i]))

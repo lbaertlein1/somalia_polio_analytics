@@ -19,31 +19,6 @@
 #     last saved copy is shown read-only.
 # =============================================================================
 
-# Site markers: the same shape + colour per type as the printed maps
-# (.EXPORT_SITE_STYLE, helpers/printable_export.R), drawn as small SVG
-# images on plain Leaflet markers (draggable).
-#
-# Not leaflet's awesome markers: this app loads its own Leaflet (ui.R, for
-# paint-app.js) next to the R leaflet package's copy, and the awesome-
-# markers plugin attaches to one copy while the map uses the other, so no
-# awesome marker was ever drawn ("Cannot read properties of undefined
-# (reading 'icon')" in the browser).
-.SITE_TYPE_HEX <- setNames(.EXPORT_SITE_STYLE$fill, .EXPORT_SITE_STYLE$type)
-.site_marker_svg <- function(type, fill = .SITE_TYPE_HEX[[type]]) {
-  shape <- .EXPORT_SITE_STYLE$shape[.EXPORT_SITE_STYLE$type == type]
-  body <- switch(as.character(shape),
-    `24` = '<polygon points="11,2 20,19 2,19"/>',            # triangle (IDP)
-    `23` = '<polygon points="11,1 21,11 11,21 1,11"/>',       # diamond (nomadic)
-    `22` = '<rect x="3" y="3" width="16" height="16"/>',      # square (fixed)
-    `25` = '<polygon points="2,3 20,3 11,20"/>',              # down triangle (cross-border)
-    '<circle cx="11" cy="11" r="8"/>')                        # circle (transit)
-  svg <- sprintf('<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><g fill="%s" stroke="white" stroke-width="2">%s</g></svg>',
-                 fill, body)
-  paste0("data:image/svg+xml;charset=UTF-8,", utils::URLencode(svg, reserved = TRUE))
-}
-.SITE_MARKER_URL <- vapply(.EXPORT_SITE_STYLE$type, .site_marker_svg, "")
-.SITE_MARKER_URL_REMOVED <- vapply(.EXPORT_SITE_STYLE$type, function(t) .site_marker_svg(t, "#9ca3af"), "")
-
 sitesTabUI <- function(id) {
   ns <- NS(id)
   fluidRow(

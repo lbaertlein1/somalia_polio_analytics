@@ -158,7 +158,9 @@ main_app_server <- function(input, output, session, auth) {
     req(!is.null(active_district()))
     dsf <- tryCatch(full_district_sf(), error = function(e) NULL)
     req(!is.null(dsf))
-    idp_context_rv(tryCatch(fetch_idp_settlements_for_district(dsf), error = function(e) NULL))
+    # Microplan site registry (all site types) -- replaces the old ArcGIS
+    # IDP fetch; same columns, so every map's context layer keeps working.
+    idp_context_rv(tryCatch(registry_context_sf(dsf), error = function(e) NULL))
   }, ignoreInit = TRUE)
 
   # Whether the CURRENT (active_campaign_id, active_district) pair is

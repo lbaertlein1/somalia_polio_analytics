@@ -192,7 +192,11 @@ idp_sf_to_points_list <- function(idp_sf) {
     # hypothetical.
     lon <- unname(coords[1, 1]); lat <- unname(coords[1, 2])
     if (is.na(lon) || is.na(lat)) return(NULL)
-    list(lat = lat, lon = lon, name = idp_sf$idp_name[i])
+    # icon/type: registry sites (registry_context_sf()) carry their
+    # shape+colour symbol; paint-app.js draws it instead of a red dot.
+    list(lat = lat, lon = lon, name = idp_sf$idp_name[i],
+         icon = if ('icon' %in% names(idp_sf)) idp_sf$icon[i] else NULL,
+         type = if ('site_type' %in% names(idp_sf)) idp_sf$site_type[i] else NULL)
   })
   Filter(Negate(is.null), pts)
 }
