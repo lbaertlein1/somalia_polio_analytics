@@ -1584,10 +1584,24 @@ function getApp(msg) {
   },
 
   emitVertexGeojson: function() {
-    const geojson = buildAreaGeojson(this.areaRings, this.vertexPos, this.vertexAreaNameKey || 'dfa_name');
+    const inputId = this.vertexGeojsonInputId || (this.assignmentsInputId + '_vertex_geojson');
+    // Always answer, even when the boundary can't be built (e.g. vertex
+    // mode never started): R waits on this reply -- Back to Painting
+    // leaves vertex mode only once it arrives.
+    let geojsonText = null, error = null;
+    try {
+      // Outside vertex mode (e.g. entering it threw) areaRings is whatever
+      // an EARLIER refinement left behind -- sending that would store an
+      // old boundary as if it were the current one.
+      if (this.mode !== 'vertex') throw new Error('refinement did not start -- check the browser console');
+      geojsonText = JSON.stringify(buildAreaGeojson(this.areaRings, this.vertexPos, this.vertexAreaNameKey || 'dfa_name'));
+    } catch (err) {
+      console.error('emitVertexGeojson: could not build the boundary', err);
+      error = String((err && err.message) || err);
+    }
     Shiny.setInputValue(
-      this.vertexGeojsonInputId || (this.assignmentsInputId + '_vertex_geojson'),
-      { geojson: JSON.stringify(geojson), epoch: this.paintEpoch, nonce: Date.now() },
+      inputId,
+      { geojson: geojsonText, error: error, epoch: this.paintEpoch, nonce: Date.now() },
       { priority: 'event' }
     );
   },

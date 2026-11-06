@@ -893,6 +893,7 @@ teamAreaTabServer <- function(
       # is a safe no-op if already in paint mode -- exitVertexMode() only
       # rasterizes if a vertex engine actually exists, and its layer-restore
       # loop is empty if nothing was ever hidden.
+      rv$exit_after_refine_save <- FALSE   # a new scene drops any pending Back to Painting
       send_paint_message("paint_exit_vertex_mode")
       if (isTRUE(in_vertex_mode())) {
         in_vertex_mode(FALSE)
@@ -1242,8 +1243,24 @@ teamAreaTabServer <- function(
     observeEvent(controls$refine_boundaries_click(), {
       req(tab_active())
       if (isTRUE(in_vertex_mode())) {
-        send_paint_message("paint_exit_vertex_mode")
-        in_vertex_mode(FALSE)
+        # Back to Painting saves the refinements first (same as Save
+        # Refinements), then leaves vertex mode once the saved boundary
+        # comes back -- see exit_after_refine_save in the vertex_geojson
+        # observer. Leaving straight away cut the save off mid-way.
+        # Clicked again while that save is still pending (e.g. the browser
+        # never answered): leave vertex mode now rather than stay stuck.
+        if (isTRUE(rv$exit_after_refine_save)) {
+          rv$exit_after_refine_save <- FALSE
+          send_paint_message("paint_exit_vertex_mode")
+          in_vertex_mode(FALSE)
+          controls$set_vertex_mode_ui(FALSE)
+          return()
+        }
+        rv$exit_after_refine_save <- TRUE
+        pending_action("manual_refine_save")
+        send_paint_message("paint_save_vertex_edits")
+        send_paint_message("paint_request_vertex_geojson")
+        return()
       } else {
         req(!is.null(rv$grid_sf))
         # See mod_health_area_tab.R's identical guard for why -- same
@@ -1348,7 +1365,25 @@ teamAreaTabServer <- function(
     #                           more "combine everything cached" step.
     observeEvent(map_mod$vertex_geojson(), {
       payload <- map_mod$vertex_geojson()
-      req(!is.null(payload$geojson))
+      # Back to Painting: leave vertex mode once this response has been
+      # handled -- on.exit, so it also happens when the save fails or the
+      # boundary comes back empty, rather than leaving the button stuck.
+      if (isTRUE(rv$exit_after_refine_save)) {
+        rv$exit_after_refine_save <- FALSE
+        on.exit({
+          send_paint_message("paint_exit_vertex_mode")
+          in_vertex_mode(FALSE)
+          controls$set_vertex_mode_ui(FALSE)
+        }, add = TRUE)
+      }
+      # No boundary in the reply (the browser couldn't build one): say so and
+      # drop the pending save/submit rather than leave it waiting.
+      if (is.null(payload$geojson)) {
+        if (!is.null(payload$error))
+          showNotification(paste("Could not read the refined boundary:", payload$error), type = "error", duration = 8)
+        pending_action(NULL)
+        return()
+      }
       act <- pending_action()
 
       parsed <- tryCatch(geojsonsf::geojson_sf(payload$geojson), error = function(e) e)
