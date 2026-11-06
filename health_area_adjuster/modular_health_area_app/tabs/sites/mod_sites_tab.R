@@ -19,15 +19,30 @@
 #     last saved copy is shown read-only.
 # =============================================================================
 
-.SITE_ICON <- list(
-  idp          = list(icon = "home",     color = "red"),
-  nomadic      = list(icon = "flag",     color = "orange"),
-  fixed        = list(icon = "plus",     color = "blue"),
-  cross_border = list(icon = "exchange", color = "purple"),
-  transit      = list(icon = "bus",      color = "black")
-)
-.SITE_TYPE_HEX <- c(idp = "#d63e2a", nomadic = "#f69730", fixed = "#38aadd",
-                    cross_border = "#d252b9", transit = "#303030")
+# Site markers: the same shape + colour per type as the printed maps
+# (.EXPORT_SITE_STYLE, helpers/printable_export.R), drawn as small SVG
+# images on plain Leaflet markers (draggable).
+#
+# Not leaflet's awesome markers: this app loads its own Leaflet (ui.R, for
+# paint-app.js) next to the R leaflet package's copy, and the awesome-
+# markers plugin attaches to one copy while the map uses the other, so no
+# awesome marker was ever drawn ("Cannot read properties of undefined
+# (reading 'icon')" in the browser).
+.SITE_TYPE_HEX <- setNames(.EXPORT_SITE_STYLE$fill, .EXPORT_SITE_STYLE$type)
+.site_marker_svg <- function(type, fill = .SITE_TYPE_HEX[[type]]) {
+  shape <- .EXPORT_SITE_STYLE$shape[.EXPORT_SITE_STYLE$type == type]
+  body <- switch(as.character(shape),
+    `24` = '<polygon points="11,2 20,19 2,19"/>',            # triangle (IDP)
+    `23` = '<polygon points="11,1 21,11 11,21 1,11"/>',       # diamond (nomadic)
+    `22` = '<rect x="3" y="3" width="16" height="16"/>',      # square (fixed)
+    `25` = '<polygon points="2,3 20,3 11,20"/>',              # down triangle (cross-border)
+    '<circle cx="11" cy="11" r="8"/>')                        # circle (transit)
+  svg <- sprintf('<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><g fill="%s" stroke="white" stroke-width="2">%s</g></svg>',
+                 fill, body)
+  paste0("data:image/svg+xml;charset=UTF-8,", utils::URLencode(svg, reserved = TRUE))
+}
+.SITE_MARKER_URL <- vapply(.EXPORT_SITE_STYLE$type, .site_marker_svg, "")
+.SITE_MARKER_URL_REMOVED <- vapply(.EXPORT_SITE_STYLE$type, function(t) .site_marker_svg(t, "#9ca3af"), "")
 
 sitesTabUI <- function(id) {
   ns <- NS(id)
@@ -256,7 +271,7 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
                if (n_removed) tags$span(style = "color: #94a3b8;", sprintf(" (+%d removed)", n_removed))),
         tags$ul(style = "font-size: 11px; color: #475569; padding-left: 16px; margin: 0 0 8px;",
                 lapply(names(SITE_TYPES), function(t) if (counts[[t]] > 0)
-                  tags$li(tags$span(style = sprintf("color:%s;", .SITE_TYPE_HEX[[t]]), "● "),
+                  tags$li(tags$img(src = .SITE_MARKER_URL[[t]], width = 12, height = 12, style = "vertical-align: -1px;"), " ",
                           sprintf("%s: %d", SITE_TYPES[[t]], counts[[t]])))),
         tags$p(style = "font-size: 11px; color: #94a3b8;",
                "Loaded ", format(reg()$fetched_at %||% Sys.time(), "%H:%M"))
@@ -330,13 +345,11 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
       add <- function(p, k, draggable) {
         if (!any(k)) return(p)
         x <- s[k, , drop = FALSE]
-        # USE.NAMES = FALSE matters: htmlwidgets sends a NAMED vector to the
-        # browser as an object, not an array, and then no marker is drawn.
-        icons <- leaflet::awesomeIcons(
-          icon = vapply(x$site_type, function(t) .SITE_ICON[[t]]$icon %||% "circle", "", USE.NAMES = FALSE),
-          markerColor = if (draggable) vapply(x$site_type, function(t) .SITE_ICON[[t]]$color %||% "gray", "", USE.NAMES = FALSE) else "lightgray",
-          iconColor = "white", library = "fa")
-        leaflet::addAwesomeMarkers(p,
+        # unname(): htmlwidgets sends a NAMED vector to the browser as an
+        # object rather than an array, and then no marker is drawn.
+        urls <- unname((if (draggable) .SITE_MARKER_URL else .SITE_MARKER_URL_REMOVED)[x$site_type])
+        icons <- leaflet::icons(iconUrl = urls, iconWidth = 22, iconHeight = 22, iconAnchorX = 11, iconAnchorY = 11)
+        leaflet::addMarkers(p,
           lng = x$lon, lat = x$lat, layerId = x$`__id`, icon = icons, group = "sites",
           label = unname(sprintf("%s (%s)%s", x$site_name, SITE_TYPES[x$site_type], if (draggable) "" else " -- removed")),
           options = leaflet::markerOptions(draggable = draggable && !offline()))
