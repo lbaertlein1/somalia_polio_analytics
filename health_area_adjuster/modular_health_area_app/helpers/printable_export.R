@@ -172,7 +172,7 @@ library(png)
   }
   if (numbered && !is.null(m) && 'site_no' %in% names(sites_sf))
     m <- m + tmap::tm_shape(sites_sf) +
-      tmap::tm_text('site_no', size = 0.5, col = '#0f172a', fontface = 'bold', xmod = 0.55, ymod = 0.45,
+      tmap::tm_text('site_no', size = 0.32, col = '#0f172a', fontface = 'bold',
                     options = tmap::opt_tm_text(shadow = TRUE))
   m
 }
