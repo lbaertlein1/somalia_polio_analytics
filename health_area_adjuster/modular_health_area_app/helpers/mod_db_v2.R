@@ -191,6 +191,9 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
 .to_json_for_db <- function(x) {
   if (is.null(x)) return(NA_character_)
   if (inherits(x, 'sf') || inherits(x, 'sfc')) {
+    # Stored boundaries must be valid on the sphere too, not just on a flat
+    # map -- see s2_repair_polygons() (app_helpers.R).
+    x <- tryCatch(s2_repair_polygons(x, 'save to database'), error = function(e) x)
     tryCatch(geojsonsf::sf_geojson(x), error = function(e) NA_character_)
   } else {
     tryCatch(jsonlite::toJSON(x, auto_unbox = TRUE, null = 'null'),
