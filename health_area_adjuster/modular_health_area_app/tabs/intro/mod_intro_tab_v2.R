@@ -123,10 +123,10 @@ introTabUI <- function(id) {
           /* Text columns may shrink to nothing (minmax(0, ...)) and truncate
              with an ellipsis -- fixed minimums made rows wider than the panel
              on a laptop and clipped the last button. The actions column is
-             sized to the three buttons. */
+             sized to the four buttons. */
           .intro-dist-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 1.1fr) minmax(0, 0.7fr) 206px;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 1.1fr) minmax(0, 0.7fr) 248px;
             align-items: center; gap: 6px; padding: 4px 6px 4px 8px; font-size: 12.5px; color: #1e293b;
             border-left: 4px solid transparent; border-bottom: 1px solid #f1f5f9;
           }
@@ -969,7 +969,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         HTML(sprintf(
           '<div class="intro-dist-row" data-name="%s" data-region="%s" data-status="%s" data-ha="%s" data-ta="%s" style="border-left-color:%s;">
              <div class="intro-dist-name" title="%s">%s</div><div class="intro-dist-region-cell" title="%s">%s</div><div>%s</div><div>%s</div>
-             <div class="intro-dist-actions">%s%s%s</div>
+             <div class="intro-dist-actions">%s%s%s%s</div>
            </div>',
           htmltools::htmlEscape(tolower(dn), attribute = TRUE), htmltools::htmlEscape(rn, attribute = TRUE),
           status_keys[i], ha_key, ta_key, .CAMPAIGN_MAP_COLORS[[status_keys[i]]],
@@ -979,7 +979,10 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
           .action_btn('view_row_click', 'View', dn, has_ha, 'Nothing published yet'),
           .action_btn('ha_row_click', 'Health areas', dn, next_step = status_keys[i] == 'ha_not_mapped'),
           .action_btn('team_row_click', 'Team areas', dn, has_ha, 'Needs health areas first',
-                      next_step = status_keys[i] == 'ha_mapped_ta_pending')
+                      next_step = status_keys[i] == 'ha_mapped_ta_pending'),
+          # Sites: opens the Sites tab on this district (any district,
+          # mapped or not -- the site registry isn't tied to a version).
+          .action_btn('sites_row_click', 'Sites', dn)
         ))
       }
 
@@ -1019,6 +1022,10 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
     # session-manager instance directly, since those instances live outside it.
     ha_request   <- reactiveVal(NULL)
     team_request <- reactiveVal(NULL)
+    sites_request <- reactiveVal(NULL)
+    observeEvent(input$sites_row_click, {
+      sites_request(list(district_name = input$sites_row_click, campaign_id = campaign_id(), ts = Sys.time()))
+    }, ignoreInit = TRUE)
 
     # ── Health Areas drill-down ─────────────────────────────────────────────
     picker_district <- reactiveVal(NULL)
@@ -1363,6 +1370,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
       campaign_id                  = campaign_id,
       activate_health_area_request = reactive(ha_request()),
       activate_team_area_request   = reactive(team_request()),
+      open_sites_request           = reactive(sites_request()),
       health_area_renamed          = reactive(rename_ha_done())
     )
   })

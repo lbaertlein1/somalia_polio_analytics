@@ -106,10 +106,13 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
     observeEvent(district_sf(), { if (is.null(reg())) load_registry() }, ignoreInit = FALSE)
 
     # ---- health areas / team areas (session campaign's current versions) ----
-    ha_sf <- reactive({
+    shared_version <- reactive({
       dn <- district_name(); cid <- campaign_id_r()
       if (is.null(cid)) return(NULL)
-      v <- tryCatch(db_get_shared_version(pool, cid, dn), error = function(e) NULL)
+      tryCatch(db_get_shared_version(pool, cid, dn), error = function(e) NULL)
+    })
+    ha_sf <- reactive({
+      v <- shared_version()
       g <- if (is.null(v)) NULL else (v$snap$smoothed_dfa_sf %||% v$snap$saved_dfa_sf)
       if (is.null(g) || !nrow(g)) return(NULL)
       g <- g[!g$dfa_name %in% extra_dfa_names, , drop = FALSE]
@@ -147,6 +150,9 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
     level <- reactive(if (!is.null(sel_team())) "team" else if (!is.null(sel_ha())) "ha" else "district")
 
     output$context <- renderUI({
+      if (is.null(district_r()) || !nzchar(district_r()))
+        return(div(style = "padding: 10px; background: #f1f5f9; border-radius: 6px; font-size: 13px; margin-bottom: 10px;",
+                   "Choose a district: click ", tags$b("Sites"), " on a district in the Introduction table."))
       tagList(
         div(class = "mini-label", "District"),
         tags$p(style = "font-size: 15px; font-weight: 600; margin: 0 0 8px;", district_name()),
@@ -283,9 +289,14 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
       d <- district_sf()
       bb <- sf::st_bbox(d)
       leaflet::leaflet(options = leaflet::leafletOptions(doubleClickZoom = FALSE)) |>
+        # Coordination sites in their own pane above the site markers
+        # (markerPane is 600), so dense IDP markers don't hide them.
+        leaflet::addMapPane("coord_sites", zIndex = 650) |>
         leaflet::addProviderTiles("OpenStreetMap", group = "Streets") |>
         leaflet::addProviderTiles("Esri.WorldImagery", group = "Satellite") |>
-        leaflet::addLayersControl(baseGroups = c("Streets", "Satellite"), position = "topright") |>
+        leaflet::addLayersControl(baseGroups = c("Streets", "Satellite"),
+                                  overlayGroups = c("SIA coordination sites", "Subdivisions", "Settlement extents"),
+                                  position = "topright") |>
         leaflet::addPolygons(data = d, fill = FALSE, color = "#0f172a", weight = 2.5, group = "district") |>
         leaflet::fitBounds(bb[["xmin"]], bb[["ymin"]], bb[["xmax"]], bb[["ymax"]]) |>
         # Report marker drags back to Shiny as input$map_marker_dragend.
@@ -330,6 +341,64 @@ sitesTabServer <- function(id, campaign_id_r, district_r, health_area_r = reacti
         bb <- sf::st_bbox(district_sf())
         p |> leaflet::flyToBounds(bb[["xmin"]], bb[["ymin"]], bb[["xmax"]], bb[["ymax"]])
       }
+    })
+
+    # ---- context layers (same sources and styles as the other tabs' maps) ----
+    # SIA coordination sites: the published health-area version's facilities
+    # marked as coordination sites (as on the printed maps).
+    coord_sf <- reactive({
+      v <- shared_version(); if (is.null(v)) return(NULL)
+      parts <- Filter(function(x) inherits(x, "sf") && nrow(x) > 0, list(v$snap$odk_sf, v$snap$app_sf))
+      if (!length(parts)) return(NULL)
+      keep <- c("facility_name", "polio_sia_coordination_site")
+      parts <- lapply(parts, function(x) { for (k in keep) if (!k %in% names(x)) x[[k]] <- NA_character_
+                                           sf::st_transform(x[, keep], 4326) })
+      f <- do.call(rbind, parts)
+      f <- f[!is.na(f$polio_sia_coordination_site) & f$polio_sia_coordination_site == "Yes", , drop = FALSE]
+      if (nrow(f)) f else NULL
+    })
+    subdivisions_sf <- reactive({
+      url <- tryCatch(db_get_data_source_url(pool, "subdivisions_url"), error = function(e) NULL)
+      if (is.null(url) || !nzchar(url)) url <- ARCGIS_SUBDIVISIONS_URL
+      tryCatch(fetch_subdivisions_for_district(district_sf(), url = url), error = function(e) NULL)
+    })
+    extents_sf <- reactive(tryCatch(fetch_settlement_extents_for_district(district_sf()), error = function(e) NULL))
+
+    observe({
+      req(input$map_ready)
+      p <- leaflet::leafletProxy("map") |> leaflet::clearGroup("Subdivisions")
+      subs <- subdivisions_sf()
+      if (is.null(subs) || !nrow(subs)) return()
+      p <- p |> leaflet::addPolygons(data = subs, group = "Subdivisions", color = "#7c3aed", weight = 2,
+                                     dashArray = "6,4", fill = FALSE, opacity = 0.8)
+      if ("subdivision_name" %in% names(subs)) {
+        pts <- tryCatch(sf::st_point_on_surface(sf::st_transform(subs, 3857)) |> sf::st_transform(4326),
+                        error = function(e) suppressWarnings(sf::st_centroid(subs)))
+        xy <- sf::st_coordinates(pts)
+        p |> leaflet::addLabelOnlyMarkers(lng = xy[, 1], lat = xy[, 2], group = "Subdivisions",
+          label = unname(as.character(subs$subdivision_name)),
+          labelOptions = leaflet::labelOptions(noHide = TRUE, direction = "center", textOnly = TRUE,
+            style = list("font-size" = "11px", "font-weight" = "700", "color" = "#7c3aed")))
+      }
+    })
+    observe({
+      req(input$map_ready)
+      p <- leaflet::leafletProxy("map") |> leaflet::clearGroup("Settlement extents")
+      se <- extents_sf()
+      if (is.null(se) || !nrow(se)) return()
+      p |> leaflet::addPolygons(data = se, group = "Settlement extents", color = "#0d9488", weight = 2,
+                                dashArray = "2,4", fill = FALSE, opacity = 0.8)
+    })
+    observe({
+      req(input$map_ready)
+      p <- leaflet::leafletProxy("map") |> leaflet::clearGroup("SIA coordination sites")
+      f <- coord_sf()
+      if (is.null(f)) return()
+      xy <- sf::st_coordinates(f)
+      p |> leaflet::addCircleMarkers(lng = xy[, 1], lat = xy[, 2], group = "SIA coordination sites",
+        radius = 7, color = "white", weight = 2, fillColor = "#0d9488", fillOpacity = 1,
+        label = unname(paste("SIA coordination site:", f$facility_name)),
+        options = leaflet::pathOptions(pane = "coord_sites", interactive = TRUE, bubblingMouseEvents = FALSE))
     })
 
     # Site markers. redraw() forces a redraw (e.g. to snap a dragged marker

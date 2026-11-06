@@ -107,10 +107,10 @@ read_nomad_camps <- function(existing_sites = NULL, today = Sys.Date(), log = fu
       site_name = name, lat = mean(c$lat), lon = mean(c$lon),
       u5_population = if (all(is.na(c$u5))) NA else sum(c$u5, na.rm = TRUE),
       last_confirmed_date = format(max(c$rec_date), "%Y-%m-%d"),
-      notes = sprintf("%d nomadic group(s)%s%s. Movement: %s. Expected to stay until %s. Nomad Mapping Survey.",
+      notes = sprintf("%d nomadic group(s)%s%s. Type of movement (survey): %s. Expected to stay until %s. Nomad Mapping Survey.",
                       nrow(c), if (length(codes)) paste0(": ", paste(utils::head(codes, 6), collapse = ", ")) else "",
                       if (length(codes) > 6) sprintf(" +%d more", length(codes) - 6) else "",
-                      if (length(mv)) paste(mv, collapse = "/") else "unknown",
+                      if (length(mv)) paste(tools::toTitleCase(mv), collapse = "/") else "unknown",
                       if (any(!is.na(c$last) & c$last <= today + 730)) format(max(c$last[c$last <= today + 730], na.rm = TRUE), "%d %b %Y") else "unknown"),
       stringsAsFactors = FALSE)
   }))

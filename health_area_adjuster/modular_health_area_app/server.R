@@ -574,13 +574,26 @@ main_app_server <- function(input, output, session, auth) {
   # ===========================================================================
   exportTabServer('export', districts_shp = districts_shp)
 
-  # Sites tab: uses the session's district (and health area, when the
-  # session is a team-area one); health/team areas come from the campaign's
-  # current versions. Locked until a district is chosen, like Health Areas.
+  # Sites tab: unlocked once a district is chosen. Its district follows the session's district,
+  # and the Introduction table's "Sites" button sets it directly (without
+  # starting a health-area/team-area session). In a team-area session on
+  # the same district the health area is fixed too. Health/team areas come
+  # from the campaign's current versions.
+  sites_district <- reactiveVal(NULL)
+  sites_campaign <- reactiveVal(NULL)
+  observeEvent(list(active_district(), active_campaign_id()), {
+    sites_district(active_district()); sites_campaign(active_campaign_id())
+  }, ignoreInit = TRUE)
+  observeEvent(intro$open_sites_request(), {
+    r <- intro$open_sites_request(); req(!is.null(r$district_name))
+    sites_district(r$district_name); sites_campaign(r$campaign_id)
+    updateTabsetPanel(session, 'main_tabs', selected = 'tab_sites')
+  }, ignoreInit = TRUE)
   sitesTabServer('sites',
-                 campaign_id_r    = reactive(active_campaign_id() %||% intro$campaign_id()),
-                 district_r       = active_district,
-                 health_area_r    = reactive(if (isTRUE(team_area_session$active())) active_team_health_area() else NULL),
+                 campaign_id_r    = reactive(sites_campaign() %||% active_campaign_id() %||% intro$campaign_id()),
+                 district_r       = sites_district,
+                 health_area_r    = reactive(if (isTRUE(team_area_session$active()) &&
+                                                 identical(sites_district(), active_district())) active_team_health_area() else NULL),
                  username_r       = reactive(auth$username))
 
   # ===========================================================================
@@ -650,7 +663,7 @@ main_app_server <- function(input, output, session, auth) {
     set_tab_enabled('tab_health_facility_mapping', ready)
     session$sendCustomMessage('set_tab_confirm', list(value = 'tab_health_facility_mapping', confirm = ready && locked))
     set_tab_enabled('tab_health_area_mapping',     ready)
-    set_tab_enabled('tab_sites',                   ready)
+    set_tab_enabled('tab_sites',                   !is.null(sites_district()))
     set_tab_enabled('tab_team_area_mapping',       isTRUE(team_area_session$active()),
                     title = 'Choose a health area from the Introduction tab first')
   })
@@ -702,7 +715,12 @@ main_app_server <- function(input, output, session, auth) {
        "| district_ready:", isTRUE(district_ready()),
        "| health_area_locked_to_current:", isTRUE(health_area_locked_to_current()),
        "| team_area_session$active:", isTRUE(team_area_session$active()), "\n")
-    locked_on_health_area <- c('tab_orientation', 'tab_campaign_scope', 'tab_health_facility_mapping', 'tab_health_area_mapping', 'tab_sites')
+    locked_on_health_area <- c('tab_orientation', 'tab_campaign_scope', 'tab_health_facility_mapping', 'tab_health_area_mapping')
+    if (identical(input$main_tabs, 'tab_sites') && is.null(sites_district())) {
+      updateTabsetPanel(session, 'main_tabs', selected = 'tab_intro')
+      showNotification('Choose a district from the Introduction tab first.', type = 'message', duration = 3)
+      return()
+    }
     if (input$main_tabs %in% locked_on_health_area && !isTRUE(district_ready())) {
       cat("[navdebug] REDIRECT to tab_intro -- reason: locked_on_health_area tab with district_ready FALSE\n")
       updateTabsetPanel(session, 'main_tabs', selected = 'tab_intro')
