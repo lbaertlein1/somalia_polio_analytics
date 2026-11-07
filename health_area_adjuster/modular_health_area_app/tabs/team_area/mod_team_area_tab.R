@@ -321,6 +321,9 @@ teamAreaTabServer <- function(
       # In-Scope Field U5.
       pop_scale <- isolate(scope_pop_scale_r())
       scaled <- !is.na(pop_scale)
+      # Each team's WorldPop share of the health area's Scaled WorldPop U5,
+      # so the teams add up to it (.team_pop_scale(), printable_export.R).
+      team_scale <- .team_pop_scale(pop_scale, isolate(ha_worldpop_r()), team_rows$raw_worldpop, isolate(campaign_id()))
       header_row <- tagList(
         tags$strong('Team'), tags$strong(.WP_POP_COL),
         if (scaled) tags$strong(.SCALED_POP_COL),
@@ -364,7 +367,7 @@ teamAreaTabServer <- function(
         tagList(
           div(style = 'align-self:center;font-size:12px;', team_name),
           div(style = 'align-self:center;font-size:12px;', format(round(wp_val), big.mark = ',')),
-          if (scaled) div(style = 'align-self:center;font-size:12px;', format(round(.scaled_pop(wp_val, pop_scale)), big.mark = ',')),
+          if (scaled) div(style = 'align-self:center;font-size:12px;', format(round(.scaled_pop(wp_val, team_scale)), big.mark = ',')),
           # Defaults to this team's PROPORTIONAL share of the health
           # area's field target (this_default), not blank -- lets the
           # user see and adjust the calculated figure directly rather
@@ -542,13 +545,29 @@ teamAreaTabServer <- function(
     # version, which carries the district's Campaign Scope population.
     .fetch_scope_pop_scale <- function() {
       ver <- tryCatch(db_get_shared_version(pool, campaign_id(), district()), error = function(e) NULL)
-      if (is.null(ver)) NA_real_ else scope_pop_scale(ver$snap)
+      if (is.null(ver)) NA_real_ else scope_pop_scale(ver$snap, campaign_id())
     }
     # Cached per district/campaign/health area -- the population table
     # recomputes on every paint refresh, too often for a DB read each time.
     scope_pop_scale_r <- reactive({
       district(); campaign_id(); health_area_name()
       .fetch_scope_pop_scale()
+    })
+
+    # This health area's WorldPop U5 -- the stored at-submit figure the
+    # exports use (dfa_worldpop_pop), so its Scaled WorldPop U5 here matches
+    # theirs; live extraction only for a version without it.
+    ha_worldpop_r <- reactive({
+      district(); campaign_id(); health_area_name()
+      ver <- tryCatch(db_get_shared_version(pool, campaign_id(), district()), error = function(e) NULL)
+      stored <- if (is.null(ver)) NA_real_ else .unwrap_num((ver$snap$dfa_worldpop_pop %||% list())[[health_area_name() %||% '']])
+      if (!is.na(stored)) return(stored)
+      ha <- tryCatch(selected_health_area_sf(), error = function(e) NULL)
+      if (is.null(ha) || is.null(u5_rast)) return(NA_real_)
+      tryCatch({
+        ha_proj <- sf::st_transform(ha, sf::st_crs(terra::crs(u5_rast)))
+        sum(exactextractr::exact_extract(raster::raster(u5_rast), ha_proj, fun = 'sum'), na.rm = TRUE)
+      }, error = function(e) NA_real_)
     })
 
     area_population <- reactive({
@@ -581,11 +600,9 @@ teamAreaTabServer <- function(
       if (is.null(u5_rast)) return(0)
       # WorldPop backup -- Scaled WorldPop U5 when the district has an
       # In-Scope Field U5 (scope_pop_scale()), else WorldPop U5.
-      tryCatch({
-        ha_proj <- sf::st_transform(ha, sf::st_crs(terra::crs(u5_rast)))
-        wp <- sum(exactextractr::exact_extract(raster::raster(u5_rast), ha_proj, fun = 'sum'), na.rm = TRUE)
-        .scaled_pop(wp, scope_pop_scale_r())
-      }, error = function(e) 0)
+      wp <- ha_worldpop_r()
+      if (is.na(wp)) return(0)
+      .scaled_pop(wp, scope_pop_scale_r())
     })
 
     # Field Requested Teams (from the post-submit modal in
@@ -667,13 +684,7 @@ teamAreaTabServer <- function(
       # itself falls back to, but without ever preferring the field
       # target -- the whole point of this line is to show what WorldPop
       # says independently of whether a field value overrides it.
-      wp_pop_val <- isolate(tryCatch({
-        ha <- selected_health_area_sf()
-        if (is.null(u5_rast)) NA_real_ else {
-          ha_proj <- sf::st_transform(ha, sf::st_crs(terra::crs(u5_rast)))
-          sum(exactextractr::exact_extract(raster::raster(u5_rast), ha_proj, fun = 'sum'), na.rm = TRUE)
-        }
-      }, error = function(e) NA_real_))
+      wp_pop_val <- isolate(ha_worldpop_r())
       field_tgt        <- .fetch_ha_field_target()
       field_pop_val    <- .unwrap_num(field_tgt$target_pop)
       field_teams_val  <- .unwrap_num(field_tgt$requested_teams)

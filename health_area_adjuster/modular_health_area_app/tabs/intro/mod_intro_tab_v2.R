@@ -755,7 +755,7 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
         team_field_overrides_by_ha = team_field_overrides_by_ha,
         dfa_worldpop_pop = dfa_worldpop_pop,
         team_worldpop_by_ha = team_worldpop_by_ha,
-        pop_scale = scope_pop_scale(ver$snap)
+        pop_scale = scope_pop_scale(ver$snap, cid)
       )
     }
 
@@ -877,7 +877,8 @@ introTabServer <- function(id, districts_shp, username_r, active_tab) {
             # an unreliable value into an is.na() check downstream.
             field_target <- .unwrap_num(bounds$team_targets[[han]]$target_pop)
             tbl <- tryCatch(
-              .build_team_summary_table(team_one, field_target, u5_rast, NULL, bounds$team_field_overrides_by_ha[[han]], bounds$team_worldpop_by_ha[[han]], bounds$pop_scale),
+              .build_team_summary_table(team_one, field_target, u5_rast, NULL, bounds$team_field_overrides_by_ha[[han]], bounds$team_worldpop_by_ha[[han]], bounds$pop_scale,
+                                        ha_worldpop = bounds$dfa_worldpop_pop[[han]], campaign_id = cid),
               error = function(e) {
                 cat(sprintf('[intro_ta_debug]   build_team_summary_table error for %s: %s\n', han, conditionMessage(e)))
                 NULL

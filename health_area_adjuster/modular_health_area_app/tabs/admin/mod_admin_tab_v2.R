@@ -752,7 +752,7 @@ adminTabServer <- function(id, districts_shp, username_r = reactive('admin')) {
       field_teams <- vapply(areas, function(a) .unwrap_num(targets[[a]]$requested_teams), numeric(1))
       # Scaled WorldPop U5 when the district has an In-Scope Field U5;
       # plain WorldPop U5 otherwise.
-      pop_scale  <- scope_pop_scale(ver$snap)
+      pop_scale  <- scope_pop_scale(ver$snap, ver$campaign_id)
       scaled_pop <- .scaled_pop(worldpop_pop, pop_scale)
       recommended_teams <- vapply(scaled_pop, function(p) {
         tryCatch(as.integer(compute_n_teams(p, campaign_id = review_target()$campaign_id)), error = function(e) NA_integer_)

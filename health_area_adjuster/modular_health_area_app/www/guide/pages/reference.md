@@ -13,7 +13,7 @@
 | WorldPop | The under-5 population raster dataset used for population estimates throughout the tool. |
 | WorldPop U5 | The raw WorldPop under-5 estimate for an area. |
 | In-Scope Field U5 | The district's field under-5 figure for its In Scope area, entered at [Campaign Scope](campaign-scope) or from the Health Areas tab. Not itself WorldPop — it's what WorldPop is scaled to. |
-| Scaled WorldPop U5 | WorldPop U5 for a health area or team, scaled so the district adds up to its In-Scope Field U5. |
+| Scaled WorldPop U5 | The In-Scope Field U5 shared out by WorldPop: each health area's (or team's) share of it. Unpopulated areas get none, so the populated areas add up to the field figure. |
 | Field Target U5 | A field under-5 figure entered for one health area or one team. |
 | Target Population | The figure actually used for an area: Field Target U5 if entered, otherwise Scaled WorldPop U5, otherwise WorldPop U5. |
 

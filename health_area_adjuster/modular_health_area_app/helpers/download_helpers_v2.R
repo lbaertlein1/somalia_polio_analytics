@@ -60,11 +60,13 @@
 #' WorldPop U5 over the In Scope area, the In-Scope Field U5 entered at
 #' Campaign Scope (blank if none), and the factor WorldPop is multiplied by
 #' to give the other summaries' Scaled WorldPop U5 (1 when there's no
-#' In-Scope Field U5).
-.scope_population_row <- function(district_name, snap) {
+#' In-Scope Field U5). The factor shares the field figure over the
+#' populated areas only (scope_pop_scale()), so it's larger than
+#' field / In Scope WorldPop whenever part of the scope is Unpopulated.
+.scope_population_row <- function(district_name, snap, campaign_id = NULL) {
   wp    <- .unwrap_num(snap$scope_worldpop_pop)
   field <- .unwrap_num(snap$scope_target_pop)
-  scale <- scope_pop_scale(snap)
+  scale <- scope_pop_scale(snap, campaign_id)
   data.frame(
     district_name                  = district_name,
     `WorldPop U5 (In Scope)`       = if (is.na(wp)) NA_real_ else round(wp),
@@ -209,13 +211,13 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
           all(c('lon', 'lat') %in% names(snap$idp_settlements))) {
         idp_sf_export <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
       }
-      pop_scale <- scope_pop_scale(snap)
+      pop_scale <- scope_pop_scale(snap, campaign_id)
       ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop, pop_scale)
       if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
         .write_csv_utf8_bom(cbind(district_name = district_name, ha_summary),
                  file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
       }
-      .write_csv_utf8_bom(.scope_population_row(district_name, snap),
+      .write_csv_utf8_bom(.scope_population_row(district_name, snap, campaign_id),
                file.path(tmp, 'scope_population_summary.csv'), row.names = FALSE)
 
       if (!is.null(team_sf) && nrow(team_sf) > 0) {
@@ -223,7 +225,8 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
           team_one <- team_sf[team_sf$health_area == han, , drop = FALSE]
           tgt <- team_targets[[han]]
           field_target <- .unwrap_num(tgt$target_pop)
-          tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]], pop_scale)
+          tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]], pop_scale,
+                                           ha_worldpop = dfa_worldpop_pop[[han]], campaign_id = campaign_id)
           if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
           cbind(district_name = district_name, `Health Area` = han, tbl)
         })
@@ -436,18 +439,19 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
             all(c('lon', 'lat') %in% names(snap$idp_settlements))) {
           idp_sf_export <- sf::st_as_sf(snap$idp_settlements, coords = c('lon', 'lat'), crs = 4326, remove = FALSE)
         }
-        pop_scale <- scope_pop_scale(snap)
+        pop_scale <- scope_pop_scale(snap, campaign_id)
         ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop, pop_scale)
         if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
           ha_summary_parts[[dname]] <- cbind(district_name = dname, ha_summary)
         }
-        scope_pop_parts[[dname]] <- .scope_population_row(dname, snap)
+        scope_pop_parts[[dname]] <- .scope_population_row(dname, snap, campaign_id)
         if (!is.null(team_sf) && nrow(team_sf) > 0) {
           d_team_rows <- lapply(unique(team_sf$health_area), function(han) {
             team_one <- team_sf[team_sf$health_area == han, , drop = FALSE]
             tgt <- team_targets[[han]]
             field_target <- .unwrap_num(tgt$target_pop)
-            tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]], pop_scale)
+            tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]], pop_scale,
+                                             ha_worldpop = dfa_worldpop_pop[[han]], campaign_id = campaign_id)
             if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
             cbind(district_name = dname, `Health Area` = han, tbl)
           })

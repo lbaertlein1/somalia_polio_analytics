@@ -472,11 +472,24 @@ healthAreaTabServer <- function(
         return(invisible(NULL))
       }
       
-      # Scaled WorldPop U5 when the district has an In-Scope Field U5
-      # (pop_scale_r()); only the displayed/team-count figures change --
-      # rv$grid_sf$u5_pop itself stays raw WorldPop, which generation and
-      # the stored dfa_worldpop_pop both use.
-      cell_pop <- .scaled_pop(rv$grid_sf$u5_pop, pop_scale_r())
+      # Scaled WorldPop U5 when the district has an In-Scope Field U5;
+      # only the displayed/team-count figures change -- rv$grid_sf$u5_pop
+      # itself stays raw WorldPop, which generation and the stored
+      # dfa_worldpop_pop both use. The scale is taken from THIS painting,
+      # the same rule as scope_pop_scale(): the In-Scope Field U5 is shared
+      # over every cell except Unpopulated ones (Inaccessible keeps its
+      # share), and Unpopulated cells get 0 -- so the rows add up to the
+      # In-Scope Field U5 as the boundaries are edited.
+      field_u5  <- .unwrap_num((scope_pop_r() %||% list())$scope_target_pop)
+      populated <- !is.na(assignments) & nzchar(assignments) & assignments != 'Unpopulated'
+      populated_wp <- sum(rv$grid_sf$u5_pop[populated], na.rm = TRUE)
+      # Campaigns before POP_SHARE_FROM_CAMPAIGN keep the original
+      # district-wide ratio (pop_scale_r()), Unpopulated included.
+      share_populated <- pop_share_populated(tryCatch(campaign_id(), error = function(e) NULL))
+      live_scale <- if (share_populated && !is.na(field_u5) && field_u5 >= 0 && populated_wp > 0)
+        field_u5 / populated_wp else pop_scale_r()
+      cell_pop <- .scaled_pop(rv$grid_sf$u5_pop, live_scale)
+      if (share_populated && !is.na(live_scale)) cell_pop[!populated] <- 0
       # raw_worldpop is kept alongside, so the table and the targets modal
       # can show WorldPop U5 next to Scaled WorldPop U5.
       df <- data.frame(area_name = assignments, est_u5_pop = cell_pop,
@@ -1518,8 +1531,12 @@ healthAreaTabServer <- function(
           # .polygon_u5_population() (printable_export.R), not the
           # urban/rural split variant -- this is a plain total, no
           # urban/rural breakdown is stored or needed here.
+          # Inaccessible and Unpopulated are stored too: scope_pop_scale()
+          # shares the In-Scope Field U5 over every area except
+          # Unpopulated, so it needs Inaccessible's WorldPop. Readers
+          # that list health areas already skip extra_dfa_names.
           dfa_worldpop_list <- tryCatch({
-            nms <- setdiff(unique(as.character(parsed$dfa_name)), extra_dfa_names)
+            nms <- unique(as.character(parsed$dfa_name))
             vals <- lapply(nms, function(nm) {
               poly <- parsed[parsed$dfa_name == nm, , drop = FALSE]
               sum(.polygon_u5_population(poly, u5_rast), na.rm = TRUE)

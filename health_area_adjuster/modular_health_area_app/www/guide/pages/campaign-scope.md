@@ -51,10 +51,12 @@ Scope locks once Facilities work begins, but the In-Scope Field U5 doesn't: you 
 |---|---|
 | **WorldPop U5** | The raw WorldPop under-5 estimate. |
 | **In-Scope Field U5** | The field figure for the district's In Scope area, entered here. It isn't scaled WorldPop: it's the figure WorldPop is scaled *to*. |
-| **Scaled WorldPop U5** | WorldPop for a health area or team, scaled so the district adds up to the In-Scope Field U5. |
+| **Scaled WorldPop U5** | The In-Scope Field U5 shared out by WorldPop: each health area's (or team's) share of it. Unpopulated areas get none, so the populated areas add up to the field figure. |
 | **Field Target U5** | A field figure entered for one health area (Team Planning Targets) or one team. |
 | **Target Population** | The figure actually used: Field Target U5 if entered, otherwise Scaled WorldPop U5, otherwise WorldPop U5. |
 
-Areas you later paint **Inaccessible** or **Unpopulated** on [Health Areas](health-areas) are still part of the In Scope area, so they keep their share of the In-Scope Field U5 — the health areas themselves then add up to a little less than your figure. If those areas shouldn't count, paint them Out of Scope here instead.
+Your figure is shared only over areas that have people. Areas you later paint **Unpopulated** on [Health Areas](health-areas) get 0, and their share goes to the populated areas. Areas painted **Inaccessible** still have children, so they keep their share. Together, the health areas plus Inaccessible always add up to your In-Scope Field U5. In the same way, a health area's teams add up to that health area's figure. WorldPop U5 itself never changes; only Scaled WorldPop U5 does.
+
+This applies from SIA 2026 Round 1 onward. Earlier campaigns keep their original figures, where Unpopulated and Inaccessible areas both kept a share and the health areas added up to a little less than the field figure.
 
 Field figures stay at the level they were entered: a health area's Field Target U5 doesn't change the district's In-Scope Field U5, and the district's figure doesn't override a health area's own. Exports show WorldPop U5, Scaled WorldPop U5 and Field Target U5 side by side, plus a `scope_population_summary.csv` with each district's WorldPop U5 (In Scope), In-Scope Field U5 and WorldPop scale factor.
