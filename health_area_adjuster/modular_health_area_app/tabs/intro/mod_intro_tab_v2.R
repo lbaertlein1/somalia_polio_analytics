@@ -221,29 +221,49 @@ introTabUI <- function(id) {
               el.introResizeObserver.observe(el);
             }, 0);
           });
-          // Campaign map follows the list filters: zoom to the matching
-          // districts and fade the rest; no filter = every district, full
-          // extent. Polygons are found by their leaflet layerId (the
-          // district name, see output$campaign_map).
+          // Campaign map follows the list filters: only the matching
+          // districts are drawn (the rest are hidden outright -- no outline,
+          // fill, hover label or click) and the map zooms to fit them; no
+          // filter = every district, full extent. Polygons are found by
+          // their leaflet layerId (the district name, see output$campaign_map).
           // instant = jump rather than animate (used when re-fitting after a resize).
           function introUpdateMap(matched, filtered, instant) {
             var map = introGetCampaignMap();
             var el = document.getElementById(window.introCampaignMapId);
             if (!map || !el || el.offsetWidth === 0) return;
             map.invalidateSize({ pan: false });
+            // Bounds are kept as plain [[south, west], [north, east]] arrays,
+            // not L.latLngBounds(): the page loads a second, newer Leaflet
+            // (the paint maps) as the global L, while this map is R
+            // leaflet's bundled 1.3.1 -- a bounds object from the other
+            // copy fails its instanceof check, so fitBounds threw 'Bounds
+            // are not valid' and the extent never changed.
+            var grow = function(acc, b) {
+              var s = b.getSouth(), w = b.getWest(), n = b.getNorth(), e = b.getEast();
+              if (!acc) return [[s, w], [n, e]];
+              return [[Math.min(acc[0][0], s), Math.min(acc[0][1], w)],
+                      [Math.max(acc[1][0], n), Math.max(acc[1][1], e)]];
+            };
             var hit = null, all = null;
             map.eachLayer(function(l) {
               var id = l.options && l.options.layerId;
               if (id == null || !l.getBounds) return;
               var ok = !filtered || matched[String(id).toLowerCase()] === true;
-              l.setStyle({ fillOpacity: ok ? 0.55 : 0.08, opacity: ok ? 1 : 0.2 });
+              l.setStyle({ fillOpacity: ok ? 0.55 : 0, opacity: ok ? 1 : 0 });
+              var path = l.getElement && l.getElement();
+              if (path) path.style.pointerEvents = ok ? '' : 'none';
+              if (!ok && l.closeTooltip) l.closeTooltip();
               var b = l.getBounds();
-              all = all ? all.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast());
-              if (ok) hit = hit ? hit.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast());
+              if (!b || !b.isValid()) return;
+              all = grow(all, b);
+              if (ok) hit = grow(hit, b);
             });
             var target = filtered ? hit : all;
-            if (!target || !target.isValid()) return;
-            var opts = { padding: [20, 20], maxZoom: 10 };
+            if (!target) return;
+            // maxZoom 12: high enough for the smallest region (Banadir) to
+            // fill the map, while a single small district doesn't zoom to
+            // street level.
+            var opts = { padding: [20, 20], maxZoom: 12 };
             if (instant) map.fitBounds(target, opts);
             else map.flyToBounds(target, $.extend({ duration: 0.6 }, opts));
           }
