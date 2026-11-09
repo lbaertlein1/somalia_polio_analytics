@@ -76,6 +76,73 @@
   )
 }
 
+#' Campaign + district codes for every export file: camp_id, camp_nm,
+#' dist_id (the district's dist_uid in the campaign's boundary set) and
+#' reg_cd (region code), matched on district_name.
+.export_codes_ctx <- function(campaign_id) {
+  d <- tryCatch(sf::st_drop_geometry(districts_shp_for_campaign(campaign_id)), error = function(e) NULL)
+  nm <- tryCatch(.db_query(pool, "SELECT campaign_name FROM campaigns WHERE campaign_id = ?c",
+                           list(c = as.integer(campaign_id)))$campaign_name[1], error = function(e) NA_character_)
+  list(campaign_id = as.integer(campaign_id), campaign_name = nm %||% NA_character_,
+       codes = if (is.null(d)) NULL else data.frame(district_name = as.character(d$district_name),
+                                                    dist_uid = as.character(d$DIST_UID), reg_code = as.character(d$REG_CODE),
+                                                    stringsAsFactors = FALSE))
+}
+.add_export_codes <- function(df, ctx) {
+  if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) return(df)
+  # <= 7 characters: sf shortens longer shapefile field names.
+  df$camp_id <- ctx$campaign_id; df$camp_nm <- ctx$campaign_name
+  m <- if (!is.null(ctx$codes) && 'district_name' %in% names(df)) match(as.character(df$district_name), ctx$codes$district_name) else rep(NA_integer_, nrow(df))
+  df$dist_id <- if (!is.null(ctx$codes)) ctx$codes$dist_uid[m] else NA_character_
+  df$reg_cd  <- if (!is.null(ctx$codes)) ctx$codes$reg_code[m] else NA_character_
+  if (inherits(df, 'sf')) sf::st_sf(sf::st_drop_geometry(df), geometry = sf::st_geometry(df)) else df
+}
+
+#' Health Area ID + Facility ID columns, right after `Health Area`, for
+#' the population summary CSVs (from the version's health_area_ids).
+.ha_id_cols <- function(df, ids) {
+  if (is.null(df) || nrow(df) == 0 || !'Health Area' %in% names(df)) return(df)
+  ids <- ids %||% list(); nm <- as.character(df$`Health Area`)
+  get <- function(k) vapply(nm, function(n) as.character(ids[[n]][[k]] %||% NA_character_), character(1), USE.NAMES = FALSE)
+  at <- match('Health Area', names(df))
+  out <- df[, seq_len(at), drop = FALSE]
+  out[['Health Area ID']] <- get('health_area_id'); out[['Facility ID']] <- get('facility_id')
+  cbind(out, df[, -seq_len(at), drop = FALSE])
+}
+
+#' For each selected coordination site, the health area it produced
+#' (health_area_id + current name); blank for facilities not selected.
+.fac_ha_ids <- function(df, ids) {
+  ids <- ids %||% list()
+  fac <- vapply(ids, function(e) as.character(e$facility_id %||% NA_character_), character(1))
+  k <- match(as.character(df$facility_id), fac)
+  df$health_area_id   <- vapply(k, function(i) if (is.na(i)) NA_character_ else as.character(ids[[i]]$health_area_id %||% NA_character_), character(1))
+  df$health_area_name <- ifelse(is.na(k), NA_character_, names(ids)[k])
+  df
+}
+
+#' Same, plus Team ID right after `Team`, for the team summary CSV.
+.team_id_cols <- function(df, ha_ids, team_ids) {
+  df <- .ha_id_cols(df, ha_ids)
+  if (is.null(df) || nrow(df) == 0 || !'Team' %in% names(df)) return(df)
+  team_ids <- team_ids %||% list()
+  tid <- vapply(as.character(df$Team), function(n) as.character(team_ids[[n]] %||% NA_character_), character(1), USE.NAMES = FALSE)
+  at <- match('Team', names(df))
+  out <- df[, seq_len(at), drop = FALSE]; out[['Team ID']] <- tid
+  cbind(out, df[, -seq_len(at), drop = FALSE])
+}
+
+#' Add each health area's ha_id (health_area_id) and fac_id (the
+#' coordination site's facility_id) from the version's health_area_ids.
+#' Short names so they survive the shapefile's 10-character field limit.
+.with_ha_ids <- function(ha_sf, ids) {
+  if (is.null(ha_sf) || nrow(ha_sf) == 0 || !'dfa_name' %in% names(ha_sf)) return(ha_sf)
+  ids <- ids %||% list()
+  ha_sf$ha_id  <- vapply(as.character(ha_sf$dfa_name), function(n) as.character(ids[[n]]$health_area_id %||% NA_character_), character(1), USE.NAMES = FALSE)
+  ha_sf$fac_id <- vapply(as.character(ha_sf$dfa_name), function(n) as.character(ids[[n]]$facility_id %||% NA_character_), character(1), USE.NAMES = FALSE)
+  ha_sf
+}
+
 #' Map a user-facing format choice to its sf driver name and file extension.
 #' Kept in one place so the export UI and the zip-builders always agree on
 #' what "shp"/"kml"/"geojson" mean.
@@ -109,6 +176,8 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
                                        version, campaign_id, format = 'geojson') {
 
   spec <- export_format_spec(format)
+  codes_ctx <- .export_codes_ctx(campaign_id)
+  .x <- function(df) .add_export_codes(df, codes_ctx)
 
   tmp <- tempfile()
   dir.create(tmp)
@@ -124,7 +193,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     if (is.null(sf_obj) || nrow(sf_obj) == 0) return(invisible(NULL))
     out <- sf_obj |>
       dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name) |>
-      sf::st_transform(4326)
+      sf::st_transform(4326) |> .x()
     sf::st_write(out, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
   }
 
@@ -142,6 +211,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   # per-health-area ones, each independently current or not.
   team_field_overrides_by_ha <- list()
   team_worldpop_by_ha <- list()
+  team_ids_by_ha <- list()
   team_sf <- tryCatch({
     ha_names <- setdiff(unlist(snap$dfa_names %||% list()), c('Inaccessible', 'Unpopulated'))
     parts <- lapply(ha_names, function(han) {
@@ -150,17 +220,20 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
       geom <- tv$snap$smoothed_team_sf %||% tv$snap$saved_team_sf
       if (is.null(geom) || nrow(geom) == 0) return(NULL)
       geom$health_area <- han
+      geom$ha_id  <- tv$health_area_id %||% NA_character_
+      geom$fac_id <- tv$facility_id %||% NA_character_; geom$ta_id <- vapply(as.character(geom$dfa_name %||% rep(NA_character_, nrow(geom))), function(n) as.character(tv$snap$team_ids[[n]] %||% NA_character_), character(1), USE.NAMES = FALSE)
       team_field_overrides_by_ha[[han]] <<- tv$snap$team_field_pop_overrides %||% list()
       # Computed-at-submit WorldPop per team (team_area_versions.team_
       # worldpop_pop) -- same reasoning as dfa_worldpop_pop above.
       team_worldpop_by_ha[[han]] <<- tv$snap$team_worldpop_pop %||% list()
+      team_ids_by_ha[[han]] <<- tv$snap$team_ids %||% list()
       geom
     })
     parts <- Filter(Negate(is.null), parts)
     if (length(parts) == 0) NULL else do.call(rbind, parts)
   }, error = function(e) NULL)
 
-  .write_sf(ha_sf,   paste0('health_areas.', spec$ext))
+  .write_sf(.with_ha_ids(ha_sf, snap$health_area_ids), paste0('health_areas.', spec$ext))
   .write_sf(team_sf, paste0('team_areas.', spec$ext))
 
   # Subdivisions and campaign/urban extent, as their own data layers --
@@ -214,10 +287,10 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
       pop_scale <- scope_pop_scale(snap, campaign_id)
       ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop, pop_scale)
       if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
-        .write_csv_utf8_bom(cbind(district_name = district_name, ha_summary),
+        .write_csv_utf8_bom(.x(.ha_id_cols(cbind(district_name = district_name, ha_summary), snap$health_area_ids)),
                  file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
       }
-      .write_csv_utf8_bom(.scope_population_row(district_name, snap, campaign_id),
+      .write_csv_utf8_bom(.x(.scope_population_row(district_name, snap, campaign_id)),
                file.path(tmp, 'scope_population_summary.csv'), row.names = FALSE)
 
       if (!is.null(team_sf) && nrow(team_sf) > 0) {
@@ -228,11 +301,11 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
           tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]], pop_scale,
                                            ha_worldpop = dfa_worldpop_pop[[han]], campaign_id = campaign_id)
           if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
-          cbind(district_name = district_name, `Health Area` = han, tbl)
+          .team_id_cols(cbind(district_name = district_name, `Health Area` = han, tbl), snap$health_area_ids, team_ids_by_ha[[han]])
         })
         team_rows <- Filter(Negate(is.null), team_rows)
         if (length(team_rows) > 0) {
-          .write_csv_utf8_bom(do.call(rbind, team_rows),
+          .write_csv_utf8_bom(.x(do.call(rbind, team_rows)),
                    file.path(tmp, 'team_population_summary.csv'), row.names = FALSE)
         }
       }
@@ -246,7 +319,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
   .write_points_df <- function(df, fname) {
     if (is.null(df) || nrow(df) == 0 || !all(c('lon', 'lat') %in% names(df))) return(invisible(NULL))
     pts <- sf::st_as_sf(df, coords = c('lon', 'lat'), crs = 4326, remove = FALSE) |>
-      dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name)
+      dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name) |> .x()
     sf::st_write(pts, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
   }
   .write_points_df(snap$idp_settlements, paste0('idp_settlements.', spec$ext))
@@ -265,11 +338,13 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
         zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name,
         lon = sf::st_coordinates(fac_sf)[, 1], lat = sf::st_coordinates(fac_sf)[, 2]
       ) |>
+      .fac_ha_ids(snap$health_area_ids) |>
       dplyr::select(zone_name, region_name, district_name,
                     dplyr::any_of(c('facility_id', 'facility_name', 'facility_type',
                                     'hf_ownership', 'polio_sia_coordination_site',
+                                    'health_area_id', 'health_area_name',
                                     'operational', 'lat', 'lon')))
-    .write_csv_utf8_bom(fac_out, file.path(tmp, 'facilities.csv'), row.names = FALSE)
+    .write_csv_utf8_bom(.x(fac_out), file.path(tmp, 'facilities.csv'), row.names = FALSE)
   }
 
   out_files <- list.files(tmp, full.names = TRUE)
@@ -306,6 +381,8 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
 #'                       used when the caller doesn't need progress.
 build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', progress_callback = function(i, n, district_name) {}) {
   spec <- export_format_spec(format)
+  codes_ctx <- .export_codes_ctx(campaign_id)
+  .x <- function(df) .add_export_codes(df, codes_ctx)
 
   progress <- tryCatch(db_get_campaign_progress(pool, campaign_id), error = function(e) NULL)
   if (is.null(progress) || nrow(progress) == 0) {
@@ -370,7 +447,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     ha_sf <- snap$smoothed_dfa_sf %||% snap$saved_dfa_sf
     dfa_worldpop_pop <- snap$dfa_worldpop_pop %||% list()
     if (!is.null(ha_sf) && nrow(ha_sf) > 0) {
-      ha_parts[[dname]] <- ha_sf |>
+      ha_parts[[dname]] <- .with_ha_ids(ha_sf, snap$health_area_ids) |>
         dplyr::mutate(zone_name = zone_val, region_name = region_val, district_name = dname) |>
         sf::st_transform(4326)
     }
@@ -380,6 +457,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     # only independently-current ones per health area).
     team_field_overrides_by_ha <- list()
     team_worldpop_by_ha <- list()
+    team_ids_by_ha <- list()
     team_sf <- tryCatch({
       ha_names <- setdiff(unlist(snap$dfa_names %||% list()), c('Inaccessible', 'Unpopulated'))
       tparts <- lapply(ha_names, function(han) {
@@ -388,8 +466,11 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
         geom <- tv$snap$smoothed_team_sf %||% tv$snap$saved_team_sf
         if (is.null(geom) || nrow(geom) == 0) return(NULL)
         geom$health_area <- han
+        geom$ha_id  <- tv$health_area_id %||% NA_character_
+        geom$fac_id <- tv$facility_id %||% NA_character_; geom$ta_id <- vapply(as.character(geom$dfa_name %||% rep(NA_character_, nrow(geom))), function(n) as.character(tv$snap$team_ids[[n]] %||% NA_character_), character(1), USE.NAMES = FALSE)
         team_field_overrides_by_ha[[han]] <<- tv$snap$team_field_pop_overrides %||% list()
         team_worldpop_by_ha[[han]] <<- tv$snap$team_worldpop_pop %||% list()
+        team_ids_by_ha[[han]] <<- tv$snap$team_ids %||% list()
         geom
       })
       tparts <- Filter(Negate(is.null), tparts)
@@ -419,7 +500,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
         dplyr::mutate(
           zone_name = zone_val, region_name = region_val, district_name = dname,
           lon = sf::st_coordinates(fsf)[, 1], lat = sf::st_coordinates(fsf)[, 2]
-        )
+        ) |> .fac_ha_ids(snap$health_area_ids)
     }
 
     # Same population/team-count summary as the single-district export,
@@ -442,7 +523,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
         pop_scale <- scope_pop_scale(snap, campaign_id)
         ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop, pop_scale)
         if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
-          ha_summary_parts[[dname]] <- cbind(district_name = dname, ha_summary)
+          ha_summary_parts[[dname]] <- .ha_id_cols(cbind(district_name = dname, ha_summary), snap$health_area_ids)
         }
         scope_pop_parts[[dname]] <- .scope_population_row(dname, snap, campaign_id)
         if (!is.null(team_sf) && nrow(team_sf) > 0) {
@@ -453,7 +534,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
             tbl <- .build_team_summary_table(team_one, field_target, u5_rast, urban_sf, team_field_overrides_by_ha[[han]], team_worldpop_by_ha[[han]], pop_scale,
                                              ha_worldpop = dfa_worldpop_pop[[han]], campaign_id = campaign_id)
             if (is.null(tbl) || nrow(tbl) == 0) return(NULL)
-            cbind(district_name = dname, `Health Area` = han, tbl)
+            .team_id_cols(cbind(district_name = dname, `Health Area` = han, tbl), snap$health_area_ids, team_ids_by_ha[[han]])
           })
           d_team_rows <- Filter(Negate(is.null), d_team_rows)
           if (length(d_team_rows) > 0) team_summary_parts[[dname]] <- do.call(rbind, d_team_rows)
@@ -470,7 +551,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
   # bind_rows() fills missing columns with NA instead of erroring.
   .write_combined_sf <- function(parts, fname) {
     if (length(parts) == 0) return(invisible(NULL))
-    combined <- dplyr::bind_rows(parts)
+    combined <- .x(dplyr::bind_rows(parts))
     if (nrow(combined) == 0) return(invisible(NULL))
     sf::st_write(combined, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
   }
@@ -484,22 +565,23 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
 
   if (length(ha_summary_parts) > 0) {
     combined <- dplyr::bind_rows(ha_summary_parts)
-    if (nrow(combined) > 0) .write_csv_utf8_bom(combined, file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
+    if (nrow(combined) > 0) .write_csv_utf8_bom(.x(combined), file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
   }
   if (length(team_summary_parts) > 0) {
     combined <- dplyr::bind_rows(team_summary_parts)
-    if (nrow(combined) > 0) .write_csv_utf8_bom(combined, file.path(tmp, 'team_population_summary.csv'), row.names = FALSE)
+    if (nrow(combined) > 0) .write_csv_utf8_bom(.x(combined), file.path(tmp, 'team_population_summary.csv'), row.names = FALSE)
   }
   if (length(scope_pop_parts) > 0)
-    .write_csv_utf8_bom(dplyr::bind_rows(scope_pop_parts), file.path(tmp, 'scope_population_summary.csv'), row.names = FALSE)
+    .write_csv_utf8_bom(.x(dplyr::bind_rows(scope_pop_parts)), file.path(tmp, 'scope_population_summary.csv'), row.names = FALSE)
 
   if (length(fac_parts) > 0) {
     fac_out <- dplyr::bind_rows(fac_parts) |>
       dplyr::select(zone_name, region_name, district_name,
                     dplyr::any_of(c('facility_id', 'facility_name', 'facility_type',
                                     'hf_ownership', 'polio_sia_coordination_site',
+                                    'health_area_id', 'health_area_name',
                                     'operational', 'lat', 'lon')))
-    .write_csv_utf8_bom(fac_out, file.path(tmp, 'facilities.csv'), row.names = FALSE)
+    .write_csv_utf8_bom(.x(fac_out), file.path(tmp, 'facilities.csv'), row.names = FALSE)
   }
 
   # District boundaries for context -- EVERY district in districts_shp,

@@ -148,7 +148,11 @@ teamAreaTabServer <- function(
       # list, team name -> numeric). Empty until the user enters one.
       # See recompute_population_table()'s own comment for what having
       # any entry here actually changes.
-      team_field_pop_overrides = list()
+      team_field_pop_overrides = list(),
+      # Stable team IDs (team name -> "TA-..."), from the saved version;
+      # moved to the new name on a rename so the ID survives it. Teams
+      # without one get an ID when saved (.resolve_team_ids()).
+      team_ids = list()
     )
 
     pending_action  <- reactiveVal(NULL)
@@ -191,6 +195,14 @@ teamAreaTabServer <- function(
       )
       if (!is.null(rv$current_assignments)) {
         rv$current_assignments[rv$current_assignments == old_name] <- new_name
+      }
+      # The team's ID and its Field Target U5 follow it to the new name --
+      # the field figure used to be left under the old name and dropped.
+      if (!is.null(rv$team_ids[[old_name]])) {
+        ids <- rv$team_ids; ids[[new_name]] <- ids[[old_name]]; ids[[old_name]] <- NULL; rv$team_ids <- ids
+      }
+      if (!is.null(rv$team_field_pop_overrides[[old_name]])) {
+        ov <- rv$team_field_pop_overrides; ov[[new_name]] <- ov[[old_name]]; ov[[old_name]] <- NULL; rv$team_field_pop_overrides <- ov
       }
       send_paint_message("paint_rename_area", list(oldName = old_name, newName = new_name))
       recompute_population_table(rv$current_assignments)
@@ -1023,6 +1035,7 @@ teamAreaTabServer <- function(
       # rebuild rather than the previous health area's stale table for
       # the brief window before recompute_population_table() reruns.
       rv$team_field_pop_overrides <- list()
+      rv$team_ids <- list()
       rv$pop_table <- NULL
       # The previous health area's grid as well -- otherwise the restore
       # observer below applied the NEW health area's saved draft onto the
@@ -1042,6 +1055,7 @@ teamAreaTabServer <- function(
       rv$team_names        <- snap$team_names %||% rv$team_names
       rv$smoothed_team_sf     <- snap$smoothed_team_sf
       rv$team_field_pop_overrides <- snap$team_field_pop_overrides %||% list()
+      rv$team_ids <- snap$team_ids %||% list()
       restore_applied(TRUE)
       showNotification('Team area draft restored.', type = 'message', duration = 2)
       invisible(NULL)
@@ -1473,7 +1487,8 @@ teamAreaTabServer <- function(
             # this reactiveValues field was previously session-local
             # only, invisible to anything reading the saved snapshot.
             team_field_pop_overrides = rv$team_field_pop_overrides,
-            team_worldpop_pop         = team_worldpop_list
+            team_worldpop_pop         = team_worldpop_list,
+            team_ids                  = rv$team_ids
           ))
           # A failed save already showed its own error; stop here rather
           # than continuing to the population/publish prompts.

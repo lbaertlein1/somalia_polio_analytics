@@ -315,6 +315,15 @@ statements <- list(
     ADD COLUMN IF NOT EXISTS scope_target_pop    NUMERIC,
     ADD COLUMN IF NOT EXISTS scope_worldpop_pop  NUMERIC",
 
+  # Stable identity per health area, keyed by its current name:
+  # {"<dfa_name>": {"health_area_id": "HA-...", "facility_id": "<id>"}}.
+  # facility_id is the coordination site selected on the Facilities tab
+  # that the area was drawn from; health_area_id never changes once
+  # assigned. Kept through branches, renames (key renamed) and
+  # carry-forward -- see .resolve_health_area_ids() in mod_db_v2.R.
+  "ALTER TABLE mapping_versions
+    ADD COLUMN IF NOT EXISTS health_area_ids JSONB",
+
   "CREATE INDEX IF NOT EXISTS idx_mv_shared
      ON mapping_versions(district_name, campaign_id)
      WHERE is_shared = TRUE AND archived_at IS NULL",
@@ -397,6 +406,16 @@ statements <- list(
   "CREATE INDEX IF NOT EXISTS idx_tav_based_on
      ON team_area_versions(based_on_health_area_version_id)",
 
+  # The health area (and its coordination site) a team layout belongs to,
+  # by ID -- copied from the pinned version's health_area_ids, so they
+  # survive a rename of the health area.
+  "ALTER TABLE team_area_versions
+    ADD COLUMN IF NOT EXISTS health_area_id TEXT,
+    ADD COLUMN IF NOT EXISTS facility_id    TEXT,
+    -- {\"<team name>\": \"TA-...\"}: a stable ID per team, kept through
+    -- renames, branches and carry-forward (.resolve_team_ids()).
+    ADD COLUMN IF NOT EXISTS team_ids       JSONB",
+
   # ── Campaign-district assignment — campaigns no longer implicitly apply
   # to every district. An ongoing, revisitable admin action (not fixed at
   # campaign creation) — see mod_admin_tab_v2.R's "Manage districts" per
@@ -473,7 +492,49 @@ statements <- list(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_dss_global_unique
      ON data_source_settings(setting_key) WHERE campaign_id IS NULL",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_dss_campaign_unique
-     ON data_source_settings(setting_key, campaign_id) WHERE campaign_id IS NOT NULL"
+     ON data_source_settings(setting_key, campaign_id) WHERE campaign_id IS NOT NULL",
+
+  # ── District ID (dist_uid, e.g. 'BRA-WAB') next to district_name on every
+  # table that names a district. Set by trigger from the campaign's
+  # boundary set, so it can't be skipped or drift from the name; a
+  # district name that isn't in that boundary set is rejected.
+  "ALTER TABLE campaign_districts ADD COLUMN IF NOT EXISTS dist_uid TEXT",
+  "ALTER TABLE mapping_versions   ADD COLUMN IF NOT EXISTS dist_uid TEXT",
+  "ALTER TABLE team_area_versions ADD COLUMN IF NOT EXISTS dist_uid TEXT",
+  "CREATE OR REPLACE FUNCTION set_dist_uid() RETURNS trigger LANGUAGE plpgsql AS $$
+   DECLARE bset TEXT; uid TEXT;
+   BEGIN
+     SELECT boundary_set INTO bset FROM campaigns WHERE campaign_id = NEW.campaign_id;
+     IF bset IS NULL THEN RAISE EXCEPTION 'Campaign % has no boundary set', NEW.campaign_id; END IF;
+     SELECT dist_uid INTO uid FROM boundary_set_districts WHERE set_label = bset AND district_name = NEW.district_name;
+     IF uid IS NULL THEN
+       RAISE EXCEPTION 'District \"%\" is not in boundary set % (campaign %)', NEW.district_name, bset, NEW.campaign_id;
+     END IF;
+     NEW.dist_uid := uid;
+     RETURN NEW;
+   END $$",
+  "DROP TRIGGER IF EXISTS trg_cd_dist_uid ON campaign_districts",
+  "CREATE TRIGGER trg_cd_dist_uid BEFORE INSERT OR UPDATE OF district_name, campaign_id ON campaign_districts FOR EACH ROW EXECUTE FUNCTION set_dist_uid()",
+  "DROP TRIGGER IF EXISTS trg_mv_dist_uid ON mapping_versions",
+  "CREATE TRIGGER trg_mv_dist_uid BEFORE INSERT OR UPDATE OF district_name, campaign_id ON mapping_versions FOR EACH ROW EXECUTE FUNCTION set_dist_uid()",
+  "DROP TRIGGER IF EXISTS trg_tav_dist_uid ON team_area_versions",
+  "CREATE TRIGGER trg_tav_dist_uid BEFORE INSERT OR UPDATE OF district_name, campaign_id ON team_area_versions FOR EACH ROW EXECUTE FUNCTION set_dist_uid()",
+  # Backfill (fires the triggers above).
+  "UPDATE campaign_districts SET district_name = district_name WHERE dist_uid IS NULL",
+  "UPDATE mapping_versions   SET district_name = district_name WHERE dist_uid IS NULL",
+  "UPDATE team_area_versions SET district_name = district_name WHERE dist_uid IS NULL",
+  "CREATE INDEX IF NOT EXISTS idx_mv_dist_uid  ON mapping_versions(dist_uid, campaign_id)",
+  "CREATE INDEX IF NOT EXISTS idx_tav_dist_uid ON team_area_versions(dist_uid, campaign_id)",
+  # Every campaign has a boundary set; every district row has its ID.
+  "ALTER TABLE campaigns          ALTER COLUMN boundary_set SET NOT NULL",
+  "ALTER TABLE campaign_districts ALTER COLUMN dist_uid     SET NOT NULL",
+  "ALTER TABLE mapping_versions   ALTER COLUMN dist_uid     SET NOT NULL",
+  "ALTER TABLE team_area_versions ALTER COLUMN dist_uid     SET NOT NULL",
+  # A team layout always belongs to a health area and its coordination
+  # site by ID (db_create_team_area_draft() sets both on insert).
+  "ALTER TABLE team_area_versions ALTER COLUMN health_area_id SET NOT NULL",
+  "ALTER TABLE team_area_versions ALTER COLUMN facility_id    SET NOT NULL",
+  "CREATE INDEX IF NOT EXISTS idx_tav_ha_id ON team_area_versions(health_area_id, campaign_id)"
 )
 
 cat("Creating tables...\n")

@@ -236,7 +236,7 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
   "branched_from_id, is_shared, shared_at, created_at, last_updated_at,",
   "archived_at, facilities_locked_at, boundary_locked_at,",
   "has_landmarks, has_facilities, has_idp, has_health_areas,",
-  "submitted_by"
+  "submitted_by, dist_uid"
 )
 
 # Full column list (includes blobs) — for edit/restore/branch
@@ -247,7 +247,7 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
   "smoothed_dfa_sf, smoothing_generated_at,",
   "landmarks, idp_settlements, dfa_worldpop_pop,",
   "scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope,",
-  "scope_target_pop, scope_worldpop_pop"
+  "scope_target_pop, scope_worldpop_pop, health_area_ids"
 )
 
 .parse_mv_row <- function(r) {
@@ -256,6 +256,8 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
     owner_username        = r$owner_username,
     campaign_id            = as.integer(r$campaign_id),
     district_name           = r$district_name,
+    # District ID from the campaign's boundary set (set by trigger).
+    dist_uid                = if (is.null(r$dist_uid) || is.na(r$dist_uid)) NULL else r$dist_uid,
     version_number            = as.integer(r$version_number),
     branched_from_id            = if (is.na(r$branched_from_id)) NULL else as.integer(r$branched_from_id),
     is_shared                     = isTRUE(r$is_shared),
@@ -290,9 +292,112 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
       # Plain NUMERIC columns, not JSON -- In-Scope Field U5 and the WorldPop
       # U5 it's compared against. NA when no In-Scope Field U5 was entered.
       scope_target_pop                                 = suppressWarnings(as.numeric(r$scope_target_pop %||% NA)),
-      scope_worldpop_pop                               = suppressWarnings(as.numeric(r$scope_worldpop_pop %||% NA))
+      scope_worldpop_pop                               = suppressWarnings(as.numeric(r$scope_worldpop_pop %||% NA)),
+      # {dfa_name: {health_area_id, facility_id}} -- see .resolve_health_area_ids()
+      health_area_ids                                  = .from_json_db(r$health_area_ids %||% NA_character_)
     )
   )
+}
+
+# =============================================================================
+# SECTION 4b: Health area IDs
+# =============================================================================
+
+#' (Re)derive a health-area version's health_area_ids from what's stored on
+#' the row, and push the IDs onto the team-area versions pinned to it.
+#' Each health area (not Unpopulated/Inaccessible) gets:
+#'   facility_id    -- the coordination site (polio_sia_coordination_site =
+#'                     'Yes' in odk_sf/app_sf) it was drawn from. Kept if
+#'                     still selected; else the selected site of the same
+#'                     name; else the one unclaimed selected site inside it.
+#'   health_area_id -- kept from the existing entry (by name, or by the
+#'                     same facility_id when the area was renamed before
+#'                     this save); new only for a genuinely new area.
+#' Called after every "areas" save; renames rewrite the key in SQL.
+.resolve_health_area_ids <- function(conn, version_id) {
+  r <- DBI::dbGetQuery(conn,
+    "SELECT dfa_names::text n, health_area_ids::text ids FROM mapping_versions WHERE version_id = $1",
+    list(as.integer(version_id)))
+  if (nrow(r) == 0) return(invisible(NULL))
+  reserved <- if (exists('extra_dfa_names')) extra_dfa_names else c('Inaccessible', 'Unpopulated')
+  nm <- setdiff(unique(as.character(unlist(.from_json_vec_db(r$n[1])))), reserved)
+  if (length(nm) == 0) return(invisible(NULL))
+  old <- .from_json_db(r$ids[1]) %||% list()
+  # One string or NULL -- a stored entry can't hand back {} or a list.
+  .one <- function(x) if (is.character(x) && length(x) == 1 && !is.na(x) && nzchar(x)) x else NULL
+  old <- lapply(old, function(o) list(health_area_id = .one(o$health_area_id), facility_id = .one(o$facility_id)))
+
+  # Only the selected sites' ID/name/point, pulled out in SQL -- parsing
+  # the whole facility list (every MHFL facility in the district) and the
+  # boundaries in R took seconds per save.
+  sites <- DBI::dbGetQuery(conn, "
+    SELECT f->'properties'->>'facility_id' AS facility_id, f->'properties'->>'facility_name' AS facility_name,
+           (f->'geometry'->'coordinates'->>0)::float8 AS lon, (f->'geometry'->'coordinates'->>1)::float8 AS lat
+    FROM mapping_versions m,
+         jsonb_array_elements(COALESCE(m.odk_sf->'features', '[]'::jsonb) || COALESCE(m.app_sf->'features', '[]'::jsonb)) f
+    WHERE m.version_id = $1 AND f->'properties'->>'polio_sia_coordination_site' = 'Yes'
+      AND f->'properties'->>'facility_id' IS NOT NULL", list(as.integer(version_id)))
+  fac <- setNames(rep(NA_character_, length(nm)), nm)
+  claimed <- character(0)
+  if (!is.null(sites) && nrow(sites) > 0) {
+    norm <- function(x) gsub('[^a-z0-9]', '', tolower(x))
+    # 1. existing link, if that site is still selected
+    for (n in nm) { f <- old[[n]]$facility_id %||% NA_character_
+      if (!is.na(f) && f %in% sites$facility_id && !f %in% claimed) { fac[n] <- f; claimed <- c(claimed, f) } }
+    # 2. same name (exact, then ignoring case/punctuation)
+    for (n in nm[is.na(fac)]) {
+      k <- which(sites$facility_name == n & !sites$facility_id %in% claimed)
+      if (!length(k)) k <- which(norm(sites$facility_name) == norm(n) & !sites$facility_id %in% claimed)
+      if (length(k)) { fac[n] <- sites$facility_id[k[1]]; claimed <- c(claimed, fac[n]) } }
+    # 3. the unclaimed selected site that sits inside the area
+    left <- nm[is.na(fac)]
+    # (boundaries only read when a name didn't match -- rare)
+    left <- left[length(left) > 0 & any(!sites$facility_id %in% claimed)]
+    if (length(left)) tryCatch({
+      g <- .from_json_sf_db(DBI::dbGetQuery(conn, "SELECT COALESCE(smoothed_dfa_sf, saved_dfa_sf)::text g FROM mapping_versions WHERE version_id = $1",
+                                            list(as.integer(version_id)))$g[1])
+      if (!is.null(g) && 'dfa_name' %in% names(g)) {
+        pts <- sf::st_as_sf(sites[!is.na(sites$lon) & !is.na(sites$lat), ], coords = c('lon', 'lat'), crs = 4326)
+        sites <- pts
+        hit <- sf::st_intersects(sites, sf::st_make_valid(g))
+        for (n in left) {
+          k <- which(vapply(hit, function(h) any(g$dfa_name[h] == n), logical(1)) & !sites$facility_id %in% claimed)
+          if (length(k)) { fac[n] <- sites$facility_id[k[1]]; claimed <- c(claimed, fac[n]) } }
+      }
+    }, error = function(e) cat('[db] resolve_health_area_ids location match error:', conditionMessage(e), '\n'))
+  }
+
+  by_fac <- list(); for (o in old) if (!is.null(o$facility_id) && !is.null(o$health_area_id)) by_fac[[o$facility_id]] <- o$health_area_id
+  # Generated in Postgres, not R -- the app seeds R's RNG for reproducible
+  # generation, which would hand out the same "random" IDs again.
+  new_id <- function() DBI::dbGetQuery(conn,
+    "SELECT 'HA-' || substr(md5(random()::text || clock_timestamp()::text), 1, 12) AS id")$id[1]
+  used <- character(0)
+  out <- list()
+  for (n in nm) {
+    hid <- old[[n]]$health_area_id %||% (if (!is.na(fac[n])) by_fac[[fac[n]]] else NULL)
+    if (is.null(hid) || hid %in% used) hid <- new_id()
+    used <- c(used, hid)
+    # No facility -> no facility_id key at all (a NULL would be stored as {}).
+    out[[n]] <- c(list(health_area_id = hid), if (!is.na(fac[n])) list(facility_id = unname(fac[n])))
+  }
+  DBI::dbExecute(conn, "UPDATE mapping_versions SET health_area_ids = CAST($1 AS jsonb) WHERE version_id = $2",
+                 list(as.character(jsonlite::toJSON(out, auto_unbox = TRUE)), as.integer(version_id)))
+  .sync_team_area_ids(conn, version_id)
+  invisible(out)
+}
+
+#' Copy health_area_id / facility_id onto every team-area version pinned to
+#' a health-area version, matched by its (current) health_area_name.
+.sync_team_area_ids <- function(conn, version_id) {
+  DBI::dbExecute(conn, "
+    UPDATE team_area_versions t SET
+      health_area_id = m.health_area_ids -> t.health_area_name ->> 'health_area_id',
+      facility_id    = m.health_area_ids -> t.health_area_name ->> 'facility_id'
+    FROM mapping_versions m
+    WHERE m.version_id = t.based_on_health_area_version_id
+      AND t.based_on_health_area_version_id = $1
+      AND m.health_area_ids ? t.health_area_name", list(as.integer(version_id)))
 }
 
 
@@ -421,7 +526,7 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         landmarks, idp_settlements, dfa_worldpop_pop,
         has_landmarks, has_facilities, has_idp, has_health_areas,
         scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope,
-        scope_target_pop, scope_worldpop_pop
+        scope_target_pop, scope_worldpop_pop, health_area_ids
       )
       SELECT
         $2, $3, $4, $5, version_id,
@@ -436,7 +541,9 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         -- (any edit of a published version) or a carry-forward silently
         -- dropped the district's scope.
         scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope,
-        scope_target_pop, scope_worldpop_pop
+        scope_target_pop, scope_worldpop_pop,
+        -- Health area / coordination site IDs follow the boundaries.
+        health_area_ids
       FROM mapping_versions
       WHERE version_id = $1
       RETURNING version_id
@@ -576,6 +683,11 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
     stop(e)
   })
 
+  # Every health area gets (or keeps) its health_area_id + facility_id.
+  # Never fails the save itself -- the IDs can be re-derived any time.
+  if (stage == "areas")
+    tryCatch(.resolve_health_area_ids(conn, target_id),
+             error = function(e) cat('[db] resolve_health_area_ids error:', conditionMessage(e), '\n'))
 
   invisible(target_id)
 }
@@ -755,7 +867,9 @@ db_rename_health_area <- function(pool, campaign_id, district_name, old_name, ne
       "  saved_dfa_sf        = ", .jsonb_rename_in_features('saved_dfa_sf'), ",",
       "  smoothed_dfa_sf     = ", .jsonb_rename_in_features('smoothed_dfa_sf'), ",",
       "  team_targets        = ", .jsonb_rename_key('team_targets'), ",",
-      "  dfa_worldpop_pop    = ", .jsonb_rename_key('dfa_worldpop_pop'),
+      "  dfa_worldpop_pop    = ", .jsonb_rename_key('dfa_worldpop_pop'), ",",
+      # IDs move with the name; the IDs themselves never change.
+      "  health_area_ids     = ", .jsonb_rename_key('health_area_ids'),
       " WHERE version_id = $1"),
       list(version_id, old_name, new_name))
 
@@ -1112,13 +1226,14 @@ db_delete_data_source_url <- function(pool, setting_key, campaign_id) {
 .tav_meta_cols <- paste(
   "team_version_id, owner_username, campaign_id, district_name, health_area_name,",
   "based_on_health_area_version_id, version_number, branched_from_id,",
-  "is_shared, shared_at, created_at, last_updated_at, archived_at, submitted_by"
+  "is_shared, shared_at, created_at, last_updated_at, archived_at, submitted_by,",
+  "health_area_id, facility_id, dist_uid"
 )
 
 .tav_full_cols <- paste(
   .tav_meta_cols, ",",
   "saved_team_sf, team_names, current_team_assignments,",
-  "smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop"
+  "smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop, team_ids"
 )
 
 .parse_tav_row <- function(r) {
@@ -1127,7 +1242,10 @@ db_delete_data_source_url <- function(pool, setting_key, campaign_id) {
     owner_username                   = r$owner_username,
     campaign_id                       = as.integer(r$campaign_id),
     district_name                      = r$district_name,
+    dist_uid                           = if (is.null(r$dist_uid) || is.na(r$dist_uid)) NULL else r$dist_uid,
     health_area_name                    = r$health_area_name,
+    health_area_id                      = if (is.null(r$health_area_id) || is.na(r$health_area_id)) NULL else r$health_area_id,
+    facility_id                         = if (is.null(r$facility_id) || is.na(r$facility_id)) NULL else r$facility_id,
     based_on_health_area_version_id       = as.integer(r$based_on_health_area_version_id),
     version_number                          = as.integer(r$version_number),
     branched_from_id                          = if (is.na(r$branched_from_id)) NULL else as.integer(r$branched_from_id),
@@ -1143,9 +1261,34 @@ db_delete_data_source_url <- function(pool, setting_key, campaign_id) {
       current_team_assignments         = .from_json_vec_db(r$current_team_assignments %||% NA_character_),
       smoothed_team_sf                    = .from_json_sf_db(r$smoothed_team_sf %||% NA_character_),
       team_field_pop_overrides               = .from_json_db(r$team_field_pop_overrides %||% NA_character_),
-      team_worldpop_pop                         = .from_json_db(r$team_worldpop_pop %||% NA_character_)
+      team_worldpop_pop                         = .from_json_db(r$team_worldpop_pop %||% NA_character_),
+      # {team name: team_id} -- see .resolve_team_ids()
+      team_ids                                  = .from_json_db(r$team_ids %||% NA_character_)
     )
   )
+}
+
+#' Give every team in a team-area version a stable team_id: the ID the
+#' session sent for that name (which follows in-session renames), else the
+#' one already stored under that name, else a new one.
+.resolve_team_ids <- function(conn, team_version_id, session_ids = NULL) {
+  r <- DBI::dbGetQuery(conn, "SELECT team_names::text n, team_ids::text ids FROM team_area_versions WHERE team_version_id = $1",
+                       list(as.integer(team_version_id)))
+  if (nrow(r) == 0) return(invisible(NULL))
+  reserved <- if (exists('extra_dfa_names')) extra_dfa_names else c('Inaccessible', 'Unpopulated')
+  nm <- setdiff(unique(as.character(unlist(.from_json_vec_db(r$n[1])))), reserved)
+  old <- .from_json_db(r$ids[1]) %||% list(); session_ids <- session_ids %||% list()
+  used <- character(0); out <- list()
+  for (n in nm) {
+    tid <- session_ids[[n]] %||% old[[n]]
+    if (is.null(tid) || tid %in% used) tid <- DBI::dbGetQuery(conn,
+      "SELECT 'TA-' || substr(md5(random()::text || clock_timestamp()::text), 1, 12) AS id")$id[1]
+    used <- c(used, tid); out[[n]] <- tid
+  }
+  DBI::dbExecute(conn, "UPDATE team_area_versions SET team_ids = CAST($1 AS jsonb) WHERE team_version_id = $2",
+                 list(as.character(jsonlite::toJSON(if (length(out)) out else structure(list(), names = character(0)), auto_unbox = TRUE)),
+                      as.integer(team_version_id)))
+  invisible(out)
 }
 
 .next_team_version_number <- function(conn, owner_username, campaign_id, district_name, health_area_name) {
@@ -1194,15 +1337,23 @@ db_create_team_area_draft <- function(pool, owner_username, campaign_id, distric
   conn <- pool::poolCheckout(pool)
   on.exit(pool::poolReturn(conn))
   tryCatch({
+    # The health area's ID and its coordination site's facility_id, from
+    # the pinned version -- required (NOT NULL), so a team layout is never
+    # attached to a health area by name alone.
+    ids <- DBI::dbGetQuery(conn, "
+      SELECT health_area_ids -> $2::text ->> 'health_area_id' AS hid, health_area_ids -> $2::text ->> 'facility_id' AS fid
+      FROM mapping_versions WHERE version_id = $1", list(as.integer(based_on_version_id), health_area_name))
+    if (nrow(ids) == 0 || is.na(ids$hid[1]) || is.na(ids$fid[1]))
+      stop(sprintf('"%s" has no health area ID / coordination site ID in this map -- re-submit the health areas first.', health_area_name))
     ver <- .next_team_version_number(conn, owner_username, campaign_id, district_name, health_area_name)
     row <- DBI::dbGetQuery(conn, "
       INSERT INTO team_area_versions
         (owner_username, campaign_id, district_name, health_area_name,
-         based_on_health_area_version_id, version_number, submitted_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $1)
+         based_on_health_area_version_id, version_number, submitted_by, health_area_id, facility_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $1, $7, $8)
       RETURNING team_version_id
     ", list(owner_username, as.integer(campaign_id), district_name, health_area_name,
-             as.integer(based_on_version_id), ver))
+             as.integer(based_on_version_id), ver, ids$hid[1], ids$fid[1]))
     as.integer(row$team_version_id[1])
   }, error = function(e) { cat('[db] create_team_area_draft error:', e$message, '\n'); NULL })
 }
@@ -1230,13 +1381,15 @@ db_branch_team_area_version <- function(pool, source_team_version_id, owner_user
         owner_username, campaign_id, district_name, health_area_name,
         based_on_health_area_version_id, version_number, branched_from_id, submitted_by,
         saved_team_sf, team_names, current_team_assignments,
-        smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop
+        smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop,
+        health_area_id, facility_id, team_ids
       )
       SELECT
         $2, campaign_id, district_name, health_area_name,
         based_on_health_area_version_id, $3, team_version_id, $2,
         saved_team_sf, team_names, current_team_assignments,
-        smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop
+        smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop,
+        health_area_id, facility_id, team_ids
       FROM team_area_versions
       WHERE team_version_id = $1
       RETURNING team_version_id
@@ -1306,18 +1459,50 @@ db_submit_team_area_stage <- function(pool, team_version_id, username, data) {
     stop(e)
   })
 
+  # Stable team IDs, plus the health area / coordination site IDs from the
+  # pinned health-area version. Never fails the save itself.
+  tryCatch({
+    .resolve_team_ids(conn, target_id, data$team_ids)
+    pinned <- DBI::dbGetQuery(conn, "SELECT based_on_health_area_version_id b FROM team_area_versions WHERE team_version_id = $1",
+                              list(target_id))$b[1]
+    if (!is.na(pinned)) .sync_team_area_ids(conn, pinned)
+  }, error = function(e) cat('[db] team ids error:', conditionMessage(e), '\n'))
+
   invisible(target_id)
 }
 
+#' health_area_id of a health area, by its name in the district's current
+#' published health-area version (NULL if none). Screens pick a health area
+#' by name; every team-area lookup below then goes by this ID, so team
+#' areas stay attached to their health area through renames.
+db_health_area_id_for_name <- function(pool, campaign_id, district_name, health_area_name) {
+  if (is.null(health_area_name) || !nzchar(health_area_name)) return(NULL)
+  r <- tryCatch(.db_query(pool, "
+      SELECT health_area_ids -> ?h ->> 'health_area_id' AS id FROM mapping_versions
+      WHERE campaign_id = ?c AND district_name = ?d AND is_shared = TRUE AND archived_at IS NULL LIMIT 1",
+    list(c = as.integer(campaign_id), d = district_name, h = health_area_name)), error = function(e) NULL)
+  id <- if (!is.null(r) && nrow(r) > 0) r$id[1] else NA_character_
+  if (is.na(id) || !nzchar(id)) NULL else id
+}
+
+# WHERE fragment matching one health area's team-area rows -- by
+# health_area_id only (every row has one; NOT NULL in the schema). No
+# health area ID -> matches nothing, never a fallback to the name.
+.tav_ha_clause <- function(ha_id) if (is.null(ha_id)) "FALSE" else "health_area_id = ?hid"
+.tav_ha_params <- function(ha_id) if (is.null(ha_id)) list() else list(hid = ha_id)
+
 #' The current shared (published) team-area version for one health area, if any.
 db_get_current_team_area_version <- function(pool, campaign_id, district_name, health_area_name) {
+  hid <- db_health_area_id_for_name(pool, campaign_id, district_name, health_area_name)
+  if (is.null(hid)) return(NULL)
   rows <- tryCatch(
     .db_query(pool, sprintf("
       SELECT %s FROM team_area_versions
-      WHERE campaign_id = ?c AND district_name = ?d AND health_area_name = ?h
+      WHERE campaign_id = ?c AND %s
         AND is_shared = TRUE AND archived_at IS NULL
+      ORDER BY shared_at DESC NULLS LAST
       LIMIT 1
-    ", .tav_full_cols), list(c = as.integer(campaign_id), d = district_name, h = health_area_name)),
+    ", .tav_full_cols, .tav_ha_clause(hid)), c(list(c = as.integer(campaign_id)), .tav_ha_params(hid))),
     error = function(e) { cat('[db] get_current_team_area_version error:', e$message, '\n'); NULL }
   )
   if (is.null(rows) || nrow(rows) == 0) return(NULL)
@@ -1327,13 +1512,14 @@ db_get_current_team_area_version <- function(pool, campaign_id, district_name, h
 #' A user's own version history for one health area (metadata only) — for
 #' the "your other drafts" dropdown in the team-area picker modal.
 db_get_owner_team_versions <- function(pool, owner_username, campaign_id, district_name, health_area_name) {
+  hid <- db_health_area_id_for_name(pool, campaign_id, district_name, health_area_name)
   .db_query(pool, sprintf("
     SELECT %s FROM team_area_versions
-    WHERE owner_username = ?u AND campaign_id = ?c AND district_name = ?d AND health_area_name = ?h
+    WHERE owner_username = ?u AND campaign_id = ?c AND %s
       AND archived_at IS NULL
-    ORDER BY version_number DESC
-  ", .tav_meta_cols), list(u = owner_username, c = as.integer(campaign_id),
-                           d = district_name, h = health_area_name))
+    ORDER BY created_at DESC
+  ", .tav_meta_cols, .tav_ha_clause(hid)), c(list(u = owner_username, c = as.integer(campaign_id)),
+                                            .tav_ha_params(hid)))
 }
 
 #' Full team-area version history for a district, optionally scoped to one
@@ -1350,8 +1536,9 @@ db_get_team_area_version_history <- function(pool, district_name, campaign_id = 
     params$c <- as.integer(campaign_id)
   }
   if (!is.null(health_area_name)) {
-    where_clauses <- c(where_clauses, "health_area_name = ?h")
-    params$h <- health_area_name
+    hid <- if (!is.null(campaign_id)) db_health_area_id_for_name(pool, campaign_id, district_name, health_area_name) else NULL
+    where_clauses <- c(where_clauses, .tav_ha_clause(hid))
+    params <- c(params, .tav_ha_params(hid))
   }
   .db_query(pool, sprintf("
     SELECT %s FROM team_area_versions
@@ -1394,7 +1581,7 @@ db_publish_team_area <- function(pool, team_version_id) {
 
     target <- DBI::dbGetQuery(conn, "
       SELECT team_version_id, campaign_id, district_name, health_area_name,
-             based_on_health_area_version_id
+             based_on_health_area_version_id, health_area_id
       FROM team_area_versions WHERE team_version_id = $1
     ", list(as.integer(team_version_id)))
     if (nrow(target) == 0) stop('team-area version not found')
@@ -1412,13 +1599,14 @@ db_publish_team_area <- function(pool, team_version_id) {
       ))
     }
 
+    # One published team layout per health area, by health_area_id (so a
+    # layout published before a rename is replaced too).
     DBI::dbExecute(conn, "
       UPDATE team_area_versions
       SET is_shared = FALSE
-      WHERE district_name = $1 AND campaign_id = $2 AND health_area_name = $3
-        AND is_shared = TRUE AND team_version_id != $4
-    ", list(target$district_name[1], target$campaign_id[1], target$health_area_name[1],
-             as.integer(team_version_id)))
+      WHERE campaign_id = $1 AND health_area_id = $2
+        AND is_shared = TRUE AND team_version_id != $3
+    ", list(target$campaign_id[1], target$health_area_id[1], as.integer(team_version_id)))
 
     DBI::dbExecute(conn, "
       UPDATE team_area_versions
@@ -1457,7 +1645,7 @@ db_archive_team_area_version <- function(pool, team_version_id) {
 #' it has no real health areas — callers can treat both the same way
 #' ("nothing to show") without an extra is.null() check.
 db_get_district_team_area_summary <- function(pool, campaign_id, district_name) {
-  empty <- data.frame(health_area_name = character(0), has_current = logical(0),
+  empty <- data.frame(health_area_name = character(0), health_area_id = character(0), has_current = logical(0),
                       owner_username = character(0), shared_at = as.POSIXct(character(0)))
 
   current_ha <- db_get_shared_version(pool, campaign_id, district_name)
@@ -1468,16 +1656,22 @@ db_get_district_team_area_summary <- function(pool, campaign_id, district_name) 
 
   current_teams <- tryCatch(
     .db_query(pool, "
-      SELECT health_area_name, owner_username, shared_at
+      SELECT health_area_name, health_area_id, owner_username, shared_at
       FROM team_area_versions
       WHERE campaign_id = ?c AND district_name = ?d AND is_shared = TRUE AND archived_at IS NULL
     ", list(c = as.integer(campaign_id), d = district_name)),
     error = function(e) NULL
   )
 
-  out <- data.frame(health_area_name = ha_names, stringsAsFactors = FALSE)
+  ids <- current_ha$snap$health_area_ids %||% list()
+  out <- data.frame(health_area_name = ha_names,
+                    health_area_id = vapply(ha_names, function(n) as.character(ids[[n]]$health_area_id %||% NA_character_), character(1), USE.NAMES = FALSE),
+                    stringsAsFactors = FALSE)
   if (!is.null(current_teams) && nrow(current_teams) > 0) {
-    out <- merge(out, current_teams, by = 'health_area_name', all.x = TRUE)
+    # Team layouts belong to a health area by health_area_id.
+    k <- match(out$health_area_id, current_teams$health_area_id)
+    out$owner_username <- current_teams$owner_username[k]
+    out$shared_at <- current_teams$shared_at[k]
   } else {
     out$owner_username <- NA_character_
     out$shared_at <- as.POSIXct(NA)
@@ -1575,11 +1769,13 @@ db_get_carry_forward_source <- function(pool, target_campaign_id, district_name)
       FROM mapping_versions mv
       JOIN campaigns c ON c.campaign_id = mv.campaign_id
       JOIN campaigns t ON t.campaign_id = ?t
+      -- The district by its ID (dist_uid), so a district spelled
+      -- differently in an earlier boundary set still carries forward.
+      JOIN boundary_set_districts td
+             ON td.set_label = t.boundary_set AND td.district_name = ?d
       LEFT JOIN boundary_set_districts sd
-             ON sd.set_label = c.boundary_set AND sd.district_name = mv.district_name
-      LEFT JOIN boundary_set_districts td
-             ON td.set_label = t.boundary_set AND td.district_name = mv.district_name
-      WHERE mv.district_name = ?d
+             ON sd.set_label = c.boundary_set AND sd.dist_uid = td.dist_uid
+      WHERE mv.dist_uid = td.dist_uid
         AND mv.is_shared = TRUE AND mv.archived_at IS NULL
         AND mv.campaign_id <> ?t
         AND NOT (lower(trim(c.campaign_name)) = ANY (?x::text[]))
@@ -1664,7 +1860,8 @@ db_carry_forward_district_to_campaign <- function(pool, target_campaign_id, dist
           based_on_health_area_version_id, version_number, branched_from_id, submitted_by,
           saved_team_sf, team_names, current_team_assignments,
           smoothed_team_sf, smoothing_generated_at,
-          team_field_pop_overrides, team_worldpop_pop
+          team_field_pop_overrides, team_worldpop_pop,
+          health_area_id, facility_id, team_ids
         )
         SELECT
           $2, $3, $4, health_area_name,
@@ -1673,7 +1870,8 @@ db_carry_forward_district_to_campaign <- function(pool, target_campaign_id, dist
           smoothed_team_sf, smoothing_generated_at,
           -- Field-verified team populations and the stored WorldPop
           -- figures carry forward with the boundaries they belong to.
-          team_field_pop_overrides, team_worldpop_pop
+          team_field_pop_overrides, team_worldpop_pop,
+          health_area_id, facility_id, team_ids
         FROM team_area_versions
         WHERE team_version_id = $1
         RETURNING team_version_id
