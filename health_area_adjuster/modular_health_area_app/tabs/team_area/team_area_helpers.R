@@ -196,3 +196,26 @@ compute_n_teams <- function(area_pop, campaign_id = NULL, setting_key = "target_
 # review section) — nothing here tries to reconcile a mismatch
 # automatically.
 # =============================================================================
+
+#' Cell-by-cell team painting rebuilt from stored team boundaries: each grid
+#' cell goes to the team whose shape contains the cell's centre, or the
+#' nearest team when the centre falls in no shape (edge cells). Used when a
+#' stored painting no longer fits the grid (see .apply_restore() in
+#' mod_team_area_tab.R).
+#'
+#' @param grid_sf  the team paint grid (make_paint_grid()$grid_sf), with
+#'                 centroid_lon / centroid_lat
+#' @param team_sf  sf with dfa_name (team name) -- smoothed_team_sf or
+#'                 saved_team_sf
+#' @return character vector, one team name per grid row
+team_assignments_from_shapes <- function(grid_sf, team_sf) {
+  old <- sf::sf_use_s2(FALSE); on.exit(suppressMessages(sf::sf_use_s2(old)), add = TRUE)
+  ts  <- safe_make_valid(sf::st_transform(team_sf, 4326))
+  ts  <- ts[!sf::st_is_empty(ts), , drop = FALSE]
+  pts <- sf::st_as_sf(data.frame(x = grid_sf$centroid_lon, y = grid_sf$centroid_lat), coords = c('x', 'y'), crs = 4326)
+  hit <- sf::st_intersects(pts, ts)
+  out <- vapply(hit, function(k) if (length(k)) as.character(ts$dfa_name[k[1]]) else NA_character_, character(1))
+  miss <- is.na(out)
+  if (any(miss)) out[miss] <- as.character(ts$dfa_name[sf::st_nearest_feature(pts[miss, ], ts)])
+  out
+}

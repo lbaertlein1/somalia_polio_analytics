@@ -1047,10 +1047,32 @@ teamAreaTabServer <- function(
 
     .apply_restore <- function(snap) {
       if (is.null(snap$current_team_assignments) || is.null(rv$grid_sf)) return(invisible(NULL))
-      rv$current_assignments <- vapply(as.character(rv$grid_sf$cell_id), function(id) {
+      ids <- as.character(rv$grid_sf$cell_id)
+      by_id <- vapply(ids, function(id) {
         val <- snap$current_team_assignments[[id]]
-        if (is.null(val)) rv$initial_assignments[as.integer(id)] else as.character(val)
-      }, character(1))
+        if (is.null(val)) NA_character_ else as.character(val)
+      }, character(1), USE.NAMES = FALSE)
+      # The grid is rebuilt from the health area's outline and the confirmed
+      # team count every time this opens, and the stored painting is keyed
+      # by cell number only. If either changed since the painting was saved
+      # (health-area boundary edited, a different team count confirmed), the
+      # cell numbers point at different places and the painting comes back
+      # scrambled. Detect that and rebuild the painting from the stored team
+      # boundaries instead -- what exports and printed maps use.
+      shapes <- snap$smoothed_team_sf %||% snap$saved_team_sf
+      from_shapes <- if (!is.null(shapes) && inherits(shapes, 'sf') && nrow(shapes) > 0)
+        tryCatch(team_assignments_from_shapes(rv$grid_sf, shapes), error = function(e) NULL) else NULL
+      ok <- !is.na(by_id) & !is.na(from_shapes %||% NA)
+      fits <- length(snap$current_team_assignments) == length(ids) &&
+        (is.null(from_shapes) || (any(ok) && mean(by_id[ok] == from_shapes[ok]) >= 0.7))
+      asg <- if (!fits && !is.null(from_shapes)) {
+        cat('[team_area] stored painting did not fit the grid -- rebuilt from the saved team boundaries\n')
+        from_shapes
+      } else {
+        ifelse(is.na(by_id), rv$initial_assignments[as.integer(ids)], by_id)
+      }
+      names(asg) <- ids   # as before: named by cell_id
+      rv$current_assignments <- asg
       rv$saved_team_sf    <- snap$saved_team_sf
       rv$team_names        <- snap$team_names %||% rv$team_names
       rv$smoothed_team_sf     <- snap$smoothed_team_sf
