@@ -143,6 +143,160 @@
   ha_sf
 }
 
+#' Population fields on the health_areas / team_areas GIS layers, from the
+#' same tables as the population summary CSVs (formatted text there, numbers
+#' here). Health areas: by ha_id. Teams: by ta_id; a "team area not mapped"
+#' feature (a whole health area) gets its health area's figures, so the team
+#' layer still sums to the health-area totals. No match (Unpopulated,
+#' Inaccessible, unmapped districts) is left blank.
+.POP_FIELDS_HA   <- c(wp_u5 = 'WorldPop U5', wp_u5_scl = 'Scaled WorldPop U5', field_u5 = 'Field Target U5',
+                      idp_sites = 'IDP Settlements', teams_rec = 'Recommended Teams', teams_req = 'Field Requested Teams')
+.POP_FIELDS_TEAM <- c(wp_u5 = 'WorldPop U5', wp_u5_scl = 'Scaled WorldPop U5', field_u5 = 'Field Target U5')
+.add_pop_fields <- function(layer, ha_tbl, team_tbl = NULL) {
+  if (is.null(layer) || nrow(layer) == 0) return(layer)
+  num <- function(v) suppressWarnings(as.numeric(gsub(',', '', as.character(v))))
+  is_team <- 'ta_id' %in% names(layer)
+  flds <- if (is_team) .POP_FIELDS_TEAM else .POP_FIELDS_HA
+  ha_k <- if (!is.null(ha_tbl) && nrow(ha_tbl) > 0) match(as.character(layer$ha_id), as.character(ha_tbl[['Health Area ID']]), incomparables = NA) else rep(NA_integer_, nrow(layer))
+  tm_k <- if (is_team && !is.null(team_tbl) && nrow(team_tbl) > 0) match(as.character(layer$ta_id), as.character(team_tbl[['Team ID']]), incomparables = NA) else rep(NA_integer_, nrow(layer))
+  for (f in names(flds)) {
+    col <- flds[[f]]
+    v <- if (!is.null(ha_tbl) && col %in% names(ha_tbl)) num(ha_tbl[[col]])[ha_k] else rep(NA_real_, nrow(layer))
+    if (is_team) {
+      from_team <- if (!is.null(team_tbl) && col %in% names(team_tbl)) num(team_tbl[[col]])[tm_k] else rep(NA_real_, nrow(layer))
+      # mapped teams: the team's own figure; "not mapped" rows: the health area's
+      v <- ifelse(layer$mapped %in% 'Yes', from_team, v)
+    }
+    layer[[f]] <- v
+  }
+  sf::st_sf(sf::st_drop_geometry(layer), geometry = sf::st_geometry(layer))
+}
+
+#' Shapefile field names are max 10 characters; sf otherwise abbreviates
+#' EVERY field to 7 (dfa_nam, helth_r, dstrct_) once any is longer. Long
+#' names get readable short ones instead.
+.SHP_FIELD_NAMES <- c(district_name = 'dist_name', region_name = 'reg_name', health_area = 'ha_name',
+                      in_campaign = 'in_camp', health_area_id = 'ha_id', health_area_name = 'ha_nm',
+                      idp_population = 'idp_pop', u5_population = 'u5_pop', crossing_name = 'crossing',
+                      last_confirmed = 'last_conf', subdivision_name = 'subdiv')
+.shp_field_names <- function(x, spec) {
+  if (!identical(spec$ext, 'shp')) return(x)
+  nm <- names(x); hit <- nm %in% names(.SHP_FIELD_NAMES) & !(.SHP_FIELD_NAMES[nm] %in% nm)
+  nm[hit] <- .SHP_FIELD_NAMES[nm[hit]]; names(x) <- nm
+  x
+}
+
+#' Excluded areas -- in the *_with_excluded_areas GIS files only.
+.EXCLUDED_AREA_TYPES <- c('Unpopulated', 'Inaccessible', 'Out of scope')
+
+#' area_type on a health_areas / team_areas layer (kind = 'health area' or
+#' 'team area'): the kind, "<kind> not mapped" for a placeholder, or the
+#' excluded-area type. `mapped` is blank on excluded areas.
+.add_area_type <- function(layer, kind) {
+  if (is.null(layer) || nrow(layer) == 0) return(layer)
+  nm <- as.character(layer$dfa_name); excl <- nm %in% .EXCLUDED_AREA_TYPES
+  layer$area_type <- ifelse(excl, nm, ifelse(layer$mapped %in% 'No', paste(kind, 'not mapped'), kind))
+  layer$mapped[excl] <- NA_character_
+  layer
+}
+
+#' The district's out-of-scope area (Campaign Scope tab "Out of Scope"),
+#' minus anything already covered by `cover_sf`, as one "Out of scope"
+#' feature (EPSG:4326) -- or NULL when the whole district is in scope.
+.out_of_scope_sf <- function(snap, cover_sf) {
+  sc <- snap$scope_saved_dfa_sf
+  if (is.null(sc) || !inherits(sc, 'sf') || nrow(sc) == 0 || !'dfa_name' %in% names(sc)) return(NULL)
+  oos <- sc[sc$dfa_name == 'Out of Scope', , drop = FALSE]
+  if (nrow(oos) == 0) return(NULL)
+  g <- sf::st_union(safe_make_valid(sf::st_transform(oos, 3857)))
+  if (!is.null(cover_sf) && nrow(cover_sf) > 0)
+    g <- sf::st_difference(g, sf::st_union(safe_make_valid(sf::st_transform(cover_sf, 3857))))
+  p <- suppressWarnings(sf::st_cast(sf::st_collection_extract(safe_make_valid(g), 'POLYGON'), 'POLYGON'))
+  p <- p[as.numeric(sf::st_area(p)) >= 100]          # drop edge slivers
+  if (length(p) == 0) return(NULL)
+  sf::st_sf(dfa_name = 'Out of scope', geometry = sf::st_transform(sf::st_cast(sf::st_union(p), 'MULTIPOLYGON'), 4326))
+}
+
+#' Excluded areas removed (the *_without_excluded_areas files).
+.without_excluded <- function(layer) {
+  if (is.null(layer) || nrow(layer) == 0 || !'area_type' %in% names(layer)) return(layer)
+  layer[!layer$area_type %in% .EXCLUDED_AREA_TYPES, , drop = FALSE]
+}
+
+#' Campaign districts with excluded areas removed: each district dissolved
+#' from its health_areas features that are not excluded.
+.districts_without_excluded <- function(ha_layer) {
+  x <- .without_excluded(ha_layer)
+  if (is.null(x) || nrow(x) == 0 || !'district_name' %in% names(x)) return(NULL)
+  keep <- intersect(c('zone_name', 'region_name', 'district_name'), names(x))
+  x <- sf::st_transform(x, 3857)
+  out <- x |> dplyr::group_by(dplyr::across(dplyr::all_of(keep))) |>
+    dplyr::summarise(geometry = sf::st_union(safe_make_valid(geometry)), .groups = 'drop') |> sf::st_as_sf()
+  out$area_type <- 'district'
+  sf::st_transform(out, 4326)
+}
+
+#' README.txt for an export zip: what every file in it is, and the fields.
+.write_export_readme <- function(dir, scope_label, campaign_name, spec) {
+  files <- sort(list.files(dir))
+  layer_of <- function(f) sub('[.][^.]+$', '', f)
+  ext <- spec$ext
+  desc <- c(
+    health_areas_with_excluded_areas    = 'Health areas, plus the excluded areas (Unpopulated, Inaccessible, Out of scope) -- covers the whole district with no gaps.',
+    health_areas_without_excluded_areas = 'Health areas only -- the areas vaccination teams cover. Excluded areas removed.',
+    team_areas_with_excluded_areas      = 'Team areas, plus the excluded areas -- no gaps. A health area not yet divided into teams is one feature, "<health area> - team area not mapped".',
+    team_areas_without_excluded_areas   = 'Team areas only (with "team area not mapped" health areas), excluded areas removed.',
+    districts_with_excluded_areas       = 'Whole district outlines.',
+    districts_without_excluded_areas    = 'District outlines with the excluded areas removed (the area vaccination teams cover).',
+    subdivisions                        = 'City sections / subdivisions inside the district(s), for reference.',
+    campaign_extent                     = 'Campaign (urban) extent configured for the campaign, for reference.',
+    idp_settlements                     = 'IDP settlements (points) from the site registry, with population.',
+    microplan_sites                     = 'All site-registry sites (points): IDP settlements, nomadic sites, crossing points, etc.',
+    landmarks                           = 'Landmarks added in the app (points).',
+    health_area_population_summary      = 'One row per health area: WorldPop U5, Scaled WorldPop U5, Field Target U5, IDP settlements, recommended and field requested teams.',
+    team_population_summary             = 'One row per mapped team area: WorldPop U5, Scaled WorldPop U5, Field Target U5.',
+    scope_population_summary            = 'One row per district: in-scope WorldPop U5, In-Scope Field U5 and the scale factor between them.',
+    facilities                          = 'Facility list (MHFL + facilities added in the app) with coordinates; selected coordination sites carry the ID and name of the health area they produced.')
+  lines <- c(
+    sprintf('Somalia Health Area Mapping Tool -- export for %s%s', scope_label, if (nzchar(campaign_name %||% '')) paste0(', ', campaign_name) else ''),
+    sprintf('Produced %s. Map layers are %s (EPSG:4326, WGS84 lat/lon).', format(Sys.time(), '%d %b %Y %H:%M'), toupper(ext)),
+    if (identical(ext, 'shp')) 'Each shapefile layer is several files with the same name (.shp geometry, .shx index, .dbf attributes, .prj projection, .cpg UTF-8 encoding, .qix spatial index) -- keep them together.' else NULL,
+    '', 'FILES', '-----')
+  for (l in unique(layer_of(files))) {
+    if (l == 'README') next
+    fx <- files[layer_of(files) == l]
+    shown <- if (identical(ext, 'shp') && any(grepl('[.]shp$', fx))) paste0(l, '.shp (+ ', paste(setdiff(tools::file_ext(fx), 'shp'), collapse = ', '), ')') else paste(fx, collapse = ', ')
+    lines <- c(lines, shown, paste0('    ', desc[[l]] %||% ''), '')
+  }
+  lines <- c(lines,
+    'EXCLUDED AREAS', '--------------',
+    'Unpopulated  - no resident population; not vaccinated.',
+    'Inaccessible - cannot be reached (e.g. insecurity); not vaccinated in this campaign.',
+    'Out of scope - parts of the district outside this campaign\'s scope (Campaign Scope tab).',
+    '"not mapped" features (in both versions): "<district> - health area not mapped" covers a district with no published health areas yet;',
+    '"<health area> - team area not mapped" covers a health area not yet divided into team areas.',
+    '',
+    'FIELDS (map layers; shapefile names in brackets where shorter)', '------',
+    'dfa_name                  Name of the health area / team area (or the excluded-area type / "not mapped" label)',
+    'area_type                 health area | team area | health area not mapped | team area not mapped | Unpopulated | Inaccessible | Out of scope | district',
+    'mapped                    Yes = drawn in the app; No = "not mapped" placeholder; blank = excluded area',
+    'health_area [ha_name]     Health area the team area belongs to (team layers)',
+    'ha_id                     Health area ID (stable across renames)',
+    'fac_id                    Facility ID of the health area\'s coordination site',
+    'ta_id                     Team area ID (stable across renames)',
+    'wp_u5                     WorldPop under-5 population (100 m grid)',
+    'wp_u5_scl                 WorldPop U5 scaled to the district\'s In-Scope Field U5, where entered',
+    'field_u5                  Field Target U5 entered for the health area / team',
+    'idp_sites                 Number of IDP settlements in the health area',
+    'teams_rec, teams_req      Recommended teams / Field Requested Teams',
+    'zone_name, region_name [reg_name], district_name [dist_name]',
+    'camp_id, camp_nm          Campaign ID / name',
+    'dist_id, reg_cd           District ID (e.g. BAN-WBR) / region code',
+    '', 'Population fields are blank for excluded areas and for districts with no published health areas.',
+    'Disclaimer: for campaign planning purposes only -- boundaries and figures are estimates, not official statistics.')
+  writeLines(lines, file.path(dir, 'README.txt'), useBytes = FALSE)
+}
+
 #' GIS-layer placeholders for a campaign district with no published health
 #' areas: one district-wide feature in each layer, "<district> - health
 #' area not mapped" / "<district> - team area not mapped" (mapped = "No").
@@ -238,7 +392,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     if (is.null(sf_obj) || nrow(sf_obj) == 0) return(invisible(NULL))
     out <- sf_obj |>
       dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name) |>
-      sf::st_transform(4326) |> .x()
+      sf::st_transform(4326) |> .x() |> .shp_field_names(spec)
     sf::st_write(out, file.path(tmp, fname), driver = spec$driver, layer_options = spec$opts, delete_dsn = TRUE, quiet = TRUE)
   }
 
@@ -278,8 +432,9 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     if (length(parts) == 0) NULL else do.call(rbind, parts)
   }, error = function(e) NULL)
 
-  .write_sf(dplyr::mutate(.with_ha_ids(ha_sf, snap$health_area_ids), mapped = 'Yes'), paste0('health_areas.', spec$ext))
-  .write_sf(.team_layer_filled(team_sf, ha_sf, snap$health_area_ids), paste0('team_areas.', spec$ext))
+  # health_areas / team_areas layers are written after the population
+  # tables below, which they take their population fields from.
+  ha_pop_tbl <- NULL; team_pop_tbl <- NULL
 
   # Subdivisions and campaign/urban extent, as their own data layers --
   # matching what the printable PDF export now also draws on its maps
@@ -332,8 +487,8 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
       pop_scale <- scope_pop_scale(snap, campaign_id)
       ha_summary <- .build_health_area_summary_table(ha_sf, team_targets, u5_rast, campaign_id, urban_sf, idp_sf_export, dfa_worldpop_pop, pop_scale)
       if (!is.null(ha_summary) && nrow(ha_summary) > 0) {
-        .write_csv_utf8_bom(.x(.ha_id_cols(cbind(district_name = district_name, ha_summary), snap$health_area_ids)),
-                 file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
+        ha_pop_tbl <- .ha_id_cols(cbind(district_name = district_name, ha_summary), snap$health_area_ids)
+        .write_csv_utf8_bom(.x(ha_pop_tbl), file.path(tmp, 'health_area_population_summary.csv'), row.names = FALSE)
       }
       .write_csv_utf8_bom(.x(.scope_population_row(district_name, snap, campaign_id)),
                file.path(tmp, 'scope_population_summary.csv'), row.names = FALSE)
@@ -350,8 +505,8 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
         })
         team_rows <- Filter(Negate(is.null), team_rows)
         if (length(team_rows) > 0) {
-          .write_csv_utf8_bom(.x(do.call(rbind, team_rows)),
-                   file.path(tmp, 'team_population_summary.csv'), row.names = FALSE)
+          team_pop_tbl <- do.call(rbind, team_rows)
+          .write_csv_utf8_bom(.x(team_pop_tbl), file.path(tmp, 'team_population_summary.csv'), row.names = FALSE)
         }
       }
     }
@@ -359,12 +514,28 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     warning(paste('Population summary export failed, continuing without it:', e$message))
   })
 
+  # Each area layer twice: with the excluded areas (Unpopulated,
+  # Inaccessible, Out of scope -- no gaps) and without them.
+  ha_layer <- if (!is.null(ha_sf) && nrow(ha_sf) > 0) sf::st_transform(dplyr::mutate(.with_ha_ids(ha_sf, snap$health_area_ids), mapped = 'Yes'), 4326) else NULL
+  oos <- tryCatch(.out_of_scope_sf(snap, ha_layer), error = function(e) { cat('[download] out-of-scope area failed:', e$message, '\n'); NULL })
+  ha_layer   <- .add_area_type(.add_pop_fields(dplyr::bind_rows(ha_layer, oos), ha_pop_tbl), 'health area')
+  team_layer <- .add_area_type(.add_pop_fields(dplyr::bind_rows(.team_layer_filled(team_sf, ha_sf, snap$health_area_ids), oos), ha_pop_tbl, team_pop_tbl), 'team area')
+  .write_sf(ha_layer,                      paste0('health_areas_with_excluded_areas.', spec$ext))
+  .write_sf(.without_excluded(ha_layer),   paste0('health_areas_without_excluded_areas.', spec$ext))
+  .write_sf(team_layer,                    paste0('team_areas_with_excluded_areas.', spec$ext))
+  .write_sf(.without_excluded(team_layer), paste0('team_areas_without_excluded_areas.', spec$ext))
+  if (!is.null(district_sf_for_fetch) && nrow(district_sf_for_fetch) > 0)
+    .write_sf(sf::st_sf(area_type = 'district', geometry = sf::st_geometry(district_sf_for_fetch)), paste0('districts_with_excluded_areas.', spec$ext))
+  if (!is.null(ha_layer) && nrow(ha_layer) > 0)
+    .write_sf(dplyr::select(.districts_without_excluded(dplyr::mutate(ha_layer, district_name = .env$district_name)), area_type),
+              paste0('districts_without_excluded_areas.', spec$ext))
+
   # IDP settlements / landmarks are stored as plain data frames with lon/lat,
   # not sf — convert if present.
   .write_points_df <- function(df, fname) {
     if (is.null(df) || nrow(df) == 0 || !all(c('lon', 'lat') %in% names(df))) return(invisible(NULL))
     pts <- sf::st_as_sf(df, coords = c('lon', 'lat'), crs = 4326, remove = FALSE) |>
-      dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name) |> .x()
+      dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name) |> .x() |> .shp_field_names(spec)
     sf::st_write(pts, file.path(tmp, fname), driver = spec$driver, layer_options = spec$opts, delete_dsn = TRUE, quiet = TRUE)
   }
   .write_points_df(snap$idp_settlements, paste0('idp_settlements.', spec$ext))
@@ -397,6 +568,9 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     .write_csv_utf8_bom(data.frame(message = 'No data available.'), file, row.names = FALSE)
     return(invisible(NULL))
   }
+  tryCatch(.write_export_readme(tmp, paste(district_name, 'district'), codes_ctx$campaign_name, spec),
+           error = function(e) cat('[download] README failed:', e$message, '\n'))
+  out_files <- list.files(tmp, full.names = TRUE)
   tryCatch(
     zip::zip(zipfile = file, files = out_files, mode = 'cherry-pick'),
     error = function(e) utils::zip(zipfile = file, files = out_files, flags = '-j')
@@ -496,6 +670,11 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
         dplyr::mutate(mapped = 'Yes', zone_name = zone_val, region_name = region_val, district_name = dname) |>
         sf::st_transform(4326)
     }
+    oos_d <- tryCatch(.out_of_scope_sf(snap, ha_parts[[dname]]), error = function(e) NULL)
+    if (!is.null(oos_d)) {
+      oos_d <- dplyr::mutate(oos_d, zone_name = zone_val, region_name = region_val, district_name = dname)
+      ha_parts[[dname]] <- dplyr::bind_rows(ha_parts[[dname]], oos_d)
+    }
 
     # Team areas -- same per-health-area combination as the per-district
     # export (there is no single "this district's team areas" row,
@@ -527,6 +706,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
         dplyr::mutate(zone_name = zone_val, region_name = region_val, district_name = dname) |>
         sf::st_transform(4326)
     }
+    if (!is.null(oos_d)) team_parts[[dname]] <- dplyr::bind_rows(team_parts[[dname]], oos_d)
 
     if (!is.null(snap$idp_settlements) && nrow(snap$idp_settlements) > 0 &&
         all(c('lon', 'lat') %in% names(snap$idp_settlements))) {
@@ -595,10 +775,11 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
   # districts' pieces can plausibly have slightly different column sets
   # (e.g. one district never had any Inaccessible cells drawn), and
   # bind_rows() fills missing columns with NA instead of erroring.
-  .write_combined_sf <- function(parts, fname) {
+  .write_combined_sf <- function(parts, fname, pop = identity) {
     if (length(parts) == 0) return(invisible(NULL))
-    combined <- .x(dplyr::bind_rows(parts))
-    if (nrow(combined) == 0) return(invisible(NULL))
+    combined <- if (inherits(parts, 'sf')) parts else dplyr::bind_rows(parts)
+    combined <- .x(pop(combined)) |> .shp_field_names(spec)
+    if (is.null(combined) || nrow(combined) == 0) return(invisible(NULL))
     sf::st_write(combined, file.path(tmp, fname), driver = spec$driver, layer_options = spec$opts, delete_dsn = TRUE, quiet = TRUE)
   }
   # Campaign districts with no published health areas: one district-wide
@@ -615,11 +796,18 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
       ha_parts[[dname]]   <- tag(.unmapped_district_sf(dg, dname, 'health area'))
       team_parts[[dname]] <- tag(.unmapped_district_sf(dg, dname, 'team area'))
     }
-  }, error = function(e) cat('[download] unmapped-district placeholders failed:', e$message, '
-'))
+  }, error = function(e) cat('[download] unmapped-district placeholders failed:', e$message, '\n'))
 
-  .write_combined_sf(ha_parts,       paste0('health_areas.', spec$ext))
-  .write_combined_sf(team_parts,     paste0('team_areas.', spec$ext))
+  ha_pop_all   <- if (length(ha_summary_parts))   dplyr::bind_rows(ha_summary_parts)   else NULL
+  team_pop_all <- if (length(team_summary_parts)) dplyr::bind_rows(team_summary_parts) else NULL
+  # Each area layer twice: with the excluded areas (Unpopulated,
+  # Inaccessible, Out of scope -- no gaps) and without them.
+  ha_all   <- if (length(ha_parts))   .add_area_type(.add_pop_fields(dplyr::bind_rows(ha_parts), ha_pop_all), 'health area') else NULL
+  team_all <- if (length(team_parts)) .add_area_type(.add_pop_fields(dplyr::bind_rows(team_parts), ha_pop_all, team_pop_all), 'team area') else NULL
+  .write_combined_sf(ha_all,                      paste0('health_areas_with_excluded_areas.', spec$ext))
+  .write_combined_sf(.without_excluded(ha_all),   paste0('health_areas_without_excluded_areas.', spec$ext))
+  .write_combined_sf(team_all,                    paste0('team_areas_with_excluded_areas.', spec$ext))
+  .write_combined_sf(.without_excluded(team_all), paste0('team_areas_without_excluded_areas.', spec$ext))
   .write_combined_sf(idp_parts,      paste0('idp_settlements.', spec$ext))
   .write_combined_sf(site_parts,     paste0('microplan_sites.', spec$ext))
   .write_combined_sf(landmark_parts, paste0('landmarks.', spec$ext))
@@ -647,32 +835,31 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     .write_csv_utf8_bom(.x(fac_out), file.path(tmp, 'facilities.csv'), row.names = FALSE)
   }
 
-  # District boundaries for context -- EVERY district in districts_shp,
-  # not just this campaign's, with an in_campaign flag so the
-  # relationship is explicit rather than the campaign's own districts
-  # simply being a visually-indistinguishable subset with no attribute
-  # to filter or symbolize on. Uses db_get_campaign_districts() (the
-  # campaign's actual assignment) rather than progress$district_name,
-  # since a district can be assigned to a campaign without having
-  # published data yet -- those two sets aren't the same thing.
+  # District outlines: the campaign's districts (db_get_campaign_districts()
+  # -- assigned, published or not), whole and with the excluded areas removed.
   campaign_districts <- tryCatch(db_get_campaign_districts(pool, campaign_id), error = function(e) NULL)
   campaign_district_names <- if (!is.null(campaign_districts) && nrow(campaign_districts) > 0)
     campaign_districts$district_name else character(0)
-  # Outlines from THIS campaign's boundary set
-  districts_out <- districts_shp_for_campaign(campaign_id) |>
-    dplyr::mutate(in_campaign = district_name %in% campaign_district_names) |>
-    sf::st_transform(4326)
-  tryCatch(
-    sf::st_write(districts_out, file.path(tmp, paste0('districts.', spec$ext)),
-                driver = spec$driver, layer_options = spec$opts, delete_dsn = TRUE, quiet = TRUE),
-    error = function(e) cat('[download] failed to write districts layer:', e$message, '\n')
-  )
+  tryCatch({
+    keep <- c('zone_name', 'region_name', 'district_name')
+    districts_out <- districts_shp_for_campaign(campaign_id) |>
+      dplyr::filter(district_name %in% campaign_district_names) |>
+      dplyr::group_by(dplyr::across(dplyr::any_of(keep))) |>
+      dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+      sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326) |>
+      dplyr::mutate(area_type = 'district')
+    .write_combined_sf(districts_out, paste0('districts_with_excluded_areas.', spec$ext))
+    .write_combined_sf(.districts_without_excluded(ha_all), paste0('districts_without_excluded_areas.', spec$ext))
+  }, error = function(e) cat('[download] failed to write districts layers:', e$message, '\n'))
 
   out_files <- list.files(tmp, full.names = TRUE)
   if (length(out_files) == 0) {
     .write_csv_utf8_bom(data.frame(message = 'No data available.'), file, row.names = FALSE)
     return(invisible(NULL))
   }
+  tryCatch(.write_export_readme(tmp, 'all districts', codes_ctx$campaign_name, spec),
+           error = function(e) cat('[download] README failed:', e$message, '\n'))
+  out_files <- list.files(tmp, full.names = TRUE)
   tryCatch(
     zip::zip(zipfile = file, files = out_files, mode = 'cherry-pick'),
     error = function(e) utils::zip(zipfile = file, files = out_files, flags = '-j')
