@@ -14,7 +14,6 @@ sf::sf_use_s2(FALSE)
 con <- DBI::dbConnect(RPostgres::Postgres(), host = Sys.getenv('DB_HOST'), port = as.integer(Sys.getenv('DB_PORT', '5432')),
                       dbname = Sys.getenv('DB_NAME'), user = 'postgres', password = Sys.getenv('POSTGRES_PASSWORD'),
                       sslmode = Sys.getenv('DB_SSL', 'require'), bigint = 'integer')
-on.exit(DBI::dbDisconnect(con))
 
 # 1. Health area IDs (+ coordination site facility_id), oldest first so a
 #    branch inherits its parent's IDs.
@@ -56,3 +55,4 @@ DBI::dbExecute(con, "ALTER TABLE team_area_versions ALTER COLUMN health_area_id 
 DBI::dbExecute(con, "ALTER TABLE team_area_versions ALTER COLUMN facility_id    SET NOT NULL")
 DBI::dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_tav_ha_id ON team_area_versions(health_area_id, campaign_id)")
 cat('team-area health_area_id / facility_id are now required.\n')
+DBI::dbDisconnect(con)

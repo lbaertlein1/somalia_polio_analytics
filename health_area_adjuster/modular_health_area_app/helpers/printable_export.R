@@ -78,6 +78,13 @@ library(png)
   topo      = 'OpenTopoMap'
 )
 
+# Highest tile zoom each provider actually serves. Above it OpenTopoMap
+# returns placeholder tiles reading "max zoom layer = 17" (seen on small
+# team-area pages), so a page needing more detail gets the max zoom's
+# tiles scaled up instead.
+.PRINT_BASEMAP_MAX_ZOOM <- list(osm = 19, satellite = 18, topo = 17)
+.cap_basemap_zoom <- function(zoom, basemap) as.integer(min(zoom, .PRINT_BASEMAP_MAX_ZOOM[[basemap %||% '']] %||% 18))
+
 # basemap may be several choices (the export tab's checkbox group): every
 # map page is printed once per basemap in the same PDF, since field teams
 # usually need more than one (street names from OSM, actual rooftops/
@@ -1708,7 +1715,7 @@ populated_area_worldpop <- function(snap) {
   # tryCatch will still catch the failure and log the (hopefully
   # different, more specific) error message rather than crash the export.
   m <- tmap::tm_shape(ha_sf, bbox = .padded_bbox(ha_sf))
-  if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = zoom)  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
+  if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = .cap_basemap_zoom(zoom, basemap))  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
 
   # Population overlay, same 0.5 opacity as the in-app map. fill_color
   # is already a per-polygon hex color from make_population_overlay_sf()
@@ -1811,7 +1818,7 @@ populated_area_worldpop <- function(snap) {
   team_text_col   <- if (needs_high_contrast) '#00e5ff' else '#334155'
 
   m <- tmap::tm_shape(ha_one, bbox = .padded_bbox(ha_one))
-  if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = zoom)  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
+  if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = .cap_basemap_zoom(zoom, basemap))  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
 
   # Same population overlay as the overview map, clipped to this health
   # area's own extent by the caller before it gets here. Same
