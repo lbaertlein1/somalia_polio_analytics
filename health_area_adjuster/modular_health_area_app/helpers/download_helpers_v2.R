@@ -143,15 +143,60 @@
   ha_sf
 }
 
+#' GIS-layer placeholders for a campaign district with no published health
+#' areas: one district-wide feature in each layer, "<district> - health
+#' area not mapped" / "<district> - team area not mapped" (mapped = "No").
+.unmapped_district_sf <- function(district_geom, district_name, what) {
+  df <- data.frame(dfa_name = paste0(district_name, ' - ', what, ' not mapped'), stringsAsFactors = FALSE)
+  if (what == 'team area') df$health_area <- NA_character_
+  df$ha_id <- NA_character_; df$fac_id <- NA_character_
+  if (what == 'team area') df$ta_id <- NA_character_
+  df$mapped <- 'No'
+  sf::st_sf(df, geometry = sf::st_geometry(district_geom))
+}
+
+#' The team_areas map layer with no holes: every health area that has no
+#' published team layout yet is added as one feature covering the whole
+#' health area, named "<health area> - team area not mapped" (mapped =
+#' "No"); district-level Unpopulated / Inaccessible areas are added as-is.
+#' Only for the GIS layers (shp/kml/geojson) -- the team population CSV
+#' stays mapped teams only.
+.team_layer_filled <- function(team_sf, ha_sf, ids) {
+  if (is.null(ha_sf) || nrow(ha_sf) == 0 || !'dfa_name' %in% names(ha_sf)) return(team_sf)
+  ids <- ids %||% list(); res <- c('Unpopulated', 'Inaccessible')
+  mapped <- if (is.null(team_sf) || nrow(team_sf) == 0) character(0) else unique(as.character(team_sf$health_area))
+  ha <- sf::st_transform(ha_sf, 4326)
+  ha <- ha[!as.character(ha$dfa_name) %in% mapped, , drop = FALSE]
+  fill <- NULL
+  if (nrow(ha) > 0) {
+    nm <- as.character(ha$dfa_name)
+    fill <- sf::st_sf(
+      dfa_name    = ifelse(nm %in% res, nm, paste0(nm, ' - team area not mapped')),
+      health_area = nm,
+      ha_id       = vapply(nm, function(n) as.character(ids[[n]]$health_area_id %||% NA_character_), character(1), USE.NAMES = FALSE),
+      fac_id      = vapply(nm, function(n) as.character(ids[[n]]$facility_id %||% NA_character_), character(1), USE.NAMES = FALSE),
+      ta_id       = NA_character_,
+      mapped      = 'No',
+      geometry    = sf::st_geometry(ha))
+  }
+  if (is.null(team_sf) || nrow(team_sf) == 0) return(fill)
+  team <- sf::st_transform(team_sf, 4326); team$mapped <- 'Yes'
+  team <- sf::st_sf(sf::st_drop_geometry(team), geometry = sf::st_geometry(team))
+  if (is.null(fill)) team else dplyr::bind_rows(team, fill)
+}
+
 #' Map a user-facing format choice to its sf driver name and file extension.
 #' Kept in one place so the export UI and the zip-builders always agree on
 #' what "shp"/"kml"/"geojson" mean.
 export_format_spec <- function(format = c('geojson', 'shp', 'kml')) {
   format <- match.arg(format)
   switch(format,
-    geojson = list(driver = 'GeoJSON',          ext = 'geojson'),
-    shp     = list(driver = 'ESRI Shapefile',    ext = 'shp'),
-    kml     = list(driver = 'KML',               ext = 'kml')
+    geojson = list(driver = 'GeoJSON',          ext = 'geojson', opts = character(0)),
+    # UTF-8 attributes + a .cpg saying so (GDAL's default is Latin-1, no
+    # .cpg), and a .qix spatial index. ArcGIS's own .sbn/.sbx index is a
+    # proprietary format GDAL can't write; ArcGIS builds it itself.
+    shp     = list(driver = 'ESRI Shapefile',    ext = 'shp', opts = c('ENCODING=UTF-8', 'SPATIAL_INDEX=YES')),
+    kml     = list(driver = 'KML',               ext = 'kml', opts = character(0))
   )
 }
 
@@ -194,7 +239,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     out <- sf_obj |>
       dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name) |>
       sf::st_transform(4326) |> .x()
-    sf::st_write(out, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
+    sf::st_write(out, file.path(tmp, fname), driver = spec$driver, layer_options = spec$opts, delete_dsn = TRUE, quiet = TRUE)
   }
 
   # Prefer smoothed/presentation geometry for exports — raw grid-stepped
@@ -233,8 +278,8 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     if (length(parts) == 0) NULL else do.call(rbind, parts)
   }, error = function(e) NULL)
 
-  .write_sf(.with_ha_ids(ha_sf, snap$health_area_ids), paste0('health_areas.', spec$ext))
-  .write_sf(team_sf, paste0('team_areas.', spec$ext))
+  .write_sf(dplyr::mutate(.with_ha_ids(ha_sf, snap$health_area_ids), mapped = 'Yes'), paste0('health_areas.', spec$ext))
+  .write_sf(.team_layer_filled(team_sf, ha_sf, snap$health_area_ids), paste0('team_areas.', spec$ext))
 
   # Subdivisions and campaign/urban extent, as their own data layers --
   # matching what the printable PDF export now also draws on its maps
@@ -320,7 +365,7 @@ build_district_download_v2 <- function(file, district_name, zone = '', region = 
     if (is.null(df) || nrow(df) == 0 || !all(c('lon', 'lat') %in% names(df))) return(invisible(NULL))
     pts <- sf::st_as_sf(df, coords = c('lon', 'lat'), crs = 4326, remove = FALSE) |>
       dplyr::mutate(zone_name = .env$zone, region_name = .env$region, district_name = .env$district_name) |> .x()
-    sf::st_write(pts, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
+    sf::st_write(pts, file.path(tmp, fname), driver = spec$driver, layer_options = spec$opts, delete_dsn = TRUE, quiet = TRUE)
   }
   .write_points_df(snap$idp_settlements, paste0('idp_settlements.', spec$ext))
   .write_points_df(sites_dl,             paste0('microplan_sites.', spec$ext))
@@ -448,7 +493,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     dfa_worldpop_pop <- snap$dfa_worldpop_pop %||% list()
     if (!is.null(ha_sf) && nrow(ha_sf) > 0) {
       ha_parts[[dname]] <- .with_ha_ids(ha_sf, snap$health_area_ids) |>
-        dplyr::mutate(zone_name = zone_val, region_name = region_val, district_name = dname) |>
+        dplyr::mutate(mapped = 'Yes', zone_name = zone_val, region_name = region_val, district_name = dname) |>
         sf::st_transform(4326)
     }
 
@@ -476,8 +521,9 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
       tparts <- Filter(Negate(is.null), tparts)
       if (length(tparts) == 0) NULL else dplyr::bind_rows(tparts)
     }, error = function(e) NULL)
-    if (!is.null(team_sf) && nrow(team_sf) > 0) {
-      team_parts[[dname]] <- team_sf |>
+    team_layer <- .team_layer_filled(team_sf, ha_sf, snap$health_area_ids)
+    if (!is.null(team_layer) && nrow(team_layer) > 0) {
+      team_parts[[dname]] <- team_layer |>
         dplyr::mutate(zone_name = zone_val, region_name = region_val, district_name = dname) |>
         sf::st_transform(4326)
     }
@@ -553,8 +599,25 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     if (length(parts) == 0) return(invisible(NULL))
     combined <- .x(dplyr::bind_rows(parts))
     if (nrow(combined) == 0) return(invisible(NULL))
-    sf::st_write(combined, file.path(tmp, fname), driver = spec$driver, delete_dsn = TRUE, quiet = TRUE)
+    sf::st_write(combined, file.path(tmp, fname), driver = spec$driver, layer_options = spec$opts, delete_dsn = TRUE, quiet = TRUE)
   }
+  # Campaign districts with no published health areas: one district-wide
+  # placeholder in the health-area and team-area layers, so neither layer
+  # has a hole where a district is still unmapped.
+  tryCatch({
+    cd <- db_get_campaign_districts(pool, campaign_id)
+    for (dname in setdiff(if (is.null(cd)) character(0) else cd$district_name, names(ha_parts))) {
+      dinfo <- districts_shp_for_campaign(campaign_id) |> dplyr::filter(district_name == dname)
+      if (nrow(dinfo) == 0) next
+      dg <- dinfo |> dplyr::group_by(district_name) |> dplyr::summarise(geometry = sf::st_union(geometry), .groups = 'drop') |>
+        sf::st_as_sf() |> safe_make_valid() |> sf::st_transform(4326)
+      tag <- function(x) dplyr::mutate(x, zone_name = as.character(dinfo$zone_name[1]), region_name = as.character(dinfo$region_name[1]), district_name = dname)
+      ha_parts[[dname]]   <- tag(.unmapped_district_sf(dg, dname, 'health area'))
+      team_parts[[dname]] <- tag(.unmapped_district_sf(dg, dname, 'team area'))
+    }
+  }, error = function(e) cat('[download] unmapped-district placeholders failed:', e$message, '
+'))
+
   .write_combined_sf(ha_parts,       paste0('health_areas.', spec$ext))
   .write_combined_sf(team_parts,     paste0('team_areas.', spec$ext))
   .write_combined_sf(idp_parts,      paste0('idp_settlements.', spec$ext))
@@ -601,7 +664,7 @@ build_campaign_download_v2 <- function(file, campaign_id, format = 'geojson', pr
     sf::st_transform(4326)
   tryCatch(
     sf::st_write(districts_out, file.path(tmp, paste0('districts.', spec$ext)),
-                driver = spec$driver, delete_dsn = TRUE, quiet = TRUE),
+                driver = spec$driver, layer_options = spec$opts, delete_dsn = TRUE, quiet = TRUE),
     error = function(e) cat('[download] failed to write districts layer:', e$message, '\n')
   )
 
