@@ -560,6 +560,19 @@ db_branch_version <- function(pool, source_version_id, owner_username,
 #                           forks a new version if the target is shared)
 # =============================================================================
 
+# Sorted "lon,lat" (5 dp) of every selected coordination site in the MHFL +
+# app-added layers -- identifies which sites a set of health areas was drawn from.
+.coordination_site_key <- function(odk_sf, app_sf) {
+  one <- function(x) {
+    if (is.null(x) || !inherits(x, 'sf') || nrow(x) == 0 || !'polio_sia_coordination_site' %in% names(x)) return(character())
+    x <- x[x$polio_sia_coordination_site %in% 'Yes' & !sf::st_is_empty(x), ]
+    if (nrow(x) == 0) return(character())
+    xy <- sf::st_coordinates(sf::st_transform(x, 4326))
+    sprintf('%.5f,%.5f', xy[, 1], xy[, 2])
+  }
+  paste(sort(c(one(odk_sf), one(app_sf))), collapse = '|')
+}
+
 #' Write one stage of progress. If version_id points at a row the caller owns
 #' and that is NOT shared, updates it in place (matches old submit_stage
 #' upsert behavior). If the row IS shared, forks a new version first (per
@@ -629,6 +642,22 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
   scope_target_pop   <- if (stage == "scope") suppressWarnings(as.numeric(data$scope_target_pop %||% NA))   else NA_real_
   scope_worldpop_pop <- if (stage == "scope") suppressWarnings(as.numeric(data$scope_worldpop_pop %||% NA)) else NA_real_
 
+  # New coordination sites invalidate the saved health areas: they were drawn
+  # from the old sites, and reopening the draft would restore them (new sites
+  # with no area, removed sites still with one). Same test the Health Areas
+  # tab uses to decide a scene is new -- selected site LOCATIONS, so a rename
+  # alone keeps the areas. Field targets (team_targets) are kept.
+  clear_areas <- FALSE
+  if (stage == "facilities") {
+    old <- DBI::dbGetQuery(conn, "SELECT odk_sf::text o, app_sf::text a, saved_dfa_sf IS NOT NULL has_areas FROM mapping_versions WHERE version_id = $1",
+                           list(target_id))
+    if (isTRUE(old$has_areas[1])) {
+      from_json <- function(txt) if (is.na(txt) || !nzchar(txt)) NULL else tryCatch(geojsonsf::geojson_sf(txt), error = function(e) NULL)
+      clear_areas <- !identical(.coordination_site_key(from_json(old$o[1]), from_json(old$a[1])),
+                                .coordination_site_key(data$odk_sf, data$app_sf))
+    }
+  }
+
   has_landmarks    <- stage == "landmarks"
   has_facilities   <- stage == "facilities"
   has_idp          <- stage == "idp"
@@ -682,6 +711,14 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
     cat('[db] submit_stage_v2 UPDATE error (', stage, '):', e$message, '\n')
     stop(e)
   })
+
+  if (clear_areas) {
+    DBI::dbExecute(conn, "
+      UPDATE mapping_versions SET saved_dfa_sf = NULL, smoothed_dfa_sf = NULL, current_assignments = NULL, dfa_names = NULL,
+        dfa_worldpop_pop = NULL, health_area_ids = NULL, has_health_areas = FALSE, smoothing_generated_at = NULL
+      WHERE version_id = $1 AND NOT is_shared", list(target_id))
+    cat('[db] submit_stage_v2: coordination sites changed on version', target_id, '-- saved health areas cleared\n')
+  }
 
   # Every health area gets (or keeps) its health_area_id + facility_id.
   # Never fails the save itself -- the IDs can be re-derived any time.
