@@ -171,8 +171,10 @@ build_variable_paint_grid <- function(district_sf, spec) {
     fdf <- fdf[lengths(sf::st_intersects(f_pts, d3857)) > 0, , drop = FALSE]
   }
   cells <- rbind(
-    data.frame(parent = co_keep, sub = 0L, row = cr[co_keep] * k, col = cc[co_keep] * k, size = k),
-    if (nrow(fdf)) data.frame(parent = fdf$parent, sub = fdf$i * k + fdf$j + 1L, row = fdf$row, col = fdf$col, size = 1L)
+    # rep() rather than scalars: either part can be empty (e.g. a small health
+    # area whose every standard cell is split leaves no coarse cells)
+    data.frame(parent = co_keep, sub = rep(0L, length(co_keep)), row = cr[co_keep] * k, col = cc[co_keep] * k, size = rep(k, length(co_keep))),
+    if (nrow(fdf)) data.frame(parent = fdf$parent, sub = fdf$i * k + fdf$j + 1L, row = fdf$row, col = fdf$col, size = rep(1L, nrow(fdf)))
   )
   cells <- cells[order(cells$parent, cells$sub), , drop = FALSE]
   n <- nrow(cells); if (n == 0) stop('variable grid: no cells inside the district')

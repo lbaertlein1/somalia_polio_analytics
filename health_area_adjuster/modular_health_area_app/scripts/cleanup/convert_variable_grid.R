@@ -7,17 +7,17 @@
 # each new cell takes the saved area holding its centre (nearest area if none); an area left with no cell gets the
 # cell holding its coordination site. Skips Banadir, archived versions, versions with no saved areas and versions
 # already on a variable grid.
-# Env: WORK (output folder: summary + backup), CAMPAIGN (default 10), ONLY (comma list of districts), APPLY=1 to write.
+# Env: WORK (output folder: summary + backup), CAMPAIGN (default 10), ONLY (comma list of districts), APPLY=1 to write, PART = ha | team | both (default). A version saved after this script read it is left alone (NOT WRITTEN).
 suppressMessages(library(dotenv)); trace('load_dot_env', where = asNamespace('dotenv'), print = FALSE, exit = quote(Sys.setenv(DB_HOST = 'localhost', DB_PORT = '15432')))
 suppressMessages(suppressWarnings(source('global.R'))); options(width = 220, warn = -1); sf::sf_use_s2(FALSE)
 S <- Sys.getenv('WORK'); if (!nzchar(S)) stop('set WORK'); dir.create(S, showWarnings = FALSE)
 CID <- as.integer(Sys.getenv('CAMPAIGN', '10')); APPLY <- identical(Sys.getenv('APPLY'), '1')
 shp <- districts_shp_for_campaign(CID)
 banadir <- unique(shp$district_name[grepl('banadir', shp$region_name, ignore.case = TRUE)])
-H <- DBI::dbGetQuery(pool, "SELECT version_id v, district_name d, owner_username o, version_number n, is_shared s FROM mapping_versions
+H <- DBI::dbGetQuery(pool, "SELECT version_id v, district_name d, owner_username o, version_number n, is_shared s, last_updated_at::text lu FROM mapping_versions
   WHERE campaign_id = $1 AND archived_at IS NULL AND saved_dfa_sf IS NOT NULL AND current_assignments IS NOT NULL AND paint_grid_spec IS NULL
   ORDER BY d, version_id", list(CID))
-H <- H[!H$d %in% banadir, ]
+H <- H[!H$d %in% banadir, ]; PART <- Sys.getenv('PART', 'both'); if (PART == 'team') H <- H[0, ]
 only <- trimws(strsplit(Sys.getenv('ONLY'), ',')[[1]]); if (length(only) && nzchar(only[1])) H <- H[H$d %in% only, ]
 cat(sprintf('%d versions in %d districts (Banadir excluded: %d districts)\n', nrow(H), length(unique(H$d)), length(banadir)))
 backup_f <- file.path(S, sprintf('grid_backup_%s.rds', format(Sys.time(), '%Y%m%d_%H%M%S'))); backup <- list()
@@ -61,7 +61,7 @@ for (i in seq_len(nrow(H))) { V <- H$v[i]; t0 <- Sys.time()
       cur <- DBI::dbGetQuery(pool, 'SELECT current_assignments::text ca, paint_grid_spec::text ps FROM mapping_versions WHERE version_id = $1', list(V))
       backup[[as.character(V)]] <- list(current_assignments = cur$ca, paint_grid_spec = cur$ps); saveRDS(backup, backup_f)
       n_up <- DBI::dbExecute(pool, "UPDATE mapping_versions SET current_assignments = $2::jsonb, paint_grid_spec = $3::jsonb
-                                    WHERE version_id = $1 AND paint_grid_spec IS NULL", list(V, as.character(jsonlite::toJSON(new)), grid_spec_json(spec)))
+                                    WHERE version_id = $1 AND paint_grid_spec IS NULL AND last_updated_at::text = $4", list(V, as.character(jsonlite::toJSON(new)), grid_spec_json(spec), H$lu[i]))
       if (n_up != 1) row$status <- 'NOT WRITTEN (changed meanwhile)'
     }
     row
@@ -75,11 +75,11 @@ out <- dplyr::bind_rows(rows); write.csv(out, file.path(S, 'convert_variable_gri
 # ---- Team layouts (team_area_versions): same idea. Team boundaries (saved/smoothed_team_sf) stay as they are;
 # team cells are re-derived on the variable team grid of the health area's saved shape in the pinned health-area
 # version (what the Team Areas tab builds on), sized as the tab does for the layout's number of teams.
-TH <- DBI::dbGetQuery(pool, "SELECT team_version_id t, district_name d, health_area_name h, owner_username o, version_number n, is_shared s,
+TH <- DBI::dbGetQuery(pool, "SELECT team_version_id t, district_name d, health_area_name h, owner_username o, version_number n, is_shared s, last_updated_at::text lu,
     based_on_health_area_version_id hv FROM team_area_versions
   WHERE campaign_id = $1 AND archived_at IS NULL AND saved_team_sf IS NOT NULL AND current_team_assignments IS NOT NULL AND paint_grid_spec IS NULL
   ORDER BY d, h, team_version_id", list(CID))
-TH <- TH[!TH$d %in% banadir, ]; if (length(only) && nzchar(only[1])) TH <- TH[TH$d %in% only, ]
+TH <- TH[!TH$d %in% banadir, ]; if (PART == 'ha') TH <- TH[0, ]; if (length(only) && nzchar(only[1])) TH <- TH[TH$d %in% only, ]
 cat(sprintf('\nTEAM LAYOUTS: %d in %d districts\n', nrow(TH), length(unique(TH$d))))
 ha_cache <- list(); trows <- list()
 for (i in seq_len(nrow(TH))) { T_ <- TH$t[i]; t0 <- Sys.time()
@@ -109,8 +109,8 @@ for (i in seq_len(nrow(TH))) { T_ <- TH$t[i]; t0 <- Sys.time()
       backup[[paste0('team_', T_)]] <- list(current_team_assignments = cur$ca, paint_grid_spec = cur$ps); saveRDS(backup, backup_f)
       named <- setNames(as.list(new), as.character(g$cell_id))   # team format: keyed by cell_id
       n_up <- DBI::dbExecute(pool, "UPDATE team_area_versions SET current_team_assignments = $2::jsonb, paint_grid_spec = $3::jsonb
-                                    WHERE team_version_id = $1 AND paint_grid_spec IS NULL",
-                             list(T_, as.character(jsonlite::toJSON(named, auto_unbox = TRUE)), grid_spec_json(spec)))
+                                    WHERE team_version_id = $1 AND paint_grid_spec IS NULL AND last_updated_at::text = $4",
+                             list(T_, as.character(jsonlite::toJSON(named, auto_unbox = TRUE)), grid_spec_json(spec), TH$lu[i]))
       if (n_up != 1) row$status <- 'NOT WRITTEN (changed meanwhile)'
     }
     row

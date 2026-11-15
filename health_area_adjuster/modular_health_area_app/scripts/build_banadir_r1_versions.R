@@ -467,18 +467,25 @@ make_refiner <- function() {
   function refine(gridGeo, assignments, districtGeo, smoothness, stiffness, snapTol) {
     const cells = {}, cellCorners = {}, asg = {};
     gridGeo.features.forEach(f => {
-      const p = f.properties, cid = String(p.cell_id);
-      cells[cid] = { row: p.row, col: p.col };
-      cellCorners[cid] = f.geometry.coordinates[0].slice(0, 4).map(([lng, lat]) => [lat, lng]);
+      const p = f.properties, cid = String(p.cell_id), ring = f.geometry.coordinates[0];
+      cells[cid] = { row: p.row, col: p.col, size: p.size || 1 };
+      if ((p.size || 1) > 1) {   // variable-grid coarse cell: corners from its bounding box (as paint-app.js)
+        let s = Infinity, n = -Infinity, w = Infinity, e = -Infinity;
+        ring.forEach(([x, y]) => { if (y < s) s = y; if (y > n) n = y; if (x < w) w = x; if (x > e) e = x; });
+        cellCorners[cid] = [[s, w], [s, e], [n, e], [n, w]];
+      } else {
+        cellCorners[cid] = ring.slice(0, 4).map(([lng, lat]) => [lat, lng]);
+      }
       asg[cid] = assignments[cid];
     });
-    const sample = cells[Object.keys(cells)[0]];
+    let sample = null;
+    Object.keys(cells).forEach(cid => { if (!sample || cells[cid].size < sample.size) sample = cells[cid]; });
     const raw = traceRealGridBoundaries(cells, cellCorners, asg);
     const simp = simplifyVertexBoundary(raw.rawIdRingsByArea, raw.vertexPos, smoothness);
     const vertexPos = {};
     Object.keys(raw.vertexPos).forEach(k => { vertexPos[k] = { ...raw.vertexPos[k] }; });
     snapOuterBoundaryToTruth(vertexPos, simp.outerVertexIds, districtGeo);
-    const constants = computeVertexConstants(raw.vertexPos, sample.row, sample.col, stiffness, snapTol);
+    const constants = computeVertexConstants(raw.vertexPos, sample.row, sample.col, stiffness, snapTol, sample.size);
     const engine = buildVertexEngine(vertexPos, simp.areaRings, simp.outerVertexIds, constants, () => {}, () => {});
     engine.saveVertexEdits();
     const st = engine.get_state();
