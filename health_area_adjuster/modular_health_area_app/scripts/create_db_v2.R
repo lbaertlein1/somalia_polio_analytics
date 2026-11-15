@@ -324,6 +324,12 @@ statements <- list(
   "ALTER TABLE mapping_versions
     ADD COLUMN IF NOT EXISTS health_area_ids JSONB",
 
+  # Paint grid a version's current_assignments belong to -- see
+  # helpers/variable_grid.R ("finer grid in towns"). NULL = the standard
+  # square grid (every version saved before this column existed).
+  "ALTER TABLE mapping_versions
+    ADD COLUMN IF NOT EXISTS paint_grid_spec JSONB",
+
   "CREATE INDEX IF NOT EXISTS idx_mv_shared
      ON mapping_versions(district_name, campaign_id)
      WHERE is_shared = TRUE AND archived_at IS NULL",
@@ -415,6 +421,11 @@ statements <- list(
     -- {\"<team name>\": \"TA-...\"}: a stable ID per team, kept through
     -- renames, branches and carry-forward (.resolve_team_ids()).
     ADD COLUMN IF NOT EXISTS team_ids       JSONB",
+
+  # Paint grid a team layout's current_team_assignments belong to (same as
+  # mapping_versions.paint_grid_spec; NULL = standard square grid).
+  "ALTER TABLE team_area_versions
+    ADD COLUMN IF NOT EXISTS paint_grid_spec JSONB",
 
   # ── Campaign-district assignment — campaigns no longer implicitly apply
   # to every district. An ongoing, revisitable admin action (not fixed at

@@ -81,6 +81,12 @@ healthAreaControlsUI <- function(id) {
       checkboxInput(ns('show_friction_raster'), 'Show Friction Surface',       value = FALSE),
       checkboxInput(ns('boundary_only'),        'Boundaries only',             value = boundary_only_default)
     ),
+
+    # ── Paint grid note (helpers/variable_grid.R) ───────────────────────
+    # Which grid the map uses, set by the parent tab from the scene: the
+    # finer grid in towns (new health areas) or the standard grid (saved
+    # versions drawn on it). Information only -- there is no choice to make.
+    uiOutput(ns('grid_mode_note')),
     
     # ── STEP 1: Painting / STEP 2: Refine Boundaries ─────────────────────
     # Two visually distinct, mutually-exclusive steps: only one group's
@@ -318,7 +324,20 @@ healthAreaControlsServer <- function(id, campaign_id = reactive(NULL)) {
       vertex_snap_tolerance_val(20)
     }
 
+    # One-line grid note, set by the parent tab whenever the scene's grid
+    # changes (spec = NULL: standard grid).
+    grid_mode_note_rv <- reactiveVal(NULL)
+    output$grid_mode_note <- renderUI({
+      txt <- grid_mode_note_rv(); if (is.null(txt)) return(NULL)
+      div(style = 'font-size: 11px; color: #64748b; margin-bottom: 8px; line-height: 1.4;', txt)
+    })
+    set_grid_mode <- function(spec) {
+      grid_mode_note_rv(if (is.null(spec)) 'Grid: every cell the same size.'
+                        else sprintf('Grid: %.0f m cells in towns, %.0f m elsewhere.', spec$fine_m, spec$cell_m))
+    }
+
     list(
+      set_grid_mode        = set_grid_mode,
       brush_m              = reactive(input$brush_m_ui),
       show_pop_raster      = reactive(isTRUE(input$show_pop_raster)),
       show_friction_raster = reactive(input$show_friction_raster),

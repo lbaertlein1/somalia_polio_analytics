@@ -247,7 +247,7 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
   "smoothed_dfa_sf, smoothing_generated_at,",
   "landmarks, idp_settlements, dfa_worldpop_pop,",
   "scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope,",
-  "scope_target_pop, scope_worldpop_pop, health_area_ids"
+  "scope_target_pop, scope_worldpop_pop, health_area_ids, paint_grid_spec"
 )
 
 .parse_mv_row <- function(r) {
@@ -294,7 +294,10 @@ db_set_campaign_active <- function(pool, campaign_id, is_active) {
       scope_target_pop                                 = suppressWarnings(as.numeric(r$scope_target_pop %||% NA)),
       scope_worldpop_pop                               = suppressWarnings(as.numeric(r$scope_worldpop_pop %||% NA)),
       # {dfa_name: {health_area_id, facility_id}} -- see .resolve_health_area_ids()
-      health_area_ids                                  = .from_json_db(r$health_area_ids %||% NA_character_)
+      health_area_ids                                  = .from_json_db(r$health_area_ids %||% NA_character_),
+      # Variable paint grid ("finer grid in towns", helpers/variable_grid.R).
+      # NULL = the standard grid -- every version saved before this existed.
+      paint_grid_spec                                  = normalize_grid_spec(.from_json_db(r$paint_grid_spec %||% NA_character_))
     )
   )
 }
@@ -526,7 +529,7 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         landmarks, idp_settlements, dfa_worldpop_pop,
         has_landmarks, has_facilities, has_idp, has_health_areas,
         scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope,
-        scope_target_pop, scope_worldpop_pop, health_area_ids
+        scope_target_pop, scope_worldpop_pop, health_area_ids, paint_grid_spec
       )
       SELECT
         $2, $3, $4, $5, version_id,
@@ -543,7 +546,9 @@ db_branch_version <- function(pool, source_version_id, owner_username,
         scope_saved_dfa_sf, scope_dfa_names, scope_current_assignments, scope_locked_at, has_scope,
         scope_target_pop, scope_worldpop_pop,
         -- Health area / coordination site IDs follow the boundaries.
-        health_area_ids
+        health_area_ids,
+        -- The paint grid the saved cell assignments belong to.
+        paint_grid_spec
       FROM mapping_versions
       WHERE version_id = $1
       RETURNING version_id
@@ -641,6 +646,12 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
   # clearing the In-Scope Field U5 on a resubmit has to clear it here too.
   scope_target_pop   <- if (stage == "scope") suppressWarnings(as.numeric(data$scope_target_pop %||% NA))   else NA_real_
   scope_worldpop_pop <- if (stage == "scope") suppressWarnings(as.numeric(data$scope_worldpop_pop %||% NA)) else NA_real_
+  # Paint grid the saved cell assignments belong to. Written only when the
+  # caller passes paint_grid_spec explicitly (the Health Areas tab always
+  # does: its spec, or NA for the standard grid); a caller that leaves it
+  # out (clean-up scripts) keeps the stored spec as it is.
+  write_grid_spec <- stage == "areas" && "paint_grid_spec" %in% names(data)
+  grid_spec_txt   <- if (write_grid_spec && is.list(data$paint_grid_spec)) grid_spec_json(data$paint_grid_spec) else NA_character_
 
   # New coordination sites invalidate the saved health areas: they were drawn
   # from the old sites, and reopening the draft would restore them (new sites
@@ -686,6 +697,7 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
         scope_current_assignments                      = COALESCE($18, scope_current_assignments),
         scope_target_pop   = CASE WHEN $19 THEN $21::numeric ELSE scope_target_pop   END,
         scope_worldpop_pop = CASE WHEN $19 THEN $22::numeric ELSE scope_worldpop_pop END,
+        paint_grid_spec    = CASE WHEN $23 THEN $24::jsonb   ELSE paint_grid_spec    END,
         %s
         has_landmarks    = has_landmarks    OR $12,
         has_facilities   = has_facilities   OR $13,
@@ -704,7 +716,8 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
         has_landmarks, has_facilities, has_idp, has_health_areas,
         scope_saved_dfa_sf_json, scope_dfa_names_json, scope_cur_assign_json, has_scope,
         dfa_worldpop_json,
-        scope_target_pop, scope_worldpop_pop
+        scope_target_pop, scope_worldpop_pop,
+        write_grid_spec, grid_spec_txt
       )
     )
   }, error = function(e) {
@@ -715,7 +728,8 @@ db_submit_stage_v2 <- function(pool, version_id, username, stage, data) {
   if (clear_areas) {
     DBI::dbExecute(conn, "
       UPDATE mapping_versions SET saved_dfa_sf = NULL, smoothed_dfa_sf = NULL, current_assignments = NULL, dfa_names = NULL,
-        dfa_worldpop_pop = NULL, health_area_ids = NULL, has_health_areas = FALSE, smoothing_generated_at = NULL
+        dfa_worldpop_pop = NULL, health_area_ids = NULL, has_health_areas = FALSE, smoothing_generated_at = NULL,
+        paint_grid_spec = NULL
       WHERE version_id = $1 AND NOT is_shared", list(target_id))
     cat('[db] submit_stage_v2: coordination sites changed on version', target_id, '-- saved health areas cleared\n')
   }
@@ -1270,7 +1284,7 @@ db_delete_data_source_url <- function(pool, setting_key, campaign_id) {
 .tav_full_cols <- paste(
   .tav_meta_cols, ",",
   "saved_team_sf, team_names, current_team_assignments,",
-  "smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop, team_ids"
+  "smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop, team_ids, paint_grid_spec"
 )
 
 .parse_tav_row <- function(r) {
@@ -1300,7 +1314,10 @@ db_delete_data_source_url <- function(pool, setting_key, campaign_id) {
       team_field_pop_overrides               = .from_json_db(r$team_field_pop_overrides %||% NA_character_),
       team_worldpop_pop                         = .from_json_db(r$team_worldpop_pop %||% NA_character_),
       # {team name: team_id} -- see .resolve_team_ids()
-      team_ids                                  = .from_json_db(r$team_ids %||% NA_character_)
+      team_ids                                  = .from_json_db(r$team_ids %||% NA_character_),
+      # Paint grid the team assignments belong to (helpers/variable_grid.R);
+      # NULL = the standard grid, as for every layout saved before it existed.
+      paint_grid_spec                           = normalize_grid_spec(.from_json_db(r$paint_grid_spec %||% NA_character_))
     )
   )
 }
@@ -1419,14 +1436,14 @@ db_branch_team_area_version <- function(pool, source_team_version_id, owner_user
         based_on_health_area_version_id, version_number, branched_from_id, submitted_by,
         saved_team_sf, team_names, current_team_assignments,
         smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop,
-        health_area_id, facility_id, team_ids
+        health_area_id, facility_id, team_ids, paint_grid_spec
       )
       SELECT
         $2, campaign_id, district_name, health_area_name,
         based_on_health_area_version_id, $3, team_version_id, $2,
         saved_team_sf, team_names, current_team_assignments,
         smoothed_team_sf, smoothing_generated_at, team_field_pop_overrides, team_worldpop_pop,
-        health_area_id, facility_id, team_ids
+        health_area_id, facility_id, team_ids, paint_grid_spec
       FROM team_area_versions
       WHERE team_version_id = $1
       RETURNING team_version_id
@@ -1472,7 +1489,10 @@ db_submit_team_area_stage <- function(pool, team_version_id, username, data) {
         smoothed_team_sf                   = COALESCE($6, smoothed_team_sf),
         smoothing_generated_at               = CASE WHEN $6 IS NOT NULL THEN NOW() ELSE smoothing_generated_at END,
         team_field_pop_overrides               = COALESCE($7, team_field_pop_overrides),
-        team_worldpop_pop                        = COALESCE($8, team_worldpop_pop)
+        team_worldpop_pop                        = COALESCE($8, team_worldpop_pop),
+        -- written only when the caller passes paint_grid_spec (the Team
+        -- Areas tab always does; NA = standard grid), see db_submit_stage_v2
+        paint_grid_spec = CASE WHEN $9 THEN $10::jsonb ELSE paint_grid_spec END
       WHERE team_version_id = $1
     ", list(
       target_id, username,
@@ -1489,7 +1509,9 @@ db_submit_team_area_stage <- function(pool, team_version_id, username, data) {
       # Computed WorldPop snapshot -- same lifecycle as the boundary it
       # was computed from, stored so it's never re-extracted from the
       # raster on every read.
-      .to_json_for_db(data$team_worldpop_pop)
+      .to_json_for_db(data$team_worldpop_pop),
+      'paint_grid_spec' %in% names(data),
+      if (is.list(data$paint_grid_spec)) grid_spec_json(data$paint_grid_spec) else NA_character_
     ))
   }, error = function(e) {
     cat('[db] submit_team_area_stage UPDATE error:', e$message, '\n')
@@ -1898,7 +1920,7 @@ db_carry_forward_district_to_campaign <- function(pool, target_campaign_id, dist
           saved_team_sf, team_names, current_team_assignments,
           smoothed_team_sf, smoothing_generated_at,
           team_field_pop_overrides, team_worldpop_pop,
-          health_area_id, facility_id, team_ids
+          health_area_id, facility_id, team_ids, paint_grid_spec
         )
         SELECT
           $2, $3, $4, health_area_name,
@@ -1908,7 +1930,7 @@ db_carry_forward_district_to_campaign <- function(pool, target_campaign_id, dist
           -- Field-verified team populations and the stored WorldPop
           -- figures carry forward with the boundaries they belong to.
           team_field_pop_overrides, team_worldpop_pop,
-          health_area_id, facility_id, team_ids
+          health_area_id, facility_id, team_ids, paint_grid_spec
         FROM team_area_versions
         WHERE team_version_id = $1
         RETURNING team_version_id

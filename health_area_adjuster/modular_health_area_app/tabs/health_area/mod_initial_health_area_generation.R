@@ -155,6 +155,10 @@ base_step_friction           = 0.05,
 pop_saturation_pct           = 0.75,
 pop_saturation_weight        = 0.4,
 pop_saturation_max           = 0.4,
+# Step length per cell, in fine-lattice units (variable grid: a coarse cell
+# is k units across, so crossing it costs k steps). NULL = every cell 1,
+# i.e. the standard grid exactly as before.
+cell_step                    = NULL,
 # Optional starter-region override: when supplied, this REPLACES the
 # normal single-seed-plus-ring-expansion starter computation entirely --
 # each element is the FULL set of already-assigned cell indices for that
@@ -268,7 +272,8 @@ starter_cells_list_override  = NULL
     pop_sat_pct       = as.double(pop_saturation_pct),
     pop_sat_weight    = as.double(pop_saturation_weight),
     pop_sat_max       = as.double(pop_saturation_max),
-    n_areas           = as.integer(n_areas)
+    n_areas           = as.integer(n_areas),
+    step_scale        = if (!is.null(cell_step) && length(cell_step) == n) as.numeric(cell_step) else numeric(0)
   )
   
   # Map 0-based area indices back to area name strings
@@ -322,7 +327,13 @@ starter_cells_list_override  = NULL
 # their behavior. safe_make_valid used by make_paint_grid is already
 # global (app_helpers.R), not duplicated here.
 
-make_paint_grid <- function(district_sf, grid_n = 150) {
+make_paint_grid <- function(district_sf, grid_n = 150, grid_spec = NULL) {
+  # Variable grid ("finer grid in towns", helpers/variable_grid.R) when the
+  # version has a grid spec; NULL = the standard grid below, unchanged.
+  if (!is.null(grid_spec)) {
+    vg <- build_variable_paint_grid(district_sf, grid_spec)
+    if (!is.null(vg)) return(vg)   # NULL: spec no longer covers the outline -> standard grid
+  }
   district_sf   <- safe_make_valid(district_sf)
   district_3857 <- sf::st_transform(district_sf, 3857)
   bbox     <- sf::st_bbox(district_3857)
@@ -516,7 +527,11 @@ initialHealthAreaGenerationServer <- function(
     # generating, since this one function serves both. Team Areas passes
     # its own; Health Areas' default below covers it without needing to
     # pass anything.
-    progress_message = "Generating health area boundaries..."
+    progress_message = "Generating health area boundaries...",
+    # Variable grid spec (helpers/variable_grid.R): a reactive returning the
+    # spec, or NULL for the standard grid. Default NULL = standard grid, so
+    # Team Areas (which never passes it) is unaffected.
+    grid_spec = reactive(NULL)
 ) {
   moduleServer(id, function(input, output, session) {
     
@@ -679,16 +694,13 @@ initialHealthAreaGenerationServer <- function(
       barrier_3857 <- safe_make_valid(sf::st_transform(barrier_lines_sf, 3857))
       coords_m     <- sf::st_coordinates(cent_3857)   # matrix, no per-cell extraction
       
-      # Build all unique forward edges (i < j) as a two-column matrix
-      edge_i <- integer(0); edge_j <- integer(0)
-      for (i in seq_len(n)) {
-        nbrs <- neighbors_list[[as.character(grid_sf$cell_id[i])]]
-        fwd  <- nbrs[nbrs > i]
-        if (length(fwd) > 0) {
-          edge_i <- c(edge_i, rep(i, length(fwd)))
-          edge_j <- c(edge_j, fwd)
-        }
-      }
+      # Build all unique forward edges (i < j) as a two-column matrix --
+      # vectorised (same edges, same order as the old per-cell loop, whose
+      # growing c() appends made this step quadratic in the cell count).
+      nb_ord <- neighbors_list[as.character(grid_sf$cell_id)]
+      edge_i <- rep(seq_len(n), lengths(nb_ord)); edge_j <- as.integer(unlist(nb_ord, use.names = FALSE))
+      fwd    <- edge_j > edge_i
+      edge_i <- edge_i[fwd]; edge_j <- edge_j[fwd]
       
       if (length(edge_i) == 0) {
         for (i in seq_len(n)) out[[i]] <- integer(0)
@@ -727,7 +739,7 @@ initialHealthAreaGenerationServer <- function(
     subdivision_crossing_list = NULL, subdivision_boundary_penalty = 0,
     barrier_penalty = 0, starter_rings = 1,
     cell_pop = NULL, target_pop = NULL, base_step_friction = 0.05,
-    pop_saturation_pct = 0.75, pop_saturation_weight = 0.4, pop_saturation_max = 0.4
+    pop_saturation_pct = 0.75, pop_saturation_weight = 0.4, pop_saturation_max = 0.4, cell_step = NULL
     ) {
       propagate_assignments(
         grid_sf = grid_sf,
@@ -739,7 +751,7 @@ initialHealthAreaGenerationServer <- function(
         starter_rings = starter_rings,
         cell_pop = cell_pop, target_pop = target_pop, base_step_friction = base_step_friction,
         pop_saturation_pct = pop_saturation_pct, pop_saturation_weight = pop_saturation_weight,
-        pop_saturation_max = pop_saturation_max
+        pop_saturation_max = pop_saturation_max, cell_step = cell_step
       )
     }
     
@@ -749,7 +761,7 @@ initialHealthAreaGenerationServer <- function(
     subdivision_crossing_list = NULL, subdivision_boundary_penalty = 0,
     barrier_penalty = 0, starter_rings = 1,
     cell_pop = NULL, target_pop = NULL, base_step_friction = 0.05,
-    pop_saturation_pct = 0.75, pop_saturation_weight = 0.4, pop_saturation_max = 0.4
+    pop_saturation_pct = 0.75, pop_saturation_weight = 0.4, pop_saturation_max = 0.4, cell_step = NULL
     ) {
       site_sf <- normalize_sites(site_sf = site_sf, grid_sf = grid_sf, name_col = name_col)
       site_sf <- snap_seeds_into_district(
@@ -765,7 +777,7 @@ initialHealthAreaGenerationServer <- function(
         starter_rings = starter_rings,
         cell_pop = cell_pop, target_pop = target_pop, base_step_friction = base_step_friction,
         pop_saturation_pct = pop_saturation_pct, pop_saturation_weight = pop_saturation_weight,
-        pop_saturation_max = pop_saturation_max
+        pop_saturation_max = pop_saturation_max, cell_step = cell_step
       )
     }
     
@@ -830,14 +842,16 @@ initialHealthAreaGenerationServer <- function(
         district_sf_value <- sf::st_transform(district_sf_value, 4326)
       
       grid_info <- .t("grid build", {
-        make_paint_grid(district_sf = district_sf_value, grid_n = grid_n())
+        make_paint_grid(district_sf = district_sf_value, grid_n = grid_n(), grid_spec = grid_spec())
       })
+      is_variable <- !is.null(grid_info$lattice)
       grid_sf_value <- grid_info$grid_sf
       cat(sprintf("[timing] grid cells: %d (grid_n=%d, cellsize~%.0f m)\n",
                   nrow(grid_sf_value), grid_n(),
                   grid_info$max_dim_m / grid_n()))
       
       neighbors_list_value <- .t("neighbors list", {
+        if (is_variable) variable_grid_neighbors(grid_sf_value, grid_info$lattice, allow_diagonal) else
         build_neighbors_list(
           grid_sf        = grid_sf_value,
           allow_diagonal = allow_diagonal,
@@ -919,9 +933,10 @@ initialHealthAreaGenerationServer <- function(
         base_step_friction = base_step_friction,
         pop_saturation_pct = pop_saturation_pct,
         pop_saturation_weight = pop_saturation_weight,
-        pop_saturation_max = pop_saturation_max
+        pop_saturation_max = pop_saturation_max,
+        cell_step = if (is_variable) as.numeric(grid_sf_value$size) else NULL
       )
-      
+
       if (!is.null(facility_sf_value) && nrow(facility_sf_value) > 0) {
         start_info <- .t("BFS propagation (from sites)", {
           do.call(make_start_assignment_from_sites, c(list(
@@ -955,6 +970,7 @@ initialHealthAreaGenerationServer <- function(
       grid_sf_value$u5_pop <- cell_pop_value
       
       edge_list_value <- .t("edge list", {
+        if (is_variable) variable_grid_edge_list(grid_sf_value, grid_info$lattice) else
         build_edge_list(
           grid_sf_value, district_sf_value,
           ncols_full  = grid_info$ncols_full,
@@ -978,7 +994,8 @@ initialHealthAreaGenerationServer <- function(
         seed_cell_id                 = as.integer(start_info$seed_cell_id),
         barrier_crossing_list        = barrier_crossing_list_value,
         subdivision_crossing_list    = subdivision_crossing_list_value,
-        friction_path                = friction_path_value
+        friction_path                = friction_path_value,
+        grid_spec                    = grid_info$grid_spec
       )
       })
     })
@@ -1000,7 +1017,8 @@ initialHealthAreaGenerationServer <- function(
       seed_cell_id          = reactive(scene()$seed_cell_id),
       barrier_crossing_list        = reactive(scene()$barrier_crossing_list),
       subdivision_crossing_list    = reactive(scene()$subdivision_crossing_list),
-      friction_path                = reactive(scene()$friction_path)
+      friction_path                = reactive(scene()$friction_path),
+      grid_spec                    = reactive(scene()$grid_spec)
     )
   })
 }

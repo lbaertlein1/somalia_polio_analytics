@@ -277,8 +277,24 @@ healthAreaTabServer <- function(
       # Populated via the post-submit modal below; read by Team Areas to
       # override its own compute_n_teams() recommendation when the field
       # requested-teams value is present.
-      team_targets = list()
+      team_targets = list(),
+      # Spec of the grid rv$grid_sf was built on (helpers/variable_grid.R);
+      # NULL = standard grid. Set together with rv$grid_sf from the scene,
+      # so it always describes the grid current_assignments belong to.
+      grid_spec = NULL
     )
+    # Grid the NEXT scene is built on (NULL = standard grid):
+    #   - a version with saved health areas: the grid it was saved on
+    #     (paint_grid_spec; NULL for every version saved before the variable
+    #     grid existed, so those keep their square grid and stay editable);
+    #   - otherwise (new health areas): the finer-grid-in-towns grid chosen
+    #     automatically from WorldPop and the coordination sites
+    #     (auto_grid_spec, below) -- the standard grid when nothing qualifies.
+    grid_fixed_rv <- reactiveVal(list(fixed = FALSE, spec = NULL))
+    grid_spec_rv  <- reactive({
+      m <- grid_fixed_rv()
+      if (isTRUE(m$fixed)) m$spec else auto_grid_spec()
+    })
     
     in_vertex_mode <- reactiveVal(FALSE)
     
@@ -570,6 +586,11 @@ healthAreaTabServer <- function(
       # new district's own scene build then found nothing pending and
       # generated a fresh proposal in place of its saved boundaries.
       rv$grid_sf             <- NULL
+      rv$grid_spec           <- NULL
+      # A new district starts on the automatic grid; opening a version with
+      # saved health areas (restore observer below, runs after this) fixes
+      # it to that version's own grid.
+      grid_fixed_rv(list(fixed = FALSE, spec = NULL))
       in_vertex_mode(FALSE)
       last_scene_key(NULL)   # force full reset next time health areas tab opens
     }, ignoreInit = TRUE)
@@ -654,12 +675,9 @@ healthAreaTabServer <- function(
       combine_line_layers(subdivision_boundary_lines_r(), roads_rivers)
     })
     
-    initial_scene <- initialHealthAreaGenerationServer(
-      "initial_scene",
-      district_sf                  = reactive({ req(district_base()); district_base()$district_sf }),
-      friction_district_sf         = full_district_sf_r,
-      friction_dir                 = reactive(friction_dir_for_campaign(campaign_id())),
-      grid_n                       = reactive({
+    # (Named so the grid button below can build a variable-grid spec on the
+    # same coarse cells the standard grid uses.)
+    ha_grid_n <- reactive({
         req(district_base())
         max_dim  <- district_base()$max_dim_m
         # Target grid_n of 160 (~25k cells for a square-ish district) as
@@ -677,7 +695,26 @@ healthAreaTabServer <- function(
         target_cellsize <- max_dim / 160
         cellsize        <- max(100, min(500, target_cellsize))
         max(10L, as.integer(round(max_dim / cellsize)))
-      }),
+    })
+
+    # Finer grid in towns for NEW health areas (helpers/variable_grid.R):
+    # WorldPop U5 density + close-together coordination sites decide which
+    # standard cells are split. NULL (standard grid) if nothing qualifies or
+    # it fails -- generation then goes ahead exactly as before.
+    auto_grid_spec <- reactive({
+      req(district_base())
+      tryCatch(make_grid_spec(district_sf = district_base()$district_sf, grid_n = ha_grid_n(),
+                              u5_rast = u5_rast, sites_sf = facility_seed_sf()),
+               error = function(e) { cat('[variable_grid] spec failed, standard grid:', conditionMessage(e), '\n'); NULL })
+    })
+
+    initial_scene <- initialHealthAreaGenerationServer(
+      "initial_scene",
+      district_sf                  = reactive({ req(district_base()); district_base()$district_sf }),
+      friction_district_sf         = full_district_sf_r,
+      friction_dir                 = reactive(friction_dir_for_campaign(campaign_id())),
+      grid_n                       = ha_grid_n,
+      grid_spec                    = grid_spec_rv,
       n_dfa                        = n_start_dfas,
       seed                         = reactive({ req(district()); sum(utf8ToInt(district())) }),
       facility_seed_sf             = facility_seed_sf,
@@ -720,8 +757,14 @@ healthAreaTabServer <- function(
            neighbors_list = sc$neighbors_list, edge_list = sc$edge_list,
            pop_overlay_sf = pop_overlay_sf, friction_overlay_sf = friction_overlay_sf,
            friction_path = sc$friction_path, max_dim_m = sc$max_dim_m,
-           seed_points = sc$seed_points_list, dfa_names = dynamic_dfa_names)
+           seed_points = sc$seed_points_list, dfa_names = dynamic_dfa_names,
+           grid_spec = sc$grid_spec)
     })
+
+    # Short signature of a grid spec for the scene key: a different grid is
+    # a different scene (its cells -- and so every saved assignment --
+    # differ), the same as a different district or different sites.
+    .grid_sig <- grid_spec_sig   # helpers/variable_grid.R
     
     scene_ever_sent <- reactiveVal(FALSE)
     # Separate from scene_ever_sent (which only tracks "has ANY scene
@@ -1013,7 +1056,7 @@ healthAreaTabServer <- function(
           character(1)
         )), collapse = '|')
       } else ''
-      new_key      <- paste0(isolate(district()), '|', seed_key)
+      new_key      <- paste0(isolate(district()), '|', seed_key, '|', .grid_sig(sc$grid_spec))
       scene_is_new <- !identical(last_scene_key(), new_key)
       last_scene_key(new_key)
       
@@ -1028,6 +1071,8 @@ healthAreaTabServer <- function(
       if (scene_is_new || !is.null(pending_restore())) rv$dfa_names <- sc$dfa_names
       rv$district_sf         <- sc$district_sf
       rv$grid_sf             <- sc$grid_sf
+      rv$grid_spec           <- sc$grid_spec
+      controls$set_grid_mode(sc$grid_spec)
       rv$initial_assignments <- sc$initial_assignments
       rv$neighbors_list      <- sc$neighbors_list
       rv$edge_list           <- sc$edge_list
@@ -1084,7 +1129,23 @@ healthAreaTabServer <- function(
     observeEvent(restore_r(), {
       snap <- restore_r()
       if (is.null(snap)) return()
-      if (!is.null(snap$current_assignments) && length(snap$current_assignments) > 0) {
+      # The version's own paint grid (NULL = standard). When it differs from
+      # the grid on the map, the saved cells belong to a grid that isn't
+      # built yet: drop the current grid and wait for the scene to rebuild
+      # on the version's grid -- observeEvent(selected_scene()) then applies
+      # the pending restore. Same grid (every standard-grid version opened
+      # over a standard grid): unchanged, as before.
+      has_cells <- !is.null(snap$current_assignments) && length(snap$current_assignments) > 0
+      if (!has_cells) {
+        # No saved health areas: new ones get the automatic grid.
+        grid_fixed_rv(list(fixed = FALSE, spec = NULL))
+        return()
+      }
+      want_spec <- snap$paint_grid_spec
+      grid_fixed_rv(list(fixed = TRUE, spec = want_spec))   # no-op when unchanged
+      if (!is.null(rv$grid_sf) && !identical(.grid_sig(want_spec), .grid_sig(rv$grid_spec)))
+        rv$grid_sf <- NULL
+      if (has_cells) {
         if (!is.null(rv$grid_sf)) .apply_restore(snap)
         else pending_restore(snap)
       }
@@ -1092,7 +1153,7 @@ healthAreaTabServer <- function(
       # reset above fires in the same flush and must run first (it clears
       # the previous district's grid, so this waits for the new one).
     }, ignoreNULL = TRUE, ignoreInit = TRUE, priority = -1)
-    
+
     observeEvent(active_tab(), {
       if (isTRUE(scene_claimed_this_tab_switch())) {
         scene_claimed_this_tab_switch(FALSE)
@@ -1550,7 +1611,9 @@ healthAreaTabServer <- function(
             current_assignments = rv$current_assignments,
             smoothed_dfa_sf     = parsed,
             team_targets        = rv$team_targets,
-            dfa_worldpop_pop    = dfa_worldpop_list
+            dfa_worldpop_pop    = dfa_worldpop_list,
+            # grid current_assignments belong to; NA = standard grid
+            paint_grid_spec     = rv$grid_spec %||% NA
           ))
           # A failed save already showed its own error; don't go on to
           # the targets/publish prompts as if it had worked.
@@ -1841,7 +1904,8 @@ healthAreaTabServer <- function(
             dfa_names           = rv$dfa_names,
             current_assignments = rv$current_assignments,
             smoothed_dfa_sf     = rv$smoothed_dfa_sf,
-            team_targets        = rv$team_targets
+            team_targets        = rv$team_targets,
+            paint_grid_spec     = rv$grid_spec %||% NA
           ))
           # Don't offer to publish a version whose save just failed.
           if (isFALSE(ok)) { removeModal(); return() }

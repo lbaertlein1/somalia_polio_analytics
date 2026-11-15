@@ -75,6 +75,7 @@ source('helpers/app_helpers.R', local = TRUE)
 source('helpers/download_helpers_v2.R', local = TRUE)
 source('helpers/mod_db_v2.R', local = TRUE)
 source('helpers/subdivision_helpers.R', local = TRUE)
+source('helpers/variable_grid.R', local = TRUE)   # "finer grid in towns" paint grid (per-version paint_grid_spec)
 source('helpers/idp_helpers.R', local = TRUE)
 source('helpers/printable_export.R', local = TRUE)
 # ODK Central site registry (project 36) + MHFL mirror -- shared with the

@@ -95,11 +95,13 @@ List bfs_propagate_cpp(
     double         pop_sat_pct,
     double         pop_sat_weight,
     double         pop_sat_max,
-    int            n_areas
+    int            n_areas,
+    NumericVector  step_scale           // length n_cells (variable grid: cell size in lattice units), or empty = all 1
 ) {
   const double INF = std::numeric_limits<double>::infinity();
   const bool has_barriers  = (barrier_mat.size()  == (size_t)n_cells);
   const bool has_subdiv    = (subdiv_mat.size()   == (size_t)n_cells);
+  const bool has_scale     = (step_scale.size()   == n_cells);
 
   std::vector<double> best_cost(n_cells, INF);
   std::vector<int>    owner(n_cells, -1);
@@ -171,6 +173,10 @@ List bfs_propagate_cpp(
       if (eff > 1.0) eff = 1.0;
 
       double move_cost = friction_to_cost(eff);
+      // Variable grid: a step's length is half of each cell's size (centre
+      // to shared edge, then edge to centre), so a coarse cell costs as
+      // much to cross as the fine cells covering the same ground.
+      if (has_scale) move_cost *= 0.5 * (step_scale[ci] + step_scale[nbr]);
       double new_cost  = best_cost[ci] + move_cost;
 
       if (new_cost < best_cost[nbr]) {

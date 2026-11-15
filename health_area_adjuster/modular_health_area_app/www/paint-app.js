@@ -16,16 +16,26 @@
 // possibly irregular-shaped) valid-cell set.
 // =============================================================================
 
+// Variable grid ("finer grid in towns", helpers/variable_grid.R): every cell
+// also carries `size`, its side length in lattice squares (coarse cells k,
+// fine cells 1); row/col are then LATTICE coordinates of its SW corner, so
+// corner ids stay "${row}_${col}" lattice points shared by every cell that
+// touches them. A cell side is split only where the cell across it changes
+// -- exactly where the neighbouring cells' own corners are -- so both sides
+// of every shared border produce the identical edge sequence (no
+// T-junctions). With every size 1 (the standard grid) this is the original
+// trace, unchanged: one edge per cell side.
 function traceRealGridBoundaries(cells, cellCorners, assignments) {
   const vertexPos = {};
   const cellIds = Object.keys(cells);
 
-  function cornerIds(row, col) {
+  function cornerIds(row, col, s) {
+    s = s || 1;
     return {
       sw: row + '_' + col,
-      se: row + '_' + (col + 1),
-      ne: (row + 1) + '_' + (col + 1),
-      nw: (row + 1) + '_' + col
+      se: row + '_' + (col + s),
+      ne: (row + s) + '_' + (col + s),
+      nw: (row + s) + '_' + col
     };
   }
 
@@ -46,8 +56,8 @@ function traceRealGridBoundaries(cells, cellCorners, assignments) {
   }
 
   cellIds.forEach(cid => {
-    const { row, col } = cells[cid];
-    const ids = cornerIds(row, col);
+    const { row, col, size } = cells[cid];
+    const ids = cornerIds(row, col, size);
     const classified = classifyCorners(cellCorners[cid]);
     ['sw', 'se', 'ne', 'nw'].forEach(key => {
       if (!vertexPos[ids[key]] && classified[key]) {
@@ -56,8 +66,23 @@ function traceRealGridBoundaries(cells, cellCorners, assignments) {
     });
   });
 
-  const cellAtRC = {};
-  cellIds.forEach(cid => { cellAtRC[cells[cid].row + '_' + cells[cid].col] = cid; });
+  // Owner of a lattice square: a size-s cell is aligned to multiples of s,
+  // so it is found under key floor(r/s)_floor(c/s) in that size's index.
+  // Standard grid: one size (1), key "r_c" -- the original cellAtRC lookup.
+  const bySize = {};
+  cellIds.forEach(cid => {
+    const s = cells[cid].size || 1;
+    (bySize[s] = bySize[s] || {})[Math.floor(cells[cid].row / s) + '_' + Math.floor(cells[cid].col / s)] = cid;
+  });
+  const sizes = Object.keys(bySize).map(Number);
+  function cellAt(r, c) {
+    for (let i = 0; i < sizes.length; i++) {
+      const s = sizes[i];
+      const hit = bySize[s][Math.floor(r / s) + '_' + Math.floor(c / s)];
+      if (hit !== undefined) return hit;
+    }
+    return undefined;
+  }
 
   const areaEdges = {};
   function addEdge(area, v1, v2) {
@@ -67,19 +92,29 @@ function traceRealGridBoundaries(cells, cellCorners, assignments) {
 
   cellIds.forEach(cid => {
     const { row, col } = cells[cid];
+    const s = cells[cid].size || 1;
     const area = assignments[cid];
     if (!area) return;
-    const ids = cornerIds(row, col);
+    // Each side walked counter-clockwise (S: west->east, E: south->north,
+    // N: east->west, W: north->south), one lattice step t at a time:
+    // nbr(t) = the lattice square across, vtx(t) = the lattice point at
+    // the start of step t (vtx(s) = the side's end corner).
     const sides = [
-      { v1: ids.sw, v2: ids.se, nbr: (row - 1) + '_' + col },
-      { v1: ids.se, v2: ids.ne, nbr: row + '_' + (col + 1) },
-      { v1: ids.ne, v2: ids.nw, nbr: (row + 1) + '_' + col },
-      { v1: ids.nw, v2: ids.sw, nbr: row + '_' + (col - 1) }
+      { nbr: t => [row - 1, col + t],         vtx: t => row + '_' + (col + t) },
+      { nbr: t => [row + t, col + s],         vtx: t => (row + t) + '_' + (col + s) },
+      { nbr: t => [row + s, col + s - 1 - t], vtx: t => (row + s) + '_' + (col + s - t) },
+      { nbr: t => [row + s - 1 - t, col - 1], vtx: t => (row + s - t) + '_' + col }
     ];
-    sides.forEach(s => {
-      const nbrCid = cellAtRC[s.nbr];
-      const nbrArea = nbrCid ? assignments[nbrCid] : null;
-      if (nbrArea !== area) addEdge(area, s.v1, s.v2);
+    sides.forEach(side => {
+      let runStart = 0;
+      let runCid = cellAt(...side.nbr(0));
+      for (let t = 1; t <= s; t++) {
+        const nextCid = t < s ? cellAt(...side.nbr(t)) : null;
+        if (t < s && nextCid === runCid) continue;
+        const nbrArea = runCid ? assignments[runCid] : null;
+        if (nbrArea !== area) addEdge(area, side.vtx(runStart), side.vtx(t));
+        runStart = t; runCid = nextCid;
+      }
     });
   });
 
@@ -681,10 +716,11 @@ function stiffnessToSigma(stiffness) {
   return 0.5 - (s - 10) * 0.05;           // 10 -> 0.5, 20 -> 0 (rigid)
 }
 
-function computeVertexConstants(vertexPos, sampleRow, sampleCol, stiffness, snapTolerancePct) {
+function computeVertexConstants(vertexPos, sampleRow, sampleCol, stiffness, snapTolerancePct, sampleSize) {
+  const s = sampleSize || 1;
   const sw = vertexPos[sampleRow + '_' + sampleCol];
-  const se = vertexPos[sampleRow + '_' + (sampleCol + 1)];
-  const cellDeg = Math.hypot(sw.lat - se.lat, sw.lng - se.lng);
+  const se = vertexPos[sampleRow + '_' + (sampleCol + s)];
+  const cellDeg = Math.hypot(sw.lat - se.lat, sw.lng - se.lng) / s;
   // snapTolerancePct is a percentage of one grid cell (default 20, i.e.
   // 0.2 -- the ratio the old fixed 100m already worked out to at the
   // grid's 500m ceiling). Now user-tunable per session rather than a
@@ -772,6 +808,10 @@ function getApp(msg) {
       // that function's own comment for why this exists and how
       // correctness is guaranteed regardless of the bucket size chosen.
       _spatialBuckets: {},
+      // Variable grid only: bounding box per coarse cell (see loadScene) and
+      // the largest coarse cell's half-diagonal in metres, for the brush.
+      _cellBoxes: {},
+      _maxCellHalfM: 0,
       neighbors: {},
       edgeCells: {},
       brushSize: 300,
@@ -823,13 +863,28 @@ function getApp(msg) {
       const props = layer.feature.properties;
       const cid = String(props.cell_id);
       if (props.row === undefined || props.col === undefined) return;
-      cells[cid] = { row: props.row, col: props.col };
+      // size: variable grid only (lattice squares per side); 1 otherwise.
+      cells[cid] = { row: props.row, col: props.col, size: props.size || 1 };
       // GeoJSON rings are [lng,lat]; the engine's convention is [lat,lng].
       const ring = layer.feature.geometry.coordinates[0];
-      cellCorners[cid] = ring.slice(0, 4).map(([lng, lat]) => [lat, lng]);
+      if ((props.size || 1) > 1) {
+        // Variable-grid coarse cell: its outline has a point at every
+        // lattice step, so take the 4 corners from its bounding box (the
+        // cell is an axis-aligned rectangle in lon/lat).
+        let s = Infinity, n = -Infinity, w = Infinity, e = -Infinity;
+        ring.forEach(([x, y]) => { if (y < s) s = y; if (y > n) n = y; if (x < w) w = x; if (x > e) e = x; });
+        cellCorners[cid] = [[s, w], [s, e], [n, e], [n, w]];
+      } else {
+        cellCorners[cid] = ring.slice(0, 4).map(([lng, lat]) => [lat, lng]);
+      }
       assignments[cid] = this.assignments[cid];
     });
-    this._vertexCellSample = cells[Object.keys(cells)[0]];
+    // Engine constants (snap distance, minimum area) are measured on the
+    // SMALLEST cell -- on the standard grid every cell is the same, so this
+    // is still just the first one.
+    let sample = null;
+    Object.keys(cells).forEach(cid => { if (!sample || cells[cid].size < sample.size) sample = cells[cid]; });
+    this._vertexCellSample = sample;
 
     const cellIds = Object.keys(cells);
     const undefinedCount = cellIds.filter(cid => assignments[cid] === undefined || assignments[cid] === null).length;
@@ -1022,7 +1077,7 @@ function getApp(msg) {
   _rebuildEngineOnly: function() {
     const constants = computeVertexConstants(
       this._rawVertexPos, this._vertexCellSample.row, this._vertexCellSample.col,
-      this.vertexStiffness, this.vertexSnapTolerance
+      this.vertexStiffness, this.vertexSnapTolerance, this._vertexCellSample.size
     );
     this.vertexEngine = buildVertexEngine(
       this.vertexPos, this.areaRings, this.outerVertexIds, constants,
@@ -2009,9 +2064,12 @@ function getApp(msg) {
         // imprecision only ever adds a few unnecessary candidate checks,
         // never drops a cell that should have been included.
         const EXTRA_MARGIN = 1.5;
-        const radiusDegLat = (brushSize / 111320) * EXTRA_MARGIN;
+        // Variable grid: a coarse cell's centre can be up to half its
+        // diagonal from the nearest point the brush touches (0 otherwise).
+        const searchM = brushSize + (this._maxCellHalfM || 0);
+        const radiusDegLat = (searchM / 111320) * EXTRA_MARGIN;
         const cosLat = Math.max(0.01, Math.cos(latlng.lat * Math.PI / 180));
-        const radiusDegLng = (brushSize / (111320 * cosLat)) * EXTRA_MARGIN;
+        const radiusDegLng = (searchM / (111320 * cosLat)) * EXTRA_MARGIN;
 
         const minRow = Math.floor((latlng.lat - radiusDegLat) / size);
         const maxRow = Math.floor((latlng.lat + radiusDegLat) / size);
@@ -2029,6 +2087,14 @@ function getApp(msg) {
         const touched = [];
         for (let i = 0; i < candidates.length; i++) {
           const id = candidates[i];
+          const box = this._cellBoxes[id];
+          if (box) {
+            // nearest point of the cell's box to the cursor
+            const nLat = Math.min(box.n, Math.max(box.s, latlng.lat));
+            const nLng = Math.min(box.e, Math.max(box.w, latlng.lng));
+            if (this.map.distance([latlng.lat, latlng.lng], [nLat, nLng]) <= brushSize) touched.push(id);
+            continue;
+          }
           const cc = this.centroids[id];
           const d = this.map.distance([latlng.lat, latlng.lng], [cc.lat, cc.lng]);
           if (d <= brushSize) touched.push(id);
@@ -2506,6 +2572,8 @@ function getApp(msg) {
         // reload re-added every cell (strokes slowing down over a session)
         // and ids from an older, larger grid could point at no centroid.
         this._spatialBuckets = {};
+        this._cellBoxes = {};
+        this._maxCellHalfM = 0;
         this._savedGeojsonRaw = null;
         this.neighbors = {};
         this.edgeCells = {};
@@ -2651,6 +2719,18 @@ function getApp(msg) {
             this.cellLayers[id] = layer;
             const lat = feature.properties.centroid_lat, lng = feature.properties.centroid_lon;
             this.centroids[id] = { lng, lat };
+            // Variable grid: a coarse cell (size > 1) can be wider than the
+            // brush, so the brush paints it when it touches the cell's box,
+            // not only its centre. Standard-grid cells have no size and keep
+            // the centre test exactly as before.
+            if ((feature.properties.size || 1) > 1) {
+              const ring = feature.geometry.coordinates[0];
+              let s = Infinity, n = -Infinity, w = Infinity, e = -Infinity;
+              ring.forEach(([x, y]) => { if (y < s) s = y; if (y > n) n = y; if (x < w) w = x; if (x > e) e = x; });
+              this._cellBoxes[id] = { s, n, w, e };
+              const halfDiagM = this.map.distance([s, w], [n, e]) / 2;
+              if (halfDiagM > this._maxCellHalfM) this._maxCellHalfM = halfDiagM;
+            }
             const bk = this._bucketKeyFor(lat, lng);
             (this._spatialBuckets[bk] = this._spatialBuckets[bk] || []).push(id);
             layer.on('click', (e) => this.paintAtLatLng(e.latlng));
