@@ -1,7 +1,8 @@
 # DRY RUN for all PUBLISHED campaign-10 health areas + their published team layouts. Writes nothing to the DB (apply_cleaned.R writes).
 # Env: WORK (output folder), ONLY (comma list of districts), SNAP=1 (1 cm grid snap first), ROUTE_DIR (use street_follow.R proposals as the health areas;
 # team layouts are then re-fitted to the new health-area edges), KEEP_CURRENT (with ROUTE_DIR: health areas that keep their published shape),
-# SPLIT_GAPS (m2: team gap pieces larger than this are split between the nearest teams instead of going to one).
+# SPLIT_GAPS (m2: team gap pieces larger than this are split between the nearest teams instead of going to one), DENSIFY (m: max edge length, for outlines with very long edges),
+# TEAM_ROUTE_DIR (street_follow_teams.R team_route_out folder: team layouts start from their accepted street-following proposal).
 # Per district: <S>/clean_out/<district>.rds (cleaned geometries, cells, WorldPop, logs, anomalies, version timestamps for the apply step).
 suppressMessages(library(dotenv)); trace('load_dot_env', where = asNamespace('dotenv'), print = FALSE, exit = quote(Sys.setenv(DB_HOST = 'localhost', DB_PORT = '15432')))
 suppressMessages(suppressWarnings(source('global.R'))); options(width = 250, warn = -1); S <- Sys.getenv('WORK'); if (!nzchar(S)) stop('set WORK to a working folder'); source('scripts/cleanup/clean_lib.R')
@@ -28,6 +29,8 @@ for (i in seq_len(nrow(H))) {
     attrs <- sf::st_drop_geometry(ha); attrs <- attrs[!duplicated(attrs$dfa_name), , drop = FALSE]
     areas <- setNames(lapply(gn, function(n) U(polys(sf::st_union(sf::st_transform(ha[ha$dfa_name == n, ], crs)), crs), crs)), gn)
     if (identical(Sys.getenv('SNAP'), '1')) { areas <- lapply(areas, function(g) U(polys(lwgeom::st_snap_to_grid(g, 0.01), crs), crs)); outline <- U(polys(lwgeom::st_snap_to_grid(outline, 0.01), crs), crs) }
+    # DENSIFY (m): extra vertices on long straight edges, so the sphere (s2) reading of each edge matches the flat one (e.g. Dusamreb's 17-vertex outline)
+    dz <- as.numeric(Sys.getenv('DENSIFY', '0')); if (dz > 0) { areas <- lapply(areas, function(g) U(polys(sf::st_segmentize(g, dz), crs), crs)); outline <- U(polys(sf::st_segmentize(outline, dz), crs), crs) }
     for (n in gn) if (empty_g(areas[[n]])) AN('health area', 'no area (empty shape)', n)
     areas0 <- areas
     # ROUTE_DIR: start from the street-following proposal (street_follow.R) instead of the published shapes
@@ -52,7 +55,9 @@ for (i in seq_len(nrow(H))) {
     if (!is.null(st) && nrow(st)) { for (x in setdiff(st$facility_name, gn)) AN('health area', 'selected coordination site has no health area of that name', x)
       for (x in setdiff(real, st$facility_name)) AN('health area', 'health area with no selected coordination site of that name', x)
       inn <- contain(sf::st_transform(st, 4326), new); bad <- which(!is.na(match(st$facility_name, gn)) & (is.na(inn) | inn != st$facility_name))
-      for (b in bad) AN('health area', 'coordination site lies outside its own health area', sprintf('%s (inside: %s)', st$facility_name[b], inn[b] %||% 'none')) }
+      for (b in bad) AN('health area', 'coordination site lies outside its own health area', sprintf('%s (inside: %s)', st$facility_name[b], inn[b] %||% 'none'))
+      if (nzchar(RD) && length(bad)) { was <- contain(sf::st_transform(st, 4326), sf::st_transform(ha, 4326)); moved_out <- bad[!is.na(was[bad]) & was[bad] == st$facility_name[bad]]
+        if (length(moved_out)) stop('street proposal moves a coordination site out of its own health area: ', paste(st$facility_name[moved_out], collapse = ', '), ' -- use KEEP_CURRENT') } }
     if (!is.null(cl$log)) for (r in which(grepl('^FLAG', cl$log$type))) AN('health area', cl$log$type[r], sprintf('%s %.0f m2', cl$log$area[r], cl$log$m2[r]))
     # HA cells (same grid rule as the Health Areas tab)
     ha_cells <- NULL; ha_cells_note <- 'not re-derived'
@@ -86,9 +91,17 @@ for (i in seq_len(nrow(H))) {
         tl <- setNames(lapply(tnm, function(n) U(polys(sf::st_union(sf::st_transform(ts[ts$dfa_name == n, ], crs)), crs), crs)), tnm)
         for (n in tnm) if (empty_g(tl[[n]])) AN('team area', 'team with no area (empty shape)', paste(h, '-', n))
         req <- suppressWarnings(as.numeric(tt[[h]]$requested_teams %||% NA)); if (!is.na(req) && req != length(tnm)) AN('team area', 'team count differs from Field Requested Teams', sprintf('%s: %d teams, %g requested', h, length(tnm), req))
+        tl0 <- tl
+        # TEAM_ROUTE_DIR: start from the accepted street-following team proposal (street_follow_teams.R) for this layout, if there is one
+        TRD <- Sys.getenv('TEAM_ROUTE_DIR'); trf <- file.path(TRD, paste0(TV$tv[k], '.rds'))
+        if (nzchar(TRD) && file.exists(trf)) { tr_ <- readRDS(trf); trc <- sf::st_transform(tr_$cur, crs); trp <- sf::st_transform(tr_$prop, crs)
+          tdrift <- sum(vapply(tnm, function(n) A(polys(sf::st_sym_difference(tl[[n]], U(sf::st_geometry(trc)[trc$dfa_name == n], crs)), crs)), 0))
+          if (tdrift > 1) stop(sprintf('published team layout changed since the proposal was made (%.0f m2)', tdrift))
+          if (!setequal(trp$dfa_name, tnm)) stop('team proposal has different team names')
+          tl <- setNames(lapply(tnm, function(n) U(polys(sf::st_geometry(trp)[trp$dfa_name == n], crs), crs)), tnm) }
         tc <- clean_partition(tl, hb, kind = 'team', split_gaps = as.numeric(Sys.getenv('SPLIT_GAPS', '0')))
         tnew <- sf::st_sf(dfa_name = tnm, geometry = finalize_partition(tc$areas, crs))
-        mb <- partition_metrics(sf::st_transform(sf::st_sf(dfa_name = tnm, geometry = do.call(c, tl)), 4326), hb, crs); ma <- partition_metrics(tnew, hb, crs)
+        mb <- partition_metrics(sf::st_transform(sf::st_sf(dfa_name = tnm, geometry = do.call(c, tl0)), 4326), hb, crs); ma <- partition_metrics(tnew, hb, crs)
         tu <- sf::st_transform(tnew, crs); ta <- as.numeric(sf::st_area(tu)); names(ta) <- tnm; tmed <- median(ta)
         for (n in tnm) { if (ta[n] < 0.15 * tmed) AN('team area', 'very small team (<15% of the layout median)', sprintf('%s - %s %.0f m2', h, n, ta[n]))
           np <- length(polys(sf::st_geometry(tu)[tnm == n], crs)); if (np > 1) AN('team area', 'team in more than one piece after cleaning', sprintf('%s - %s: %d pieces', h, n, np)) }
@@ -99,7 +112,7 @@ for (i in seq_len(nrow(H))) {
           cells <- team_assignments_from_shapes(grid, tnew); names(cells) <- as.character(grid$cell_id)
           cnote <- if (length(old) == nrow(grid)) 're-derived' else sprintf('re-derived on new grid (%d cells, was %d)', nrow(grid), length(old)) }
         twp <- setNames(lapply(tnm, function(n) sum(.polygon_u5_population(tnew[tnew$dfa_name == n, ], u5_rast), na.rm = TRUE)), tnm)
-        tp <- change_pct(tl, setNames(lapply(tnm, function(n) U(polys(sf::st_geometry(tu)[tnm == n], crs), crs)), tnm))
+        tp <- change_pct(tl0, setNames(lapply(tnm, function(n) U(polys(sf::st_geometry(tu)[tnm == n], crs), crs)), tnm))
         teams[[as.character(TV$tv[k])]] <- list(sf = tnew, wp = twp, cells = cells, lu = TV$lu[k], log = tc$log)
         data.frame(district = D, tv = TV$tv[k], ha = substr(h, 1, 30), teams = length(tnm), gap_b = round(mb['gap']), spill_b = round(mb['spill']), overlap_b = round(mb['overlap']), pieces_b = mb['pieces'],
           gap_a = round(ma['gap'], 1), spill_a = round(ma['spill'], 1), overlap_a = round(ma['overlap'], 1), pieces_a = ma['pieces'], s2_ok = as.logical(ma['s2_valid']),

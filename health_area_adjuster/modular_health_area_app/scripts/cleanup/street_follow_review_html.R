@@ -1,5 +1,5 @@
 # Export one self-contained Leaflet HTML per district from <WORK>/route_out/<district>.rds: current vs street-following proposal, overlaid.
-# Env: WORK, DISTRICTS (comma list), OUTDIR.
+# Env: WORK, DISTRICTS (comma list), OUTDIR, UNIT=team (for street_follow_teams.R output: team wording, *_team_boundary_review.html).
 suppressMessages(library(sf)); sf::sf_use_s2(FALSE); options(warn = -1)
 S <- Sys.getenv('WORK'); if (!nzchar(S)) stop('set WORK to a working folder'); OUTDIR <- Sys.getenv('OUTDIR'); dir.create(OUTDIR, showWarnings = FALSE, recursive = TRUE)
 gj <- function(x) geojsonsf::sf_geojson(x, digits = 6)
@@ -46,5 +46,6 @@ var ll=L.layerGroup();cur.features.forEach(function(f){var g=L.geoJSON(f);ll.add
 lr.addTo(map);L.control.layers({"Streets (OSM)":osm,"Satellite (Esri)":img},{"Current boundaries (red)":lc,"Proposal (blue dashed)":lp,"Land changing area (orange)":lx,"OSM streets":lr,"Coordination sites":ls,"Labels":ll},{collapsed:false}).addTo(map);
 L.control.scale().addTo(map);map.fitBounds(lc.getBounds());
 </script></body></html>')
-  f <- file.path(OUTDIR, paste0(gsub('[^A-Za-z0-9]+', '_', D), '_boundary_review.html')); writeLines(html, f, useBytes = TRUE)
+  if (identical(Sys.getenv('UNIT'), 'team')) html <- gsub('Health area', 'Team', gsub('health areas', 'team areas', gsub('health area', 'team area', html, fixed = TRUE), fixed = TRUE), fixed = TRUE)
+  f <- file.path(OUTDIR, paste0(gsub('[^A-Za-z0-9]+', '_', D), if (identical(Sys.getenv('UNIT'), 'team')) '_team' else '', '_boundary_review.html')); writeLines(html, f, useBytes = TRUE)
   cat(sprintf('%s -> %s (%.0f KB)\n', D, f, file.size(f) / 1024)) }
