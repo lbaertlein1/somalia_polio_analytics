@@ -1,17 +1,32 @@
 # Street-following core, shared by street_follow.R (health areas) and street_follow_teams.R (teams inside one health area). Source after clean_lib.R.
 GPKG <- 'data/osm_inputs/cache/geofabrik_somalia-latest.gpkg'
 W <- c(motorway = .6, trunk = .6, primary = .6, secondary = .7, tertiary = .8, motorway_link = .7, trunk_link = .7, primary_link = .7, secondary_link = .8, tertiary_link = .9,
-       unclassified = 1, residential = 1, living_street = 1, road = 1, service = 1.3, track = 1.2, path = 1.5, pedestrian = 1.4, river = .8, stream = 1, canal = 1, wadi = 1)
+       unclassified = 1, residential = 1, living_street = 1, road = 1, service = 1.3, track = 1.2, path = 1.5, pedestrian = 1.4, river = .8, stream = 1, canal = 1, wadi = 1, subdivision = .6, urban_edge = .7)
 lines_of <- function(g) { g <- g[!sf::st_is_empty(g)]; if (!length(g)) return(g); g <- tryCatch(sf::st_collection_extract(g, 'LINESTRING'), error = function(e) g[sf::st_dimension(g) == 1]); if (!length(g)) return(g)
   sf::st_cast(sf::st_cast(g, 'MULTILINESTRING', warn = FALSE), 'LINESTRING', warn = FALSE) }
 # share of INTERNAL boundary (not the outer edge) within tol m of a street
 on_road_share <- function(geoms, roads_u, tol = 3) { b <- sf::st_union(sf::st_boundary(geoms)); ext <- sf::st_boundary(sf::st_union(geoms)); internal <- sf::st_difference(b, sf::st_buffer(ext, 1))
   L <- sum(as.numeric(sf::st_length(internal))); if (L == 0 || is.null(roads_u)) return(c(km = L / 1000, pct = 0)); c(km = L / 1000, pct = 100 * sum(as.numeric(sf::st_length(sf::st_intersection(internal, sf::st_buffer(roads_u, tol))))) / L) }
-# OSM streets/tracks/rivers near an outline (UTM sfc), in that crs
-load_roads <- function(outline, crs, pad = 400) {
+# Guide lines near an outline (UTM sfc), in that crs: OSM streets/tracks/waterways, plus (when `district`, a district sf row, is given and GUIDES allows)
+# city-section (subdivision) boundaries and settlement-extent (urban edge) outlines from the app's ArcGIS layers. GUIDES: comma list of
+# street, river (OSM waterway river/stream/canal/wadi), subdivision, urban; 'osm' = street + river (default osm,subdivision,urban).
+# Outside towns use GUIDES=river,subdivision,urban: routing through every rural track is very slow and not meaningful.
+load_roads <- function(outline, crs, pad = 400, district = NULL) {
+  gd <- trimws(strsplit(Sys.getenv('GUIDES', 'osm,subdivision,urban'), ',')[[1]])
   wkt <- sf::st_as_text(sf::st_as_sfc(sf::st_bbox(sf::st_transform(sf::st_buffer(outline, pad), 4326))))
   ln <- sf::st_read(GPKG, layer = 'lines', quiet = TRUE, wkt_filter = wkt); ln$cls <- ifelse(!is.na(ln$highway), ln$highway, ln$waterway); ln <- ln[ln$cls %in% names(W), ]
-  roads <- sf::st_transform(ln[, c('cls', 'highway', 'name')], crs); roads[lengths(sf::st_intersects(roads, sf::st_buffer(outline, 300))) > 0, ] }
+  if ('osm' %in% gd) gd <- c(gd, 'street', 'river'); riv <- ln$cls %in% c('river', 'stream', 'canal', 'wadi')
+  roads <- sf::st_transform(ln[('street' %in% gd & !riv) | ('river' %in% gd & riv), c('cls', 'highway', 'name')], crs)
+  poly_lines <- function(p, cls) { if (is.null(p) || !nrow(p)) return(NULL); g <- lines_of(sf::st_boundary(sf::st_geometry(sf::st_transform(sf::st_make_valid(p), crs)))); if (!length(g)) return(NULL)
+    sf::st_sf(cls = cls, highway = NA_character_, name = NA_character_, geometry = g) }
+  sf::st_geometry(roads) <- 'geometry'
+  if (!is.null(district)) {
+    if ('subdivision' %in% gd) { s <- tryCatch(fetch_subdivisions_for_district(district), error = function(e) NULL); if (!is.null(s) && nrow(s) >= 2) roads <- rbind(roads, poly_lines(s, 'subdivision')) }
+    if ('urban' %in% gd) { e <- tryCatch(fetch_settlement_extents_for_district(district), error = function(e) NULL); roads <- rbind(roads, poly_lines(e, 'urban_edge')) } }
+  roads[lengths(sf::st_intersects(roads, sf::st_buffer(outline, 300))) > 0, ] }
+# share of internal boundary length within tol m of each guide class group
+guide_shares <- function(geoms, roads, tol = 3) { grp <- ifelse(roads$cls == 'subdivision', 'subdivision', ifelse(roads$cls == 'urban_edge', 'urban', ifelse(roads$cls %in% c('river', 'stream', 'canal', 'wadi'), 'river', 'street')))
+  vapply(c('street', 'river', 'subdivision', 'urban'), function(g) { r <- roads[grp == g, ]; if (!nrow(r)) 0 else on_road_share(geoms, sf::st_union(r), tol)[['pct']] }, 0) }
 
 # cur: named list of UTM sfc (a partition of outline). Each shared stretch between two areas is replaced by the cheapest street route between its ends,
 # inside a corridor (cw_min..cw_max m) around the current line; faces of the new network go to the area holding most of them; clean_partition() tidies.

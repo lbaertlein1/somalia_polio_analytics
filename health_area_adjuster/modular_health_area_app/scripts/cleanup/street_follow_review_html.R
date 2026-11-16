@@ -37,7 +37,7 @@ var cur=', gj(cur), ';var prop=', gj(prop), ';var ch=', if (!is.null(ch) && nrow
   ';var sites=', if (!is.null(sites)) gj(sites) else '{"type":"FeatureCollection","features":[]}', ';
 var map=L.map("map");var osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}).addTo(map);
 var img=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri World Imagery"});
-var lr=L.geoJSON(roads,{style:{color:"#777",weight:1,opacity:.8},onEachFeature:function(f,l){if(f.properties.nm)l.bindTooltip(f.properties.nm+" ("+f.properties.cls+")")}});
+var lr=L.geoJSON(roads,{style:function(f){var c=f.properties.cls;return c=="subdivision"?{color:"#8e44ad",weight:2,opacity:.9,dashArray:"2 3"}:c=="urban_edge"?{color:"#e67e22",weight:2,opacity:.9}:/^(river|stream|canal|wadi)$/.test(c)?{color:"#2e86c1",weight:1.5,opacity:.9}:{color:"#777",weight:1,opacity:.8}},onEachFeature:function(f,l){l.bindTooltip((f.properties.nm?f.properties.nm+" ":"")+"("+f.properties.cls+")")}});
 var lc=L.geoJSON(cur,{style:{color:"#d62728",weight:3,fillColor:"#d62728",fillOpacity:.06},onEachFeature:function(f,l){l.bindPopup("<b>"+f.properties.name+"</b><br>current")}}).addTo(map);
 var lp=L.geoJSON(prop,{style:{color:"#1f4fd6",weight:3,dashArray:"6 5",fillOpacity:0},onEachFeature:function(f,l){l.bindPopup("<b>"+f.properties.name+"</b><br>proposal")}}).addTo(map);
 var lx=L.geoJSON(ch,{style:{color:"#ff9900",weight:0,fillColor:"#ff9900",fillOpacity:.45},onEachFeature:function(f,l){l.bindPopup("Would move to <b>"+f.properties.to+"</b><br>"+f.properties.m2.toLocaleString()+" m&sup2;")}}).addTo(map);

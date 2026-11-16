@@ -83,7 +83,43 @@ library(png)
 # team-area pages), so a page needing more detail gets the max zoom's
 # tiles scaled up instead.
 .PRINT_BASEMAP_MAX_ZOOM <- list(osm = 19, satellite = 18, topo = 17)
-.cap_basemap_zoom <- function(zoom, basemap) as.integer(min(zoom, .PRINT_BASEMAP_MAX_ZOOM[[basemap %||% '']] %||% 18))
+.cap_basemap_zoom <- function(zoom, basemap, bbox = NULL) {
+  z <- as.integer(min(zoom, .PRINT_BASEMAP_MAX_ZOOM[[basemap %||% '']] %||% 18))
+  if (identical(basemap, 'satellite') && !is.null(bbox)) z <- .esri_imagery_zoom(z, bbox)
+  z
+}
+
+# Esri World Imagery's deepest zoom varies by place (z17 over Hudur, none at
+# z18), and above it every tile is a grey "Map data not yet available"
+# placeholder. Its tilemap service says which tiles exist, so step down
+# from z until every tile covering the page extent (EPSG:4326 bbox) has
+# imagery. Network failure or no answer: keep z (the old behaviour).
+.esri_tile_cache <- new.env(parent = emptyenv())
+.esri_imagery_zoom <- function(z, bbox, min_zoom = 12L) {
+  tile_xy <- function(lon, lat, z) { n <- 2^z; lat <- max(min(lat, 85), -85)
+    c(x = floor((lon + 180) / 360 * n), y = floor((1 - log(tan(lat * pi / 180) + 1 / cos(lat * pi / 180)) / pi) / 2 * n)) }
+  for (zz in seq.int(z, min_zoom)) {
+    a <- tile_xy(as.numeric(bbox['xmin']), as.numeric(bbox['ymax']), zz); b <- tile_xy(as.numeric(bbox['xmax']), as.numeric(bbox['ymin']), zz)
+    w <- as.integer(b['x'] - a['x'] + 1); h <- as.integer(b['y'] - a['y'] + 1)
+    if (w * h > 4096) return(zz)   # very large window: not a zoom that hits the imagery limit
+    key <- paste(zz, a['y'], a['x'], w, h)
+    ok <- .esri_tile_cache[[key]]
+    if (is.null(ok)) {
+      ok <- tryCatch({
+        u <- sprintf('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tilemap/%d/%d/%d/%d/%d', zz, as.integer(a['y']), as.integer(a['x']), w, h)
+        r <- jsonlite::fromJSON(rawToChar(httr::content(httr::GET(u, httr::timeout(15)), as = 'raw')))
+        if (isTRUE(r$valid) && length(r$data)) all(unlist(r$data) == 1) else NA
+      }, error = function(e) NA)
+      .esri_tile_cache[[key]] <- ok
+    }
+    if (is.na(ok)) return(z)
+    if (isTRUE(ok)) {
+      if (zz < z) cat(sprintf('[export_debug] satellite imagery stops below z%d here -- using z%d\n', z, zz))
+      return(zz)
+    }
+  }
+  as.integer(min_zoom)
+}
 
 # basemap may be several choices (the export tab's checkbox group): every
 # map page is printed once per basemap in the same PDF, since field teams
@@ -1715,7 +1751,7 @@ populated_area_worldpop <- function(snap) {
   # tryCatch will still catch the failure and log the (hopefully
   # different, more specific) error message rather than crash the export.
   m <- tmap::tm_shape(ha_sf, bbox = .padded_bbox(ha_sf))
-  if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = .cap_basemap_zoom(zoom, basemap))  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
+  if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = .cap_basemap_zoom(zoom, basemap, .padded_bbox(ha_sf)))  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
 
   # Population overlay, same 0.5 opacity as the in-app map. fill_color
   # is already a per-polygon hex color from make_population_overlay_sf()
@@ -1818,7 +1854,7 @@ populated_area_worldpop <- function(snap) {
   team_text_col   <- if (needs_high_contrast) '#00e5ff' else '#334155'
 
   m <- tmap::tm_shape(ha_one, bbox = .padded_bbox(ha_one))
-  if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = .cap_basemap_zoom(zoom, basemap))  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
+  if (!is.null(basemap_provider)) m <- m + tmap::tm_basemap(basemap_provider, zoom = .cap_basemap_zoom(zoom, basemap, .padded_bbox(ha_one)))  # user-adjustable now (was a hardcoded constant) -- NOT independently verified against the installed tmap version's exact tm_basemap() zoom behavior, worth confirming visually on a real export
 
   # Same population overlay as the overview map, clipped to this health
   # area's own extent by the caller before it gets here. Same

@@ -15,7 +15,7 @@ contain <- function(pts, shapes) { k <- sf::st_intersects(pts, shapes); vapply(k
 read_sf_txt <- function(txt) if (is.na(txt)) NULL else geojsonsf::geojson_sf(txt)
 only <- trimws(strsplit(Sys.getenv('ONLY'), ',')[[1]])
 H <- q("SELECT version_id v, district_name d, last_updated_at lu, COALESCE(smoothed_dfa_sf, saved_dfa_sf)::text g, dfa_names::text dn, current_assignments::text ca,
-        scope_saved_dfa_sf::text sc, odk_sf::text o, app_sf::text a, team_targets::text tt FROM mapping_versions
+        scope_saved_dfa_sf::text sc, odk_sf::text o, app_sf::text a, team_targets::text tt, paint_grid_spec::text ps FROM mapping_versions
         WHERE campaign_id = 10 AND is_shared AND archived_at IS NULL AND saved_dfa_sf IS NOT NULL ORDER BY d")
 if (length(only) && nzchar(only[1])) H <- H[H$d %in% only, ]
 for (i in seq_len(nrow(H))) {
@@ -66,7 +66,10 @@ for (i in seq_len(nrow(H))) {
       if (is.null(canvas)) { canvas <- dist |> dplyr::summarise(geometry = sf::st_union(geometry)) |> sf::st_as_sf() |> safe_make_valid(); canvas <- tryCatch(sf::st_collection_extract(canvas, 'POLYGON'), error = function(e) canvas) }
       c3857 <- tryCatch(sf::st_collection_extract(safe_make_valid(sf::st_transform(canvas, 3857)), 'POLYGON'), error = function(e) sf::st_transform(canvas, 3857))
       md <- calc_district_max_dim(c3857); gnn <- max(10L, as.integer(round(md / max(100, min(500, md / 160)))))
-      grid <- make_paint_grid(district_sf = sf::st_transform(c3857, 4326), grid_n = gnn)$grid_sf; old <- unlist(jsonlite::fromJSON(H$ca[i]))
+      # variable grid (paint_grid_spec) when the version has one -- else the standard grid rule as before
+      hspec <- if (!is.na(H$ps[i])) normalize_grid_spec(jsonlite::fromJSON(H$ps[i], simplifyVector = FALSE)) else NULL
+      grid <- if (!is.null(hspec)) { vg <- build_variable_paint_grid(sf::st_transform(c3857, 4326), hspec); if (is.null(vg)) stop("saved variable grid no longer covers the outline") else vg$grid_sf } else make_paint_grid(district_sf = sf::st_transform(c3857, 4326), grid_n = gnn)$grid_sf
+      old <- unlist(jsonlite::fromJSON(H$ca[i]))
       if (length(old) == nrow(grid)) { pts <- sf::st_as_sf(data.frame(x = grid$centroid_lon, y = grid$centroid_lat), coords = c('x', 'y'), crs = 4326)
         sp <- contain(pts, new); ha_cells <- ifelse(is.na(sp), old, sp); ha_cells_note <- sprintf('re-derived (%d of %d changed)', sum(ha_cells != old), length(old)) }
       else ha_cells_note <- sprintf('kept (grid %d vs stored %d)', nrow(grid), length(old)) }, error = function(e) ha_cells_note <<- paste('kept:', conditionMessage(e)))
@@ -76,7 +79,7 @@ for (i in seq_len(nrow(H))) {
       gap_a = round(m_a['gap'], 1), spill_a = round(m_a['spill'], 1), overlap_a = round(m_a['overlap'], 1), pieces_a = m_a['pieces'], s2_ok = as.logical(m_a['s2_valid']),
       max_change_pct = round(max(dpct), 2), max_change_area = gn[worst], empty_a = m_a['empty'], fixes = if (is.null(cl$log)) 0 else sum(!grepl('^FLAG|moved', cl$log$type)), cells = ha_cells_note)
     # ---- team layouts pinned to this version
-    TV <- q("SELECT team_version_id tv, health_area_name h, last_updated_at lu, COALESCE(smoothed_team_sf, saved_team_sf)::text ts, team_names::text tn, current_team_assignments::text ca
+    TV <- q("SELECT team_version_id tv, health_area_name h, last_updated_at lu, COALESCE(smoothed_team_sf, saved_team_sf)::text ts, team_names::text tn, current_team_assignments::text ca, paint_grid_spec::text ps
              FROM team_area_versions WHERE campaign_id = 10 AND is_shared AND archived_at IS NULL AND based_on_health_area_version_id = $1 ORDER BY 2", list(H$v[i]))
     tt <- if (!is.na(H$tt[i])) jsonlite::fromJSON(H$tt[i], simplifyVector = FALSE) else list()
     stale <- q("SELECT count(*) n FROM team_area_versions WHERE campaign_id = 10 AND is_shared AND archived_at IS NULL AND district_name = $1 AND based_on_health_area_version_id <> $2", list(D, H$v[i]))$n
@@ -107,7 +110,15 @@ for (i in seq_len(nrow(H))) {
           np <- length(polys(sf::st_geometry(tu)[tnm == n], crs)); if (np > 1) AN('team area', 'team in more than one piece after cleaning', sprintf('%s - %s: %d pieces', h, n, np)) }
         if (!is.null(tc$log)) for (r in which(grepl('^FLAG', tc$log$type))) AN('team area', tc$log$type[r], sprintf('%s - %s %.0f m2', h, tc$log$area[r], tc$log$m2[r]))
         cells <- NULL; cnote <- 'kept'
-        if (!is.na(req) && req >= 1) { ha4 <- sf::st_sf(geometry = sf::st_transform(hb, 4326)); grid <- make_paint_grid(district_sf = ha4, grid_n = team_grid_n(ha4, req))$grid_sf
+        tspec <- if (!is.na(TV$ps[k])) normalize_grid_spec(jsonlite::fromJSON(TV$ps[k], simplifyVector = FALSE)) else NULL
+        if (!is.null(tspec)) {
+          # variable-grid layout: cells on its own saved grid; if that no longer covers the health area, keep the
+          # stored cells (the app then rebuilds the painting from the saved team shapes) -- never a standard grid
+          # under a variable-grid spec
+          ha4 <- sf::st_sf(geometry = sf::st_transform(hb, 4326)); vg <- build_variable_paint_grid(ha4, tspec)
+          if (!is.null(vg)) { grid <- vg$grid_sf; cells <- team_assignments_from_shapes(grid, tnew); names(cells) <- as.character(grid$cell_id); cnote <- 're-derived (variable grid)' }
+          else cnote <- 'kept (variable grid no longer covers the health area)'
+        } else if (!is.na(req) && req >= 1) { ha4 <- sf::st_sf(geometry = sf::st_transform(hb, 4326)); grid <- make_paint_grid(district_sf = ha4, grid_n = team_grid_n(ha4, req))$grid_sf
           old <- jsonlite::fromJSON(TV$ca[k], simplifyVector = FALSE)
           cells <- team_assignments_from_shapes(grid, tnew); names(cells) <- as.character(grid$cell_id)
           cnote <- if (length(old) == nrow(grid)) 're-derived' else sprintf('re-derived on new grid (%d cells, was %d)', nrow(grid), length(old)) }

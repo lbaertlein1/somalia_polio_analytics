@@ -18,7 +18,7 @@ for (i in seq_len(nrow(H))) { D <- H$d[i]; t0 <- Sys.time()
     if (nzchar(Sys.getenv("SNAP"))) ha <- sf::st_make_valid(sf::st_set_precision(sf::st_transform(ha, crs), as.numeric(Sys.getenv("SNAP"))))  # SNAP=100: 1 cm grid, clears GEOS non-noded errors
     cur <- lapply(gn, function(n) U(polys(sf::st_union(sf::st_transform(ha[ha$dfa_name == n, ], crs)), crs), crs)); names(cur) <- gn
     outline <- U(polys(sf::st_union(sf::st_transform(sf::st_make_valid(shp[shp$district_name == D, ]), crs)), crs), crs)
-    roads <- load_roads(outline, crs); roads_u <- if (nrow(roads)) sf::st_union(roads) else NULL
+    roads <- load_roads(outline, crs, district = shp[shp$district_name == D, ][1, ]); roads_u <- if (nrow(roads)) sf::st_union(roads) else NULL
     rt <- route_partition(cur, outline, roads, extra = extra_dfa_names); routed <- rt$routed; kept <- rt$kept; lost <- rt$lost; cl <- list(areas = rt$areas)
     curs <- sf::st_sf(dfa_name = gn, geometry = do.call(c, cur))
     prop <- sf::st_sf(dfa_name = gn, geometry = finalize_partition(cl$areas, crs)); propu <- sf::st_transform(prop, crs); cur4 <- sf::st_transform(curs, 4326)
@@ -31,11 +31,13 @@ for (i in seq_len(nrow(H))) { D <- H$d[i]; t0 <- Sys.time()
     row <- data.frame(district = D, areas = k, road_km = round(if (is.null(roads_u)) 0 else as.numeric(sf::st_length(roads_u)) / 1000), stretches_routed = routed, stretches_kept = kept,
       boundary_km_now = round(rc['km'], 1), on_road_now = round(rc['pct'], 1), boundary_km_prop = round(rp['km'], 1), on_road_prop = round(rp['pct'], 1),
       area_moved_km2 = round(moved / 1e6, 3), area_moved_pct = round(100 * moved / A(outline), 2), max_wp_change_pct = round(100 * max(abs(wp_p - wp_c) / pmax(wp_c, 1)), 1),
-      max_wp_change_u5 = round(max(abs(wp_p - wp_c))), pieces_prop = pieces, sites_moved_out = length(site_bad), kept_unchanged = paste(lost, collapse = '; '))
+      max_wp_change_u5 = round(max(abs(wp_p - wp_c))), pieces_prop = pieces, guides_now = paste(sprintf('%s %.0f%%', names(gs_c <- guide_shares(sf::st_geometry(curs), roads)), gs_c), collapse = ', '),
+      guides_prop = paste(sprintf('%s %.0f%%', names(gs_p <- guide_shares(sf::st_geometry(propu), roads)), gs_p), collapse = ', '), sites_moved_out = length(site_bad), kept_unchanged = paste(lost, collapse = '; '))
     list(v = H$v[i], lu = H$lu[i], row = row, cur = cur4, prop = prop, roads = if (nrow(roads)) sf::st_transform(roads, 4326) else NULL, sites = st, site_bad = site_bad,
          wp = data.frame(health_area = gn, worldpop_now = round(wp_c), worldpop_proposal = round(wp_p)))
   }, error = function(e) { cat('ERROR', D, conditionMessage(e), '\n'); NULL })
   if (!is.null(r)) { saveRDS(r, file.path(OUT, paste0(gsub('[^A-Za-z0-9]+', '_', D), if (length(VS)) paste0('_v', H$v[i]) else '', '.rds')))
-    cat(sprintf('%-14s routed %3d kept %3d | on-road %5.1f%% -> %5.1f%% | boundary %.1f -> %.1f km | moved %.2f%% of district | max WP change %4.1f%% | sites out %d | %.0fs\n', D,
-      r$row$stretches_routed, r$row$stretches_kept, r$row$on_road_now, r$row$on_road_prop, r$row$boundary_km_now, r$row$boundary_km_prop, r$row$area_moved_pct, r$row$max_wp_change_pct, r$row$sites_moved_out, as.numeric(difftime(Sys.time(), t0, units = 'secs')))) } }
+    cat(sprintf('%-14s routed %3d kept %3d | on guide %5.1f%% -> %5.1f%% | boundary %.1f -> %.1f km | moved %.2f%% of district | max WP change %4.1f%% | sites out %d | %.0fs\n', D,
+      r$row$stretches_routed, r$row$stretches_kept, r$row$on_road_now, r$row$on_road_prop, r$row$boundary_km_now, r$row$boundary_km_prop, r$row$area_moved_pct, r$row$max_wp_change_pct, r$row$sites_moved_out, as.numeric(difftime(Sys.time(), t0, units = 'secs')))); cat('     by guide now:', r$row$guides_now, '| proposal:', r$row$guides_prop, '
+') } }
 cat('DONE\n')

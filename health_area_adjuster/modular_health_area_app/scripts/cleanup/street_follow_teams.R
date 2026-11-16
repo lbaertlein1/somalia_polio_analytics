@@ -10,6 +10,7 @@ suppressMessages(suppressWarnings(source('global.R'))); options(width = 250, war
 source('scripts/cleanup/clean_lib.R'); source('scripts/cleanup/street_lib.R')
 TOUT <- file.path(S, 'team_route_out'); ROUT <- file.path(S, 'route_out'); dir.create(TOUT, showWarnings = FALSE); dir.create(ROUT, showWarnings = FALSE)
 MIN_GAIN <- as.numeric(Sys.getenv('MIN_GAIN', '5')); MAX_CH <- as.numeric(Sys.getenv('MAX_TEAM_CHANGE', '40')); MAX_WP <- as.numeric(Sys.getenv('MAX_WP_CHANGE', '25')); MAX_LEN <- as.numeric(Sys.getenv('MAX_LEN_GROWTH', '1.3'))
+shp <- districts_shp_for_campaign(10L)
 q <- function(sql, p = list()) if (length(p)) DBI::dbGetQuery(pool, sql, p) else DBI::dbGetQuery(pool, sql)
 TV <- q("SELECT t.team_version_id tv, t.district_name d, t.health_area_name h, t.based_on_health_area_version_id hv, COALESCE(t.smoothed_team_sf, t.saved_team_sf)::text ts,
          COALESCE(mv.smoothed_dfa_sf, mv.saved_dfa_sf)::text hs, mv.is_shared ha_pub FROM team_area_versions t JOIN mapping_versions mv ON mv.version_id = t.based_on_health_area_version_id
@@ -19,7 +20,7 @@ wp_of <- function(sf4, n) sum(.polygon_u5_population(sf4[sf4$dfa_name == n, ], u
 summ <- list()
 for (D in unique(TV$d)) { t0 <- Sys.time(); T <- TV[TV$d == D, ]
   ha_all <- sf::st_make_valid(geojsonsf::geojson_sf(T$hs[1])); crs <- utm_for(ha_all)
-  roads_d <- load_roads(U(polys(sf::st_union(sf::st_transform(ha_all, crs)), crs), crs), crs)
+  roads_d <- load_roads(U(polys(sf::st_union(sf::st_transform(ha_all, crs)), crs), crs), crs, district = shp[shp$district_name == D, ][1, ])
   cur_all <- list(); prop_all <- list(); wp_all <- list(); rows <- list()
   for (k in seq_len(nrow(T))) { h <- T$h[k]
     r <- tryCatch({
