@@ -42,7 +42,27 @@ for (i in seq_len(nrow(H))) {
       areas <- setNames(lapply(gn, function(n) U(polys(sf::st_geometry(rp)[rp$dfa_name == n], crs), crs)), gn)
       # KEEP_CURRENT: health areas (comma list) that keep their published shape; neighbours give the land back
       for (n in intersect(trimws(strsplit(Sys.getenv('KEEP_CURRENT'), ',')[[1]]), gn)) {
-        for (o in setdiff(gn, n)) areas[[o]] <- U(polys(sf::st_difference(areas[[o]], areas0[[n]]), crs), crs); areas[[n]] <- areas0[[n]] } }
+        for (o in setdiff(gn, n)) areas[[o]] <- U(polys(sf::st_difference(areas[[o]], areas0[[n]]), crs), crs); areas[[n]] <- areas0[[n]] }
+      # A coordination site the proposal moves out of its own area gets a small patch back: a SITE_BUFFER m (default 50)
+      # circle round the site, plus a corridor of half that width to the nearest part of its area if the circle doesn't reach it.
+      # The patch is taken from whichever areas the proposal gave it to. The site check below still stops the district if this fails.
+      sb <- as.numeric(Sys.getenv('SITE_BUFFER', '50'))
+      o0 <- read_sf_txt(H$o[i]); a0 <- read_sf_txt(H$a[i])
+      st0 <- rbind(if (!is.null(o0)) o0[o0$polio_sia_coordination_site %in% 'Yes', 'facility_name'], if (!is.null(a0)) a0[a0$polio_sia_coordination_site %in% 'Yes', 'facility_name'])
+      if (!is.null(st0) && nrow(st0)) { st0 <- sf::st_transform(st0[st0$facility_name %in% gn, ], crs)
+        for (j in seq_len(nrow(st0))) { n <- st0$facility_name[j]; p <- sf::st_geometry(st0)[j]
+          if (!lengths(sf::st_intersects(p, areas0[[n]])) || lengths(sf::st_intersects(p, areas[[n]]))) next   # only sites the proposal moved out
+          patch <- sf::st_buffer(p, sb)
+          if (!lengths(sf::st_intersects(patch, areas[[n]]))) patch <- sf::st_union(patch, sf::st_buffer(sf::st_nearest_points(p, areas[[n]]), sb / 2))
+          patch <- sf::st_intersection(patch, sf::st_buffer(outline, 0))
+          # keep clear of other areas' sites: the patch stays on this site's side of the line halfway to each of them (Voronoi cell)
+          oth <- sf::st_geometry(st0)[st0$facility_name != n]
+          if (length(oth)) { vc <- sf::st_collection_extract(sf::st_voronoi(sf::st_union(c(p, oth)), envelope = sf::st_as_sfc(sf::st_bbox(sf::st_buffer(outline, 1000)))), 'POLYGON')
+            vc <- sf::st_set_crs(vc, crs); cell <- vc[lengths(sf::st_intersects(vc, p)) > 0]; if (length(cell)) patch <- sf::st_intersection(patch, cell[1]) }
+          patch <- polys(patch, crs); patch <- patch[lengths(sf::st_intersects(patch, sf::st_buffer(p, 0.01))) > 0]; if (!length(patch)) next
+          for (o in setdiff(gn, n)) areas[[o]] <- U(polys(sf::st_difference(areas[[o]], patch), crs), crs)
+          areas[[n]] <- U(polys(sf::st_union(areas[[n]], patch), crs), crs)
+          AN('health area', 'site patch: street proposal moved the coordination site out, land round it given back', sprintf('%s %.0f m2', n, A(polys(patch, crs)))) } } }
     cl <- clean_partition(areas, outline, extra = extra_dfa_names, kind = 'ha')
     new <- sf::st_sf(dfa_name = gn, geometry = finalize_partition(cl$areas, crs))
     new <- merge(new, attrs[, setdiff(names(attrs), 'geometry'), drop = FALSE], by = 'dfa_name', all.x = TRUE, sort = FALSE); new <- new[match(gn, new$dfa_name), ]
@@ -57,7 +77,7 @@ for (i in seq_len(nrow(H))) {
       inn <- contain(sf::st_transform(st, 4326), new); bad <- which(!is.na(match(st$facility_name, gn)) & (is.na(inn) | inn != st$facility_name))
       for (b in bad) AN('health area', 'coordination site lies outside its own health area', sprintf('%s (inside: %s)', st$facility_name[b], inn[b] %||% 'none'))
       if (nzchar(RD) && length(bad)) { was <- contain(sf::st_transform(st, 4326), sf::st_transform(ha, 4326)); moved_out <- bad[!is.na(was[bad]) & was[bad] == st$facility_name[bad]]
-        if (length(moved_out)) stop('street proposal moves a coordination site out of its own health area: ', paste(st$facility_name[moved_out], collapse = ', '), ' -- use KEEP_CURRENT') } }
+        if (length(moved_out)) stop('street proposal moves a coordination site out of its own health area: ', paste(st$facility_name[moved_out], collapse = ', '), ' (even after the site patch) -- use KEEP_CURRENT or a larger SITE_BUFFER') } }
     if (!is.null(cl$log)) for (r in which(grepl('^FLAG', cl$log$type))) AN('health area', cl$log$type[r], sprintf('%s %.0f m2', cl$log$area[r], cl$log$m2[r]))
     # HA cells (same grid rule as the Health Areas tab)
     ha_cells <- NULL; ha_cells_note <- 'not re-derived'
